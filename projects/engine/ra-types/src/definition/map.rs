@@ -1951,8 +1951,8 @@ pub struct PreparedTeamType {
     pub name: TeamTypeName,
     /// 编辑器名。
     pub editor_name: String,
-    /// `House=` 稳定 id。
-    pub house: crate::HouseId,
+    /// `House=` 稳定 id；`None` 表示 `<all>` 通配（产队时由 AI / 动作上下文覆盖）。
+    pub house: Option<crate::HouseId>,
     /// `Script=` 稳定 id；`None` 表示未指定。
     pub script: Option<crate::ScriptTypeId>,
     /// `TaskForce=` 稳定 id。

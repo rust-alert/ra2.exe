@@ -9,6 +9,8 @@ pub enum MapEventKind {
     EnteredBy,
     /// 绑定 Tag 的对象被摧毁（任一）。
     DestroyedByAnybody,
+    /// 任意事件（原版码 8）：条件恒真，常与其它条件 AND，或单独表示「启用即触发」。
+    AnyEvent,
     /// 指定 house 全部陆上机动单位已摧毁。
     DestroyedUnitsAll,
     /// 指定 house 全部建筑已摧毁。
@@ -35,6 +37,7 @@ impl MapEventKind {
         match value {
             1 => Self::EnteredBy,
             7 => Self::DestroyedByAnybody,
+            8 => Self::AnyEvent,
             9 => Self::DestroyedUnitsAll,
             10 => Self::DestroyedBuildingsAll,
             11 => Self::DestroyedAll,
@@ -52,6 +55,7 @@ impl MapEventKind {
         match self {
             Self::EnteredBy => 1,
             Self::DestroyedByAnybody => 7,
+            Self::AnyEvent => 8,
             Self::DestroyedUnitsAll => 9,
             Self::DestroyedBuildingsAll => 10,
             Self::DestroyedAll => 11,

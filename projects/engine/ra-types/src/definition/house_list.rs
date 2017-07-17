@@ -31,6 +31,21 @@ impl HouseName {
     pub fn is_empty(&self) -> bool {
         self.name.is_empty()
     }
+
+    /// 零售「无房屋」哨兵：空 / `NONE` / `<none>`。
+    pub fn is_none_sentinel(&self) -> bool {
+        self.is_empty() || self.name.eq_ignore_ascii_case("NONE") || self.name.eq_ignore_ascii_case("<NONE>")
+    }
+
+    /// 零售「全体房屋」哨兵：`ALL` / `<all>`。
+    pub fn is_all_sentinel(&self) -> bool {
+        self.name.eq_ignore_ascii_case("ALL") || self.name.eq_ignore_ascii_case("<ALL>")
+    }
+
+    /// 绑定侧视为「未限定房主」：none 哨兵或 all 哨兵。
+    pub fn is_unrestricted_sentinel(&self) -> bool {
+        self.is_none_sentinel() || self.is_all_sentinel()
+    }
 }
 
 impl Deref for HouseName {

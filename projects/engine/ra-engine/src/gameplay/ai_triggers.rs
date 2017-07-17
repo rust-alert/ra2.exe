@@ -75,26 +75,9 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
         }
     }
 
-    let mut eligible: Vec<(String, PreparedAiTrigger)> = Vec::new();
+    let mut eligible: Vec<(String, Option<ra_types::HouseId>, PreparedAiTrigger)> = Vec::new();
+    let local_player = world.local_player;
     for at in triggers {
-        let owner_house_key = resolve_owner_house_key(world, &at);
-        if let Some(ref house_key) = owner_house_key {
-            if let Some(house_id) = at.owner_house {
-                if world.ai_trigger_runtime.disabled_houses.contains(&house_id) {
-                    continue;
-                }
-            }
-            world.ensure_house(house_key);
-            // 战役：未「Production Begins」的房主不由 AITrigger 刷队。
-            if !world.house_production_begun(house_key) {
-                continue;
-            }
-            let tech = world.players.iter().find(|p| p.house.as_ref().eq_ignore_ascii_case(house_key)).map(|p| p.tech_level).unwrap_or(0);
-            if tech < at.tech_level {
-                continue;
-            }
-        }
-
         let cooling = world.ai_trigger_runtime.cooldowns.get(&at.id).copied().unwrap_or(0);
         if cooling > 0 {
             continue;
@@ -111,41 +94,45 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
         else {
             continue;
         };
-        // 无 OwnerHouse 时，用 TeamType.House 约束战役生产开关。
-        let group_key = if let Some(ref hk) = owner_house_key {
-            hk.clone()
-        }
-        else if let Some(house_key) = world.definitions.houses.get_by_id(team.house).map(|h| h.type_key.as_str().to_string()) {
-            world.ensure_house(&house_key);
-            if !world.house_production_begun(&house_key) {
-                continue;
-            }
-            house_key
-        }
-        else {
-            String::new()
-        };
 
-        let owner_for_cond = if group_key.is_empty() { None } else { Some(group_key.clone()) };
-        if let Some(ref owner) = owner_for_cond {
-            if !ai_trigger_condition_holds(world, owner, &at) {
-                // 条件失败：当前权重向 `max_weight` 收敛，提高后续抽中率。
-                nudge_weight_toward(world, &at, at.max_weight);
-                continue;
-            }
-        }
-        else if !matches!(at.condition, AiTriggerConditionKind::Always) {
-            nudge_weight_toward(world, &at, at.max_weight);
+        let house_slots = resolve_ai_trigger_house_slots(world, &at, &team, local_player);
+        if house_slots.is_empty() {
             continue;
         }
 
-        eligible.push((group_key, at));
+        for (group_key, house_override) in house_slots {
+            if let Some(house_id) = house_override.or(at.owner_house) {
+                if world.ai_trigger_runtime.disabled_houses.contains(&house_id) {
+                    continue;
+                }
+            }
+            if !group_key.is_empty() {
+                world.ensure_house(&group_key);
+                if !world.house_production_begun(&group_key) {
+                    continue;
+                }
+                let tech = world.players.iter().find(|p| p.house.as_ref().eq_ignore_ascii_case(&group_key)).map(|p| p.tech_level).unwrap_or(0);
+                if tech < at.tech_level {
+                    continue;
+                }
+                if !ai_trigger_condition_holds(world, &group_key, &at) {
+                    nudge_weight_toward(world, &at, at.max_weight);
+                    continue;
+                }
+            }
+            else if !matches!(at.condition, AiTriggerConditionKind::Always) {
+                nudge_weight_toward(world, &at, at.max_weight);
+                continue;
+            }
+
+            eligible.push((group_key, house_override, at.clone()));
+        }
     }
 
     // 同房主每 tick 至多抽选一支触发（动态权重）；避免条件全过时同拍刷多队。
-    let mut groups: HashMap<String, Vec<PreparedAiTrigger>> = HashMap::new();
-    for (key, at) in eligible {
-        groups.entry(key).or_default().push(at);
+    let mut groups: HashMap<String, Vec<(Option<ra_types::HouseId>, PreparedAiTrigger)>> = HashMap::new();
+    for (key, house_override, at) in eligible {
+        groups.entry(key).or_default().push((house_override, at));
     }
     let mut group_keys: Vec<String> = groups.keys().cloned().collect();
     group_keys.sort();
@@ -154,17 +141,19 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
         else {
             continue;
         };
-        let Some(picked) = pick_weighted_trigger(world, &key, &cands)
+        let house_override = cands.first().map(|(h, _)| *h).unwrap_or(None);
+        let triggers_only: Vec<PreparedAiTrigger> = cands.into_iter().map(|(_, at)| at).collect();
+        let Some(picked) = pick_weighted_trigger(world, &key, &triggers_only)
         else {
             continue;
         };
         // 未抽中的候选向 `max_weight` 回升。
-        for c in &cands {
+        for c in &triggers_only {
             if c.id != picked.id {
                 nudge_weight_toward(world, c, c.max_weight);
             }
         }
-        enqueue_ai_trigger_teams(world, &picked);
+        enqueue_ai_trigger_teams(world, &picked, house_override);
         // 抽中并入队：向 `min_weight` 收敛，避免同一触发连刷。
         nudge_weight_toward(world, &picked, picked.min_weight);
     }
@@ -213,7 +202,7 @@ fn deterministic_roll(seed: u64, tick: u64, group_key: &str) -> u64 {
     h
 }
 
-fn enqueue_ai_trigger_teams(world: &mut BattleState, at: &PreparedAiTrigger) {
+fn enqueue_ai_trigger_teams(world: &mut BattleState, at: &PreparedAiTrigger, house_override: Option<ra_types::HouseId>) {
     let mut teams = vec![at.team];
     if let Some(team2) = at.team2 {
         if team2 != at.team {
@@ -221,7 +210,7 @@ fn enqueue_ai_trigger_teams(world: &mut BattleState, at: &PreparedAiTrigger) {
         }
     }
     for team_id in teams {
-        if world.trigger_runtime.pending_team_spawns.contains(&team_id) {
+        if world.trigger_runtime.pending_team_spawns.iter().any(|(id, h)| *id == team_id && *h == house_override) {
             continue;
         }
         if let Some(team) = world.prepared.team_types.iter().find(|t| t.id == team_id) {
@@ -232,9 +221,42 @@ fn enqueue_ai_trigger_teams(world: &mut BattleState, at: &PreparedAiTrigger) {
                 }
             }
         }
-        world.trigger_runtime.pending_team_spawns.push(team_id);
+        world.trigger_runtime.pending_team_spawns.push((team_id, house_override));
     }
     world.ai_trigger_runtime.cooldowns.insert(at.id, AI_TRIGGER_COOLDOWN_TICKS);
+}
+
+/// 解析本触发应对哪些房主槽求值。
+///
+/// - 有 `OwnerHouse` → 单槽
+/// - 无 Owner、Team 有具体 House → 单槽（Team 房主）
+/// - 二者皆通配（`<all>`）→ 展开为全部非本地、非 ambient 玩家房主
+fn resolve_ai_trigger_house_slots(
+    world: &BattleState,
+    at: &PreparedAiTrigger,
+    team: &ra_types::PreparedTeamType,
+    local_player: ra_types::PlayerId,
+) -> Vec<(String, Option<ra_types::HouseId>)> {
+    if let Some(house_key) = resolve_owner_house_key(world, at) {
+        return vec![(house_key, at.owner_house)];
+    }
+    if let Some(team_house) = team.house {
+        if let Some(house_key) = world.definitions.houses.get_by_id(team_house).map(|h| h.type_key.as_str().to_string()) {
+            return vec![(house_key, None)];
+        }
+        return Vec::new();
+    }
+    world
+        .players
+        .iter()
+        .filter(|p| p.id != local_player)
+        .filter(|p| !crate::gameplay::ai::is_ambient_house(p.house.as_ref()))
+        .map(|p| (p.house.to_string(), p.house_id))
+        .collect()
+}
+
+fn resolve_owner_house_key(world: &BattleState, at: &PreparedAiTrigger) -> Option<String> {
+    at.owner_house.and_then(|id| world.definitions.houses.get_by_id(id).map(|h| h.type_key.as_str().to_string()))
 }
 
 /// 启用或禁用某 house 的 AITrigger（空 house = 全局开关）。
@@ -256,10 +278,6 @@ pub fn set_ai_triggers_for_house(world: &mut BattleState, house: Option<&str>, e
             }
         }
     }
-}
-
-fn resolve_owner_house_key(world: &BattleState, at: &PreparedAiTrigger) -> Option<String> {
-    at.owner_house.and_then(|id| world.definitions.houses.get_by_id(id).map(|h| h.type_key.as_str().to_string()))
 }
 
 fn ai_trigger_enabled_for_difficulty(difficulty: &str, at: &PreparedAiTrigger) -> bool {

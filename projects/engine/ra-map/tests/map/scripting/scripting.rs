@@ -139,6 +139,14 @@ fn presentation_stub_actions_warn_but_do_not_block_campaign() {
 }
 
 #[test]
+fn any_event_code_is_supported() {
+    let kind = MapEventKind::from_code(8);
+    assert_eq!(kind, MapEventKind::AnyEvent);
+    assert!(kind.is_supported());
+    assert_eq!(kind.code(), 8);
+}
+
+#[test]
 fn parse_ai_trigger_types_enable_ranking_and_special_flags() {
     let text = b"\
 [Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\

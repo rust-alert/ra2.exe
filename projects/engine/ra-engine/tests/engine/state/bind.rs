@@ -463,7 +463,7 @@ fn prepared_map_seed_binds_team_type_refs() {
     assert_eq!(world.prepared.script_types.len(), 1);
     assert_eq!(world.prepared.task_forces.len(), 1);
     let team = &world.prepared.team_types[0];
-    assert_eq!(team.house, americans);
+    assert_eq!(team.house, Some(americans));
     assert_eq!(team.script, Some(world.prepared.script_types[0].id));
     assert_eq!(team.task_force, world.prepared.task_forces[0].id);
     assert_eq!(team.tag, None);

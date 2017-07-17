@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 
 use ra_map::{MapActionKind, MapEntityKind, MapEventCondition, MapEventKind};
-use ra_types::{EntityId, PreparedAction, PreparedActionCommand, PreparedEvent, PreparedTrigger, TagId, TeamTypeId, TriggerId};
+use ra_types::{EntityId, HouseId, PreparedAction, PreparedActionCommand, PreparedEvent, PreparedTrigger, TagId, TeamTypeId, TriggerId};
 
 use crate::{
     game::{BattleOutcome, GameCommand},
@@ -34,8 +34,8 @@ pub struct TriggerRuntime {
     states: Vec<TriggerRuntimeState>,
     /// 未实现动作码（去重后供能力缺口报告）。
     pub unsupported_actions: Vec<i32>,
-    /// 待创建的 TeamType 稳定 id（由 Create Team 动作排队）。
-    pub pending_team_spawns: Vec<TeamTypeId>,
+    /// 待创建的 TeamType（可选产队房主覆盖；`None` = 用 TeamType.House）。
+    pub pending_team_spawns: Vec<(TeamTypeId, Option<HouseId>)>,
     /// 本 tick 请求的剧本胜负（由 BattleSession 消费）。
     pub pending_outcome: Option<BattleOutcome>,
     /// 胜利阻塞层数：开局等于含 `Allow Win` 动作的触发条数；归零后 `Win` 才生效。
@@ -177,6 +177,7 @@ fn event_conditions_met(world: &BattleState, st: &TriggerRuntimeState, condition
 
 fn condition_met(world: &BattleState, st: &TriggerRuntimeState, c: &MapEventCondition, local_house: &str) -> bool {
     match c.kind {
+        MapEventKind::AnyEvent => true,
         MapEventKind::TimeElapse => st.timer_remaining == Some(0),
         MapEventKind::DestroyedByAnybody | MapEventKind::DestroyedByAnything => {
             let bound_tags = tags_for_trigger(world, st.id);
@@ -431,7 +432,7 @@ fn apply_action(world: &mut BattleState, trigger_id: TriggerId, cmd: &PreparedAc
         }
         MapActionKind::CreateTeam | MapActionKind::Reinforcement | MapActionKind::ReinforcementAtWaypoint => {
             if let Some(team_id) = cmd.team_id {
-                world.trigger_runtime.pending_team_spawns.push(team_id);
+                world.trigger_runtime.pending_team_spawns.push((team_id, None));
             }
             else {
                 world.trigger_runtime.record_unsupported(kind);

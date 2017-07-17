@@ -21,7 +21,7 @@ pub fn bind_map_houses(houses: &[MapHouse], defs: &RuntimeDefinitions) -> RaResu
         let country = bind_house_id(defs, &house.country, &format!("MapHouse:{}", house.name))?;
         let mut allies = Vec::with_capacity(house.allies.len());
         for ally in &house.allies {
-            if is_house_none_sentinel(ally) {
+            if ally.is_none_sentinel() {
                 continue;
             }
             allies.push(bind_house_id(defs, ally, &format!("MapHouse.allies:{}", house.name))?);
@@ -346,7 +346,11 @@ fn action_house_name_param(cmd: &MapActionCommand) -> Option<HouseName> {
         if t.parse::<i32>().is_ok() {
             continue;
         }
-        if t.eq_ignore_ascii_case("NONE") || t.eq_ignore_ascii_case("<NONE>") {
+        if t.eq_ignore_ascii_case("NONE")
+            || t.eq_ignore_ascii_case("<NONE>")
+            || t.eq_ignore_ascii_case("ALL")
+            || t.eq_ignore_ascii_case("<ALL>")
+        {
             return None;
         }
         return Some(HouseName::parse(t));
@@ -391,7 +395,8 @@ pub fn bind_map_script_types(scripts: &[MapScriptType]) -> RaResult<Vec<Prepared
 
 /// 将 `[TeamTypes]` 投影为稳定 [`PreparedTeamType`]；未知 house / script / task_force / tag 拒绝。
 ///
-/// - 空 / `NONE` / `<none>` 的 `House=` → 回落 ambient `NEUTRAL`
+/// - 空 / `NONE` / `<none>` 的 `House=` → ambient `NEUTRAL`
+/// - `ALL` / `<all>` 的 `House=` → [`None`]（产队时由 AI / 动作上下文覆盖）
 pub fn bind_map_team_types(
     teams: &[MapTeamType],
     defs: &RuntimeDefinitions,
@@ -408,13 +413,18 @@ pub fn bind_map_team_types(
         if team.id.is_empty() {
             continue;
         }
-        let house_name = if is_house_none_sentinel(&team.house) {
-            HouseName::parse("NEUTRAL")
+        let house = if team.house.is_all_sentinel() {
+            None
         }
         else {
-            team.house.clone()
+            let house_name = if team.house.is_none_sentinel() {
+                HouseName::parse("NEUTRAL")
+            }
+            else {
+                team.house.clone()
+            };
+            Some(bind_house_id(defs, &house_name, &format!("MapTeamType:{}", team.id.as_str()))?)
         };
-        let house = bind_house_id(defs, &house_name, &format!("MapTeamType:{}", team.id.as_str()))?;
         let script = bind_optional_script_id(&script_by_name, &team.script, team.id.as_str())?;
         let task_force = bind_task_force_id(&force_by_name, &team.task_force, team.id.as_str())?;
         let tag = bind_tag_id(&tag_by_name, &team.tag, &format!("MapTeamType:{}", team.id.as_str()))?;
@@ -439,7 +449,7 @@ pub fn bind_map_team_types(
 
 /// 将 `[AITriggerTypes]` 投影为稳定 [`PreparedAiTrigger`]；未知 team / house 拒绝。
 ///
-/// - 空 / `NONE` / `<none>` 的 `OwnerHouse=` → [`None`]（未限定房主）
+/// - 空 / `NONE` / `<none>` / `ALL` / `<all>` 的 `OwnerHouse=` → [`None`]（未限定房主）
 pub fn bind_map_ai_triggers(
     triggers: &[MapAiTrigger],
     defs: &RuntimeDefinitions,
@@ -470,7 +480,7 @@ pub fn bind_map_ai_triggers(
                 owner: format!("MapAiTrigger:{}:team2", trigger.id.as_str()),
             })?)
         };
-        let owner_house = if is_house_none_sentinel(&trigger.owner_house) {
+        let owner_house = if trigger.owner_house.is_unrestricted_sentinel() {
             None
         }
         else {
@@ -673,11 +683,7 @@ fn bind_task_force_id(force_by_name: &HashMap<&str, TaskForceId>, name: &TaskFor
     })
 }
 
-/// 空 / `NONE` / `<none>`：零售地图常见「无引用」哨兵。
-fn is_house_none_sentinel(name: &HouseName) -> bool {
-    name.is_empty() || name.as_str().eq_ignore_ascii_case("NONE") || name.as_str().eq_ignore_ascii_case("<NONE>")
-}
-
+/// 空 / `NONE` / `<none>`：零售地图常见「无引用」哨兵（脚本 / Tag 等同形判断仍内联）。
 fn bind_optional_script_id(script_by_name: &HashMap<&str, ScriptTypeId>, name: &ScriptTypeName, owner: &str) -> RaResult<Option<ScriptTypeId>> {
     if name.is_empty() || name.as_str().eq_ignore_ascii_case("NONE") || name.as_str().eq_ignore_ascii_case("<NONE>") {
         return Ok(None);
@@ -721,7 +727,10 @@ fn bind_ai_trigger_condition_object(defs: &RuntimeDefinitions, trigger: &MapAiTr
     let owner = format!("MapAiTrigger:{}:condition_object", trigger.id.as_str());
     match trigger.condition {
         AiTriggerConditionKind::EnemyOwns | AiTriggerConditionKind::OwnOwns | AiTriggerConditionKind::NeutralOwns => {
-            if trigger.condition_object.is_empty() {
+            if trigger.condition_object.is_empty()
+                || trigger.condition_object.as_str().eq_ignore_ascii_case("NONE")
+                || trigger.condition_object.as_str().eq_ignore_ascii_case("<NONE>")
+            {
                 Ok(None)
             }
             else {
@@ -729,7 +738,10 @@ fn bind_ai_trigger_condition_object(defs: &RuntimeDefinitions, trigger: &MapAiTr
             }
         }
         AiTriggerConditionKind::OwnSuperWeaponCharge => {
-            if trigger.condition_object.is_empty() {
+            if trigger.condition_object.is_empty()
+                || trigger.condition_object.as_str().eq_ignore_ascii_case("NONE")
+                || trigger.condition_object.as_str().eq_ignore_ascii_case("<NONE>")
+            {
                 Ok(None)
             }
             else {
@@ -746,8 +758,15 @@ fn bind_ai_trigger_condition_object(defs: &RuntimeDefinitions, trigger: &MapAiTr
 }
 
 fn bind_house_id(defs: &RuntimeDefinitions, name: &HouseName, owner: &str) -> RaResult<HouseId> {
-    if name.is_empty() {
+    if name.is_none_sentinel() {
         return Err(RaError::UnknownReference { kind: "house", name: String::new(), owner: owner.to_string() });
+    }
+    if name.is_all_sentinel() {
+        return Err(RaError::UnknownReference {
+            kind: "house",
+            name: name.as_str().to_string(),
+            owner: owner.to_string(),
+        });
     }
     defs.houses.get_name(name).map(|h| h.id).ok_or_else(|| RaError::UnknownReference {
         kind: "house",

@@ -31,10 +31,16 @@ pub fn house_army_driven_by_ai_triggers(world: &BattleState, house: &str) -> boo
             if world.definitions.houses.get_by_id(house_id).is_some_and(|h| h.type_key.as_str().eq_ignore_ascii_case(house)) {
                 return true;
             }
+            continue;
         }
         if let Some(team) = world.prepared.team_types.iter().find(|t| t.id == at.team) {
-            if world.definitions.houses.get_by_id(team.house).is_some_and(|h| h.type_key.as_str().eq_ignore_ascii_case(house)) {
-                return true;
+            match team.house {
+                None => return true,
+                Some(team_house) => {
+                    if world.definitions.houses.get_by_id(team_house).is_some_and(|h| h.type_key.as_str().eq_ignore_ascii_case(house)) {
+                        return true;
+                    }
+                }
             }
         }
     }
