@@ -330,7 +330,7 @@ fn action_ref_name_param(cmd: &MapActionCommand) -> Option<String> {
     else {
         cmd.params.iter().map(|s| s.trim()).find(|s| !s.is_empty() && s.parse::<i32>().is_err())?
     };
-    if raw.eq_ignore_ascii_case("NONE") || raw.eq_ignore_ascii_case("<NONE>") {
+    if is_absent_name_sentinel(raw) {
         return None;
     }
     Some(raw.to_ascii_uppercase())
@@ -450,6 +450,8 @@ pub fn bind_map_team_types(
 /// 将 `[AITriggerTypes]` 投影为稳定 [`PreparedAiTrigger`]；未知 team / house 拒绝。
 ///
 /// - 空 / `NONE` / `<none>` / `ALL` / `<all>` 的 `OwnerHouse=` → [`None`]（未限定房主）
+/// - 空 / `NONE` / `<none>` 的 `Team2=` → [`None`]（无第二队）
+/// - 主 `Team=` 为空或 none 哨兵 → 跳过该条
 pub fn bind_map_ai_triggers(
     triggers: &[MapAiTrigger],
     defs: &RuntimeDefinitions,
@@ -462,7 +464,7 @@ pub fn bind_map_ai_triggers(
         if trigger.id.is_empty() {
             continue;
         }
-        if trigger.team.is_empty() {
+        if is_absent_name_sentinel(trigger.team.as_str()) {
             continue;
         }
         let team = team_by_name.get(trigger.team.as_str()).copied().ok_or_else(|| RaError::UnknownReference {
@@ -470,7 +472,7 @@ pub fn bind_map_ai_triggers(
             name: trigger.team.as_str().to_string(),
             owner: format!("MapAiTrigger:{}", trigger.id.as_str()),
         })?;
-        let team2 = if trigger.team2.is_empty() {
+        let team2 = if is_absent_name_sentinel(trigger.team2.as_str()) {
             None
         }
         else {
@@ -683,9 +685,14 @@ fn bind_task_force_id(force_by_name: &HashMap<&str, TaskForceId>, name: &TaskFor
     })
 }
 
-/// 空 / `NONE` / `<none>`：零售地图常见「无引用」哨兵（脚本 / Tag 等同形判断仍内联）。
+/// 空 / `NONE` / `<none>`：零售 INI 常见「无引用」哨兵（team2 / script / tag / 条件对象等）。
+fn is_absent_name_sentinel(raw: &str) -> bool {
+    let t = raw.trim();
+    t.is_empty() || t.eq_ignore_ascii_case("NONE") || t.eq_ignore_ascii_case("<NONE>")
+}
+
 fn bind_optional_script_id(script_by_name: &HashMap<&str, ScriptTypeId>, name: &ScriptTypeName, owner: &str) -> RaResult<Option<ScriptTypeId>> {
-    if name.is_empty() || name.as_str().eq_ignore_ascii_case("NONE") || name.as_str().eq_ignore_ascii_case("<NONE>") {
+    if is_absent_name_sentinel(name.as_str()) {
         return Ok(None);
     }
     script_by_name.get(name.as_str()).copied().map(Some).ok_or_else(|| RaError::UnknownReference {
@@ -727,10 +734,7 @@ fn bind_ai_trigger_condition_object(defs: &RuntimeDefinitions, trigger: &MapAiTr
     let owner = format!("MapAiTrigger:{}:condition_object", trigger.id.as_str());
     match trigger.condition {
         AiTriggerConditionKind::EnemyOwns | AiTriggerConditionKind::OwnOwns | AiTriggerConditionKind::NeutralOwns => {
-            if trigger.condition_object.is_empty()
-                || trigger.condition_object.as_str().eq_ignore_ascii_case("NONE")
-                || trigger.condition_object.as_str().eq_ignore_ascii_case("<NONE>")
-            {
+            if is_absent_name_sentinel(trigger.condition_object.as_str()) {
                 Ok(None)
             }
             else {
@@ -738,10 +742,7 @@ fn bind_ai_trigger_condition_object(defs: &RuntimeDefinitions, trigger: &MapAiTr
             }
         }
         AiTriggerConditionKind::OwnSuperWeaponCharge => {
-            if trigger.condition_object.is_empty()
-                || trigger.condition_object.as_str().eq_ignore_ascii_case("NONE")
-                || trigger.condition_object.as_str().eq_ignore_ascii_case("<NONE>")
-            {
+            if is_absent_name_sentinel(trigger.condition_object.as_str()) {
                 Ok(None)
             }
             else {
@@ -777,7 +778,7 @@ fn bind_house_id(defs: &RuntimeDefinitions, name: &HouseName, owner: &str) -> Ra
 
 fn bind_tag_id(tag_by_name: &HashMap<&str, TagId>, name: &TagName, owner: &str) -> RaResult<Option<TagId>> {
     // 空列与零售哨兵 `None` / `<none>`（装载期大写）均表示无 Tag。
-    if name.is_empty() || name.as_str().eq_ignore_ascii_case("NONE") || name.as_str().eq_ignore_ascii_case("<NONE>") {
+    if is_absent_name_sentinel(name.as_str()) {
         return Ok(None);
     }
     tag_by_name.get(name.as_str()).copied().map(Some).ok_or_else(|| RaError::UnknownReference {
@@ -799,7 +800,7 @@ fn bind_trigger_id(trigger_by_name: &HashMap<&str, TriggerId>, name: &TriggerNam
 }
 
 fn bind_linked_trigger_id(trigger_by_name: &HashMap<&str, TriggerId>, name: &TriggerName, owner: &str) -> RaResult<Option<TriggerId>> {
-    if name.is_empty() || name.as_str().eq_ignore_ascii_case("<NONE>") || name.as_str().eq_ignore_ascii_case("NONE") {
+    if is_absent_name_sentinel(name.as_str()) {
         return Ok(None);
     }
     trigger_by_name.get(name.as_str()).copied().map(Some).ok_or_else(|| RaError::UnknownReference {
