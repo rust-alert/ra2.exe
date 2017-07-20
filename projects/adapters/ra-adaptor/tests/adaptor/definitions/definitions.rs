@@ -1062,6 +1062,62 @@ fn bind_map_team_and_ai_triggers_accept_all_house_sentinel() {
 }
 
 #[test]
+fn bind_map_ai_triggers_accepts_none_team2_sentinel() {
+    let rules = rules_from(
+        b"[Countries]\n0=Russians\n\
+[Russians]\nSide=Nod\n\
+[InfantryTypes]\n0=E1\n\
+[E1]\nStrength=100\nOwner=Russians\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let forces = ra_types::bind_map_task_forces(
+        &[ra_types::MapTaskForce {
+            id: "TF1".into(),
+            name: "Squad".into(),
+            entries: vec![ra_types::MapTaskForceEntry { count: 1, type_id: "E1".into() }],
+            group: -1,
+        }],
+        &defs,
+    )
+    .expect("task forces");
+    let teams = ra_types::bind_map_team_types(
+        &[ra_types::MapTeamType {
+            id: "0CA6621C-G".into(),
+            name: "Primary".into(),
+            house: "Russians".into(),
+            script: ra_types::ScriptTypeName::default(),
+            task_force: "TF1".into(),
+            tag: ra_types::TagName::default(),
+            waypoint: -1,
+            max: 1,
+            priority: 0,
+            veteran_level: 0,
+        }],
+        &defs,
+        &[],
+        &forces,
+        &[],
+    )
+    .expect("team");
+    let triggers = ra_types::bind_map_ai_triggers(
+        &[ra_types::MapAiTrigger {
+            id: "0CA6621C-G".into(),
+            name: "NoTeam2".into(),
+            team: "0CA6621C-G".into(),
+            team2: "<none>".into(),
+            owner_house: "<all>".into(),
+            tech_level: 0,
+            ..Default::default()
+        }],
+        &defs,
+        &teams,
+    )
+    .expect("none team2 sentinel");
+    assert_eq!(triggers.len(), 1);
+    assert!(triggers[0].team2.is_none());
+}
+
+#[test]
 fn bind_map_ai_triggers_accepts_none_owner_house_sentinel() {
     let rules = rules_from(
         b"[Countries]\n0=Russians\n\
