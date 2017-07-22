@@ -1,4 +1,4 @@
-//! N-API 入口：`version` + `launch` + `extract` + `unpack`。
+//! N-API 入口：`version` + `launch` + `extract` + `unpack` + `diagnoseMaps`。
 //!
 //! 原生窗口与事件循环在 [`host`]。
 
@@ -13,6 +13,7 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use ra_config::LaunchOverride;
 
+use crate::host::diagnose_maps::{DiagnoseMapsRequest, diagnose_skirmish_maps};
 use crate::host::extract::{ExtractRequest, UnpackRequest, extract_named, unpack_all};
 
 /// 绑定版本字符串。
@@ -224,5 +225,85 @@ pub fn unpack(options: UnpackOptions) -> Result<UnpackResultJs> {
         mounted_root: report.mounted_root as u32,
         mounted_nested: report.mounted_nested as u32,
         out_dir: report.out_dir.display().to_string(),
+    })
+}
+
+/// `ra2 diagnose-maps` 选项。
+#[napi(object)]
+pub struct DiagnoseMapsOptions {
+    /// 游戏安装根目录。
+    pub path: String,
+    /// 可选版本：`ra2` / `yr` 等（合集盘须显式 `ra2`）。
+    pub edition: Option<String>,
+    /// 最多诊断前 N 张；缺省为全表。
+    pub limit: Option<u32>,
+}
+
+/// 单张地图诊断行（N-API）。
+#[napi(object)]
+pub struct MapDiagnoseRowJs {
+    pub file_name: String,
+    pub name_csf: String,
+    pub parse_ok: bool,
+    pub parse_error: Option<String>,
+    pub prepare_ok: bool,
+    pub prepare_error: Option<String>,
+    pub blocking_gaps: Vec<String>,
+    pub stub_gaps: Vec<String>,
+    pub deferred_gaps: Vec<String>,
+    pub other_gaps: Vec<String>,
+    /// `success` / `reject` / `missing`（装载／准备口径，非整局可玩）。
+    pub tri_state: String,
+}
+
+/// 遭遇战地图包诊断报告（N-API）。
+#[napi(object)]
+pub struct DiagnoseMapsReportJs {
+    pub edition: String,
+    pub source: String,
+    pub candidate_count: u32,
+    pub maps: Vec<MapDiagnoseRowJs>,
+    pub success: u32,
+    pub reject: u32,
+    pub missing: u32,
+}
+
+/// 枚举 `missions.pkt`（或扫描回退）并对每张图做解析／准备／能力缺口三态诊断。
+#[napi]
+pub fn diagnose_maps(options: DiagnoseMapsOptions) -> Result<DiagnoseMapsReportJs> {
+    let path = PathBuf::from(options.path.trim());
+    if path.as_os_str().is_empty() {
+        return Err(Error::from_reason("diagnose-maps: --path must not be empty"));
+    }
+    let req = DiagnoseMapsRequest {
+        ra2_dir: path,
+        edition: options.edition.filter(|s| !s.trim().is_empty()),
+        limit: options.limit.map(|n| n as usize),
+    };
+    let report = diagnose_skirmish_maps(&req).map_err(|e| Error::from_reason(format!("{e}")))?;
+    Ok(DiagnoseMapsReportJs {
+        edition: report.edition,
+        source: report.source,
+        candidate_count: report.candidate_count as u32,
+        maps: report
+            .maps
+            .into_iter()
+            .map(|m| MapDiagnoseRowJs {
+                file_name: m.file_name,
+                name_csf: m.name_csf,
+                parse_ok: m.parse_ok,
+                parse_error: m.parse_error,
+                prepare_ok: m.prepare_ok,
+                prepare_error: m.prepare_error,
+                blocking_gaps: m.blocking_gaps,
+                stub_gaps: m.stub_gaps,
+                deferred_gaps: m.deferred_gaps,
+                other_gaps: m.other_gaps,
+                tri_state: m.tri_state,
+            })
+            .collect(),
+        success: report.success as u32,
+        reject: report.reject as u32,
+        missing: report.missing as u32,
     })
 }

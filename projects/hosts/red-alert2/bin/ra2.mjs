@@ -6,6 +6,7 @@ function printUsage() {
   ra2 launch --path <game-dir> [--edition ra2|yr] [--screen skirmish|main|campaign|...]
   ra2 extract --path <game-dir> --out <dir> [--edition ra2|yr] [--theater temperate|snow|...] [--palette name.pal] [--decode-shp] [--decode-csf] [--] <name>...
   ra2 unpack --path <game-dir> --out <dir> [--edition ra2|yr] [--names-file <txt>] [--decode-csf]
+  ra2 diagnose-maps --path <game-dir> [--edition ra2|yr] [--limit N]
   ra2 --version
   ra2 --help
 
@@ -18,7 +19,9 @@ Examples:
   ra2 extract --path "C:/Games/RA2" --out ./out --edition ra2 --decode-shp --palette isotem.pal -- tibtre01.tem
   ra2 extract --path "C:/Games/RA2" --out ./out --decode-csf -- ra2.csf
   ra2 unpack --path "C:/Games/RA2" --out ./unpacked
-  ra2 unpack --path "C:/Games/RA2" --out ./unpacked --names-file ./extra_names.txt --decode-csf`);
+  ra2 unpack --path "C:/Games/RA2" --out ./unpacked --names-file ./extra_names.txt --decode-csf
+  ra2 diagnose-maps --path "C:/Games/RA2" --edition ra2
+  ra2 diagnose-maps --path "C:/Games/RA2" --edition ra2 --limit 5`);
 }
 
 function parsePathEditionOut(args, command) {
@@ -280,6 +283,68 @@ async function main() {
         console.log(
             `edition=${result.edition} root_mix=${result.mountedRoot} nested=${result.mountedNested} archives=${result.archives} files=${result.filesWritten} named=${result.namedWritten} unnamed=${result.unnamedWritten} names=${result.nameTableSize} bytes=${result.bytesWritten} out=${result.outDir}`,
         );
+        return;
+    }
+
+    if (args[0] === 'diagnose-maps') {
+        let gamePath = null;
+        let edition;
+        let limit;
+        for (let i = 1; i < args.length; i += 1) {
+            const a = args[i];
+            if (a === '--path') {
+                gamePath = args[i + 1];
+                if (!gamePath) {
+                    console.error('ra2 diagnose-maps: --path requires a directory');
+                    process.exit(1);
+                }
+                i += 1;
+            } else if (a === '--edition') {
+                edition = args[i + 1];
+                if (!edition) {
+                    console.error('ra2 diagnose-maps: --edition requires a value');
+                    process.exit(1);
+                }
+                i += 1;
+            } else if (a === '--limit') {
+                const raw = args[i + 1];
+                if (!raw) {
+                    console.error('ra2 diagnose-maps: --limit requires a number');
+                    process.exit(1);
+                }
+                limit = Number.parseInt(raw, 10);
+                if (!Number.isFinite(limit) || limit < 0) {
+                    console.error('ra2 diagnose-maps: --limit must be a non-negative integer');
+                    process.exit(1);
+                }
+                i += 1;
+            } else {
+                console.error(`ra2 diagnose-maps: unknown argument ${a}`);
+                printUsage();
+                process.exit(1);
+            }
+        }
+        if (!gamePath) {
+            console.error('ra2 diagnose-maps: --path is required');
+            printUsage();
+            process.exit(1);
+        }
+        const { diagnoseMaps } = await import('../dist/native.js');
+        const report = diagnoseMaps({ path: gamePath, edition, limit });
+        console.log(
+            `edition=${report.edition} source=${report.source} candidates=${report.candidateCount} success=${report.success} reject=${report.reject} missing=${report.missing}`,
+        );
+        for (const row of report.maps) {
+            const gaps = [...row.blockingGaps, ...row.stubGaps, ...row.deferredGaps, ...row.otherGaps];
+            const gapText = gaps.length > 0 ? ` gaps=${gaps.join('|')}` : '';
+            const err =
+                row.parseError != null
+                    ? ` parse_error=${row.parseError}`
+                    : row.prepareError != null
+                      ? ` prepare_error=${row.prepareError}`
+                      : '';
+            console.log(`${row.triState}\t${row.fileName}\tparse=${row.parseOk}\tprepare=${row.prepareOk}${err}${gapText}`);
+        }
         return;
     }
 

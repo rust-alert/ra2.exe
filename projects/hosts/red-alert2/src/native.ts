@@ -63,11 +63,44 @@ export type UnpackResult = {
     outDir: string;
 };
 
+export type DiagnoseMapsOptions = {
+    path: string;
+    edition?: string;
+    /** 最多诊断前 N 张；缺省全表。 */
+    limit?: number;
+};
+
+export type MapDiagnoseRow = {
+    fileName: string;
+    nameCsf: string;
+    parseOk: boolean;
+    parseError: string | null;
+    prepareOk: boolean;
+    prepareError: string | null;
+    blockingGaps: string[];
+    stubGaps: string[];
+    deferredGaps: string[];
+    otherGaps: string[];
+    /** `success` / `reject` / `missing`（装载／准备口径）。 */
+    triState: string;
+};
+
+export type DiagnoseMapsReport = {
+    edition: string;
+    source: string;
+    candidateCount: number;
+    maps: MapDiagnoseRow[];
+    success: number;
+    reject: number;
+    missing: number;
+};
+
 export type NativeBinding = {
     version(): string;
     launch(options: LaunchOptions): void;
     extract(options: ExtractOptions): ExtractResult;
     unpack(options: UnpackOptions): UnpackResult;
+    diagnoseMaps(options: DiagnoseMapsOptions): DiagnoseMapsReport;
 };
 
 export type NativeBinaryIdentity = {
@@ -145,6 +178,10 @@ export function extract(options: ExtractOptions): ExtractResult {
 
 export function unpack(options: UnpackOptions): UnpackResult {
     return loadNative().unpack(options);
+}
+
+export function diagnoseMaps(options: DiagnoseMapsOptions): DiagnoseMapsReport {
+    return loadNative().diagnoseMaps(options);
 }
 
 export function version(): string {
