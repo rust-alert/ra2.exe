@@ -25,3 +25,10 @@ ra2 extract --path "C:/Games/RA2" --out ./out --decode-shp -- sdtp.shp title.pcx
 ra2 unpack --path "C:/Games/RA2" --out ./unpacked
 ra2 unpack --path "C:/Games/RA2" --out ./unpacked --names-file ./extra_names.txt
 ```
+
+遭遇战地图包装载／准备／能力缺口三态诊断（`success` / `reject` / `missing`；不是整局可玩验收）：
+
+```bash
+ra2 diagnose-maps --path "C:/Games/RA2" --edition ra2
+ra2 diagnose-maps --path "C:/Games/RA2" --edition ra2 --limit 5
+```
