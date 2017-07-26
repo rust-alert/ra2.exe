@@ -147,6 +147,23 @@ fn any_event_code_is_supported() {
 }
 
 #[test]
+fn any_event_does_not_emit_capability_gap() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Triggers]\nTR1=Americans,<none>,Any,0,1,1,1,0\n\
+[Events]\nTR1=1,8,0,0\n\
+[Actions]\nTR1=1,1,0,0,0,0,0,0,Americans\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "any-gap.map", text).unwrap();
+    let gaps = ra_map::map_scripting_capability_gaps(&map);
+    assert!(
+        gaps.iter().all(|g| g.code != "map.event.8 unsupported"),
+        "event 8 must not be reported as unsupported: {gaps:?}"
+    );
+    assert!(ra_map::campaign_blocking_capability_message(&map).is_none());
+}
+
+#[test]
 fn parse_ai_trigger_types_enable_ranking_and_special_flags() {
     let text = b"\
 [Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\

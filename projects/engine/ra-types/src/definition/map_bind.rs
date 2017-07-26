@@ -45,7 +45,9 @@ pub fn bind_map_houses(houses: &[MapHouse], defs: &RuntimeDefinitions) -> RaResu
 ///
 /// - 空 / `<none>` / `NONE` 的 `linked` → [`None`]
 /// - 非空但找不到目标 → [`RaError::UnknownReference`]
-/// - 空 / 未知 `house` → [`RaError::UnknownReference`]
+/// - 空 / `NONE` / `<none>` 的 `house` → ambient `NEUTRAL`
+/// - `ALL` / `<all>` 的 `house` → ambient `NEUTRAL`（触发所属房主通配按中立槽承载）
+/// - 其它未知 `house` → [`RaError::UnknownReference`]
 pub fn bind_map_triggers(triggers: &[MapTrigger], defs: &RuntimeDefinitions) -> RaResult<Vec<PreparedTrigger>> {
     let mut out = Vec::with_capacity(triggers.len());
     let mut next = 1u32;
@@ -57,7 +59,13 @@ pub fn bind_map_triggers(triggers: &[MapTrigger], defs: &RuntimeDefinitions) -> 
         let id = TriggerId(next);
         next = next.saturating_add(1);
         by_name.insert(trigger.id.as_str(), id);
-        let house = bind_house_id(defs, &trigger.house, &format!("MapTrigger:{}", trigger.id.as_str()))?;
+        let house_name = if trigger.house.is_unrestricted_sentinel() {
+            HouseName::parse("NEUTRAL")
+        }
+        else {
+            trigger.house.clone()
+        };
+        let house = bind_house_id(defs, &house_name, &format!("MapTrigger:{}", trigger.id.as_str()))?;
         out.push(PreparedTrigger {
             id,
             name: trigger.id.clone(),

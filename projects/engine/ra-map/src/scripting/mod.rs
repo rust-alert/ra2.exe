@@ -19,7 +19,7 @@ mod kinds;
 mod script_teams;
 mod triggers;
 
-use ra_assets::IniDocument;
+use ra_assets::{IniDocument, parse_westwood_csv_line};
 
 /// 地图剧本数据（触发链与脚本队）。缺节则为空。
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -200,6 +200,9 @@ fn collect_unknown_sections(doc: &IniDocument) -> Vec<String> {
         if scripting_named_object_section(doc, name) {
             continue;
         }
+        if map_local_type_override_section(doc, name) {
+            continue;
+        }
         out.push(name.to_string());
     }
     out.sort();
@@ -225,6 +228,37 @@ fn scripting_named_object_section(doc: &IniDocument, name: &str) -> bool {
         if sec.pairs().any(|(k, v)| {
             let v = v.trim();
             if v.contains(',') { k.eq_ignore_ascii_case(name) } else { v.eq_ignore_ascii_case(name) }
+        }) {
+            return true;
+        }
+    }
+    false
+}
+
+/// 地图内 Structures/Units/… 行引用的类型名常带本地覆盖节（如 `[GAYARD]`），不算剧本未知节。
+fn map_local_type_override_section(doc: &IniDocument, name: &str) -> bool {
+    for list in ["Structures", "Units", "Infantry", "Aircraft"] {
+        let Some(sec) = doc.section(list)
+        else {
+            continue;
+        };
+        if sec.pairs().any(|(_, v)| {
+            let row = parse_westwood_csv_line(v);
+            // Owner,TypeId,...
+            row.fields.get(1).is_some_and(|t| t.as_str().eq_ignore_ascii_case(name))
+        }) {
+            return true;
+        }
+    }
+    for list in ["Terrain", "Smudge"] {
+        let Some(sec) = doc.section(list)
+        else {
+            continue;
+        };
+        if sec.pairs().any(|(_, v)| {
+            let row = parse_westwood_csv_line(v);
+            // TypeId,x,y,...
+            row.fields.first().is_some_and(|t| t.as_str().eq_ignore_ascii_case(name))
         }) {
             return true;
         }

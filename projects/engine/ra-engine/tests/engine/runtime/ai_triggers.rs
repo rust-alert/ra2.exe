@@ -565,3 +565,39 @@ AT1=TechGate,TM1,Russians,0,7,CAGATE,1\n\
     let e1b = session2.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
     assert!(e1b >= 2, "NeutralOwns CAGATE>=1 should spawn team, got {e1b}");
 }
+
+#[test]
+fn ai_trigger_all_house_expands_to_non_local_players() {
+    let defs = defs_from_rules_ini(
+        b"[Countries]\n0=Americans\n1=Russians\n\
+[Americans]\nSide=GDI\n\
+[Russians]\nSide=Nod\n\
+[InfantryTypes]\n0=E1\n\
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Americans,Russians\n",
+    );
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n\
+[TaskForces]\n0=TF1\n\
+[TF1]\nName=Squad\n0=2,E1\nGroup=-1\n\
+[TeamTypes]\n0=TM1\n\
+[TM1]\nName=Team\nHouse=<all>\nScript=\nTaskForce=TF1\nMax=1\n\
+[AITriggerTypes]\n\
+AT1=Strike,TM1,<all>,0\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "ai-all.map", text).unwrap();
+    assert!(map.scripting.team_types[0].house.is_all_sentinel() || map.scripting.team_types[0].house.as_str().eq_ignore_ascii_case("<ALL>"));
+    let engine = test_engine();
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    world.ensure_house("AMERICANS");
+    world.ensure_house("RUSSIANS");
+    let _ = world.prefer_local_house("AMERICANS");
+    let mut session = Session::from_state(world, "ai-all");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.tick(&engine.runtime());
+    let snap = session.expect_battle().snapshot(&[]);
+    let russian_e1 = snap.units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead && u.owner.eq_ignore_ascii_case("RUSSIANS")).count();
+    let american_e1 = snap.units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead && u.owner.eq_ignore_ascii_case("AMERICANS")).count();
+    assert!(russian_e1 >= 2, "ALL AITrigger should spawn for non-local Russians, got {russian_e1}");
+    assert_eq!(american_e1, 0, "ALL AITrigger must not spawn for local Americans");
+}
