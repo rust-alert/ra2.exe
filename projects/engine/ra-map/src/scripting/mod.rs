@@ -236,6 +236,9 @@ fn scripting_named_object_section(doc: &IniDocument, name: &str) -> bool {
 }
 
 /// 地图内 Structures/Units/… 行引用的类型名常带本地覆盖节（如 `[GAYARD]`），不算剧本未知节。
+///
+/// 编辑器也可能留下未被放置行引用的孤儿覆盖节；若节内已是类型字段形（`TechLevel` /
+/// `LightVisibility` 等），同样不当作剧本未知节。
 fn map_local_type_override_section(doc: &IniDocument, name: &str) -> bool {
     for list in ["Structures", "Units", "Infantry", "Aircraft"] {
         let Some(sec) = doc.section(list)
@@ -263,5 +266,37 @@ fn map_local_type_override_section(doc: &IniDocument, name: &str) -> bool {
             return true;
         }
     }
-    false
+    section_looks_like_type_override(doc, name)
+}
+
+/// 节内键形像规则类型覆盖（含灯具光照字段），而非 Triggers/Tags 等剧本结构。
+fn section_looks_like_type_override(doc: &IniDocument, name: &str) -> bool {
+    let Some(sec) = doc.section(name)
+    else {
+        return false;
+    };
+    const TYPE_KEYS: &[&str] = &[
+        "TechLevel",
+        "Strength",
+        "Armor",
+        "Primary",
+        "Secondary",
+        "Cost",
+        "Soylent",
+        "Prerequisite",
+        "Owner",
+        "Image",
+        "UIName",
+        "BuildCat",
+        "Foundation",
+        "Sight",
+        "Speed",
+        "Locomotor",
+        "LightVisibility",
+        "LightIntensity",
+        "LightRedTint",
+        "LightGreenTint",
+        "LightBlueTint",
+    ];
+    sec.pairs().any(|(k, _)| TYPE_KEYS.iter().any(|t| k.eq_ignore_ascii_case(t)))
 }

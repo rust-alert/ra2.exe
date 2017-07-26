@@ -164,6 +164,23 @@ fn any_event_does_not_emit_capability_gap() {
 }
 
 #[test]
+fn orphan_type_override_sections_are_not_scripting_gaps() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[GAYARD]\nName=Navy Shipyard\nTechLevel=-1\n\
+[GALITE]\nName=Light Post\nLightVisibility=1500\nLightIntensity=0.3\n\
+[Structures]\n0=Neutral,INYELWLAMP,256,10,10,0,None,0,0,1,0,0,None,None,None,0,0\n\
+[INYELWLAMP]\nLightVisibility=2750\nLightIntensity=0.01\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "type-ov.map", text).unwrap();
+    let gaps = ra_map::map_scripting_capability_gaps(&map);
+    for name in ["GAYARD", "GALITE", "INYELWLAMP"] {
+        let code = format!("map.section.{name} unsupported");
+        assert!(gaps.iter().all(|g| g.code != code), "unexpected gap {code}: {gaps:?}");
+    }
+}
+
+#[test]
 fn parse_ai_trigger_types_enable_ranking_and_special_flags() {
     let text = b"\
 [Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
