@@ -39,6 +39,12 @@ pub fn gaps_from_scripting(scripting: &MapScripting) -> Vec<MapCapabilityGap> {
             message: "地图节 [SpecialFlags] 已装载，玩法开关尚未接线".into(),
         });
     }
+    if !scripting.variable_names.is_empty() {
+        out.push(MapCapabilityGap {
+            code: "map.section.VariableNames deferred".into(),
+            message: "地图节 [VariableNames] 已装载，局部变量名尚未接线".into(),
+        });
+    }
     let mut seen_events = Vec::new();
     for event in &scripting.events {
         for cond in &event.conditions {

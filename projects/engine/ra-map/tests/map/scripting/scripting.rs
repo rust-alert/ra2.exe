@@ -181,6 +181,19 @@ fn orphan_type_override_sections_are_not_scripting_gaps() {
 }
 
 #[test]
+fn variable_names_section_is_deferred_not_unsupported() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[VariableNames]\n0=Alpha\n1=Beta\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "vars.map", text).unwrap();
+    assert_eq!(map.scripting.variable_names.len(), 2);
+    let gaps = ra_map::map_scripting_capability_gaps(&map);
+    assert!(gaps.iter().any(|g| g.code == "map.section.VariableNames deferred"), "{gaps:?}");
+    assert!(gaps.iter().all(|g| g.code != "map.section.VariableNames unsupported"), "{gaps:?}");
+}
+
+#[test]
 fn parse_ai_trigger_types_enable_ranking_and_special_flags() {
     let text = b"\
 [Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\

@@ -50,6 +50,8 @@ pub struct MapScripting {
     pub ranking: Vec<(String, String)>,
     /// `[SpecialFlags]` 键值（装载保留；玩法开关后置）。
     pub special_flags: Vec<(String, String)>,
+    /// `[VariableNames]` 键值（装载保留；局部变量名后置）。
+    pub variable_names: Vec<(String, String)>,
     /// 识别到但本解析器未建模的节名（供能力缺口报告）。
     pub unknown_sections: Vec<String>,
 }
@@ -84,6 +86,7 @@ const KNOWN_SECTIONS: &[&str] = &[
     "AITriggerTypesEnable",
     "Ranking",
     "SpecialFlags",
+    "VariableNames",
     "Digest",
 ];
 
@@ -104,6 +107,7 @@ pub fn parse_map_scripting(doc: &IniDocument) -> MapScripting {
         ai_trigger_types_enable,
         ranking: parse_named_string_section(doc, "Ranking"),
         special_flags: parse_named_string_section(doc, "SpecialFlags"),
+        variable_names: parse_named_string_section(doc, "VariableNames"),
         unknown_sections: Vec::new(),
     };
     apply_ai_trigger_types_enable(&mut scripting);
