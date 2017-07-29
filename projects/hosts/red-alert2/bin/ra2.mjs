@@ -6,7 +6,7 @@ function printUsage() {
   ra2 launch --path <game-dir> [--edition ra2|yr] [--screen skirmish|main|campaign|...]
   ra2 extract --path <game-dir> --out <dir> [--edition ra2|yr] [--theater temperate|snow|...] [--palette name.pal] [--decode-shp] [--decode-csf] [--] <name>...
   ra2 unpack --path <game-dir> --out <dir> [--edition ra2|yr] [--names-file <txt>] [--decode-csf]
-  ra2 diagnose-maps --path <game-dir> [--edition ra2|yr] [--limit N]
+  ra2 diagnose-maps --path <game-dir> [--edition ra2|yr] [--limit N] [--json]
   ra2 --version
   ra2 --help
 
@@ -21,7 +21,8 @@ Examples:
   ra2 unpack --path "C:/Games/RA2" --out ./unpacked
   ra2 unpack --path "C:/Games/RA2" --out ./unpacked --names-file ./extra_names.txt --decode-csf
   ra2 diagnose-maps --path "C:/Games/RA2" --edition ra2
-  ra2 diagnose-maps --path "C:/Games/RA2" --edition ra2 --limit 5`);
+  ra2 diagnose-maps --path "C:/Games/RA2" --edition ra2 --limit 5
+  ra2 diagnose-maps --path "C:/Games/RA2" --edition ra2 --json`);
 }
 
 function parsePathEditionOut(args, command) {
@@ -290,6 +291,7 @@ async function main() {
         let gamePath = null;
         let edition;
         let limit;
+        let asJson = false;
         for (let i = 1; i < args.length; i += 1) {
             const a = args[i];
             if (a === '--path') {
@@ -318,6 +320,8 @@ async function main() {
                     process.exit(1);
                 }
                 i += 1;
+            } else if (a === '--json') {
+                asJson = true;
             } else {
                 console.error(`ra2 diagnose-maps: unknown argument ${a}`);
                 printUsage();
@@ -331,6 +335,10 @@ async function main() {
         }
         const { diagnoseMaps } = await import('../dist/native.js');
         const report = diagnoseMaps({ path: gamePath, edition, limit });
+        if (asJson) {
+            console.log(JSON.stringify(report, null, 2));
+            return;
+        }
         console.log(
             `edition=${report.edition} source=${report.source} candidates=${report.candidateCount} success=${report.success} reject=${report.reject} missing=${report.missing}`,
         );

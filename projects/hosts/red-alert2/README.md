@@ -31,4 +31,7 @@ ra2 unpack --path "C:/Games/RA2" --out ./unpacked --names-file ./extra_names.txt
 ```bash
 ra2 diagnose-maps --path "C:/Games/RA2" --edition ra2
 ra2 diagnose-maps --path "C:/Games/RA2" --edition ra2 --limit 5
+ra2 diagnose-maps --path "C:/Games/RA2" --edition ra2 --json
 ```
+
+`--json` 输出与 N-API `diagnoseMaps` 相同的报告对象，便于回填验收清单。
