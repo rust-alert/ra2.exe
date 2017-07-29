@@ -91,6 +91,11 @@ pub(crate) fn factory_matches_unit(defs: &RuntimeDefinitions, factory_type: Type
     defs.structures.get_by_id(factory_type).and_then(|s| s.production.as_ref()).is_some_and(|p| p.category == cat)
 }
 
+/// 建筑类型是否走侧栏防御轨（INI `BuildCat=Combat`）。
+pub(crate) fn structure_is_defense(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
+    defs.structures.get_by_id(type_id).is_some_and(|s| s.build_cat.is_defense_tab())
+}
+
 /// 工厂是否可生产给定生产类别。
 pub(crate) fn factory_matches_category(defs: &RuntimeDefinitions, factory_type: TypeId, category: ProductionCategory) -> bool {
     defs.structures.get_by_id(factory_type).and_then(|s| s.production.as_ref()).is_some_and(|p| p.category == category)

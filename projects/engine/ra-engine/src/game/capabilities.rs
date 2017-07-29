@@ -136,60 +136,23 @@ impl BattleSession {
         let has_vehicle_factory = self.world.find_factory(house.as_ref(), TechnoClass::Vehicle).is_some();
         let has_aircraft_factory = self.world.find_factory(house.as_ref(), TechnoClass::Aircraft).is_some();
         let has_radar = self.world.house_has_living_radar(house.as_ref());
-        let infantry_idle = self.world.find_idle_factory(house.as_ref(), TechnoClass::Infantry).is_some();
-        let vehicle_idle = self.world.find_idle_factory(house.as_ref(), TechnoClass::Vehicle).is_some();
-        let aircraft_idle = self.world.find_idle_factory(house.as_ref(), TechnoClass::Aircraft).is_some();
+        // 单位线：按类别可入队（FIFO），不是「厂必须空闲」。
+        let infantry_can_enqueue = self.world.find_unit_factory_for_enqueue(house.as_ref(), TechnoClass::Infantry).is_some();
+        let vehicle_can_enqueue = self.world.find_unit_factory_for_enqueue(house.as_ref(), TechnoClass::Vehicle).is_some();
+        let aircraft_can_enqueue = self.world.find_unit_factory_for_enqueue(house.as_ref(), TechnoClass::Aircraft).is_some();
         let living = living_structure_keys(&self.world, house.as_ref());
 
         let deploy = selected.iter().find_map(|&id| self.project_deploy_cap(id));
         let (build_items, defense_items) =
             project_build_items(&self.world, tech_player, &living, funds, has_construction_yard, has_power_plant);
         let infantry_items =
-            project_produce_items(&self.world, tech_player, &living, TechnoClass::Infantry, funds, has_infantry_factory, infantry_idle);
+            project_produce_items(&self.world, tech_player, &living, TechnoClass::Infantry, funds, has_infantry_factory, infantry_can_enqueue);
         let vehicle_items =
-            project_produce_items(&self.world, tech_player, &living, TechnoClass::Vehicle, funds, has_vehicle_factory, vehicle_idle);
+            project_produce_items(&self.world, tech_player, &living, TechnoClass::Vehicle, funds, has_vehicle_factory, vehicle_can_enqueue);
         let aircraft_items =
-            project_produce_items(&self.world, tech_player, &living, TechnoClass::Aircraft, funds, has_aircraft_factory, aircraft_idle);
+            project_produce_items(&self.world, tech_player, &living, TechnoClass::Aircraft, funds, has_aircraft_factory, aircraft_can_enqueue);
         let super_weapon_items = project_super_weapon_items(&self.world, house.as_ref());
-        let queues = self
-            .world
-            .entities
-            .iter()
-            .filter_map(|e| {
-                let id = e.id;
-                if self
-                    .world
-                    .ecs_get::<Owner>(id)
-                    .is_none_or(|o| crate::gameplay::house_id_of(&self.world.definitions, house.as_ref()) != Some(o.house))
-                {
-                    return None;
-                }
-                let queue = self.world.ecs_get::<ProductionQueue>(id)?;
-                if let Some((type_id, remaining_ticks)) = queue.item {
-                    let total_ticks = self.world.definitions.techno.get_by_id(type_id).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
-                    let key = std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&self.world.definitions, type_id));
-                    return Some(SnapshotProduceQueue {
-                        factory: id,
-                        type_id: key,
-                        remaining_ticks,
-                        total_ticks,
-                        rally_x: queue.rally_x,
-                        rally_y: queue.rally_y,
-                    });
-                }
-                let ready = queue.ready?;
-                let total_ticks = self.world.definitions.techno.get_by_id(ready).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
-                let key = std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&self.world.definitions, ready));
-                Some(SnapshotProduceQueue {
-                    factory: id,
-                    type_id: key,
-                    remaining_ticks: 0,
-                    total_ticks,
-                    rally_x: queue.rally_x,
-                    rally_y: queue.rally_y,
-                })
-            })
-            .collect();
+        let queues = project_house_produce_queues(&self.world, house.as_ref());
 
         BattleCapabilitiesSnapshot {
             house,
@@ -247,10 +210,12 @@ pub fn evaluate_build_availability(
     (true, None)
 }
 
-/// 对应工厂没了 → 单位科技掉级；工厂忙碌 / BuildLimit → 队列满；资金不足单独标出。
+/// 对应工厂没了 → 单位科技掉级；无法再入队 / BuildLimit → 队列满；资金不足单独标出。
+///
+/// `factory_can_enqueue`：该生产类别仍有可入队工厂（空闲开单或 FIFO 未满），不是「必须空槽」。
 pub fn evaluate_produce_availability(
     has_factory: bool,
-    factory_idle: bool,
+    factory_can_enqueue: bool,
     funds: i32,
     cost: i32,
     build_limit_hit: bool,
@@ -258,13 +223,29 @@ pub fn evaluate_produce_availability(
     if !has_factory {
         return (false, Some(CommandRejectReason::MissingPrerequisite));
     }
-    if !factory_idle || build_limit_hit {
+    if !factory_can_enqueue || build_limit_hit {
         return (false, Some(CommandRejectReason::QueueFull));
     }
     if funds < cost {
         return (false, Some(CommandRejectReason::InsufficientFunds));
     }
     (true, None)
+}
+
+/// 本阵营建造场是否持有指定类型的在产项（建筑栏 / 防御栏）。
+fn house_holds_structure_in_progress(world: &BattleState, house: &str, type_id: ra_types::TypeId) -> bool {
+    world.entities.iter().any(|e| {
+        let id = e.id;
+        if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+            return false;
+        }
+        if world.ecs_get::<Owner>(id).is_none_or(|o| crate::gameplay::house_id_of(&world.definitions, house) != Some(o.house)) {
+            return false;
+        }
+        world.ecs_get::<ProductionQueue>(id).is_some_and(|q| {
+            q.item.is_some_and(|(queued, _)| queued == type_id) || q.defense_item.is_some_and(|(queued, _)| queued == type_id)
+        })
+    })
 }
 
 #[doc(hidden)]
@@ -276,8 +257,9 @@ pub fn project_build_items(
     has_yard: bool,
     has_power: bool,
 ) -> (Vec<CapabilityItem>, Vec<CapabilityItem>) {
-    let ready = world.house_ready_building(player.house);
-    let yard_idle = world.find_idle_factory(player.house, TechnoClass::Building).is_some();
+    // 建筑栏 / 防御栏分轨：一轨忙不阻塞另一轨（对齐原版 Building vs Defense 类别）。
+    let build_track_idle = world.find_idle_structure_yard(player.house, false).is_some();
+    let defense_track_idle = world.find_idle_structure_yard(player.house, true).is_some();
     let mut build_items = Vec::new();
     let mut defense_items = Vec::new();
     for s in world.definitions.structures.iter().filter(|s| is_type_eligible_id(&world.definitions, player, living, s.id)) {
@@ -285,31 +267,24 @@ pub fn project_build_items(
         let cost = if s.cost > 0 { s.cost } else { techno.map(|t| t.cost).unwrap_or(0) };
         let requires_power = requires_power_plant(&world.definitions, s.id);
         let limit_hit = techno.is_some_and(|t| build_limit_reached(world, player.house, t));
-        let want_id = Some(s.id);
-        let (enabled, disabled_reason) = if ready == want_id {
+        let defense = s.build_cat.is_defense_tab();
+        let track_idle = if defense { defense_track_idle } else { build_track_idle };
+        let (enabled, disabled_reason) = if world.house_has_ready_building(player.house, s.id) {
             // 已完工：可点选落位，不再检查资金。
             (true, None)
         }
-        else if want_id.is_some_and(|w| {
-            world.entities.iter().any(|e| {
-                let id = e.id;
-                !world
-                    .ecs_get::<Owner>(id)
-                    .is_none_or(|o| crate::gameplay::house_id_of(&world.definitions, player.house.as_ref()) != Some(o.house))
-                    && world.ecs_get::<ProductionQueue>(id).and_then(|q| q.item).is_some_and(|(queued, _)| queued == w)
-            })
-        }) {
+        else if house_holds_structure_in_progress(world, player.house, s.id) {
             // 建造中：侧栏可点以取消。
             (true, None)
         }
-        else if has_yard && !yard_idle {
+        else if has_yard && !track_idle {
             (false, Some(CommandRejectReason::QueueFull))
         }
         else {
             evaluate_build_availability(has_yard, has_power, funds, cost, requires_power, limit_hit)
         };
         let item = CapabilityItem { type_id: Arc::<str>::from(s.type_key.as_str()), cost, enabled, disabled_reason };
-        if s.build_cat.is_defense_tab() {
+        if defense {
             defense_items.push(item);
         }
         else {
@@ -329,7 +304,7 @@ pub fn project_produce_items(
     class: TechnoClass,
     funds: i32,
     has_factory: bool,
-    factory_idle: bool,
+    factory_can_enqueue: bool,
 ) -> Vec<CapabilityItem> {
     let mut items: Vec<CapabilityItem> = world
         .definitions
@@ -341,12 +316,56 @@ pub fn project_produce_items(
         .filter(|t| deploy_into_type(&world.definitions, t.id).is_none())
         .map(|t| {
             let limit_hit = build_limit_reached(world, player.house, t);
-            let (enabled, disabled_reason) = evaluate_produce_availability(has_factory, factory_idle, funds, t.cost, limit_hit);
+            // 已在队列中的类型仍保持可点（宿主左键加队 / 右键取消）。
+            let (enabled, disabled_reason) =
+                evaluate_produce_availability(has_factory, factory_can_enqueue, funds, t.cost, limit_hit);
             CapabilityItem { type_id: Arc::<str>::from(t.type_key.as_str()), cost: t.cost, enabled, disabled_reason }
         })
         .collect();
     items.sort_by(|a, b| a.type_id.as_ref().cmp(b.type_id.as_ref()));
     items
+}
+
+/// 投影本阵营工厂队列摘要（建筑栏 / 防御栏可各占一条；单位厂只暴露队首）。
+fn project_house_produce_queues(world: &BattleState, house: &str) -> Vec<SnapshotProduceQueue> {
+    let mut out = Vec::new();
+    for e in &world.entities {
+        let id = e.id;
+        if world.ecs_get::<Owner>(id).is_none_or(|o| crate::gameplay::house_id_of(&world.definitions, house) != Some(o.house)) {
+            continue;
+        }
+        let Some(queue) = world.ecs_get::<ProductionQueue>(id)
+        else {
+            continue;
+        };
+        let rally_x = queue.rally_x;
+        let rally_y = queue.rally_y;
+        let push_slot = |out: &mut Vec<SnapshotProduceQueue>, type_id: ra_types::TypeId, remaining_ticks: u32| {
+            let total_ticks = world.definitions.techno.get_by_id(type_id).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
+            let key = std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&world.definitions, type_id));
+            out.push(SnapshotProduceQueue {
+                factory: id,
+                type_id: key,
+                remaining_ticks,
+                total_ticks,
+                rally_x,
+                rally_y,
+            });
+        };
+        if let Some((type_id, remaining_ticks)) = queue.item {
+            push_slot(&mut out, type_id, remaining_ticks);
+        }
+        else if let Some(ready) = queue.ready {
+            push_slot(&mut out, ready, 0);
+        }
+        if let Some((type_id, remaining_ticks)) = queue.defense_item {
+            push_slot(&mut out, type_id, remaining_ticks);
+        }
+        else if let Some(ready) = queue.defense_ready {
+            push_slot(&mut out, ready, 0);
+        }
+    }
+    out
 }
 
 /// 诊断：某 house 当前存活的结构类型键（科技绑定用）。

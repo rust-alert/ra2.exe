@@ -271,27 +271,7 @@ impl crate::state::BattleState {
                         continue;
                     }
                     // 必须先在建造场完工（Produce），再点选落位；费用已在排队时扣除。
-                    let Some(yard_id) = self.entities.iter().find_map(|e| {
-                        let id = e.id;
-                        if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
-                            return None;
-                        }
-                        if !self
-                            .ecs_get::<Owner>(id)
-                            .map(|o| crate::gameplay::house_id_of(&self.definitions, house.as_ref()) == Some(o.house))
-                            .unwrap_or(false)
-                        {
-                            return None;
-                        }
-                        if !self
-                            .ecs_get::<Identity>(id)
-                            .map(|i| i.kind == MapEntityKind::Structure && is_construction_yard(&self.definitions, i.type_id))
-                            .unwrap_or(false)
-                        {
-                            return None;
-                        }
-                        self.ecs_get::<ProductionQueue>(id).and_then(|q| q.ready).is_some_and(|r| r == tt.id).then_some(id)
-                    })
+                    let Some(yard_id) = self.find_yard_with_ready(house.as_ref(), tt.id)
                     else {
                         self.reject(command_index, CommandRejectReason::MissingPrerequisite);
                         continue;
@@ -306,7 +286,12 @@ impl crate::state::BattleState {
                     let armor = tt.armor;
                     let power = building_power(&self.definitions, tt.id);
                     let _ = self.with_production_mut(yard_id, |queue| {
-                        queue.ready = None;
+                        if queue.ready == Some(def_id) {
+                            queue.ready = None;
+                        }
+                        else if queue.defense_ready == Some(def_id) {
+                            queue.defense_ready = None;
+                        }
                     });
                     self.mark_entity_dirty(yard_id);
                     let id = self.alloc_entity_id();
@@ -336,13 +321,15 @@ impl crate::state::BattleState {
                             techno_class: Some(TechnoClass::Building),
                         },
                         attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None, follow_target: None },
-                        production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
+                        production: ProductionQueue::empty(),
                         harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
                         animation: AnimationState { hva_frame: 0, hit_flash: 0, fire_flash: 0 },
                     });
                     self.mark_entity_dirty(id);
                     // 新建筑走 Buildup 再定格，避免瞬现主体 SHP。
                     self.structure_buildup_dirty.push(id);
+                    // `FreeUnit=`：落位完成时白送（视觉 Buildup 在宿主侧，玩法以落位为准）。
+                    self.spawn_structure_free_unit(id, def_id, house.as_ref(), x, y);
                 }
                 GameCommand::Produce { player, type_id } => {
                     if player != scheduled.player {
@@ -386,7 +373,14 @@ impl crate::state::BattleState {
                         continue;
                     }
                     let kind = tt.class;
-                    let Some(factory_index) = self.find_idle_factory(&house, kind)
+                    let defense_track = kind == TechnoClass::Building && self.structure_produce_defense_track(tt.id);
+                    let factory_index = if kind == TechnoClass::Building {
+                        self.find_idle_structure_yard(&house, defense_track)
+                    }
+                    else {
+                        self.find_unit_factory_for_enqueue(&house, kind)
+                    };
+                    let Some(factory_index) = factory_index
                     else {
                         let has_busy = self.find_factory(&house, kind).is_some();
                         if has_busy {
@@ -408,7 +402,20 @@ impl crate::state::BattleState {
                     let queued = tt.id;
                     let ticks = produce_ticks_for(tt);
                     let _ = self.with_production_mut(factory_id, |queue| {
-                        queue.item = Some((queued, ticks));
+                        if kind == TechnoClass::Building {
+                            if defense_track {
+                                queue.defense_item = Some((queued, ticks));
+                            }
+                            else {
+                                queue.item = Some((queued, ticks));
+                            }
+                        }
+                        else if queue.item.is_none() {
+                            queue.item = Some((queued, ticks));
+                        }
+                        else {
+                            queue.pending.push(queued);
+                        }
                     });
                     self.mark_entity_dirty(factory_id);
                 }
@@ -441,23 +448,58 @@ impl crate::state::BattleState {
                         {
                             return None;
                         }
-                        let Some(queue) = self.ecs_get::<ProductionQueue>(id)
-                        else {
-                            return None;
-                        };
-                        let in_progress = queue.item.as_ref().is_some_and(|(queued, _)| *queued == want);
-                        let ready = queue.ready == Some(want);
-                        (in_progress || ready).then_some(id)
+                        self.ecs_get::<ProductionQueue>(id).is_some_and(|q| q.holds_type(want)).then_some(id)
                     })
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     };
                     let refund = tt.cost;
-                    let _ = self.with_production_mut(factory_id, |queue| {
-                        queue.item = None;
-                        queue.ready = None;
-                    });
+                    let promote = self
+                        .with_production_mut(factory_id, |queue| {
+                            // 单位：优先取消候补末件；否则取消队首并尝试提拔候补。
+                            if let Some(pos) = queue.pending.iter().rposition(|&t| t == want) {
+                                queue.pending.remove(pos);
+                                return None;
+                            }
+                            if queue.item.is_some_and(|(t, _)| t == want) {
+                                queue.item = None;
+                                return queue.pending.first().copied();
+                            }
+                            if queue.defense_item.is_some_and(|(t, _)| t == want) {
+                                queue.defense_item = None;
+                                return None;
+                            }
+                            if queue.ready == Some(want) {
+                                queue.ready = None;
+                            }
+                            else if queue.defense_ready == Some(want) {
+                                queue.defense_ready = None;
+                            }
+                            None
+                        })
+                        .flatten();
+                    if let Some(next_id) = promote {
+                        if let Some(ticks) = self.definitions.techno.get_by_id(next_id).map(produce_ticks_for) {
+                            let _ = self.with_production_mut(factory_id, |queue| {
+                                if queue.item.is_some() {
+                                    return;
+                                }
+                                if queue.pending.first().copied() != Some(next_id) {
+                                    return;
+                                }
+                                queue.pending.remove(0);
+                                queue.item = Some((next_id, ticks));
+                            });
+                        }
+                        else {
+                            let _ = self.with_production_mut(factory_id, |queue| {
+                                if queue.pending.first().copied() == Some(next_id) {
+                                    queue.pending.remove(0);
+                                }
+                            });
+                        }
+                    }
                     if refund > 0 {
                         self.players[player_index].funds = self.players[player_index].funds.saturating_add(refund);
                         self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_sub(refund);
@@ -968,7 +1010,7 @@ impl crate::state::BattleState {
                         health.dead = true;
                     });
                     let _ = self.with_production_mut(building_id, |queue| {
-                        queue.item = None;
+                        queue.clear_production();
                     });
                     self.unseal_structure_footprint(xf.x, xf.y, foundation.width, foundation.height);
                     self.revoke_structure_power(house.as_ref(), sold_type_id);

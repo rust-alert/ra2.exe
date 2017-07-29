@@ -388,10 +388,29 @@ impl BattleController {
     }
 
     pub(super) fn handle_right_click(&mut self, renderer: &Renderer, window: &Window) {
-        let _ = (renderer, window);
+        let _ = renderer;
         // 右键优先取消：放置 / 修理 / 出售 / 路径规划等工具态。
         if self.clear_sidebar_tool_modes() {
             return;
+        }
+        // 单位/建筑 cameo：右键取消该类型在产或候补一件。
+        let x = self.cursor.0 as i32;
+        let y = self.cursor.1 as i32;
+        if let Some(BattleHudHit::Cameo(slot)) = self.hit_hud_at(window, x, y) {
+            if let Some(caps) = self.current_capabilities() {
+                let items = Self::tab_items(&caps, self.sidebar_tab);
+                let index = self.cameo_scroll.saturating_add(slot);
+                if let Some(item) = items.get(index) {
+                    let type_id = item.type_id.as_ref().to_string();
+                    if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                        if game.is_local_producing(&type_id) {
+                            tracing::info!("取消生产 · {type_id}");
+                            game.order_cancel_produce(type_id);
+                            return;
+                        }
+                    }
+                }
+            }
         }
         // 普通对局：停止选中单位当前命令（保留选中）。
         self.stop_selection();

@@ -84,7 +84,7 @@ impl BattleState {
                 movement: MovementState { destination_x: None, destination_y: None, waypoints: Vec::new(), path: Vec::new(), move_accum: 0 },
                 combat: CombatStats { armor, attack_range, attack_damage, attack_cooldown_max, attack_verses, techno_class },
                 attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None, follow_target: None },
-                production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
+                production: ProductionQueue::empty(),
                 harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
                 animation: AnimationState { hva_frame: 0, hit_flash: 0, fire_flash: 0 },
             });
@@ -278,7 +278,7 @@ impl BattleState {
             movement: MovementState { destination_x: None, destination_y: None, waypoints: Vec::new(), path: Vec::new(), move_accum: 0 },
             combat: CombatStats { armor, attack_range, attack_damage, attack_cooldown_max, attack_verses, techno_class: Some(class) },
             attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None, follow_target: None },
-            production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
+            production: ProductionQueue::empty(),
             harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
             animation: AnimationState { hva_frame: 0, hit_flash: 0, fire_flash: 0 },
         });

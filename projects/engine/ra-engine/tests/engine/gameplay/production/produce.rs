@@ -80,11 +80,55 @@ fn produce_rejects_insufficient_funds() {
 }
 
 #[test]
-fn produce_rejects_when_queue_busy() {
+fn produce_enqueues_second_unit_while_busy() {
     let mut world = factory_world();
-    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });
+    let e1 = world.definitions.techno.get("E1").expect("E1").id;
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: e1 });
     world.advance_tick();
-    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });
+    assert!(world.last_rejects().is_empty());
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: e1 });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty(), "unit FIFO should accept a second Produce: {:?}", world.last_rejects());
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 400));
+    let factory = world.entity_id_at(0).expect("barracks");
+    let queue = world.ecs_produce_unit_queue_len(factory).expect("queue");
+    assert!(queue.0, "head item");
+    assert_eq!(queue.1, 1, "one pending behind head");
+}
+
+#[test]
+fn produce_fifo_promotes_pending_after_spawn() {
+    let mut world = factory_world();
+    let e1 = world.definitions.techno.get("E1").expect("E1").id;
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: e1 });
+    world.advance_tick();
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: e1 });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty());
+    for _ in 0..(PRODUCE_TICKS - 1) {
+        world.advance_tick();
+    }
+    // 队首完工出兵后，候补应立即提拔为新队首。
+    assert_eq!(world.entity_count(), 3);
+    let factory = world.entity_id_at(0).expect("barracks");
+    assert!(world.ecs_produce_item(factory).expect("queue").is_some(), "pending promoted to head");
+    assert_eq!(world.ecs_produce_unit_queue_len(factory).expect("q").1, 0);
+}
+
+#[test]
+fn produce_rejects_when_unit_queue_full() {
+    let mut world = factory_world();
+    let e1 = world.definitions.techno.get("E1").expect("E1").id;
+    // 同一 tick 内连入队首 + 29 候补 = 30，避免推进期间队首完工缩队。
+    for _ in 0..30 {
+        world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: e1 });
+    }
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty(), "{:?}", world.last_rejects());
+    let factory = world.entity_id_at(0).expect("barracks");
+    assert_eq!(world.ecs_produce_unit_queue_len(factory).expect("q"), (true, 29));
+
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: e1 });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::QueueFull);
 }

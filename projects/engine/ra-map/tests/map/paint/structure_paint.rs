@@ -522,6 +522,7 @@ Rate=50\n\
         armor: ArmorKind::None,
         construction_yard: true,
         refinery: false,
+        free_unit: None,
         radar: false,
         build_cat: Default::default(),
         capturable: false,

@@ -99,6 +99,7 @@ CameoPCX=gaicon
         armor: ArmorKind::None,
         construction_yard: false,
         refinery: false,
+        free_unit: None,
         radar: false,
         build_cat: Default::default(),
         capturable: false,

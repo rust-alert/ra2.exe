@@ -261,7 +261,7 @@ impl BattleSession {
         self.push_command(GameCommand::FireSuperWeapon { player: self.world.local_player, type_id, x, y });
     }
 
-    /// 本机阵营是否正在生产指定类型。
+    /// 本机阵营是否持有指定类型的在产 / 候补 / 待落位项。
     pub fn is_local_producing(&self, type_id: &str) -> bool {
         let Some(local_house) = self.world.players.iter().find(|p| p.id == self.world.local_player).map(|p| p.house.clone())
         else {
@@ -284,7 +284,7 @@ impl BattleSession {
             {
                 return false;
             }
-            self.world.ecs_get::<ProductionQueue>(id).and_then(|q| q.item).is_some_and(|(queued, _)| queued == wanted_id)
+            self.world.ecs_get::<ProductionQueue>(id).is_some_and(|q| q.holds_type(wanted_id))
         })
     }
 
@@ -298,7 +298,7 @@ impl BattleSession {
         else {
             return false;
         };
-        self.world.house_ready_building(local_house.as_ref()).is_some_and(|r| r == wanted_id)
+        self.world.house_has_ready_building(local_house.as_ref(), wanted_id)
     }
 
     /// 本机建造场当前待放置的完工件类型（若有）。

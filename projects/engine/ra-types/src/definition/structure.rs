@@ -162,6 +162,8 @@ pub struct StructureDefinition {
     pub construction_yard: bool,
     /// 是否矿场。
     pub refinery: bool,
+    /// INI `FreeUnit=`：建筑落位完成后白送的单位稳定 id；`None` = 不送。
+    pub free_unit: Option<TypeId>,
     /// INI `Radar=yes`（侧栏雷达开图）。
     pub radar: bool,
     /// INI `BuildCat=`（侧栏建筑 / 防御分页）。

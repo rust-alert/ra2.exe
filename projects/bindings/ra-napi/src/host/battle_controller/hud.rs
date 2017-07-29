@@ -239,16 +239,11 @@ impl BattleController {
                         self.place_mode = None;
                     }
                     2 | 3 => {
+                        // 单位线左键始终入队（FIFO）；取消走右键 cameo。
                         let type_id = item.type_id.as_ref().to_string();
                         if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                            if game.is_local_producing(&type_id) {
-                                tracing::info!("取消生产 · {type_id}");
-                                game.order_cancel_produce(type_id);
-                            }
-                            else {
-                                tracing::info!("生产 · {type_id}");
-                                game.order_produce(type_id);
-                            }
+                            tracing::info!("生产 · {type_id}");
+                            game.order_produce(type_id);
                         }
                     }
                     _ => {}

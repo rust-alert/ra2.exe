@@ -4,7 +4,7 @@ use ra_map::MapEntityKind;
 use ra_types::{TechnoClass, TechnoDefinition, TypeId};
 
 use crate::{
-    gameplay::{factory_matches_unit, verses_for},
+    gameplay::{factory_matches_unit, is_construction_yard, structure_is_defense, verses_for},
     state::{
         ATTACK_COOLDOWN_TICKS, BUILD_TIME_TICKS_PER_UNIT, PRODUCE_TICKS,
         components::{
@@ -24,8 +24,9 @@ pub fn produce_ticks_for(techno: &TechnoDefinition) -> u32 {
 impl crate::state::BattleState {
     #[doc(hidden)]
     pub fn advance_production(&mut self) {
-        let mut unit_spawns: Vec<(usize, ra_types::TypeId)> = Vec::new();
-        let mut building_ready: Vec<(usize, ra_types::TypeId)> = Vec::new();
+        let mut unit_spawns: Vec<(usize, TypeId)> = Vec::new();
+        let mut building_ready: Vec<(usize, TypeId, bool)> = Vec::new();
+        let mut unit_promote: Vec<(usize, TypeId)> = Vec::new();
         let n = self.entities.len();
         for index in 0..n {
             let id = self.entities[index].id;
@@ -39,37 +40,39 @@ impl crate::state::BattleState {
                 .is_some_and(|p| p.low_power());
             let finished = self
                 .with_production_mut(id, |queue| {
-                    let Some((type_id, remaining)) = queue.item.as_mut()
-                    else {
-                        return None;
-                    };
-                    // 低电：每隔一 tick 才推进，等效半速（与供电不足反馈一致）。
-                    if low_power && tick % 2 == 1 {
-                        return None;
+                    let mut done: Vec<(TypeId, bool)> = Vec::new();
+                    if Self::advance_slot(&mut queue.item, low_power, tick) {
+                        if let Some((type_id, _)) = queue.item.take() {
+                            done.push((type_id, false));
+                        }
                     }
-                    if *remaining > 1 {
-                        *remaining -= 1;
-                        return None;
+                    if Self::advance_slot(&mut queue.defense_item, low_power, tick) {
+                        if let Some((type_id, _)) = queue.defense_item.take() {
+                            done.push((type_id, true));
+                        }
                     }
-                    let finished_id = *type_id;
-                    queue.item = None;
-                    Some(finished_id)
+                    done
                 })
-                .flatten();
-            if let Some(type_id) = finished {
+                .unwrap_or_default();
+            for (type_id, defense) in finished {
                 let is_building = self.definitions.techno.get_by_id(type_id).is_some_and(|t| t.class == TechnoClass::Building);
                 if is_building {
-                    building_ready.push((index, type_id));
+                    building_ready.push((index, type_id, defense));
                 }
                 else {
                     unit_spawns.push((index, type_id));
                 }
             }
         }
-        for (factory_index, type_id) in building_ready {
+        for (factory_index, type_id, defense) in building_ready {
             let factory_id = self.entities[factory_index].id;
             let _ = self.with_production_mut(factory_id, |queue| {
-                queue.ready = Some(type_id);
+                if defense {
+                    queue.defense_ready = Some(type_id);
+                }
+                else {
+                    queue.ready = Some(type_id);
+                }
             });
             self.mark_entity_dirty(factory_id);
             if let Some(owner) = self
@@ -81,7 +84,51 @@ impl crate::state::BattleState {
         }
         for (factory_index, type_id) in unit_spawns {
             self.spawn_produced_unit(factory_index, type_id);
+            let factory_id = self.entities[factory_index].id;
+            if let Some(next) = self.with_production_mut(factory_id, |queue| queue.pending.first().copied()).flatten() {
+                unit_promote.push((factory_index, next));
+            }
         }
+        for (factory_index, next_id) in unit_promote {
+            let factory_id = self.entities[factory_index].id;
+            let Some(ticks) = self.definitions.techno.get_by_id(next_id).map(produce_ticks_for)
+            else {
+                let _ = self.with_production_mut(factory_id, |queue| {
+                    if !queue.pending.is_empty() {
+                        queue.pending.remove(0);
+                    }
+                });
+                continue;
+            };
+            let _ = self.with_production_mut(factory_id, |queue| {
+                if queue.item.is_some() {
+                    return;
+                }
+                if queue.pending.first().copied() != Some(next_id) {
+                    return;
+                }
+                queue.pending.remove(0);
+                queue.item = Some((next_id, ticks));
+            });
+            self.mark_entity_dirty(factory_id);
+        }
+    }
+
+    /// 推进单槽：返回是否本 tick 完工（调用方负责 `take`）。
+    fn advance_slot(slot: &mut Option<(TypeId, u32)>, low_power: bool, tick: u64) -> bool {
+        let Some((_, remaining)) = slot.as_mut()
+        else {
+            return false;
+        };
+        // 低电：每隔一 tick 才推进，等效半速（与供电不足反馈一致）。
+        if low_power && tick % 2 == 1 {
+            return false;
+        }
+        if *remaining > 1 {
+            *remaining -= 1;
+            return false;
+        }
+        true
     }
 
     #[doc(hidden)]
@@ -150,7 +197,7 @@ impl crate::state::BattleState {
                 techno_class: Some(techno_class),
             },
             attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None, follow_target: None },
-            production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
+            production: ProductionQueue::empty(),
             harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
             animation: AnimationState { hva_frame: 0, hit_flash: 0, fire_flash: 0 },
         });
@@ -199,19 +246,77 @@ impl crate::state::BattleState {
         })
     }
 
+    /// 建造场对应结构轨是否空闲（建筑栏 / 防御栏分轨，可并发）。
     #[doc(hidden)]
-    pub fn find_idle_factory(&self, house: &str, kind: TechnoClass) -> Option<usize> {
+    pub fn find_idle_structure_yard(&self, house: &str, defense: bool) -> Option<usize> {
         self.entities.iter().position(|e| {
             let id = e.id;
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && self.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.definitions, house) == Some(o.house)).unwrap_or(false)
-                && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
-                && self.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none() && q.ready.is_none()).unwrap_or(false)
-                && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, i.type_id, kind)).unwrap_or(false)
+                && self
+                    .ecs_get::<Identity>(id)
+                    .map(|i| i.kind == MapEntityKind::Structure && is_construction_yard(&self.definitions, i.type_id))
+                    .unwrap_or(false)
+                && self.ecs_get::<ProductionQueue>(id).map(|q| !q.structure_track_busy(defense)).unwrap_or(false)
         })
     }
 
-    /// 本阵营建造场是否持有待放置的完工建筑（返回其 [`TypeId`]）。
+    /// 单位厂：优先空闲厂开单；否则选最短仍可入队的 FIFO 厂。
+    #[doc(hidden)]
+    pub fn find_unit_factory_for_enqueue(&self, house: &str, kind: TechnoClass) -> Option<usize> {
+        if matches!(kind, TechnoClass::Building) {
+            return None;
+        }
+        let house_id = crate::gameplay::house_id_of(&self.definitions, house);
+        let mut best: Option<(usize, usize)> = None;
+        for (index, e) in self.entities.iter().enumerate() {
+            let id = e.id;
+            if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                continue;
+            }
+            if !self.ecs_get::<Owner>(id).map(|o| house_id == Some(o.house)).unwrap_or(false) {
+                continue;
+            }
+            if !self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false) {
+                continue;
+            }
+            if !self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, i.type_id, kind)).unwrap_or(false) {
+                continue;
+            }
+            let Some(queue) = self.ecs_get::<ProductionQueue>(id)
+            else {
+                continue;
+            };
+            if !queue.can_enqueue_unit() {
+                continue;
+            }
+            let len = queue.unit_len();
+            if queue.item.is_none() {
+                return Some(index);
+            }
+            match best {
+                Some((_, best_len)) if len >= best_len => {}
+                _ => best = Some((index, len)),
+            }
+        }
+        best.map(|(index, _)| index)
+    }
+
+    /// 兼容旧调用：结构轨查空闲建造场；单位查可入队厂。
+    #[doc(hidden)]
+    pub fn find_idle_factory(&self, house: &str, kind: TechnoClass) -> Option<usize> {
+        if kind == TechnoClass::Building {
+            self.find_idle_structure_yard(house, false)
+        }
+        else {
+            self.find_unit_factory_for_enqueue(house, kind).filter(|&index| {
+                let id = self.entities[index].id;
+                self.ecs_get::<ProductionQueue>(id).is_some_and(|q| q.item.is_none())
+            })
+        }
+    }
+
+    /// 本阵营建造场是否持有待放置的完工建筑（任一轨；多轨并存时优先建筑栏）。
     pub fn house_ready_building(&self, house: &str) -> Option<TypeId> {
         self.entities.iter().find_map(|e| {
             let id = e.id;
@@ -223,12 +328,45 @@ impl crate::state::BattleState {
             }
             if !self
                 .ecs_get::<Identity>(id)
-                .map(|i| i.kind == MapEntityKind::Structure && crate::gameplay::is_construction_yard(&self.definitions, i.type_id))
+                .map(|i| i.kind == MapEntityKind::Structure && is_construction_yard(&self.definitions, i.type_id))
                 .unwrap_or(false)
             {
                 return None;
             }
-            self.ecs_get::<ProductionQueue>(id).and_then(|q| q.ready)
+            let queue = self.ecs_get::<ProductionQueue>(id)?;
+            queue.ready.or(queue.defense_ready)
         })
+    }
+
+    /// 本阵营建造场是否持有指定类型的待落位完工件。
+    pub fn house_has_ready_building(&self, house: &str, type_id: TypeId) -> bool {
+        self.find_yard_with_ready(house, type_id).is_some()
+    }
+
+    /// 找到持有指定待落位完工件的建造场实体。
+    pub fn find_yard_with_ready(&self, house: &str, type_id: TypeId) -> Option<ra_types::EntityId> {
+        self.entities.iter().find_map(|e| {
+            let id = e.id;
+            if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                return None;
+            }
+            if !self.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.definitions, house) == Some(o.house)).unwrap_or(false) {
+                return None;
+            }
+            if !self
+                .ecs_get::<Identity>(id)
+                .map(|i| i.kind == MapEntityKind::Structure && is_construction_yard(&self.definitions, i.type_id))
+                .unwrap_or(false)
+            {
+                return None;
+            }
+            let queue = self.ecs_get::<ProductionQueue>(id)?;
+            (queue.ready == Some(type_id) || queue.defense_ready == Some(type_id)).then_some(id)
+        })
+    }
+
+    /// 解析建筑开单应走的结构轨（防御 / 建筑）。
+    pub(crate) fn structure_produce_defense_track(&self, type_id: TypeId) -> bool {
+        structure_is_defense(&self.definitions, type_id)
     }
 }

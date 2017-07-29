@@ -314,38 +314,43 @@ impl BattleSession {
                 low_power: p.low_power(),
             })
             .collect();
-        let produce_queues = self
-            .world
-            .entities
-            .iter()
-            .filter_map(|e| {
+        let produce_queues = {
+            let mut out = Vec::new();
+            for e in &self.world.entities {
                 let id = e.id;
-                let queue = self.world.ecs_get::<ProductionQueue>(id)?;
-                if let Some((type_id, remaining_ticks)) = queue.item {
+                let Some(queue) = self.world.ecs_get::<ProductionQueue>(id)
+                else {
+                    continue;
+                };
+                let rally_x = queue.rally_x;
+                let rally_y = queue.rally_y;
+                let mut push_slot = |type_id: ra_types::TypeId, remaining_ticks: u32| {
                     let total_ticks = self.world.definitions.techno.get_by_id(type_id).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
                     let key = std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&self.world.definitions, type_id));
-                    return Some(SnapshotProduceQueue {
+                    out.push(SnapshotProduceQueue {
                         factory: id,
                         type_id: key,
                         remaining_ticks,
                         total_ticks,
-                        rally_x: queue.rally_x,
-                        rally_y: queue.rally_y,
+                        rally_x,
+                        rally_y,
                     });
+                };
+                if let Some((type_id, remaining_ticks)) = queue.item {
+                    push_slot(type_id, remaining_ticks);
                 }
-                let ready = queue.ready?;
-                let total_ticks = self.world.definitions.techno.get_by_id(ready).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
-                let key = std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&self.world.definitions, ready));
-                Some(SnapshotProduceQueue {
-                    factory: id,
-                    type_id: key,
-                    remaining_ticks: 0,
-                    total_ticks,
-                    rally_x: queue.rally_x,
-                    rally_y: queue.rally_y,
-                })
-            })
-            .collect();
+                else if let Some(ready) = queue.ready {
+                    push_slot(ready, 0);
+                }
+                if let Some((type_id, remaining_ticks)) = queue.defense_item {
+                    push_slot(type_id, remaining_ticks);
+                }
+                else if let Some(ready) = queue.defense_ready {
+                    push_slot(ready, 0);
+                }
+            }
+            out
+        };
         HudSnapshot {
             tick: self.world.tick,
             players,

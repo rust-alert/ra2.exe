@@ -110,6 +110,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     }
 
     let mut pending_deploys: Vec<(TypeId, TechnoName, TechnoName)> = Vec::new();
+    // FreeUnit 目标可能后于建筑入库（与 DeploysInto 同理），第二遍再绑 TypeId。
+    let mut pending_free_units: Vec<(TechnoName, TechnoName)> = Vec::new();
 
     for tt in rules.techno_types.iter() {
         let key = tt.id.clone();
@@ -179,6 +181,9 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         let powered = tt.powered.unwrap_or(drain > 0);
         let construction_yard = tt.construction_yard;
         let refinery = tt.refinery;
+        if !tt.free_unit.is_empty() {
+            pending_free_units.push((key.clone(), tt.free_unit.clone()));
+        }
         let radar = tt.radar;
         let build_cat = tt.build_cat;
         let capturable = tt.capturable;
@@ -241,6 +246,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             armor: tt.armor,
             construction_yard,
             refinery,
+            free_unit: None,
             radar,
             build_cat,
             capturable,
@@ -267,6 +273,28 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             });
         };
         defs.deployables.insert(DeployableDefinition { source, source_key, target: t.id, target_key, placement: DeploymentPlacement::InPlace });
+    }
+
+    // 第二遍：绑定建筑 `FreeUnit=` → 单位 TypeId；未知目标为装载错误。
+    for (structure_key, free_unit_key) in pending_free_units {
+        let Some(unit) = defs.techno.get_name(&free_unit_key)
+        else {
+            return Err(RaError::UnknownReference {
+                kind: "techno",
+                name: free_unit_key.as_str().to_string(),
+                owner: format!("FreeUnit:{}", structure_key.as_str()),
+            });
+        };
+        let unit_id = unit.id;
+        let Some(structure) = defs.structures.iter_mut().find(|s| s.type_key == structure_key)
+        else {
+            return Err(RaError::UnknownReference {
+                kind: "structure",
+                name: structure_key.as_str().to_string(),
+                owner: format!("FreeUnit:{}", free_unit_key.as_str()),
+            });
+        };
+        structure.free_unit = Some(unit_id);
     }
 
     // 前置 token：UnboundType → TypeId；仍未绑定则为装载错误（禁止靠名称在引擎里兜底）。

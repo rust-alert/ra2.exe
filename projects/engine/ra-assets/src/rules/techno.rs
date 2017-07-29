@@ -104,6 +104,8 @@ pub struct TechnoType {
     pub construction_yard: bool,
     /// `Refinery`。
     pub refinery: bool,
+    /// `FreeUnit` 目标类型名；空表示建成后不白送单位。
+    pub free_unit: TechnoName,
     /// `Radar`。
     pub radar: bool,
     /// `BuildCat`（装载期一次解码）。
@@ -315,6 +317,8 @@ struct TechnoSectionFields {
     construction_yard: Option<bool>,
     #[serde(rename = "Refinery", default, deserialize_with = "deserialize_opt_bool")]
     refinery: Option<bool>,
+    #[serde(rename = "FreeUnit", default)]
+    free_unit: TechnoName,
     #[serde(rename = "Radar", default, deserialize_with = "deserialize_opt_bool")]
     radar: Option<bool>,
     #[serde(rename = "BuildCat", default)]
@@ -423,6 +427,7 @@ fn parse_techno(view: LayeredIniView<'_>, id: &TechnoName, kind: TechnoKind, ove
         powered: fields.powered,
         construction_yard: fields.construction_yard.unwrap_or(false),
         refinery: fields.refinery.unwrap_or(false),
+        free_unit: fields.free_unit,
         radar: fields.radar.unwrap_or(false),
         build_cat: fields.build_cat,
         capturable: fields.capturable.unwrap_or(false),

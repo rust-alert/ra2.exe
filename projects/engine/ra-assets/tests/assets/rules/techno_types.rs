@@ -148,6 +148,27 @@ Radar=yes\nRefinery=no\nSuperWeapon=Nuke\nPower=-50\n",
     assert_eq!(yard.factory, Some(ra_types::ProductionCategory::Building));
     assert_eq!(yard.super_weapon, "NUKE");
     assert_eq!(yard.power, -50);
+    assert!(yard.free_unit.is_empty());
+}
+
+#[test]
+fn parse_refinery_free_unit() {
+    let doc = IniDocument::parse(
+        b"[VehicleTypes]\n0=CMIN\n1=HARV\n\
+[BuildingTypes]\n0=GAREFN\n1=NAREFN\n\
+[CMIN]\nHarvester=yes\nStrength=1000\nCost=1400\n\
+[HARV]\nHarvester=yes\nStrength=1000\nCost=1400\n\
+[GAREFN]\nRefinery=yes\nFreeUnit=CMIN\nStrength=1000\nCost=2000\n\
+[NAREFN]\nRefinery=yes\nFreeUnit=HARV\nStrength=1000\nCost=2000\n",
+    )
+    .unwrap();
+    let reg = TechnoTypeRegistry::from_rules(&doc);
+    let ga = reg.get("GAREFN").unwrap();
+    assert!(ga.refinery);
+    assert_eq!(ga.free_unit, "CMIN");
+    let na = reg.get("NAREFN").unwrap();
+    assert!(na.refinery);
+    assert_eq!(na.free_unit, "HARV");
 }
 
 #[test]

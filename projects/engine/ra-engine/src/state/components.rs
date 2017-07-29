@@ -113,17 +113,81 @@ pub struct AttackState {
     pub follow_target: Option<EntityId>,
 }
 
+/// 单位厂 FIFO 总长上限（队首 `item` + `pending`），对齐原版侧栏可连点排队的量级。
+pub const MAX_UNIT_QUEUE_LEN: usize = 30;
+
 /// 工厂生产队列与集结格。
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// - **单位厂**：`item` 为队首推进项，`pending` 为 FIFO 候补；无 `ready`。
+/// - **建造场**：建筑栏用 `item`/`ready`，防御栏（`BuildCat=Combat`）用 `defense_item`/`defense_ready`，
+///   两轨并发；结构队列无 backlog（完工待落位占槽，落位或取消后才可再开单）。
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ProductionQueue {
-    /// 队列中的稳定类型 id 与剩余 tick（建造中）。
+    /// 建筑栏 / 单位厂队首：稳定类型 id 与剩余 tick。
     pub item: Option<(TypeId, u32)>,
-    /// 建造场已完工、待点选落位的建筑稳定类型 id（单位厂不用）。
+    /// 建造场防御栏队首（与 `item` 并发；单位厂不用）。
+    pub defense_item: Option<(TypeId, u32)>,
+    /// 建造场建筑栏已完工、待点选落位的稳定类型 id。
     pub ready: Option<TypeId>,
+    /// 建造场防御栏已完工、待点选落位的稳定类型 id。
+    pub defense_ready: Option<TypeId>,
+    /// 单位厂 FIFO 候补（不含队首）；建造场两侧栏不用。
+    pub pending: Vec<TypeId>,
     /// 集结格 X。
     pub rally_x: Option<u16>,
     /// 集结格 Y。
     pub rally_y: Option<u16>,
+}
+
+impl ProductionQueue {
+    /// 空队列（无在产、无完工件、无候补、无集结）。
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
+    /// 清空全部在产 / 完工件 / 候补（保留集结格）。
+    pub fn clear_production(&mut self) {
+        self.item = None;
+        self.defense_item = None;
+        self.ready = None;
+        self.defense_ready = None;
+        self.pending.clear();
+    }
+
+    /// 单位厂当前排队长度（队首 + 候补）。
+    pub fn unit_len(&self) -> usize {
+        usize::from(self.item.is_some()) + self.pending.len()
+    }
+
+    /// 单位厂是否还能再入队一件。
+    pub fn can_enqueue_unit(&self) -> bool {
+        self.unit_len() < MAX_UNIT_QUEUE_LEN
+    }
+
+    /// 建造场对应轨是否占用中（在产或待落位）。
+    pub fn structure_track_busy(&self, defense: bool) -> bool {
+        if defense {
+            self.defense_item.is_some() || self.defense_ready.is_some()
+        }
+        else {
+            self.item.is_some() || self.ready.is_some()
+        }
+    }
+
+    /// 任一槽位是否持有该类型（在产 / 待落位 / 候补）。
+    pub fn holds_type(&self, type_id: TypeId) -> bool {
+        self.item.is_some_and(|(t, _)| t == type_id)
+            || self.defense_item.is_some_and(|(t, _)| t == type_id)
+            || self.ready == Some(type_id)
+            || self.defense_ready == Some(type_id)
+            || self.pending.iter().any(|&t| t == type_id)
+    }
+
+    /// 是否有任意在产项（含防御轨）。
+    #[allow(dead_code)]
+    pub fn is_producing(&self) -> bool {
+        self.item.is_some() || self.defense_item.is_some()
+    }
 }
 
 /// 采矿车采集 / 运载状态。

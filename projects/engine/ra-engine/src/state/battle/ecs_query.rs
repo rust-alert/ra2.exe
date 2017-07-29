@@ -178,6 +178,18 @@ impl BattleState {
         )
     }
 
+    /// 读取单位厂 FIFO 长度：`(队首是否占用, 候补条数)`（测试与诊断）。
+    pub fn ecs_produce_unit_queue_len(&self, id: EntityId) -> Option<(bool, usize)> {
+        let queue = self.ecs_get::<crate::state::components::ProductionQueue>(id)?;
+        Some((queue.item.is_some(), queue.pending.len()))
+    }
+
+    /// 读取建造场防御轨是否占用（在产或待落位；测试与诊断）。
+    pub fn ecs_produce_defense_busy(&self, id: EntityId) -> Option<bool> {
+        let queue = self.ecs_get::<crate::state::components::ProductionQueue>(id)?;
+        Some(queue.structure_track_busy(true))
+    }
+
     /// 读取 ECS 集结格（测试与诊断）。
     pub fn ecs_rally(&self, id: EntityId) -> Option<(Option<u16>, Option<u16>)> {
         let queue = self.ecs_get::<crate::state::components::ProductionQueue>(id)?;
