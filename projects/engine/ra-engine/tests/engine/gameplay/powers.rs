@@ -86,3 +86,31 @@ fn zero_deferment_starts_on_ion() {
     start_lightning_storm(&mut world, 1, 1, 0, 1);
     assert_eq!(world.map.lighting_profile, LightingProfile::Ion);
 }
+
+#[test]
+fn active_storm_damages_units_near_target() {
+    use crate::common::{battle_from_defs, defs_from_rules_ini};
+    use ra_types::GameEdition;
+
+    let defs = defs_from_rules_ini(
+        b"[Countries]\n0=Americans\n\
+[Americans]\nSide=GDI\n\
+[InfantryTypes]\n0=E1\n\
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Americans\n",
+    );
+    let map = ra_map::MapInfo::parse_ini(
+        GameEdition::Ra2,
+        "storm-dmg.map",
+        b"[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n[Lighting]\nAmbient=1.0\n\
+IonAmbient=0.5\nIonRed=0.25\nIonGreen=0.25\nIonBlue=1.0\n",
+    )
+    .unwrap();
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    world.ensure_house("AMERICANS");
+    let id = world.spawn_unit_at("AMERICANS", "E1", 5, 5).expect("spawn");
+    let before = world.ecs_health(id).expect("health").0;
+    start_lightning_storm(&mut world, 5, 5, 0, 30);
+    tick_lightning_storm(&mut world);
+    let after = world.ecs_health(id).expect("health").0;
+    assert_eq!(before.saturating_sub(after), LIGHTNING_STRIKE_DAMAGE);
+}

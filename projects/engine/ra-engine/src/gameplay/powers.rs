@@ -1,14 +1,26 @@
 //! 超武与特殊能力（闪电风暴等）。
 //!
-//! 当前切片只推进闪电风暴倒计时，并在激活 / 结束时切换地图 `LightingProfile`；
-//! 落雷伤害与粒子另做。
+//! 当前切片：推进闪电风暴倒计时，激活／结束时切换地图 `LightingProfile`，
+//! 并在激活期间按间隔对目标格邻域造成落雷伤害。粒子特效另做。
 
-use ra_map::LightingProfile;
+use ra_map::{LightingProfile, MapEntityKind};
 
-use crate::state::BattleState;
+use crate::state::{
+    BattleState,
+    components::{Health, Identity, Transform},
+};
 
 /// 结束态标记：持续时间耗尽后保留一帧 Ion，再清场并切回 Normal。
 pub const ENDING_DURATION_SENTINEL: i32 = i32::MIN;
+
+/// 激活期两次落雷之间的逻辑 tick 间隔（竖切，非原版精确表）。
+pub const LIGHTNING_STRIKE_INTERVAL_TICKS: i32 = 15;
+
+/// 落雷相对目标格的切比雪夫半径（含中心格）。
+pub const LIGHTNING_STRIKE_RADIUS: i32 = 1;
+
+/// 单次落雷对命中单位／建筑的伤害（竖切）。
+pub const LIGHTNING_STRIKE_DAMAGE: u32 = 50;
 
 /// 全局唯一的闪电风暴状态（同时最多一场）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -22,12 +34,20 @@ pub struct LightningStormState {
     pub deferment_remaining: i32,
     /// 激活后剩余持续时间 tick（`-1` 表示无限）。
     pub duration_remaining: i32,
+    /// 距下一次落雷的剩余 tick（0 表示本帧应击打）。
+    pub strike_cooldown: i32,
 }
 
 impl LightningStormState {
     /// 构造一场风暴。
     pub fn new(target_x: u16, target_y: u16, deferment: i32, duration: i32) -> Self {
-        Self { target_x, target_y, deferment_remaining: deferment.max(0), duration_remaining: duration }
+        Self {
+            target_x,
+            target_y,
+            deferment_remaining: deferment.max(0),
+            duration_remaining: duration,
+            strike_cooldown: 0,
+        }
     }
 }
 
@@ -79,7 +99,7 @@ pub fn end_lightning_storm(world: &mut BattleState) {
     world.map.set_lighting_profile(LightingProfile::Normal);
 }
 
-/// 推进一场闪电风暴一个 tick，并同步光照档。
+/// 推进一场闪电风暴一个 tick，并同步光照档与落雷伤害。
 pub fn tick_lightning_storm(world: &mut BattleState) {
     let activates_now = match world.lightning_storm.as_mut() {
         None => return,
@@ -94,7 +114,8 @@ pub fn tick_lightning_storm(world: &mut BattleState) {
     };
     if activates_now {
         begin_lightning_storm(world);
-        // 延迟归零帧只切 Ion，不扣持续时间。
+        // 延迟归零帧只切 Ion，不扣持续时间；立即尝试首击。
+        apply_lightning_strike_if_due(world);
         return;
     }
 
@@ -108,12 +129,77 @@ pub fn tick_lightning_storm(world: &mut BattleState) {
         return;
     }
     if duration < 0 {
-        // `-1` 无限持续：保持 Ion，不扣减。
+        // `-1` 无限持续：保持 Ion，不扣减，仍落雷。
+        apply_lightning_strike_if_due(world);
         return;
     }
 
+    apply_lightning_strike_if_due(world);
     let storm = world.lightning_storm.as_mut().expect("激活风暴仍应存在");
     storm.duration_remaining -= 1;
+}
+
+/// 若冷却到期，对目标邻域造成一次落雷伤害并重置间隔。
+fn apply_lightning_strike_if_due(world: &mut BattleState) {
+    let (cx, cy) = {
+        let Some(storm) = world.lightning_storm.as_mut()
+        else {
+            return;
+        };
+        if storm.deferment_remaining > 0 || storm.duration_remaining == ENDING_DURATION_SENTINEL || storm.duration_remaining == 0 {
+            return;
+        }
+        if storm.strike_cooldown > 0 {
+            storm.strike_cooldown -= 1;
+            return;
+        }
+        storm.strike_cooldown = LIGHTNING_STRIKE_INTERVAL_TICKS;
+        (storm.target_x, storm.target_y)
+    };
+    apply_lightning_strike_at(world, cx, cy);
+}
+
+/// 对中心格切比雪夫半径内的存活实体造成 [`LIGHTNING_STRIKE_DAMAGE`]。
+fn apply_lightning_strike_at(world: &mut BattleState, cx: u16, cy: u16) {
+    let radius = LIGHTNING_STRIKE_RADIUS;
+    let mut hit_indices = Vec::new();
+    for (index, entity) in world.entities.iter().enumerate() {
+        let id = entity.id;
+        if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+            continue;
+        }
+        let Some(xf) = world.ecs_get::<Transform>(id)
+        else {
+            continue;
+        };
+        let is_structure = world.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false);
+        let covers = if is_structure {
+            let type_id = world.ecs_get::<Identity>(id).map(|i| i.type_id);
+            let foundation =
+                type_id.and_then(|tid| world.definitions.structures.get_by_id(tid)).map(|s| s.foundation.clone()).unwrap_or_default();
+            let fw = foundation.width.max(1) as i32;
+            let fh = foundation.height.max(1) as i32;
+            // 建筑占地与风暴圆盘是否相交（格中心切比雪夫距离）。
+            let left = xf.x as i32;
+            let top = xf.y as i32;
+            let right = left + fw - 1;
+            let bottom = top + fh - 1;
+            let nearest_x = (cx as i32).clamp(left, right);
+            let nearest_y = (cy as i32).clamp(top, bottom);
+            (nearest_x - cx as i32).abs().max((nearest_y - cy as i32).abs()) <= radius
+        }
+        else {
+            let dx = (xf.x as i32 - cx as i32).abs();
+            let dy = (xf.y as i32 - cy as i32).abs();
+            dx.max(dy) <= radius
+        };
+        if covers {
+            hit_indices.push(index);
+        }
+    }
+    for index in hit_indices {
+        world.apply_damage(index, LIGHTNING_STRIKE_DAMAGE);
+    }
 }
 
 /// `RechargeTime` 原版分钟档 → 逻辑 tick（竖切换算；后续可接速度档）。
