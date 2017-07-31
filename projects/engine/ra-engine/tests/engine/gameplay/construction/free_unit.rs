@@ -133,3 +133,119 @@ fn place_refinery_without_free_unit_spawns_nothing_extra() {
     assert_eq!(world.entity_count(), 3);
     assert!(world.find_entity_id_by_owner_type("AMERICANS", "CMIN").is_none());
 }
+
+#[test]
+fn place_soviet_refinery_spawns_harv() {
+    let rules_text = b"[VehicleTypes]\n0=SMCV\n1=HARV\n\
+[BuildingTypes]\n0=NACNST\n1=NAPOWR\n2=NAREFN\n\
+[SMCV]\nDeploysInto=NACNST\nOwner=Russians\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\nTechLevel=1\n\
+[HARV]\nHarvester=yes\nOwner=Russians\nStrength=1000\nSpeed=4\nSight=4\nCost=1400\nTechLevel=1\n\
+[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
+[NAPOWR]\nPower=200\nOwner=Russians\nStrength=600\nSight=4\nCost=600\nTechLevel=1\nFoundation=1x1\n\
+[NAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nFreeUnit=HARV\nOwner=Russians\nStrength=900\nSight=4\nCost=2000\nTechLevel=1\nFoundation=2x2\n";
+    let defs = defs_from_rules_ini(rules_text);
+    assert_eq!(defs.structures.get("NAREFN").and_then(|s| s.free_unit), Some(defs.techno.get("HARV").expect("HARV").id));
+    let mut map = MapInfo::empty(GameEdition::Ra2, "free-harv");
+    map.width = 24;
+    map.height = 24;
+    map.entities = vec![MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "RUSSIANS".into(),
+        type_id: "NACNST".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    }];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.set_house_funds("RUSSIANS", 10_000));
+
+    let napowr = world.definitions.techno.get("NAPOWR").expect("NAPOWR").id;
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: napowr });
+    world.advance_tick();
+    for _ in 0..=PRODUCE_TICKS {
+        if world.house_ready_building("RUSSIANS") == Some(napowr) {
+            break;
+        }
+        world.advance_tick();
+    }
+    assert_eq!(world.house_ready_building("RUSSIANS"), Some(napowr));
+    world.push_command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: napowr, x: 7, y: 4 });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty());
+
+    let narefn = world.definitions.techno.get("NAREFN").expect("NAREFN").id;
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: narefn });
+    world.advance_tick();
+    for _ in 0..=PRODUCE_TICKS {
+        if world.house_ready_building("RUSSIANS") == Some(narefn) {
+            break;
+        }
+        world.advance_tick();
+    }
+    assert_eq!(world.house_ready_building("RUSSIANS"), Some(narefn));
+    world.push_command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: narefn, x: 10, y: 4 });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty());
+    let miner = world.find_entity_id_by_owner_type("RUSSIANS", "HARV").expect("free HARV");
+    assert_eq!(world.ecs_mission(miner), Some(MissionKind::Harvest));
+}
+
+#[test]
+fn free_unit_refunds_when_no_open_cell() {
+    // 3×2 图：右列建造场+电厂，左 2×2 放满矿场 → 无空格可放 FreeUnit，退还 Cost。
+    let rules_text = b"[VehicleTypes]\n0=AMCV\n1=CMIN\n\
+[BuildingTypes]\n0=GACNST\n1=GAPOWR\n2=GAREFN\n\
+[AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\nTechLevel=1\n\
+[CMIN]\nHarvester=yes\nOwner=Americans\nStrength=1000\nSpeed=4\nSight=4\nCost=1400\nTechLevel=1\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
+[GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\nFoundation=1x1\n\
+[GAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nFreeUnit=CMIN\nOwner=Americans\nStrength=900\nSight=4\nCost=2000\nTechLevel=1\nFoundation=2x2\n";
+    let defs = defs_from_rules_ini(rules_text);
+    let cmin_cost = defs.techno.get("CMIN").expect("CMIN").cost;
+    let mut map = MapInfo::empty(GameEdition::Ra2, "free-refund");
+    map.width = 3;
+    map.height = 2;
+    map.entities = vec![MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "AMERICANS".into(),
+        type_id: "GACNST".into(),
+        health: 256,
+        x: 2,
+        y: 0,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    }];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+
+    queue_until_ready(&mut world, "GAPOWR");
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: world.definitions.techno.get("GAPOWR").expect("GAPOWR").id,
+        x: 2,
+        y: 1,
+    });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty(), "{:?}", world.last_rejects());
+
+    queue_until_ready(&mut world, "GAREFN");
+    let funds_before = world.house_funds("AMERICANS").expect("funds");
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: world.definitions.techno.get("GAREFN").expect("GAREFN").id,
+        x: 0,
+        y: 0,
+    });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty(), "{:?}", world.last_rejects());
+    // 矿场 + 建造场 + 电厂，无 FreeUnit
+    assert_eq!(world.entity_count(), 3);
+    assert!(world.find_entity_id_by_owner_type("AMERICANS", "CMIN").is_none());
+    assert_eq!(world.house_funds("AMERICANS"), Some(funds_before + cmin_cost));
+}
