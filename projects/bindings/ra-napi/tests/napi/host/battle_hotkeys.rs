@@ -9,6 +9,9 @@ fn stock_defaults_match_retail_codes() {
     let map = HotkeyMap::stock_ra2();
     assert_eq!(map.action_for(68, false, false, false), Some(HotkeyAction::DeployObject));
     assert_eq!(map.action_for(81, false, false, false), Some(HotkeyAction::StructureTab));
+    assert_eq!(map.action_for(87, false, false, false), Some(HotkeyAction::DefenseTab));
+    assert_eq!(map.action_for(69, false, false, false), Some(HotkeyAction::InfantryTab));
+    assert_eq!(map.action_for(82, false, false, false), Some(HotkeyAction::UnitTab));
     assert_eq!(map.action_for(49, false, false, false), Some(HotkeyAction::TeamSelect(1)));
     assert_eq!(map.action_for(49, false, true, false), Some(HotkeyAction::TeamCreate(1)));
     assert_eq!(map.action_for(49, true, false, false), Some(HotkeyAction::TeamAddSelect(1)));

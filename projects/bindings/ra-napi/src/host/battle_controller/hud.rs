@@ -77,7 +77,9 @@ impl BattleController {
         ]
     }
 
-    /// 热键切页签（`keyboard.ini` Structure/Defense/Infantry/UnitTab）。落位须点闪烁 cameo，不在切页时自动进入。
+    /// 热键切页签（`keyboard.ini` Structure/Defense/Infantry/UnitTab）。
+    ///
+    /// 建筑 / 防御页：切页后若该轨有待落位完工件，自动进入放置模式（对齐原版 Q/W）。
     pub(super) fn hotkey_sidebar_tab(&mut self, tab: usize) {
         let tab = tab.min(SIDEBAR_TAB_COUNT.saturating_sub(1));
         let visible = Self::sidebar_tabs_visible(self.current_capabilities().as_ref());
@@ -92,6 +94,47 @@ impl BattleController {
             }
             tracing::info!("侧栏页签 · {tab}（热键）");
         }
+        if tab <= 1 {
+            self.select_ready_place_on_current_tab();
+        }
+    }
+
+    /// 当前建筑 / 防御页若有待落位完工件，进入放置模式。
+    pub(super) fn select_ready_place_on_current_tab(&mut self) {
+        if self.sidebar_tab > 1 {
+            return;
+        }
+        let Some(caps) = self.current_capabilities()
+        else {
+            return;
+        };
+        let items = Self::tab_items(&caps, self.sidebar_tab);
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return;
+        };
+        let Some(item) = items.iter().find(|item| game.is_local_ready_to_place(item.type_id.as_ref()))
+        else {
+            return;
+        };
+        let type_id = item.type_id.as_ref();
+        if self.place_mode.as_deref() == Some(type_id) {
+            return;
+        }
+        self.enter_place_mode(type_id);
+        tracing::info!("建造模式 · 热键选中完工件 {type_id}");
+    }
+
+    /// 进入建筑放置模式，并清掉互斥的侧栏 / 命令条工具态。
+    pub(super) fn enter_place_mode(&mut self, type_id: &str) {
+        self.repair_mode = false;
+        self.sell_mode = false;
+        self.planning_mode = false;
+        self.planning_waypoints.clear();
+        self.attack_move_mode = false;
+        self.deploy_mode = false;
+        self.follow_mode = false;
+        self.place_mode = Some(type_id.to_string());
     }
 
     /// 当前页签若已无基础，切到第一个仍可见的页签。
@@ -211,14 +254,7 @@ impl BattleController {
                                     tracing::info!("建造模式 · 已关闭");
                                 }
                                 else {
-                                    self.repair_mode = false;
-                                    self.sell_mode = false;
-                                    self.planning_mode = false;
-                                    self.planning_waypoints.clear();
-                                    self.attack_move_mode = false;
-                                    self.deploy_mode = false;
-                                    self.follow_mode = false;
-                                    self.place_mode = Some(type_id.to_string());
+                                    self.enter_place_mode(type_id);
                                     tracing::info!("建造模式 · 放置 {type_id}（点地图落地，右键/Esc 取消）");
                                 }
                                 return BattleNav::None;
