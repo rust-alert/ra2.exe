@@ -6,6 +6,7 @@
 //! - Select = 18×13
 //! - Move = 31×10 / NoMove = 41
 //! - Attack = 53×5
+//! - Sell = 88 / Repair = 99
 //! - Deploy = 110×9 / NoDeploy = 119
 
 use ra_assets::{Palette, ShpFile};
@@ -36,6 +37,10 @@ pub const MOUSE_DEPLOY_START: usize = 110;
 pub const MOUSE_DEPLOY_LEN: usize = 9;
 /// NoDeploy 单帧。
 pub const MOUSE_NO_DEPLOY_START: usize = 119;
+/// Sell 工具光标单帧。
+pub const MOUSE_SELL_START: usize = 88;
+/// Repair 工具光标单帧。
+pub const MOUSE_REPAIR_START: usize = 99;
 /// 可滚边缘光标起始帧（N）。
 pub const MOUSE_SCROLL_START: usize = 2;
 /// 贴边禁止滚光标起始帧（N）。
@@ -111,7 +116,7 @@ pub struct DecodedMouseCursorFrame {
     pub hotspot_y: u16,
 }
 
-/// 对局软件光标：默认 / 选择 / 移动 / 攻击 / 部署 / 边缘滚屏。
+/// 对局软件光标：默认 / 选择 / 移动 / 攻击 / 出售 / 修理 / 部署 / 边缘滚屏。
 #[derive(Debug, Clone)]
 pub struct DecodedBattleEdgeCursors {
     /// 默认箭头。
@@ -124,6 +129,10 @@ pub struct DecodedBattleEdgeCursors {
     pub no_move: DecodedMouseCursorFrame,
     /// 可攻击。
     pub attack: Vec<DecodedMouseCursorFrame>,
+    /// 出售工具。
+    pub sell: DecodedMouseCursorFrame,
+    /// 修理工具。
+    pub repair: DecodedMouseCursorFrame,
     /// 可部署。
     pub deploy: Vec<DecodedMouseCursorFrame>,
     /// 不可部署。
@@ -152,11 +161,25 @@ pub fn load_battle_edge_cursors(source: &GameAssetSource) -> Option<DecodedBattl
     let move_ok = decode_seq(&shp, &pal, MOUSE_MOVE_START, MOUSE_MOVE_LEN, MouseCursorHotspot::CenterMiddle)?;
     let no_move = decode_one(&shp, &pal, MOUSE_NO_MOVE_START, MouseCursorHotspot::CenterMiddle)?;
     let attack = decode_seq(&shp, &pal, MOUSE_ATTACK_START, MOUSE_ATTACK_LEN, MouseCursorHotspot::CenterMiddle)?;
+    let sell = decode_one(&shp, &pal, MOUSE_SELL_START, MouseCursorHotspot::CenterMiddle)?;
+    let repair = decode_one(&shp, &pal, MOUSE_REPAIR_START, MouseCursorHotspot::CenterMiddle)?;
     let deploy = decode_seq(&shp, &pal, MOUSE_DEPLOY_START, MOUSE_DEPLOY_LEN, MouseCursorHotspot::CenterMiddle)?;
     let no_deploy = decode_one(&shp, &pal, MOUSE_NO_DEPLOY_START, MouseCursorHotspot::CenterMiddle)?;
     let scroll = decode_dir_ring(&shp, &pal, MOUSE_SCROLL_START)?;
     let blocked = decode_dir_ring(&shp, &pal, MOUSE_SCROLL_BLOCKED_START)?;
-    Some(DecodedBattleEdgeCursors { default, select, move_ok, no_move, attack, deploy, no_deploy, scroll, blocked })
+    Some(DecodedBattleEdgeCursors {
+        default,
+        select,
+        move_ok,
+        no_move,
+        attack,
+        sell,
+        repair,
+        deploy,
+        no_deploy,
+        scroll,
+        blocked,
+    })
 }
 
 pub fn open_mouse_shp(source: &GameAssetSource) -> Option<(ShpFile, Palette)> {
