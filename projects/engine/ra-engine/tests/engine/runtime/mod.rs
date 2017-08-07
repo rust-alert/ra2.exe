@@ -23,5 +23,7 @@ mod session;
 mod session_validate;
 mod skirmish_fingerprint;
 mod skirmish_starts;
+mod starting_units;
+mod starting_units_stock;
 mod triggers_win;
 mod victory_structures;

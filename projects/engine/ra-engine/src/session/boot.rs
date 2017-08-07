@@ -8,7 +8,9 @@ use ra_types::{AssetSource, GameEdition, PreparedMap, RaResult, RuntimeDefinitio
 use crate::{
     engine::{Engine, EngineConfig},
     game::{BattleSession, SessionBootKind},
-    gameplay::starting_mcv_id_for_house,
+    gameplay::{
+        compose_starting_unit_ids, format_type_keys, starting_deploy_clearance, starting_mcv_id_for_house, starting_unit_pools,
+    },
     session::Session,
     state::BattleState,
 };
@@ -379,4 +381,108 @@ fn seed_skirmish_starts_at_waypoints(state: &mut BattleState, houses: &[&str]) -
         parts.push(format!("{house}@{slot}:({x},{y})={mcv_key}#{id:?}"));
     }
     Ok(parts.join(" "))
+}
+
+/// 遭遇战大厅 `Unit Count`：在各席位航点周围按阵营种植开局部队（不含 MCV）。
+///
+/// - 候选：地面步兵 / 载具，且 `AllowedToStartInMultiplayer`（缺省是）、Owner / 科技允许，排除 BaseUnit。
+/// - 交替取最便宜步兵与最便宜载具，占位在 MCV 展开 Foundation **之外**的扩环空格。
+/// - 应在写入大厅 `tech_level` 之后调用，以便科技上限生效。
+pub fn seed_skirmish_starting_units(state: &mut BattleState, houses: &[&str], unit_count: i32) -> RaResult<String> {
+    let unit_count = unit_count.clamp(0, 20);
+    if unit_count <= 0 {
+        return Ok(String::new());
+    }
+    let mut parts = Vec::new();
+    for (slot, house) in houses.iter().enumerate() {
+        if house.is_empty() {
+            continue;
+        }
+        let slot = slot as u32;
+        let Some((ox, oy)) = state.prepared.definition.waypoints.iter().find(|w| w.index == slot).map(|w| (w.x, w.y))
+        else {
+            return Err(ra_types::RaError::Msg(format!("开局部队席位 {slot} 缺少地图航点（house={house}）")));
+        };
+        let Some(house_id) = crate::gameplay::house_id_of(&state.definitions, house)
+        else {
+            return Err(ra_types::RaError::Msg(format!("未知开局部队阵营: {house}")));
+        };
+        let tech_level = state
+            .players
+            .iter()
+            .find(|p| p.house.eq_ignore_ascii_case(house))
+            .map(|p| p.tech_level)
+            .unwrap_or(state.definitions.default_tech_level);
+        let (infantry, vehicles) = starting_unit_pools(&state.definitions, house, tech_level);
+        if infantry.is_empty() && vehicles.is_empty() {
+            return Err(ra_types::RaError::Msg(format!(
+                "阵营 {house} 无可用开局部队（需至少一种 AllowedToStartInMultiplayer 地面步兵或载具）"
+            )));
+        }
+        if infantry.is_empty() || vehicles.is_empty() {
+            return Err(ra_types::RaError::Msg(format!(
+                "阵营 {house} 开局部队不完整（须同时具备 AllowedToStartInMultiplayer 步兵与载具）"
+            )));
+        }
+        let ids = compose_starting_unit_ids(&infantry, &vehicles, unit_count);
+        let plan = format_type_keys(&state.definitions, &ids);
+        let (clear_w, clear_h) = starting_deploy_clearance(&state.definitions, house);
+        let mut blocked: Vec<(u16, u16)> = Vec::new();
+        let mut placed = 0usize;
+        for type_id in &ids {
+            let Some((x, y)) = find_starting_unit_cell(state, ox, oy, clear_w, clear_h, &blocked)
+            else {
+                break;
+            };
+            match state.spawn_unit_at_ids(house_id, *type_id, x, y) {
+                Ok(_) => placed = placed.saturating_add(1),
+                Err(_) => {
+                    // 与 `can_place` 不一致时跳过该格，避免死循环同一格。
+                    blocked.push((x, y));
+                }
+            }
+        }
+        parts.push(format!("{house}@{slot}:n{placed}/{}[{plan}]", unit_count));
+    }
+    Ok(parts.join(" "))
+}
+
+/// 航点外扩环搜可放格：跳过 MCV 展开 Foundation 矩形，并避开 `blocked`。
+fn find_starting_unit_cell(
+    state: &BattleState,
+    ox: u16,
+    oy: u16,
+    clear_w: u16,
+    clear_h: u16,
+    blocked: &[(u16, u16)],
+) -> Option<(u16, u16)> {
+    let clear_w = clear_w.max(1);
+    let clear_h = clear_h.max(1);
+    let min_r = i32::from(clear_w.max(clear_h));
+    let max_r = min_r.saturating_add(24);
+    for r in min_r..=max_r {
+        for dy in -r..=r {
+            for dx in -r..=r {
+                if dx.abs().max(dy.abs()) != r {
+                    continue;
+                }
+                let x = i32::from(ox) + dx;
+                let y = i32::from(oy) + dy;
+                if x < 0 || y < 0 {
+                    continue;
+                }
+                let (x, y) = (x as u16, y as u16);
+                if x >= ox && y >= oy && x < ox.saturating_add(clear_w) && y < oy.saturating_add(clear_h) {
+                    continue;
+                }
+                if blocked.iter().any(|&(bx, by)| bx == x && by == y) {
+                    continue;
+                }
+                if state.can_place_structure(x, y) {
+                    return Some((x, y));
+                }
+            }
+        }
+    }
+    None
 }

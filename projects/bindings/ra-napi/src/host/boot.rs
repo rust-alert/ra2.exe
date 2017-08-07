@@ -8,7 +8,8 @@ use ra_assets::{
     parse_battle_campaigns, parse_mission_presentations, parse_mpmodes, tiberium_overlay_display_hsv_bound,
 };
 use ra_engine::{
-    Engine, Session, open_campaign_session_prepared, open_skirmish_session_prepared, strip_skirmish_map_mobiles, validate_map_for_battle,
+    Engine, Session, open_campaign_session_prepared, open_skirmish_session_prepared, seed_skirmish_starting_units, strip_skirmish_map_mobiles,
+    validate_map_for_battle,
 };
 use ra_map::{
     MapEntity, MapEntityKind, MapInfo, MobilePaintPose, PaintDefinitions, PaintDefinitionsLoader, StructureAnimBank, StructureLightTable,
@@ -849,6 +850,21 @@ pub fn boot_world_with_progress(
                 game.world.set_all_players_funds(request.credits);
             }
             game.world.set_all_players_tech_level(request.tech_level);
+            // Unit Count：科技上限写入后再种开局部队，保证 TechLevel / Owner 过滤正确。
+            if request.boot_kind == LoadKind::Skirmish && request.unit_count > 0 {
+                match seed_skirmish_starting_units(&mut game.world, &ensure_refs, request.unit_count) {
+                    Ok(starts) if !starts.is_empty() => {
+                        note = format!("{note} · units={} · start_units=[{starts}]", request.unit_count);
+                    }
+                    Ok(_) => {}
+                    Err(e) => {
+                        note = format!("{note} · start_units失败（{e}）");
+                        tracing::error!(error = %e, unit_count = request.unit_count, "遭遇战开局部队种植失败");
+                        report(1.0, "开局部队失败");
+                        return Ok(BootResult::failed(note));
+                    }
+                }
+            }
             tracing::info!(
                 "fingerprint edition={} map={} rules_hash={:#x} seed={:#x}",
                 opened.session.expect_battle().fingerprint.edition,

@@ -159,6 +159,7 @@ fn techno(key: &str, class: TechnoClass, owner: &str, tech_level: i32, prerequis
         owner_ids: ra_types::HouseIdAllowList::empty(),
         tech_level,
         naval: false,
+        allowed_to_start_in_multiplayer: true,
         agent: false,
         engineer: false,
         harvester: false,

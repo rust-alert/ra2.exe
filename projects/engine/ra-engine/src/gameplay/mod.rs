@@ -18,6 +18,7 @@ pub mod production;
 mod repair;
 mod rules;
 mod script_teams;
+mod starting_units;
 mod targeting;
 pub mod tech_tree;
 pub mod terrain_spawn;
@@ -34,6 +35,7 @@ pub(crate) use definitions_query::{
     is_refinery, owner_allows, required_houses_allows, requires_power_plant, starting_mcv_id_for_house, structure_is_defense,
     super_weapon_id_of, type_id_of, type_key_of,
 };
+pub(crate) use starting_units::{compose_starting_unit_ids, format_type_keys, starting_deploy_clearance, starting_unit_pools};
 pub use powers::{
     FireSuperWeaponError, LightningStormState, SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT, SuperWeaponRuntime, start_lightning_storm,
     tick_lightning_storm, tick_super_weapon_charges, try_fire_super_weapon,

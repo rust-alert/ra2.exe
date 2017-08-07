@@ -134,6 +134,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             owner_ids: ra_types::HouseIdAllowList::empty(),
             tech_level: tt.tech_level,
             naval: tt.naval,
+            allowed_to_start_in_multiplayer: tt.allowed_to_start_in_multiplayer,
             agent: tt.agent,
             engineer: tt.engineer,
             harvester: tt.harvester,

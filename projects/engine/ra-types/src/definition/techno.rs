@@ -245,6 +245,8 @@ pub struct TechnoDefinition {
     pub tech_level: i32,
     /// `Naval=yes`。
     pub naval: bool,
+    /// `AllowedToStartInMultiplayer`；缺省 `true`。遭遇战开局部队候选过滤。
+    pub allowed_to_start_in_multiplayer: bool,
     /// `Agent=yes`（可渗透敌方建筑）。
     pub agent: bool,
     /// `Engineer=yes`（可占领敌方可俘建筑）。

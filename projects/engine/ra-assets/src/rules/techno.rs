@@ -40,6 +40,8 @@ pub struct TechnoType {
     pub category: TechnoCategory,
     /// `Naval=yes`。
     pub naval: bool,
+    /// `AllowedToStartInMultiplayer`；缺省 `true`。
+    pub allowed_to_start_in_multiplayer: bool,
     /// `Agent=yes`（可渗透敌方建筑的间谍类单位）。
     pub agent: bool,
     /// `Engineer=yes`（可占领敌方可俘建筑）。
@@ -275,6 +277,8 @@ struct TechnoSectionFields {
     category: TechnoCategory,
     #[serde(rename = "Naval", default, deserialize_with = "deserialize_opt_bool")]
     naval: Option<bool>,
+    #[serde(rename = "AllowedToStartInMultiplayer", default, deserialize_with = "deserialize_opt_bool")]
+    allowed_to_start_in_multiplayer: Option<bool>,
     #[serde(rename = "Agent", default, deserialize_with = "deserialize_opt_bool")]
     agent: Option<bool>,
     #[serde(rename = "Engineer", default, deserialize_with = "deserialize_opt_bool")]
@@ -395,6 +399,7 @@ fn parse_techno(view: LayeredIniView<'_>, id: &TechnoName, kind: TechnoKind, ove
         image,
         category: fields.category,
         naval: fields.naval.unwrap_or(false),
+        allowed_to_start_in_multiplayer: fields.allowed_to_start_in_multiplayer.unwrap_or(true),
         agent: fields.agent.unwrap_or(false),
         engineer: fields.engineer.unwrap_or(false),
         harvester: fields.harvester.unwrap_or(false),

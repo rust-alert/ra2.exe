@@ -20,6 +20,7 @@ fn sample(build_time: u32) -> TechnoDefinition {
         owner_ids: ra_types::HouseIdAllowList::empty(),
         tech_level: 1,
         naval: false,
+        allowed_to_start_in_multiplayer: true,
         agent: false,
         engineer: false,
         harvester: false,
