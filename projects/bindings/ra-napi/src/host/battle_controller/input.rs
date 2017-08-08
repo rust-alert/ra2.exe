@@ -42,18 +42,16 @@ impl BattleController {
         let vp = self.map_viewport(window);
         let (wx, wy) = vp.screen_to_world(renderer.camera(), self.cursor.0 as f32, self.cursor.1 as f32);
 
-        // 出售工具：悬停本方建筑时用点选光标提示可点售。
+        // 出售工具：专用 Sell 光标（右键取消工具态）。
         if self.sell_mode {
-            if Self::pick_local_building_at_image(game, wx, wy).is_some() {
-                return BattlePointer::Select;
-            }
-            return BattlePointer::Default;
+            return BattlePointer::Sell;
         }
-        // 修理工具：悬停本方建筑时用点选光标提示可点修。
+        // 修理工具：专用 Repair 光标（右键取消工具态）。
         if self.repair_mode {
-            if Self::pick_local_building_at_image(game, wx, wy).is_some() {
-                return BattlePointer::Select;
-            }
+            return BattlePointer::Repair;
+        }
+        // 建造放置：不伪装成可下令 Move（右键只取消放置）。
+        if self.place_mode.is_some() {
             return BattlePointer::Default;
         }
 
@@ -233,48 +231,60 @@ impl BattleController {
                 .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
         });
         let has_structure = game.selection_has_structure(&selected);
+        let order_mod = super::super::battle_input::OrderClickModifier::from_keys(self.ctrl_down, self.alt_down);
+        let queue_path = self.shift_down;
 
         // 本方单位 / 建筑优先：选择（或加选），不发移动 / 攻击。
-        let local_picked =
-            game.pick_local_mobile_near_image(wx, wy, 72.0).or_else(|| Self::pick_local_building_at_image(game, wx, wy)).or_else(|| {
-                let cell = game.image_to_cell(wx, wy)?;
-                if let Some(house) = local_house.as_deref() {
-                    game.pick_mobile_at_owned(cell.0, cell.1, Some(house))
+        // Alt 强制移动时跳过友军点选，允许点到友军所占格仍下令移动。
+        let skip_friendly_pick = matches!(order_mod, super::super::battle_input::OrderClickModifier::ForceMove) && has_mobile;
+        if !skip_friendly_pick {
+            let local_picked =
+                game.pick_local_mobile_near_image(wx, wy, 72.0).or_else(|| Self::pick_local_building_at_image(game, wx, wy)).or_else(|| {
+                    let cell = game.image_to_cell(wx, wy)?;
+                    if let Some(house) = local_house.as_deref() {
+                        game.pick_mobile_at_owned(cell.0, cell.1, Some(house))
+                    }
+                    else {
+                        game.pick_mobile_at(cell.0, cell.1)
+                    }
+                });
+            if let Some(id) = local_picked {
+                let cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
+                // 左键点己方单位只负责选择；部署仅由命令条 Deploy / `D` 即时下发。
+                if add {
+                    self.local.select_add(game, id);
+                    tracing::info!("加选实体 #{} @({},{}) · 选中 {:?}", id.0, cell.0, cell.1, self.local.selected);
                 }
                 else {
-                    game.pick_mobile_at(cell.0, cell.1)
+                    self.local.select_only(game, id);
+                    tracing::info!("选中实体 #{} @({},{})", id.0, cell.0, cell.1);
                 }
-            });
-        if let Some(id) = local_picked {
-            let cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
-            // 左键点己方单位只负责选择；部署仅由命令条 Deploy / `D` 即时下发。
-            if add {
-                self.local.select_add(game, id);
-                tracing::info!("加选实体 #{} @({},{}) · 选中 {:?}", id.0, cell.0, cell.1, self.local.selected);
+                self.pulse_action_lines_at(tick);
+                return;
             }
-            else {
-                self.local.select_only(game, id);
-                tracing::info!("选中实体 #{} @({},{})", id.0, cell.0, cell.1);
-            }
-            self.pulse_action_lines_at(tick);
-            return;
         }
 
-        // 已选机动单位：左键敌方 → 攻击 / 占领 / 渗透（图像软命中）。
-        if has_mobile {
+        // 已选机动单位：左键敌方 → 攻击 / 占领 / 渗透（Alt 强制移动则跳过，改走落点移动）。
+        if has_mobile && !matches!(order_mod, super::super::battle_input::OrderClickModifier::ForceMove) {
             if let Some(target) = game.pick_hostile_near_image(wx, wy, 72.0) {
                 let is_structure = game.world.ecs_identity(target).is_some_and(|(_, kind)| kind == MapEntityKind::Structure);
+                let force_attack = matches!(order_mod, super::super::battle_input::OrderClickModifier::ForceAttack);
                 if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                    if is_structure && game.selection_has_engineer(&selected) && game.is_capturable_structure(target) {
+                    if !force_attack && is_structure && game.selection_has_engineer(&selected) && game.is_capturable_structure(target) {
                         tracing::info!("命令占领 → #{}（选中 {:?}）", target.0, selected);
                         game.order_capture_building(&selected, target);
                     }
-                    else if is_structure && game.selection_has_agent(&selected) {
+                    else if !force_attack && is_structure && game.selection_has_agent(&selected) {
                         tracing::info!("命令渗透 → #{}（选中 {:?}）", target.0, selected);
                         game.order_infiltrate(&selected, target);
                     }
                     else {
-                        tracing::info!("命令攻击 → #{}（选中 {:?}）", target.0, selected);
+                        tracing::info!(
+                            force = force_attack,
+                            "命令攻击 → #{}（选中 {:?}）",
+                            target.0,
+                            selected
+                        );
                         game.order_attack(&selected, target);
                     }
                 }
@@ -286,11 +296,28 @@ impl BattleController {
             }
         }
 
-        // 已选单位 / 建筑：左键空地 → 移动、攻击移动或设集结点。
+        // 已选单位 / 建筑：左键空地 → 移动、攻击移动、强制攻击近似或设集结点。
         if let Some(cell) = game.image_to_cell(wx, wy) {
             if has_mobile {
+                if queue_path && matches!(order_mod, super::super::battle_input::OrderClickModifier::None) && !self.attack_move_mode {
+                    // Shift+左键空地：追加路径点并下发整条路径。
+                    if self.planning_waypoints.last().copied() != Some(cell) {
+                        self.planning_waypoints.push(cell);
+                    }
+                    let points = self.planning_waypoints.clone();
+                    let pulse_tick = self.session.as_mut().and_then(|s| s.battle_mut()).map(|game| {
+                        let tick = game.world.tick;
+                        tracing::info!(count = points.len(), "Shift 路径 · 下发 MovePath → ({},{})", cell.0, cell.1);
+                        game.order_move_path(&selected, &points);
+                        tick
+                    });
+                    if let Some(tick) = pulse_tick {
+                        self.pulse_action_lines_at(tick);
+                    }
+                    return;
+                }
                 if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                    if self.attack_move_mode {
+                    if matches!(order_mod, super::super::battle_input::OrderClickModifier::ForceAttack) || self.attack_move_mode {
                         tracing::info!("命令攻击移动 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
                         game.order_attack_move(&selected, cell.0, cell.1);
                     }
@@ -298,6 +325,9 @@ impl BattleController {
                         tracing::info!("命令移动 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
                         game.order_move(&selected, cell.0, cell.1);
                     }
+                }
+                if !queue_path {
+                    self.planning_waypoints.clear();
                 }
                 self.attack_move_mode = false;
                 self.deploy_mode = false;
@@ -389,7 +419,7 @@ impl BattleController {
 
     pub(super) fn handle_right_click(&mut self, renderer: &Renderer, window: &Window) {
         let _ = renderer;
-        // 右键优先取消：放置 / 修理 / 出售 / 路径规划等工具态。
+        // 西木右键：先取消工具态（保留选中），不是停止，也不是下令。
         if self.clear_sidebar_tool_modes() {
             return;
         }
@@ -412,8 +442,11 @@ impl BattleController {
                 }
             }
         }
-        // 普通对局：停止选中单位当前命令（保留选中）。
-        self.stop_selection();
+        // 无工具态：清空选中，回到默认箭头（停止只走 Stop / `S`）。
+        if !self.local.selected.is_empty() {
+            tracing::info!("右键 · 清空选中 {} 个", self.local.selected.len());
+            self.local.clear();
+        }
     }
 
     /// 对局页输入。`accept_commands=false`（结算）时仅允许确认离开 / 战役下一关。
@@ -719,7 +752,7 @@ impl BattleController {
                 BattleNav::None
             }
             HotkeyAction::CenterOnRadarEvent => {
-                // 雷达事件未接前不发明其它行为。
+                tracing::debug!("CenterOnRadarEvent · 雷达事件未接，忽略");
                 BattleNav::None
             }
             HotkeyAction::DeployObject => {

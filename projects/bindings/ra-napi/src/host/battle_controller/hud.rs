@@ -365,7 +365,8 @@ impl BattleController {
         );
     }
 
-    /// 关闭建造放置 / 修理 / 出售工具。有任一处于激活则返回 `true`。
+    /// 关闭建造放置 / 修理 / 出售 / 规划 / 攻击移动 / 部署 / 跟随。有任一处于激活则返回 `true`。
+    /// 西木右键优先走此路径：只关工具态、保留选中，不下 `order_stop`。
     pub(super) fn clear_sidebar_tool_modes(&mut self) -> bool {
         let mut cleared = false;
         if self.place_mode.take().is_some() {

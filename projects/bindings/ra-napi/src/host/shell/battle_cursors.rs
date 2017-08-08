@@ -1,6 +1,6 @@
 //! 对局软件光标：`mouse.shp` 帧 → winit `CustomCursor`。
 //!
-//! 覆盖默认 / 点选 / 移动 / 禁止移动 / 攻击 / 部署 / 禁止部署 / 边缘滚屏。
+//! 覆盖默认 / 点选 / 移动 / 禁止移动 / 攻击 / 出售 / 修理 / 部署 / 禁止部署 / 边缘滚屏。
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -23,6 +23,8 @@ pub(crate) struct BattleMouseCursorSet {
     move_ok: Vec<CustomCursor>,
     no_move: CustomCursor,
     attack: Vec<CustomCursor>,
+    sell: CustomCursor,
+    repair: CustomCursor,
     deploy: Vec<CustomCursor>,
     no_deploy: CustomCursor,
     scroll: [CustomCursor; MOUSE_SCROLL_DIR_COUNT],
@@ -110,6 +112,8 @@ impl BattleMouseCursorSet {
             move_ok: create_seq_cursors(event_loop, &decoded.move_ok)?,
             no_move: create_custom_cursor(event_loop, &decoded.no_move)?,
             attack: create_seq_cursors(event_loop, &decoded.attack)?,
+            sell: create_custom_cursor(event_loop, &decoded.sell)?,
+            repair: create_custom_cursor(event_loop, &decoded.repair)?,
             deploy: create_seq_cursors(event_loop, &decoded.deploy)?,
             no_deploy: create_custom_cursor(event_loop, &decoded.no_deploy)?,
             scroll: create_dir_cursors(event_loop, &decoded.scroll)?,
@@ -124,6 +128,8 @@ impl BattleMouseCursorSet {
             BattlePointer::Move => pick_anim(&self.move_ok, anim),
             BattlePointer::NoMove => Some(self.no_move.clone()),
             BattlePointer::Attack => pick_anim(&self.attack, anim),
+            BattlePointer::Sell => Some(self.sell.clone()),
+            BattlePointer::Repair => Some(self.repair.clone()),
             BattlePointer::Deploy => pick_anim(&self.deploy, anim),
             BattlePointer::NoDeploy => Some(self.no_deploy.clone()),
             BattlePointer::Edge(EdgeScrollCursor::Scroll(dir)) => dir_index(dir).map(|i| self.scroll[i].clone()),
@@ -210,6 +216,8 @@ fn system_battle_cursor_fallback(cur: BattlePointer) -> CursorIcon {
         BattlePointer::Move => CursorIcon::Crosshair,
         BattlePointer::NoMove | BattlePointer::NoDeploy => CursorIcon::NotAllowed,
         BattlePointer::Attack => CursorIcon::Crosshair,
+        BattlePointer::Sell => CursorIcon::NotAllowed,
+        BattlePointer::Repair => CursorIcon::Cell,
         BattlePointer::Deploy => CursorIcon::Cell,
         BattlePointer::Edge(EdgeScrollCursor::Scroll(EdgeScrollDir::North)) => CursorIcon::NResize,
         BattlePointer::Edge(EdgeScrollCursor::Scroll(EdgeScrollDir::South)) => CursorIcon::SResize,

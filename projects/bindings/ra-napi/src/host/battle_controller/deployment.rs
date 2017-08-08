@@ -88,7 +88,7 @@ impl BattleController {
         }
     }
 
-    /// 对当前选中下发停止（`S` / 命令条 Stop / 右键；`keyboard.ini` StopObject）。
+    /// 对当前选中下发停止（`S` / 命令条 Stop；`keyboard.ini` StopObject）。右键不清停，只取消选中。
     pub(super) fn stop_selection(&mut self) {
         let selected = self.local.selected.clone();
         if selected.is_empty() {
