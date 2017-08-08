@@ -112,3 +112,17 @@ fn edge_scroll_overrides_context_pointer() {
     );
     assert_eq!(BattlePointer::resolve(EdgeScrollCursor::Default, BattlePointer::Attack), BattlePointer::Attack);
 }
+
+#[test]
+fn right_click_map_cancels_tools_or_deselects_not_stop() {
+    assert_eq!(classify_right_click_map(true), RightClickMapOutcome::CancelToolModes);
+    assert_eq!(classify_right_click_map(false), RightClickMapOutcome::Deselect);
+}
+
+#[test]
+fn order_click_modifier_ctrl_beats_alt() {
+    assert_eq!(OrderClickModifier::from_keys(false, false), OrderClickModifier::None);
+    assert_eq!(OrderClickModifier::from_keys(true, false), OrderClickModifier::ForceAttack);
+    assert_eq!(OrderClickModifier::from_keys(false, true), OrderClickModifier::ForceMove);
+    assert_eq!(OrderClickModifier::from_keys(true, true), OrderClickModifier::ForceAttack);
+}

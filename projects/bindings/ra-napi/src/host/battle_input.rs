@@ -105,19 +105,23 @@ pub enum EdgeScrollCursor {
     Blocked(EdgeScrollDir),
 }
 
-/// 对局指针优先级：边缘滚屏 > 攻击 / 移动 / 部署上下文 > 点选 > 默认。
+/// 对局指针优先级：边缘滚屏 > 工具光标 > 攻击 / 移动 / 部署上下文 > 点选 > 默认。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BattlePointer {
     /// 默认箭头（`mouse.shp` #0）。
     Default,
     /// 悬停可点选本方单位（`mouse.shp` Select）。
     Select,
-    /// 选中单位可移动到光标格（Move）。
+    /// 选中单位可移动到光标格（Move）；表示**左键**将下令。
     Move,
     /// 选中单位不可到达光标格（NoMove）。
     NoMove,
-    /// 选中单位可攻击光标下敌方（Attack）。
+    /// 选中单位可攻击光标下敌方（Attack）；表示**左键**将下令。
     Attack,
+    /// 出售工具光标。
+    Sell,
+    /// 修理工具光标。
+    Repair,
     /// 选中可部署单位且已进入 `deploy_mode` 时的部署标记光标。
     Deploy,
     /// 部署模式中但当前选中不可部署。
@@ -349,6 +353,51 @@ pub enum LeftReleaseAction {
     Click,
     /// 框选（大位移）。
     Marquee(ScreenRect),
+}
+
+/// 西木右键地图结果（HUD cameo 取消生产另计）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RightClickMapOutcome {
+    /// 关闭了放置 / 修理 / 出售等工具态，保留选中。
+    CancelToolModes,
+    /// 无工具态：应清空选中（不是 `order_stop`）。
+    Deselect,
+}
+
+/// 由「是否仍有工具态」决定右键地图语义。
+pub fn classify_right_click_map(tools_active: bool) -> RightClickMapOutcome {
+    if tools_active {
+        RightClickMapOutcome::CancelToolModes
+    }
+    else {
+        RightClickMapOutcome::Deselect
+    }
+}
+
+/// 左键下令修饰（Ctrl 强制攻击 / Alt 强制移动 / Shift 排队）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OrderClickModifier {
+    /// 无修饰。
+    None,
+    /// Ctrl：强制攻击。
+    ForceAttack,
+    /// Alt：强制移动。
+    ForceMove,
+}
+
+impl OrderClickModifier {
+    /// Ctrl 优先于 Alt（同时按时按强制攻击）。
+    pub fn from_keys(ctrl: bool, alt: bool) -> Self {
+        if ctrl {
+            Self::ForceAttack
+        }
+        else if alt {
+            Self::ForceMove
+        }
+        else {
+            Self::None
+        }
+    }
 }
 
 impl LeftGesture {
