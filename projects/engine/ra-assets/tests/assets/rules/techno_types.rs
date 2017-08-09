@@ -268,3 +268,16 @@ fn soft_parse_keeps_techno_when_scalar_is_illegal() {
     assert_eq!(m.range, 6);
     assert_eq!(m.rof, 0);
 }
+
+#[test]
+fn parse_passengers_capacity_defaults_to_zero() {
+    let doc = IniDocument::parse(
+        b"[VehicleTypes]\n0=APC\n1=MTNK\n\
+[APC]\nStrength=200\nPassengers=5\nOwner=Americans\n\
+[MTNK]\nStrength=400\nOwner=Americans\n",
+    )
+    .unwrap();
+    let reg = TechnoTypeRegistry::from_rules(&doc);
+    assert_eq!(reg.get("APC").unwrap().passengers, 5);
+    assert_eq!(reg.get("MTNK").unwrap().passengers, 0);
+}

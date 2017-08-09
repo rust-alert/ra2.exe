@@ -48,6 +48,8 @@ pub struct TechnoType {
     pub engineer: bool,
     /// `Harvester=yes`（采矿车）。
     pub harvester: bool,
+    /// `Passengers=` 载员容量；`0` 表示非运输单位。
+    pub passengers: u32,
     /// 主武器名（`Primary`）；空表示未配置。
     pub primary: WeaponName,
     /// 主武器伤害（来自武器节 `Damage`）；0 表示未配置。
@@ -285,6 +287,8 @@ struct TechnoSectionFields {
     engineer: Option<bool>,
     #[serde(rename = "Harvester", default, deserialize_with = "deserialize_opt_bool")]
     harvester: Option<bool>,
+    #[serde(rename = "Passengers", default, deserialize_with = "deserialize_opt_u32")]
+    passengers: Option<u32>,
     #[serde(rename = "Primary", default)]
     primary: WeaponName,
     #[serde(rename = "Secondary", default)]
@@ -403,6 +407,7 @@ fn parse_techno(view: LayeredIniView<'_>, id: &TechnoName, kind: TechnoKind, ove
         agent: fields.agent.unwrap_or(false),
         engineer: fields.engineer.unwrap_or(false),
         harvester: fields.harvester.unwrap_or(false),
+        passengers: fields.passengers.unwrap_or(0),
         primary,
         damage: primary_w.damage,
         range: primary_w.range,
