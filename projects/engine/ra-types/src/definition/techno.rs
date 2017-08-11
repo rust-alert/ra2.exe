@@ -253,6 +253,8 @@ pub struct TechnoDefinition {
     pub engineer: bool,
     /// `Harvester=yes`（采矿车）。
     pub harvester: bool,
+    /// `Passengers=` 载员容量；`0` 表示非运输单位。
+    pub passengers: u32,
     /// `Category=`（装载期一次解码）。
     pub category: TechnoCategory,
     /// 视野（格）；主武器 `Range=0` 时攻击射程回退用。

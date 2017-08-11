@@ -163,6 +163,7 @@ fn techno(key: &str, class: TechnoClass, owner: &str, tech_level: i32, prerequis
         agent: false,
         engineer: false,
         harvester: false,
+        passengers: 0,
         category: ra_types::TechnoCategory::Unspecified,
         sight: 0,
         primary: ra_types::WeaponName::default(),

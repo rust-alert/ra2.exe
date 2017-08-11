@@ -24,6 +24,7 @@ fn sample(build_time: u32) -> TechnoDefinition {
         agent: false,
         engineer: false,
         harvester: false,
+        passengers: 0,
         category: ra_types::TechnoCategory::Unspecified,
         sight: 5,
         primary: ra_types::WeaponName::default(),

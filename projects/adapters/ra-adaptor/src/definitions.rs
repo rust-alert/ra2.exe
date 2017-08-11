@@ -138,6 +138,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             agent: tt.agent,
             engineer: tt.engineer,
             harvester: tt.harvester,
+            passengers: tt.passengers,
             category: tt.category,
             sight: tt.sight,
             primary: tt.primary.clone(),
@@ -163,6 +164,11 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         if tt.harvester {
             if !defs.capabilities.builtins.contains(&BuiltinCapability::Harvester) {
                 defs.capabilities.builtins.push(BuiltinCapability::Harvester);
+            }
+        }
+        if tt.passengers > 0 {
+            if !defs.capabilities.builtins.contains(&BuiltinCapability::Transport) {
+                defs.capabilities.builtins.push(BuiltinCapability::Transport);
             }
         }
 
