@@ -30,16 +30,18 @@ fn snapshot_exposes_funds_power_queue_and_rejects() {
         tag: Default::default(),
     }];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
-    assert!(world.set_house_funds("AMERICANS", 5_000));
+    // 单位 FIFO 可入队约 30 槽；资金须够一次填满后再测 QueueFull。
+    assert!(world.set_house_funds("AMERICANS", 50_000));
     world.players[0].power_output = 200;
     world.players[0].power_drain = 20;
     let mut session = Session::from_state(world, "hud");
     let e1 = session.expect_battle().world.definitions.techno.get("E1").expect("E1").id;
+
     session.expect_battle_mut().push_command(GameCommand::Produce { player: PlayerId(0), type_id: e1 });
     session.tick(&engine.runtime());
     let snap = session.expect_battle().snapshot(&[]);
     assert_eq!(snap.players.len(), 1);
-    assert_eq!(snap.players[0].funds, 4_800);
+    assert_eq!(snap.players[0].funds, 49_800);
     assert_eq!(snap.players[0].power_output, 200);
     assert_eq!(snap.players[0].power_drain, 20);
     assert!(!snap.players[0].low_power);
@@ -47,6 +49,15 @@ fn snapshot_exposes_funds_power_queue_and_rejects() {
     assert_eq!(snap.produce_queues[0].type_id.as_ref(), "E1");
     assert!(snap.produce_queues[0].remaining_ticks > 0);
     assert!(snap.last_rejects.is_empty());
+
+    // 同一 tick 再塞 29 条候补到队满（避免多 tick 导致队首完工缩队），并确认第二条不是 QueueFull。
+    for _ in 0..29 {
+        session.expect_battle_mut().push_command(GameCommand::Produce { player: PlayerId(0), type_id: e1 });
+    }
+    session.tick(&engine.runtime());
+    let snap = session.expect_battle().snapshot(&[]);
+    assert!(snap.last_rejects.is_empty(), "unit FIFO should accept pending Produce: {:?}", snap.last_rejects);
+    assert_eq!(snap.players[0].funds, 49_800 - 200 * 29);
 
     session.expect_battle_mut().push_command(GameCommand::Produce { player: PlayerId(0), type_id: e1 });
     session.tick(&engine.runtime());
