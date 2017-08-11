@@ -97,7 +97,7 @@ impl Default for DesktopSettings {
 }
 
 impl DesktopSettings {
-    /// 从合并扁平表填充（测试 / 兼容层）。
+    /// 从合并扁平表填充（测试）。
     pub fn from_merged(merged: &MergedConfig) -> Self {
         let mut s = Self::default();
         if let Some(v) = merged.get("ra2_dir").or_else(|| merged.get("game_dir")) {
@@ -219,7 +219,7 @@ impl DesktopSettings {
         Self::load_or_default_from_with_override(store, false)
     }
 
-    /// 加载 settings：JSON ← 可选遗留 TOML 迁移 ← 默认；可选套启动覆盖。
+    /// 加载 settings：JSON ← 默认；可选套启动覆盖。
     pub fn load_or_default() -> (Self, Vec<ConfigDiagnostic>) {
         Self::load_or_default_from_with_override(store::default_store().as_ref(), true)
     }
@@ -232,15 +232,7 @@ impl DesktopSettings {
                 diagnostics.append(&mut diags);
                 s
             }
-            Ok(None) => {
-                if let Some((migrated, mut diags)) = crate::legacy::try_migrate_legacy_toml(store) {
-                    diagnostics.append(&mut diags);
-                    migrated.settings.unwrap_or_default()
-                }
-                else {
-                    Self::default()
-                }
-            }
+            Ok(None) => Self::default(),
             Err(e) => {
                 diagnostics.push(ConfigDiagnostic { source: "settings.json".into(), message: e });
                 Self::default()

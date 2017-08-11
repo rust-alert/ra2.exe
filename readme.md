@@ -67,8 +67,6 @@ ra2 launch --path "C:/Games/RA2" --edition ra2 --screen skirmish
 
 若目录同时具备原版与尤里的复仇特征，自动探测会报歧义，此时须显式写明 `edition`（或 CLI `--edition`）。
 
-若本机仍有遗留的 exe 旁 `RustAlert.toml`，且用户数据目录尚无 JSON，启动时会**只读迁移一次**到 `settings.json` / `state.json`，不再写回 TOML。
-
 ---
 
 ## 开发构建

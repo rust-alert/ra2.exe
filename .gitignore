@@ -31,9 +31,6 @@ tmp/
 # Python
 __pycache__/
 
-# 遗留本地 TOML（已改用用户数据目录 JSON；勿提交）
-RustAlert.toml
-
 # 鏈満鎺㈡煡 / 鎴浘 / 涓存椂瀵煎嚭锛堢姝㈠叆搴擄紝涔熶笉璺?CI锛?
 _tmp_*/
 _tmp_*

@@ -84,11 +84,11 @@ pub enum GameEdition { Ra2, Yr, Mo3 }
 
 ```mermaid
 flowchart LR
-    toml[config edition 字符串]
+    json[config edition 字符串]
     parse[GameEdition::parse]
     det[detect_edition]
     chain[ResourceChain]
-    toml --> parse --> det --> chain
+    json --> parse --> det --> chain
 ```
 
 ## `RaError` / `RaResult`

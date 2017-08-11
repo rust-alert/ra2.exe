@@ -19,7 +19,7 @@ Mod 里意味着什么——语义解析属于 `ra-adaptor` 与各 edition profi
 
 ## 它是什么
 
-- **`ConfigTable` / `ConfigLayer` / `MergedConfig`**：分层合并与诊断（测试 / 遗留迁移）；
+- **`ConfigTable` / `ConfigLayer` / `MergedConfig`**：分层合并与诊断（测试）；
 - **`DesktopSettings`**：启动配置，读写 `settings.json`；
 - **`DesktopState` / `SkirmishLobbyPrefs`**：用户状态，读写 `state.json`；
 - **`PersistStore`**：桌面写文件，wasm 写 `localStorage`；
@@ -34,7 +34,7 @@ flowchart LR
   STATE --> SHELL[壳层大厅]
 ```
 
-**Non-goals**：不恢复 exe 旁规范配置文件；不把遭遇战记忆写入 settings；不解析 INI / MIX；不连接 socket。
+**Non-goals**：不把遭遇战记忆写入 settings；不解析 INI / MIX；不连接 socket。
 
 ## 如何使用
 
@@ -59,14 +59,12 @@ DesktopState::persist_skirmish(&prefs)?;
 
 | 键 | 别名 | 含义 |
 |----|------|------|
-| `ra2_dir` | `game_dir`（遗留扁平表） | 安装根目录；省略则为可执行文件所在目录 |
+| `ra2_dir` | `game_dir` | 安装根目录；省略则为可执行文件所在目录 |
 | `edition` | — | 显式 `GameEdition` 字符串 |
 | `display_mode` | `resolution` | 客户区分辨率档 |
 | `music_volume` / `sound_volume` | — | 壳层音量 0..1 |
 | `present` | — | 质感呈现对象 |
 | `net_url` / `net_room` | — | 预留战网字段 |
-
-若本机仍有遗留 exe 旁 `RustAlert.toml` 且 JSON 尚不存在，启动时只读迁移一次。
 
 ## 构建与测试
 

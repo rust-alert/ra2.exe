@@ -18,4 +18,4 @@ bitflags = { workspace = true }
 serde = { workspace = true }
 
 [dev-dependencies]
-toml_edit = { workspace = true }
+serde_json = { workspace = true }

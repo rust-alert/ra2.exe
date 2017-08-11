@@ -7,7 +7,6 @@
 
 #![deny(missing_docs)]
 
-mod legacy;
 mod paths;
 mod settings;
 mod state;
@@ -15,16 +14,13 @@ mod store;
 
 use std::{
     collections::BTreeMap,
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::Mutex,
 };
 
-use toml_edit::{DocumentMut, Item, Value};
-
-pub use legacy::{LegacyMigration, migrate_toml_text_to_store, parse_ra2_dir_from_toml_text};
 pub use paths::{
-    APP_DATA_DIR_NAME, LEGACY_RUST_ALERT_TOML, SETTINGS_FILE_NAME, STATE_FILE_NAME, WEB_STORAGE_PREFIX, ensure_user_data_dir, exe_dir,
-    legacy_rust_alert_toml_path, set_test_user_data_dir, settings_path, state_path, user_data_dir, user_data_join,
+    APP_DATA_DIR_NAME, SETTINGS_FILE_NAME, STATE_FILE_NAME, WEB_STORAGE_PREFIX, ensure_user_data_dir, exe_dir,
+    set_test_user_data_dir, settings_path, state_path, user_data_dir, user_data_join,
 };
 pub use settings::DesktopSettings;
 pub use state::{DesktopState, SkirmishLobbyPrefs};
@@ -73,7 +69,7 @@ pub struct ConfigDiagnostic {
     pub message: String,
 }
 
-/// 扁平字符串配置表（测试合并 / 遗留 TOML 扁平键）。
+/// 扁平字符串配置表（测试合并用）。
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ConfigTable {
     values: BTreeMap<String, String>,
@@ -139,9 +135,9 @@ impl MergedConfig {
 
 /// 解析可选本机安装根目录（供 `#[ignore]` 本机测试 / 探针）。
 ///
-/// 优先级：`RA2_DIR` → `settings.json` 的 `ra2_dir` → 向上查找遗留 `RustAlert.toml` 的 `ra2_dir`。
+/// 优先级：`RA2_DIR` → `settings.json` 的 `ra2_dir`。
 /// 路径不存在则返回 `None`。**禁止**在调用方硬编码盘符或机主路径。
-pub fn resolve_optional_install_root(search_from: &Path) -> Option<(PathBuf, Option<String>)> {
+pub fn resolve_optional_install_root() -> Option<(PathBuf, Option<String>)> {
     if let Ok(dir) = std::env::var("RA2_DIR") {
         let root = PathBuf::from(dir.trim());
         if root.is_dir() {
@@ -156,64 +152,7 @@ pub fn resolve_optional_install_root(search_from: &Path) -> Option<(PathBuf, Opt
         }
     }
 
-    let mut dir = if search_from.is_file() {
-        search_from.parent().unwrap_or(search_from).to_path_buf()
-    }
-    else {
-        search_from.to_path_buf()
-    };
-    loop {
-        let cfg = dir.join(LEGACY_RUST_ALERT_TOML);
-        if cfg.is_file() {
-            if let Some(parsed) = parse_ra2_dir_from_toml_text(&std::fs::read_to_string(&cfg).ok()?) {
-                let (root, edition) = parsed;
-                if root.is_dir() {
-                    return Some((root, edition));
-                }
-            }
-        }
-        if !dir.pop() {
-            break;
-        }
-    }
     None
-}
-
-fn value_as_string(value: &Value) -> Option<String> {
-    match value {
-        Value::String(s) => Some(s.value().clone()),
-        Value::Integer(i) => Some(i.to_string()),
-        Value::Float(f) => Some(f.to_string()),
-        Value::Boolean(b) => Some(b.to_string()),
-        _ => None,
-    }
-}
-
-/// 用 `toml_edit` 解析遗留文档根级键值为扁平表。
-pub fn parse_toml_document(text: &str, source_label: &str) -> (ConfigTable, Vec<ConfigDiagnostic>) {
-    let mut table = ConfigTable::new();
-    let mut diagnostics = Vec::new();
-    let doc: DocumentMut = match text.parse() {
-        Ok(d) => d,
-        Err(e) => {
-            diagnostics.push(ConfigDiagnostic { source: source_label.into(), message: format!("TOML 解析失败: {e}") });
-            return (table, diagnostics);
-        }
-    };
-    for (key, item) in doc.iter() {
-        match item {
-            Item::Value(v) => match value_as_string(v) {
-                Some(s) => table.insert(key, s),
-                None => diagnostics.push(ConfigDiagnostic {
-                    source: format!("{source_label}:{key}"),
-                    message: format!("不支持的值类型，已跳过键 `{key}`"),
-                }),
-            },
-            Item::None => {}
-            Item::Table(_) | Item::ArrayOfTables(_) => {}
-        }
-    }
-    (table, diagnostics)
 }
 
 /// 解析 0..1 音量；非法或非有限值返回 `None`。

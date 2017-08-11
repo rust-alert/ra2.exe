@@ -12,9 +12,6 @@ pub const SETTINGS_FILE_NAME: &str = "settings.json";
 /// 状态文件名（可变用户状态）。
 pub const STATE_FILE_NAME: &str = "state.json";
 
-/// 遗留 exe 旁配置名（只读迁移，不再写入）。
-pub const LEGACY_RUST_ALERT_TOML: &str = "RustAlert.toml";
-
 /// Web `localStorage` 键前缀。
 pub const WEB_STORAGE_PREFIX: &str = "rust-alert2.";
 
@@ -95,11 +92,6 @@ pub fn settings_path() -> PathBuf {
 /// `state.json` 规范路径。
 pub fn state_path() -> PathBuf {
     user_data_dir().join(STATE_FILE_NAME)
-}
-
-/// 遗留 `RustAlert.toml`（exe 同目录，仅迁移读取）。
-pub fn legacy_rust_alert_toml_path() -> PathBuf {
-    exe_dir().join(LEGACY_RUST_ALERT_TOML)
 }
 
 /// 确保用户数据目录存在。

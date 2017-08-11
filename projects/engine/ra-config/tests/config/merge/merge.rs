@@ -3,8 +3,7 @@
 use std::path::PathBuf;
 
 use ra_config::{
-    ConfigLayer, ConfigTable, DesktopSettings, DesktopState, MergedConfig, NativeDirStore, SkirmishLobbyPrefs,
-    parse_toml_document, set_test_user_data_dir,
+    ConfigLayer, ConfigTable, DesktopSettings, DesktopState, MergedConfig, SkirmishLobbyPrefs, set_test_user_data_dir,
 };
 use ra_types::DisplayMode;
 
@@ -37,14 +36,6 @@ fn later_layer_overrides() {
     let s = DesktopSettings::from_merged(&merged);
     assert_eq!(s.ra2_dir, PathBuf::from("C:/games/ra2"));
     assert_eq!(s.edition.as_deref(), Some("yr"));
-}
-
-#[test]
-fn parse_toml_keeps_string_keys_and_skips_comments() {
-    let (t, d) = parse_toml_document("# hi\nra2_dir = \"D:/RA2\"\nedition = \"yr\"\n", "t");
-    assert!(d.is_empty(), "{d:?}");
-    assert_eq!(t.get("ra2_dir"), Some("D:/RA2"));
-    assert_eq!(t.get("edition"), Some("yr"));
 }
 
 #[test]
@@ -118,15 +109,6 @@ fn shell_slide_gap_secs_from_merged_and_disable() {
     table.insert("shell_slide_gap_secs", "-1");
     let merged = MergedConfig::merge_layers(&[ConfigLayer { label: "t".into(), table }]);
     assert!((DesktopSettings::from_merged(&merged).shell_slide_gap_secs - 0.0).abs() < 1e-9);
-}
-
-#[test]
-fn parse_toml_skips_present_and_skirmish_tables_without_diag() {
-    let (t, d) = parse_toml_document("ra2_dir = \".\"\n\n[present]\nmode = \"16bit\"\n\n[skirmish]\nplayer_name = \"X\"\n", "t");
-    assert!(d.is_empty(), "{d:?}");
-    assert_eq!(t.get("ra2_dir"), Some("."));
-    assert!(t.get("mode").is_none());
-    assert!(t.get("player_name").is_none());
 }
 
 struct TempDataDir {
@@ -209,41 +191,6 @@ fn state_json_skirmish_round_trip() {
 }
 
 #[test]
-fn legacy_toml_migrates_once_into_json() {
-    let _tmp = TempDataDir::new("legacy");
-    let store = NativeDirStore;
-    let toml = r#"
-# keep me
-ra2_dir = "C:/Games/RA2"
-edition = "ra2"
-music_volume = 0.2
-
-[present]
-mode = "off"
-dither = false
-
-[skirmish]
-preferred_map = "mp01t4.map"
-player_name = "Commander"
-difficulty = "Hard"
-"#;
-    let (migrated, diags) = ra_config::migrate_toml_text_to_store(toml, "legacy.toml", &store, true, true);
-    assert!(migrated.settings.is_some());
-    assert!(migrated.state.is_some());
-    assert!(diags.iter().any(|d| d.message.contains("settings.json")), "{diags:?}");
-    assert!(diags.iter().any(|d| d.message.contains("state.json")), "{diags:?}");
-
-    let (s2, _) = DesktopSettings::load_or_default_from(&store);
-    assert_eq!(s2.ra2_dir, PathBuf::from("C:/Games/RA2"));
-    assert!((s2.music_volume - 0.2).abs() < 1e-6);
-    assert_eq!(s2.present.mode, ra_types::PresentMode::Off);
-    let (st2, _) = DesktopState::load_or_default_from(&store);
-    assert_eq!(st2.skirmish.preferred_map.as_deref(), Some("mp01t4.map"));
-    assert_eq!(st2.skirmish.player_name, "Commander");
-    assert_eq!(st2.skirmish.difficulty, "Hard");
-}
-
-#[test]
 fn optional_install_root_reads_settings_json() {
     let _tmp = TempDataDir::new("install");
     let fake_game = _tmp.path.join("game");
@@ -253,29 +200,7 @@ fn optional_install_root_reads_settings_json() {
     s.edition = Some("ra2".into());
     s.persist().unwrap();
 
-    let (root, edition) = ra_config::resolve_optional_install_root(&_tmp.path).expect("settings root");
+    let (root, edition) = ra_config::resolve_optional_install_root().expect("settings root");
     assert_eq!(root, fake_game);
     assert_eq!(edition.as_deref(), Some("ra2"));
-}
-
-#[test]
-fn optional_install_root_reads_legacy_toml_under_search_path() {
-    let dir = std::env::temp_dir().join(format!("ra-config-install-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    let fake_game = dir.join("game");
-    std::fs::create_dir_all(&fake_game).unwrap();
-    // 确保 settings 不抢优先：用独立 test data dir
-    let _tmp = TempDataDir::new("install_legacy");
-    std::fs::write(
-        dir.join("RustAlert.toml"),
-        format!("ra2_dir = \"{}\"\nedition = \"ra2\"\n", fake_game.display().to_string().replace('\\', "/")),
-    )
-    .unwrap();
-
-    let (root, edition) = ra_config::resolve_optional_install_root(&dir).expect("toml root");
-    assert_eq!(root, fake_game);
-    assert_eq!(edition.as_deref(), Some("ra2"));
-
-    let _ = std::fs::remove_dir_all(&dir);
 }

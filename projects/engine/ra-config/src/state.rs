@@ -135,7 +135,7 @@ impl DesktopState {
         serde_json::to_string_pretty(&self.clone().sanitized()).map_err(|e| format!("序列化 state 失败: {e}"))
     }
 
-    /// 经默认 store 加载；缺失则默认，并可触发遗留 TOML 迁移。
+    /// 经默认 store 加载；缺失则默认。
     pub fn load_or_default() -> (Self, Vec<crate::ConfigDiagnostic>) {
         Self::load_or_default_from(crate::store::default_store().as_ref())
     }
@@ -151,13 +151,6 @@ impl DesktopState {
             }
             Ok(None) => {}
             Err(e) => diagnostics.push(crate::ConfigDiagnostic { source: "state.json".into(), message: e }),
-        }
-
-        if let Some((migrated, mut diags)) = crate::legacy::try_migrate_legacy_toml(store) {
-            diagnostics.append(&mut diags);
-            if let Some(state) = migrated.state {
-                return (state, diagnostics);
-            }
         }
 
         (Self::default(), diagnostics)

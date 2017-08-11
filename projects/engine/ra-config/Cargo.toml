@@ -16,8 +16,6 @@ publish = false
 ra-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-# 仅用于一次性读取遗留 exe 旁 `RustAlert.toml`。
-toml_edit = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { workspace = true }
