@@ -5,11 +5,11 @@ export type {
     ExtractedFile,
     ExtractOptions,
     ExtractResult,
-    LaunchOptions,
+    EmulateOptions,
     MapDiagnoseRow,
     NativeBinaryIdentity,
     NativeBinding,
     UnpackOptions,
     UnpackResult,
 } from './native.js';
-export { diagnoseMaps, extract, launch, loadNative, nativeBinaryIdentity, unpack, version } from './native.js';
+export { diagnoseMaps, emulate, extract, loadNative, nativeBinaryIdentity, unpack, version } from './native.js';

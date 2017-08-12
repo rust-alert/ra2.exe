@@ -8,21 +8,21 @@ use ra_config::{
 use ra_types::DisplayMode;
 
 #[test]
-fn launch_override_screen_is_cli_only() {
-    ra_config::clear_launch_override();
-    assert_eq!(ra_config::launch_override_screen(), None);
-    ra_config::set_launch_override(ra_config::LaunchOverride {
+fn emulate_override_screen_is_cli_only() {
+    ra_config::clear_emulate_override();
+    assert_eq!(ra_config::emulate_override_screen(), None);
+    ra_config::set_emulate_override(ra_config::EmulateOverride {
         ra2_dir: PathBuf::from("."),
         edition: None,
         screen: Some("skirmish".into()),
     });
-    assert_eq!(ra_config::launch_override_screen().as_deref(), Some("skirmish"));
+    assert_eq!(ra_config::emulate_override_screen().as_deref(), Some("skirmish"));
     let mut table = ConfigTable::new();
     table.insert("ra2_dir", ".");
     table.insert("screen", "skirmish");
     let merged = MergedConfig::merge_layers(&[ConfigLayer { label: "t".into(), table }]);
     let _ = DesktopSettings::from_merged(&merged);
-    ra_config::clear_launch_override();
+    ra_config::clear_emulate_override();
 }
 
 #[test]
@@ -120,7 +120,7 @@ impl TempDataDir {
     fn new(tag: &str) -> Self {
         static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
         let guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        ra_config::clear_launch_override();
+        ra_config::clear_emulate_override();
         let path = std::env::temp_dir().join(format!(
             "ra_config_{tag}_{}",
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
@@ -135,7 +135,7 @@ impl TempDataDir {
 impl Drop for TempDataDir {
     fn drop(&mut self) {
         set_test_user_data_dir(None);
-        ra_config::clear_launch_override();
+        ra_config::clear_emulate_override();
         let _ = std::fs::remove_dir_all(&self.path);
     }
 }

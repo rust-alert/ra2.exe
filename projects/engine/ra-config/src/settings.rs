@@ -11,8 +11,8 @@ use crate::{
     store::{self, PersistStore},
 };
 
-fn take_launch_override_snapshot() -> Option<crate::LaunchOverride> {
-    crate::LAUNCH_OVERRIDE.lock().expect("launch override lock").clone()
+fn take_emulate_override_snapshot() -> Option<crate::EmulateOverride> {
+    crate::EMULATE_OVERRIDE.lock().expect("emulate override lock").clone()
 }
 
 /// 落盘用 DTO（`display_mode` 等用字符串，避免改 `ra-types`）。
@@ -201,20 +201,20 @@ impl DesktopSettings {
         }
     }
 
-    fn apply_launch_override(&mut self, diagnostics: &mut Vec<ConfigDiagnostic>) {
-        if let Some(over) = take_launch_override_snapshot() {
+    fn apply_emulate_override(&mut self, diagnostics: &mut Vec<ConfigDiagnostic>) {
+        if let Some(over) = take_emulate_override_snapshot() {
             self.ra2_dir = over.ra2_dir;
             if over.edition.is_some() {
                 self.edition = over.edition;
             }
             diagnostics.push(ConfigDiagnostic {
-                source: "launch-override".into(),
+                source: "emulate-override".into(),
                 message: format!("CLI/N-API 覆盖 ra2_dir={}", self.ra2_dir.display()),
             });
         }
     }
 
-    /// 指定 store 加载（不套用一次性 launch override，便于单测）。
+    /// 指定 store 加载（不套用一次性 emulate override，便于单测）。
     pub fn load_or_default_from(store: &dyn PersistStore) -> (Self, Vec<ConfigDiagnostic>) {
         Self::load_or_default_from_with_override(store, false)
     }
@@ -239,7 +239,7 @@ impl DesktopSettings {
             }
         };
         if apply_override {
-            settings.apply_launch_override(&mut diagnostics);
+            settings.apply_emulate_override(&mut diagnostics);
         }
         (settings, diagnostics)
     }
@@ -254,7 +254,7 @@ impl DesktopSettings {
         store::write_settings_text(store, &self.to_json_text()?)
     }
 
-    /// 读盘（或默认）后改字段再写回；不套用一次性 launch override。
+    /// 读盘（或默认）后改字段再写回；不套用一次性 emulate override。
     fn load_mutate_save(mutator: impl FnOnce(&mut Self)) -> Result<(), String> {
         let store = store::default_store();
         let mut settings = match store::read_settings_text(store.as_ref())? {

@@ -3,7 +3,7 @@
     "version": "0.0.0",
     "private": true,
     "type": "module",
-    "description": "Modern rewrite of Command & Conquer: Red Alert 2. Desktop CLI (`ra2 launch --path`), Node N-API host, and browser Wasm face. Bring your own legal game install. Not a DirectDraw shim and not an injector for the retail exe.",
+    "description": "Modern rewrite of Command & Conquer: Red Alert 2. Desktop CLI (`ra2 emulate --path`), Node N-API host, and browser Wasm face. Bring your own legal game install. Not a DirectDraw shim and not an injector for the retail exe.",
     "repository": {
         "type": "git",
         "url": "https://github.com/rust-alert/ra2.exe.git",

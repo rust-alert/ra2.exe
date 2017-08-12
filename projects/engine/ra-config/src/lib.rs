@@ -28,7 +28,7 @@ pub use store::{LocalStorageStore, NativeDirStore, PersistStore, default_store, 
 
 /// CLI / N-API 一次性启动覆盖（后于 settings.json 生效，不进 state）。
 #[derive(Debug, Clone)]
-pub struct LaunchOverride {
+pub struct EmulateOverride {
     /// 游戏安装目录。
     pub ra2_dir: PathBuf,
     /// 可选版本字符串。
@@ -37,23 +37,23 @@ pub struct LaunchOverride {
     pub screen: Option<String>,
 }
 
-pub(crate) static LAUNCH_OVERRIDE: Mutex<Option<LaunchOverride>> = Mutex::new(None);
+pub(crate) static EMULATE_OVERRIDE: Mutex<Option<EmulateOverride>> = Mutex::new(None);
 
-/// 设置启动覆盖（`ra2 launch --path`）。
-pub fn set_launch_override(override_: LaunchOverride) {
-    *LAUNCH_OVERRIDE.lock().expect("launch override lock") = Some(override_);
+/// 设置启动覆盖（`ra2 emulate --path`）。
+pub fn set_emulate_override(override_: EmulateOverride) {
+    *EMULATE_OVERRIDE.lock().expect("emulate override lock") = Some(override_);
 }
 
 /// 清除启动覆盖。
-pub fn clear_launch_override() {
-    *LAUNCH_OVERRIDE.lock().expect("launch override lock") = None;
+pub fn clear_emulate_override() {
+    *EMULATE_OVERRIDE.lock().expect("emulate override lock") = None;
 }
 
 /// 读取 CLI / N-API 启动页覆盖（不消费；不进 settings；无覆盖或空串时为 `None`）。
-pub fn launch_override_screen() -> Option<String> {
-    LAUNCH_OVERRIDE
+pub fn emulate_override_screen() -> Option<String> {
+    EMULATE_OVERRIDE
         .lock()
-        .expect("launch override lock")
+        .expect("emulate override lock")
         .as_ref()
         .and_then(|o| o.screen.as_ref())
         .map(|s| s.trim().to_string())

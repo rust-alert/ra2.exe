@@ -3,18 +3,18 @@ import { pathToFileURL } from 'node:url';
 
 function printUsage() {
     console.log(`Usage:
-  ra2 launch --path <game-dir> [--edition ra2|yr] [--screen skirmish|main|campaign|...]
+  ra2 emulate --path <game-dir> [--edition ra2|yr] [--screen skirmish|main|campaign|...]
   ra2 extract --path <game-dir> --out <dir> [--edition ra2|yr] [--theater temperate|snow|...] [--palette name.pal] [--decode-shp] [--decode-csf] [--] <name>...
   ra2 unpack --path <game-dir> --out <dir> [--edition ra2|yr] [--names-file <txt>] [--decode-csf]
   ra2 diagnose-maps --path <game-dir> [--edition ra2|yr] [--limit N] [--json]
   ra2 --version
   ra2 --help
 
-Screens (launch --screen):
+Screens (emulate --screen):
   splash (default), main, single, campaign, skirmish, choose_map, options
 
 Examples:
-  ra2 launch --path "C:/Games/RA2" --edition ra2 --screen skirmish
+  ra2 emulate --path "C:/Games/RA2" --edition ra2 --screen skirmish
   ra2 extract --path "C:/Games/RA2" --out ./out --decode-shp -- sdtp.shp title.pcx
   ra2 extract --path "C:/Games/RA2" --out ./out --edition ra2 --decode-shp --palette isotem.pal -- tibtre01.tem
   ra2 extract --path "C:/Games/RA2" --out ./out --decode-csf -- ra2.csf
@@ -180,7 +180,7 @@ async function main() {
         return;
     }
 
-    if (args[0] === 'launch') {
+    if (args[0] === 'emulate') {
         let gamePath = null;
         let edition;
         let screen;
@@ -189,37 +189,37 @@ async function main() {
             if (a === '--path') {
                 gamePath = args[i + 1];
                 if (!gamePath) {
-                    console.error('ra2 launch: --path requires a directory');
+                    console.error('ra2 emulate: --path requires a directory');
                     process.exit(1);
                 }
                 i += 1;
             } else if (a === '--edition') {
                 edition = args[i + 1];
                 if (!edition) {
-                    console.error('ra2 launch: --edition requires a value');
+                    console.error('ra2 emulate: --edition requires a value');
                     process.exit(1);
                 }
                 i += 1;
             } else if (a === '--screen') {
                 screen = args[i + 1];
                 if (!screen) {
-                    console.error('ra2 launch: --screen requires a value');
+                    console.error('ra2 emulate: --screen requires a value');
                     process.exit(1);
                 }
                 i += 1;
             } else {
-                console.error(`ra2 launch: unknown argument ${a}`);
+                console.error(`ra2 emulate: unknown argument ${a}`);
                 printUsage();
                 process.exit(1);
             }
         }
         if (!gamePath) {
-            console.error('ra2 launch: --path is required');
+            console.error('ra2 emulate: --path is required');
             printUsage();
             process.exit(1);
         }
-        const { launch } = await import('../dist/native.js');
-        launch({ path: gamePath, edition, screen });
+        const { emulate } = await import('../dist/native.js');
+        emulate({ path: gamePath, edition, screen });
         return;
     }
 

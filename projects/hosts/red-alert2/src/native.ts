@@ -4,7 +4,7 @@ import path from 'node:path';
 
 const require = createRequire(import.meta.url);
 
-export type LaunchOptions = {
+export type EmulateOptions = {
     path: string;
     edition?: string;
     /** 启动产品页别名，如 `skirmish` / `main`（跳过闪屏）。 */
@@ -97,7 +97,7 @@ export type DiagnoseMapsReport = {
 
 export type NativeBinding = {
     version(): string;
-    launch(options: LaunchOptions): void;
+    emulate(options: EmulateOptions): void;
     extract(options: ExtractOptions): ExtractResult;
     unpack(options: UnpackOptions): UnpackResult;
     diagnoseMaps(options: DiagnoseMapsOptions): DiagnoseMapsReport;
@@ -168,8 +168,8 @@ export function nativeBinaryIdentity(): NativeBinaryIdentity {
     return cachedIdentity;
 }
 
-export function launch(options: LaunchOptions): void {
-    loadNative().launch(options);
+export function emulate(options: EmulateOptions): void {
+    loadNative().emulate(options);
 }
 
 export function extract(options: ExtractOptions): ExtractResult {

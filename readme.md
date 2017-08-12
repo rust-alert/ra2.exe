@@ -2,7 +2,7 @@
 
 跨平台 GUI 引擎，用于在玩家自备的《命令与征服：红色警戒 2》、《尤里的复仇》以及心灵终结 3（Mental Omega 3）数据上运行自有逻辑。
 
-本仓库是 **现代化重写**：产品入口为 npm 包 **`@game-gpt/red-alert2`**（CLI `ra2 launch --path`），经 N-API 拉起原生窗口实现
+本仓库是 **现代化重写**：产品入口为 npm 包 **`@game-gpt/red-alert2`**（CLI `ra2 emulate --path`），经 N-API 拉起原生窗口实现
 `ra-napi`；对局由 **`ra-engine`**
 推进，呈现走现代 GPU API（桌面常见 DX12 / Vulkan / Metal；浏览器目标走 WebGL2 方向的 `ra-wasm`）。 **不是** DirectDraw 兼容层，
 **不是**向原版 `game.exe` / `gamemd.exe` 注入。
@@ -20,10 +20,10 @@ crate 文档。
 ```bash
 npm i -g @game-gpt/red-alert2
 # 合集盘 / 同时有 game.exe 与 gamemd.exe 时必须显式指定版本，否则可能落到 YR 资源链
-ra2 launch --path "C:/Games/RA2" --edition ra2
-ra2 launch --path "C:/Games/YR" --edition yr
+ra2 emulate --path "C:/Games/RA2" --edition ra2
+ra2 emulate --path "C:/Games/YR" --edition yr
 # 开发时可跳过闪屏直达遭遇战大厅
-ra2 launch --path "C:/Games/RA2" --edition ra2 --screen skirmish
+ra2 emulate --path "C:/Games/RA2" --edition ra2 --screen skirmish
 ```
 
 `--path` 指向含零售 MIX/INI 的安装根目录。壳层 UI 当前以 **RA2** 资源链对照为主；混装安装请始终加 `--edition ra2`。
@@ -87,8 +87,8 @@ pnpm exec ra2 unpack --path "C:/Games/RA2" --edition ra2 --out ./tmp/unpack
 pnpm exec ra2 unpack --path "C:/Games/RA2" --edition ra2 --out ./tmp/unpack --names-file ./extra_names.txt
 
 # 原生壳：只走 TypeScript CLI（不要 cargo run / Rust bin / example）
-pnpm exec ra2 launch --path "C:/Games/RA2" --edition ra2
-pnpm exec ra2 launch --path "C:/Games/RA2" --edition ra2 --screen skirmish
+pnpm exec ra2 emulate --path "C:/Games/RA2" --edition ra2
+pnpm exec ra2 emulate --path "C:/Games/RA2" --edition ra2 --screen skirmish
 
 pnpm run lint
 pnpm run fmt
@@ -123,7 +123,7 @@ sequenceDiagram
     participant Map as ra-map
     participant Eng as ra-engine
     participant Ren as ra-renderer
-    User ->> Host: ra2 launch --path
+    User ->> Host: ra2 emulate --path
     Host ->> Napi: 加载原生插件
     Napi ->> Desk: run
     Desk ->> Cfg: 合并桌面设置（含 CLI 覆盖）

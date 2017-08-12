@@ -10,6 +10,6 @@ pub struct Host;
 impl Host {
     /// 初始化并进入壳层事件循环。
     pub fn run() -> RaResult<()> {
-        super::launch::run_shell()
+        super::emulate::run_shell()
     }
 }

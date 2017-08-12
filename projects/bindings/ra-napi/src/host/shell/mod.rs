@@ -239,7 +239,7 @@ mod diagnostics;
 mod event_loop;
 mod host;
 mod input;
-mod launch;
+mod emulate;
 mod loading;
 mod lobby;
 mod navigation;
@@ -250,4 +250,4 @@ mod score;
 mod splash;
 
 pub use host::Host;
-pub use launch::{campaign_difficulty_from_track_x, run_shell};
+pub use emulate::{campaign_difficulty_from_track_x, run_shell};

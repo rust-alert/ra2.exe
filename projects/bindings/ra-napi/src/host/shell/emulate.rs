@@ -23,20 +23,20 @@ pub fn campaign_difficulty_from_track_x(track: RectPx, mouse_x: i32) -> u8 {
 /// 解析启动参数并进入事件循环。
 pub fn run_shell() -> RaResult<()> {
     let (mode, display_mode, music_volume, sound_volume, present, skirmish_prefs, load_min_secs, shell_slide_gap_secs, status_path, test_scene, start_screen) =
-        resolve_launch()?;
+        resolve_emulate()?;
 
     let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Poll);
 
     let mut app = match mode {
         #[cfg(feature = "test-harness")]
-        LaunchMode::DirectBattle(boot) => {
+        EmulateMode::DirectBattle(boot) => {
             if let Some(game) = boot.session.as_ref().and_then(|s| s.battle()) {
                 tracing::info!("preview_origin=({}, {}) entities={}", game.preview_origin_x, game.preview_origin_y, game.world.entity_count());
             }
             Shell::with_match(boot, display_mode.size().0 as f64, display_mode.size().1 as f64, status_path, test_scene)
         }
-        LaunchMode::MainMenu => {
+        EmulateMode::MainMenu => {
             let _ = (status_path, test_scene);
             Shell::with_main_menu(display_mode, start_screen)
         }
@@ -52,14 +52,14 @@ pub fn run_shell() -> RaResult<()> {
     Ok(())
 }
 
-enum LaunchMode {
+enum EmulateMode {
     #[cfg(feature = "test-harness")]
     DirectBattle(BootResult),
     MainMenu,
 }
 
-fn resolve_launch() -> RaResult<(
-    LaunchMode,
+fn resolve_emulate() -> RaResult<(
+    EmulateMode,
     DisplayMode,
     f32,
     f32,
@@ -86,7 +86,7 @@ fn resolve_launch() -> RaResult<(
             let t = crate::host::test_boot::boot_scene(&scene)?;
             tracing::info!("boot: {} · session=ok", t.note);
             return Ok((
-                LaunchMode::DirectBattle(BootResult::from_test(t)),
+                EmulateMode::DirectBattle(BootResult::from_test(t)),
                 DisplayMode::DEFAULT,
                 0.4,
                 0.7,
@@ -111,9 +111,9 @@ fn resolve_launch() -> RaResult<(
         tracing::info!(source = %d.source, "{}", d.message);
     }
     let display_mode = settings.display_mode;
-    let start_screen = match ra_config::launch_override_screen().as_deref() {
+    let start_screen = match ra_config::emulate_override_screen().as_deref() {
         None => ra_widgets::original_screen::OriginalScreen::Splash,
-        Some(raw) => ra_widgets::original_screen::OriginalScreen::parse_launch_alias(raw).map_err(RaError::Msg)?,
+        Some(raw) => ra_widgets::original_screen::OriginalScreen::parse_emulate_alias(raw).map_err(RaError::Msg)?,
     };
     tracing::info!(
         display_mode = display_mode.as_str(),
@@ -126,10 +126,10 @@ fn resolve_launch() -> RaResult<(
         preferred_map = ?state.skirmish.preferred_map,
         persist = %ra_config::persist_location_label(),
         ra2_dir = %settings.ra2_dir.display(),
-        "desktop launch settings"
+        "desktop emulate settings"
     );
     Ok((
-        LaunchMode::MainMenu,
+        EmulateMode::MainMenu,
         display_mode,
         settings.music_volume,
         settings.sound_volume,

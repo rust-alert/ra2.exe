@@ -72,10 +72,10 @@ impl OriginalScreen {
         matches!(self, Self::Battle)
     }
 
-    /// 解析 `ra2 launch --screen` 别名（大小写不敏感；不含对局/装载/结算）。
+    /// 解析 `ra2 emulate --screen` 别名（大小写不敏感；不含对局/装载/结算）。
     ///
     /// 接受稳定短名（[`Self::as_str`]）与常用缩写，例如 `skirmish` → [`Self::SkirmishLobby`]。
-    pub fn parse_launch_alias(raw: &str) -> Result<Self, String> {
+    pub fn parse_emulate_alias(raw: &str) -> Result<Self, String> {
         let key = raw.trim().to_ascii_lowercase();
         if key.is_empty() {
             return Err("screen 不能为空".into());
