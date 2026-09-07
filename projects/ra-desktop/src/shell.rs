@@ -46,6 +46,10 @@ pub struct AppShell {
     load_job: Option<LoadJob>,
     /// 当前装载开始时刻（脉搏标题用）。
     load_started: Option<Instant>,
+    /// 遭遇战大厅可选地图。
+    lobby_maps: Vec<crate::boot::BootMapCandidate>,
+    /// 当前选中的地图文件名。
+    selected_map: Option<String>,
     /// 主菜单阶段 UI 资源探测（惰性一次）。
     ui_probe: Option<MenuUiProbe>,
 }
@@ -87,6 +91,8 @@ impl AppShell {
             cursor: (0.0, 0.0),
             load_job: None,
             load_started: None,
+            lobby_maps: Vec::new(),
+            selected_map: None,
             ui_probe: None,
         }
     }
@@ -109,8 +115,42 @@ impl AppShell {
             cursor: (0.0, 0.0),
             load_job: None,
             load_started: None,
+            lobby_maps: Vec::new(),
+            selected_map: None,
             ui_probe: None,
         }
+    }
+
+    fn ensure_lobby_maps(&mut self) {
+        if !self.lobby_maps.is_empty() {
+            return;
+        }
+        self.lobby_maps = crate::boot::list_install_boot_maps();
+        if self.selected_map.is_none() {
+            self.selected_map = self.lobby_maps.first().map(|m| m.file_name.clone());
+        }
+        tracing::info!(
+            count = self.lobby_maps.len(),
+            selected = ?self.selected_map,
+            "遭遇战地图列表已刷新"
+        );
+    }
+
+    fn cycle_lobby_map(&mut self, delta: isize) {
+        self.ensure_lobby_maps();
+        if self.lobby_maps.is_empty() {
+            self.selected_map = None;
+            return;
+        }
+        let cur = self
+            .selected_map
+            .as_ref()
+            .and_then(|name| self.lobby_maps.iter().position(|m| &m.file_name == name))
+            .unwrap_or(0);
+        let n = self.lobby_maps.len() as isize;
+        let next = ((cur as isize + delta).rem_euclid(n)) as usize;
+        self.selected_map = Some(self.lobby_maps[next].file_name.clone());
+        self.refresh_shell_title();
     }
 
     fn ensure_ui_probe(&mut self) {
@@ -170,7 +210,10 @@ impl AppShell {
             }
             MenuAction::OpenOptions => self.set_screen(OriginalScreen::Options),
             MenuAction::Exit => event_loop.exit(),
-            MenuAction::OpenSkirmish => self.set_screen(OriginalScreen::SkirmishLobby),
+            MenuAction::OpenSkirmish => {
+                self.ensure_lobby_maps();
+                self.set_screen(OriginalScreen::SkirmishLobby);
+            }
             MenuAction::Back => match self.screen {
                 OriginalScreen::SinglePlayerMenu | OriginalScreen::Network | OriginalScreen::Options => {
                     self.set_screen(OriginalScreen::MainMenu);
@@ -193,7 +236,12 @@ impl AppShell {
         let title = match self.screen {
             OriginalScreen::MainMenu => format!("ra2 · 主菜单 · {}", self.banner),
             OriginalScreen::SinglePlayerMenu => "ra2 · 单人游戏 · 遭遇战 Enter · Esc 返回".into(),
-            OriginalScreen::SkirmishLobby => "ra2 · 遭遇战大厅（占位）· Enter 开始 · Esc 返回".into(),
+            OriginalScreen::SkirmishLobby => {
+                let map = self.selected_map.as_deref().unwrap_or("（无可用图）");
+                format!(
+                    "ra2 · 遭遇战大厅 · 地图 {map} · ←/→ 切换 · Enter 开始 · Esc 返回"
+                )
+            }
             OriginalScreen::Network => "ra2 · 网络（未开放）· Esc 返回".into(),
             OriginalScreen::LoadScreen => format!("ra2 · 加载 · {}", self.banner),
             OriginalScreen::Options => "ra2 · 选项（占位）· Esc 返回".into(),
@@ -207,7 +255,11 @@ impl AppShell {
             tracing::warn!("装载已在进行，忽略重复开始");
             return;
         }
-        self.banner = "正在探测安装并装载…".into();
+        self.ensure_lobby_maps();
+        self.banner = format!(
+            "正在装载 {}…",
+            self.selected_map.as_deref().unwrap_or("默认候选图")
+        );
         self.pending_after_load = Some(OriginalScreen::Match);
         self.set_screen(OriginalScreen::LoadScreen);
         self.load_started = Some(Instant::now());
@@ -218,7 +270,7 @@ impl AppShell {
                 return;
             }
         }
-        self.load_job = Some(LoadJob::start_install_boot());
+        self.load_job = Some(LoadJob::start_install_boot(self.selected_map.clone()));
     }
 
     fn poll_load_job(&mut self) {
@@ -318,6 +370,8 @@ impl AppShell {
                 PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) => {
                     self.begin_skirmish_load();
                 }
+                PhysicalKey::Code(KeyCode::ArrowLeft) => self.cycle_lobby_map(-1),
+                PhysicalKey::Code(KeyCode::ArrowRight) => self.cycle_lobby_map(1),
                 PhysicalKey::Code(KeyCode::Escape) => self.set_screen(OriginalScreen::SinglePlayerMenu),
                 _ => {}
             },
