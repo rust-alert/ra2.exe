@@ -537,13 +537,28 @@ impl MatchController {
             .iter()
             .find(|p| p.id == game.world.local_player)
             .map(|p| p.house.clone());
+        let (win_w, win_h) = window
+            .map(|w| {
+                let s = w.inner_size();
+                (s.width as f64, s.height as f64)
+            })
+            .unwrap_or((1.0, 1.0));
+        let cursor = self.cursor;
         let force_full = renderer.render_world().unit_count() == 0;
         let pres_started = Instant::now();
         let hud = if force_full {
             let snap = game.snapshot(&selected);
             renderer.timings.presentation_build = Some(pres_started.elapsed());
             let hud = game.snapshot_hud();
-            Self::apply_screen_chrome(renderer, &hud, local_house.as_deref(), screen_label);
+            Self::apply_screen_chrome(
+                renderer,
+                &hud,
+                local_house.as_deref(),
+                screen_label,
+                cursor,
+                win_w,
+                win_h,
+            );
             renderer.draw_frame(Some(&snap));
             // 全量同步已消费脏集语义：清空以免下一帧重复投影。
             let _ = game.world.take_presentation_dirty();
@@ -555,7 +570,15 @@ impl MatchController {
             let tick = game.world.tick;
             renderer.timings.presentation_build = Some(pres_started.elapsed());
             let hud = game.snapshot_hud();
-            Self::apply_screen_chrome(renderer, &hud, local_house.as_deref(), screen_label);
+            Self::apply_screen_chrome(
+                renderer,
+                &hud,
+                local_house.as_deref(),
+                screen_label,
+                cursor,
+                win_w,
+                win_h,
+            );
             renderer.draw_incremental(tick, &dirty, &units, &selected);
             hud
         };
@@ -567,10 +590,14 @@ impl MatchController {
         hud: &HudSnapshot,
         local_house: Option<&str>,
         screen_label: &str,
+        cursor: (f64, f64),
+        win_w: f64,
+        win_h: f64,
     ) {
         let mut quads = hud_chrome::match_hud_chrome(hud, local_house);
         if screen_label == "results" {
-            quads.extend(hud_chrome::results_chrome());
+            let hover = hud_chrome::hit_results(cursor.0, cursor.1, win_w, win_h);
+            quads.extend(hud_chrome::results_chrome(hover));
         }
         renderer.set_screen_chrome(&quads);
     }
