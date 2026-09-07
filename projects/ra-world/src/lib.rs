@@ -7,7 +7,7 @@ mod player;
 mod reject;
 
 use ra_adaptor::RulesDb;
-use ra_assets::{TechnoKind, TechnoTypeRegistry};
+use ra_assets::{TechnoKind, TechnoTypeRegistry, WarheadRegistry, armor_index};
 use ra_map::{MapEntityKind, MapInfo, PassGrid};
 use ra_types::{EntityId, GameEdition, PlayerId};
 
@@ -66,12 +66,16 @@ pub struct WorldEntity {
     pub max_health: u32,
     /// 移动速度（每 tick 累加到 `move_accum`）。
     pub speed: u32,
-    /// 攻击射程（曼哈顿格）；由 rules `Sight` 播种，缺省用预览常量。
+    /// 护甲名（rules `Armor`）；未知按 `none`。
+    pub armor: String,
+    /// 攻击射程（曼哈顿格）；优先武器 `Range`，否则 `Sight` / 预览常量。
     pub attack_range: u32,
-    /// 单次伤害；由 `Strength` 派生，缺省用预览常量。
+    /// 单次基础伤害；优先武器 `Damage`，否则 `Strength/4` / 预览常量。
     pub attack_damage: u32,
-    /// 开火冷却上限（tick）；由 rules `ROF` 播种。
+    /// 开火冷却上限（tick）；优先武器 `ROF`，否则类型节 / 预览常量。
     pub attack_cooldown_max: u32,
+    /// 弹头对各护甲的伤害百分比（来自 `Warhead`/`Verses`）；缺省全 100。
+    pub attack_verses: [u32; 11],
     /// 对应 techno 种类；无规则绑定时为 `None`。
     pub techno_kind: Option<TechnoKind>,
     /// 简易移动目标格 X；无航点时为 `None`。
@@ -119,6 +123,8 @@ pub struct World {
     pub local_player: PlayerId,
     /// 规则 techno 表（造价、生命等查询）。
     techno_types: TechnoTypeRegistry,
+    /// 弹头 `Verses` 表（攻击结算）。
+    warheads: WarheadRegistry,
     /// 下一枚可分配的稳定实体 ID（从 1 起）。
     next_entity_id: u64,
     /// 待本 tick 消费的命令（先进先出）。
@@ -161,6 +167,10 @@ impl World {
                     .unwrap_or(DEFAULT_ATTACK_DAMAGE);
                 let attack_cooldown_max =
                     tt.map(|t| if t.rof > 0 { t.rof } else { ATTACK_COOLDOWN_TICKS }).unwrap_or(ATTACK_COOLDOWN_TICKS);
+                let armor = tt.map(|t| t.armor.clone()).unwrap_or_else(|| "none".into());
+                let attack_verses = tt
+                    .map(|t| verses_for(&rules.warheads, &t.warhead))
+                    .unwrap_or_else(full_verses);
                 let id = EntityId(next_entity_id);
                 next_entity_id = next_entity_id.saturating_add(1);
                 WorldEntity {
@@ -176,9 +186,11 @@ impl World {
                     health,
                     max_health,
                     speed,
+                    armor,
                     attack_range,
                     attack_damage,
                     attack_cooldown_max,
+                    attack_verses,
                     techno_kind: tt.map(|t| t.kind),
                     target_x: None,
                     target_y: None,
@@ -209,6 +221,7 @@ impl World {
             players,
             local_player: PlayerId(0),
             techno_types: rules.techno_types.clone(),
+            warheads: rules.warheads.clone(),
             next_entity_id,
             pending_commands: Vec::new(),
             last_input_frame: InputFrame::empty(0),
@@ -362,7 +375,10 @@ impl World {
             }
             let dist = manhattan(self.entities[i].x, self.entities[i].y, self.entities[ti].x, self.entities[ti].y);
             if dist <= self.entities[i].attack_range {
-                let dmg = self.entities[i].attack_damage;
+                let base = self.entities[i].attack_damage;
+                let verses = self.entities[i].attack_verses;
+                let armor = self.entities[ti].armor.as_str();
+                let dmg = scale_damage(base, &verses, armor);
                 damage_events.push((ti, dmg));
                 self.entities[i].attack_cooldown = self.entities[i].attack_cooldown_max;
             }
@@ -461,6 +477,11 @@ impl World {
                         self.reject(command_index, CommandRejectReason::CannotDeploy);
                         continue;
                     };
+                    let armor = self
+                        .techno_types
+                        .get(building_type)
+                        .map(|t| t.armor.clone())
+                        .unwrap_or_else(|| "none".into());
                     let e = &mut self.entities[entity_index];
                     e.kind = MapEntityKind::Structure;
                     e.type_id = building_type.to_string();
@@ -473,6 +494,8 @@ impl World {
                     e.attack_range = 0;
                     e.attack_damage = 0;
                     e.attack_cooldown = 0;
+                    e.attack_verses = full_verses();
+                    e.armor = armor;
                     e.hva_frame = 0;
                 }
                 GameCommand::PlaceBuilding { player, ref type_id, x, y } => {
@@ -514,6 +537,7 @@ impl World {
                     }
                     let power = building_power_delta(type_id);
                     let max_health = tt.strength.max(1);
+                    let armor = tt.armor.clone();
                     let id = self.alloc_entity_id();
                     self.players[player_index].funds -= cost;
                     if power >= 0 {
@@ -537,9 +561,11 @@ impl World {
                         health: max_health,
                         max_health,
                         speed: 0,
+                        armor,
                         attack_range: 0,
                         attack_damage: 0,
                         attack_cooldown_max: 0,
+                        attack_verses: full_verses(),
                         techno_kind: Some(TechnoKind::Building),
                         target_x: None,
                         target_y: None,
@@ -700,9 +726,11 @@ impl World {
             health: max_health,
             max_health,
             speed: tt.speed,
+            armor: tt.armor.clone(),
             attack_range: if tt.range > 0 { tt.range } else { tt.sight.max(1) },
             attack_damage: if tt.damage > 0 { tt.damage } else { (tt.strength / 4).max(1) },
             attack_cooldown_max: if tt.rof > 0 { tt.rof } else { ATTACK_COOLDOWN_TICKS },
+            attack_verses: verses_for(&self.warheads, &tt.warhead),
             techno_kind: Some(tt.kind),
             target_x: None,
             target_y: None,
@@ -835,6 +863,12 @@ impl World {
                 .wrapping_add(u64::from(e.attack_cooldown) << 24)
                 .wrapping_add(u64::from(e.ore_trip_accum) << 8)
                 .wrapping_add(e.attack_target.map(|i| i as u64 + 1).unwrap_or(0) << 32);
+            for b in e.armor.as_bytes() {
+                h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
+            }
+            for v in e.attack_verses {
+                h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(v));
+            }
             if let Some((ref qid, rem)) = e.produce_queue {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(rem));
                 for b in qid.as_bytes() {
@@ -1025,6 +1059,19 @@ fn apply_damage(entities: &mut [WorldEntity], index: usize, amount: u32) {
             }
         }
     }
+}
+
+fn full_verses() -> [u32; 11] {
+    [100; 11]
+}
+
+fn verses_for(warheads: &WarheadRegistry, warhead: &str) -> [u32; 11] {
+    warheads.get(warhead).map(|w| w.verses).unwrap_or_else(full_verses)
+}
+
+fn scale_damage(base: u32, verses: &[u32; 11], armor: &str) -> u32 {
+    let pct = verses[armor_index(armor)];
+    ((u64::from(base) * u64::from(pct)) / 100) as u32
 }
 
 fn cell_occupied_by_other(entities: &[WorldEntity], self_i: usize, x: u16, y: u16) -> bool {
