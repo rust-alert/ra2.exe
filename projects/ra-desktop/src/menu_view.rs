@@ -12,6 +12,8 @@ use crate::{screen::OriginalScreen, ui_slots::{UiPageSlots, slots_for}};
 /// 菜单上的一个可点区域（窗口归一化坐标 0..1）。
 #[derive(Debug, Clone, Copy)]
 pub struct MenuHit {
+    /// 逻辑入口 id。
+    pub entry_id: &'static str,
     /// 动作标识。
     pub action: MenuAction,
     /// 左。
@@ -130,6 +132,7 @@ fn paint_from_slots(width: u32, height: u32, page: &UiPageSlots) -> MenuLayout {
             );
         }
         hits.push(MenuHit {
+            entry_id: btn.entry_id,
             action: btn.action,
             x0,
             y0,
@@ -162,6 +165,7 @@ mod tests {
     #[test]
     fn main_menu_hit_single_player() {
         let layout = layout_for(OriginalScreen::MainMenu, 1024, 768).unwrap();
+        assert_eq!(layout.hits[0].entry_id, "single_player");
         let action = layout.hit(400.0, 280.0, 1024.0, 768.0);
         assert_eq!(action, Some(MenuAction::OpenSinglePlayer));
     }

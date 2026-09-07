@@ -19,13 +19,17 @@ pub struct UiButtonSlot {
     pub enabled: bool,
     /// 归一化命中框（左、上、右、下，0..1）。
     pub hit: (f32, f32, f32, f32),
-    /// 常态 SHP（可空）。
+    /// 常态 SHP（可空；接线前保持 `None`）。
+    #[allow(dead_code)]
     pub normal_shp: Option<&'static str>,
     /// 悬停 SHP（可空）。
+    #[allow(dead_code)]
     pub hover_shp: Option<&'static str>,
     /// 按下 SHP（可空）。
+    #[allow(dead_code)]
     pub pressed_shp: Option<&'static str>,
     /// 禁用 SHP（可空）。
+    #[allow(dead_code)]
     pub disabled_shp: Option<&'static str>,
 }
 
@@ -35,8 +39,10 @@ pub struct UiPageSlots {
     /// 原版产品页。
     pub screen: OriginalScreen,
     /// 背景 SHP（可空）。
+    #[allow(dead_code)]
     pub background_shp: Option<&'static str>,
     /// 背景调色板（可空；常见为独立 PAL）。
+    #[allow(dead_code)]
     pub background_pal: Option<&'static str>,
     /// 页面入口。
     pub buttons: &'static [UiButtonSlot],
@@ -44,6 +50,7 @@ pub struct UiPageSlots {
 
 impl UiPageSlots {
     /// 是否已为任一槽填了具体文件名（用于区分「模型」与「已接线资产」）。
+    #[allow(dead_code)]
     pub fn has_any_asset_name(&self) -> bool {
         if self.background_shp.is_some() || self.background_pal.is_some() {
             return true;
