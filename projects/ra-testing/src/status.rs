@@ -31,6 +31,8 @@ pub struct TestStatus {
     pub queue: String,
     /// 最近拒绝原因调试名，无则为 `none`。
     pub last_reject: String,
+    /// 遭遇战难度标签，缺省为 `Normal`。
+    pub difficulty: String,
 }
 
 impl TestStatus {
@@ -40,6 +42,7 @@ impl TestStatus {
         status.outcome = "none".into();
         status.queue = "none".into();
         status.last_reject = "none".into();
+        status.difficulty = "Normal".into();
         for raw in text.lines() {
             let line = raw.trim();
             if line.is_empty() {
@@ -101,6 +104,7 @@ impl TestStatus {
                 }
                 "queue" => status.queue = value.to_string(),
                 "last_reject" => status.last_reject = value.to_string(),
+                "difficulty" => status.difficulty = value.to_string(),
                 _ => {}
             }
         }
@@ -113,7 +117,7 @@ impl TestStatus {
         Self::parse(&text)
     }
 
-    /// 解释计划里的粗略期望串（当前支持 `tick>=N` / `outcome!=none` / `paused=true|false` / `funds>=N`）。
+    /// 解释计划里的粗略期望串（当前支持 `tick>=N` / `outcome!=none` / `paused=true|false` / `funds>=N` / `difficulty=Label`）。
     pub fn matches_expect(&self, expect: &str) -> bool {
         let expect = expect.trim();
         if let Some(n) = expect.strip_prefix("tick>=") {
@@ -121,6 +125,9 @@ impl TestStatus {
         }
         if let Some(n) = expect.strip_prefix("funds>=") {
             return n.parse::<i32>().ok().is_some_and(|min| self.funds >= min);
+        }
+        if let Some(label) = expect.strip_prefix("difficulty=") {
+            return self.difficulty == label;
         }
         if expect == "outcome!=none" {
             return self.outcome != "none" && !self.outcome.is_empty();
