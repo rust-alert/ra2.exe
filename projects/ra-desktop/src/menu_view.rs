@@ -55,6 +55,10 @@ pub enum MenuAction {
     CancelLoad,
     /// 占位禁用项（不可点，无导航）。
     Noop,
+    /// 循环遭遇战本地阵营。
+    CycleSide,
+    /// 循环遭遇战难度。
+    CycleDifficulty,
     /// 选中大厅地图列表中的一项。
     SelectMap(usize),
 }
@@ -109,12 +113,14 @@ pub fn layout_for(
     Some(paint_from_slots(w, h, &page, hover, pressed))
 }
 
-/// 遭遇战大厅：地图列表 + Start/Back 槽位。
+/// 遭遇战大厅：地图列表 + 阵营/难度/Start/Back 槽位。
 pub fn layout_skirmish_lobby(
     width: u32,
     height: u32,
     maps: &[BootMapCandidate],
     selected: Option<&str>,
+    side: &str,
+    difficulty: &str,
     hover: Option<usize>,
     pressed: Option<usize>,
 ) -> MenuLayout {
@@ -184,13 +190,18 @@ pub fn layout_skirmish_lobby(
     }
 
     let map_hit_count = hits.len();
-    // Start / Back 沿用槽位矩形，叠在列表下方。
+    // 阵营 / 难度 / Start / Back 沿用槽位矩形，叠在列表下方。
     if let Some(page) = slots_for(OriginalScreen::SkirmishLobby) {
         for (i, btn) in page.buttons.iter().enumerate() {
             let hit_i = map_hit_count + i;
             let (x0, y0, x1, y1) = btn.hit;
             let hovered = hover == Some(hit_i);
-            let color = button_color(btn.enabled, i, hovered, pressed == Some(hit_i));
+            let pressed_here = pressed == Some(hit_i);
+            let color = match btn.entry_id {
+                "side" => side_button_color(side, hovered, pressed_here),
+                "difficulty" => difficulty_button_color(difficulty, hovered, pressed_here),
+                _ => button_color(btn.enabled, i, hovered, pressed_here),
+            };
             let px0 = (x0 * w as f32) as u32;
             let py0 = (y0 * h as f32) as u32;
             let px1 = (x1 * w as f32) as u32;
@@ -231,6 +242,51 @@ pub fn layout_skirmish_lobby(
 
     let image = RgbaImage::new(w, h, pixels).expect("lobby image size");
     MenuLayout { image, hits }
+}
+
+fn side_button_color(side: &str, hovered: bool, pressed: bool) -> [u8; 4] {
+    if pressed {
+        return [20, 40, 80, 255];
+    }
+    let base: [u8; 4] = if side.eq_ignore_ascii_case("Russians") {
+        [140, 48, 48, 255]
+    }
+    else {
+        [48, 72, 160, 255]
+    };
+    if hovered {
+        [
+            base[0].saturating_add(40),
+            base[1].saturating_add(40),
+            base[2].saturating_add(40),
+            255,
+        ]
+    }
+    else {
+        base
+    }
+}
+
+fn difficulty_button_color(difficulty: &str, hovered: bool, pressed: bool) -> [u8; 4] {
+    if pressed {
+        return [40, 40, 40, 255];
+    }
+    let base: [u8; 4] = match difficulty {
+        "Easy" => [48, 110, 72, 255],
+        "Hard" => [150, 70, 40, 255],
+        _ => [90, 90, 60, 255],
+    };
+    if hovered {
+        [
+            base[0].saturating_add(30),
+            base[1].saturating_add(30),
+            base[2].saturating_add(30),
+            255,
+        ]
+    }
+    else {
+        base
+    }
 }
 
 fn button_color(enabled: bool, index: usize, hovered: bool, pressed: bool) -> [u8; 4] {
@@ -367,7 +423,16 @@ mod tests {
             height: 50,
             theater: ra_map::Theater::Temperate,
         }];
-        let layout = layout_skirmish_lobby(1024, 768, &maps, Some("mp03t4.map"), None, None);
+        let layout = layout_skirmish_lobby(
+            1024,
+            768,
+            &maps,
+            Some("mp03t4.map"),
+            "Americans",
+            "Normal",
+            None,
+            None,
+        );
         // 首行约 y=0.18 → 138px
         let action = layout.hit(400.0, 150.0, 1024.0, 768.0);
         assert_eq!(action, Some(MenuAction::SelectMap(0)));
