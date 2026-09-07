@@ -21,5 +21,5 @@ fn produce_infantry_through_session_after_barracks() {
     assert_eq!(case.session.expect_game_mut().world.entities.len(), 4);
     let unit = case.session.expect_game_mut().world.entities.last().expect("应产出单位");
     assert_eq!(unit.kind, MapEntityKind::Infantry);
-    assert_eq!(unit.type_id, "E1");
+    assert_eq!(unit.type_id.as_ref(), "E1");
 }
