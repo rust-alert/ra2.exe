@@ -1,8 +1,6 @@
 //! 会话 tick、选中、快照与联机摘要集成测试。
 
-mod common;
-
-use common::rules_with_mtnk;
+use crate::common::rules_with_mtnk;
 use ra_engine::{GameCommand, MAX_TICKS_PER_PUMP, MatchOutcome, Session, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
 use ra_types::GameEdition;

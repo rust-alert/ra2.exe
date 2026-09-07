@@ -164,8 +164,11 @@ RTS 成本常在「附近有谁、如何到达」。本层承载寻路与占格�
 
 ## 与测试的关系
 
-`ra-testing` 经本包的会话 / 命令 / tick 路径做无窗口回归（移动、攻击、经济、生产、AI 竖切、摘要一致性等）。改 tick
-顺序或摘要输入集时，必须同步更新测试期望。GUI 自动化计划也假设桌面最终驱动的是同一套引擎语义。
+本包集成测试只有一个根：`tests/engine/main.rs`（Cargo 二进制名 `engine`）。其下按与 `src/` 相同的七轴用目录 + `mod.rs` 组织（`runtime` / `state` / `spatial` / `gameplay` / `lifecycle` / `presentation` / `persistence`），共用 `common`。不使用 `#[path]`，也不使用「同名 `axis.rs` + `axis/`」双轨。轴上预留模块不等于该能力测例已齐。
+
+`ra-testing` 经本包的会话 / 命令 / tick 路径做无窗口回归。改 tick 顺序或摘要输入集时，必须同步更新测试期望。
+
+目录塑形脚本：`scripts/reshape-engine-tests.mjs`（已落盘的仓库请直接在 `tests/engine/` 下增测，勿重复清空覆盖）。
 
 ## 构建
 

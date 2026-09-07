@@ -1,12 +1,41 @@
-//! `EntityId`、玩家状态与命令拒绝。
+//! 引擎集成测试共用夹具。
+
+#![allow(dead_code)]
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{CommandRejectReason, GameCommand, World};
+use ra_engine::World;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{EntityId, GameEdition};
+use ra_types::GameEdition;
 
-fn duel_world() -> World {
+/// 含 MTNK 坦克类型的最小规则库（Strength=400）。
+pub fn rules_with_mtnk() -> RulesDb {
+    let doc = IniDocument::parse(
+        b"[VehicleTypes]\n0=MTNK\n\
+[MTNK]\nStrength=400\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\n",
+    )
+    .unwrap();
+    RulesDb {
+        edition: GameEdition::Ra2,
+        rules: doc.clone(),
+        art: IniDocument::default(),
+        overlay_types: OverlayTypeRegistry::default(),
+        color_schemes: ColorSchemes::default(),
+        techno_types: TechnoTypeRegistry::from_rules(&doc),
+        warheads: WarheadRegistry::default(),
+    }
+}
+
+/// 20×30 空图。
+pub fn map_with_size() -> MapInfo {
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.width = 20;
+    map.height = 30;
+    map
+}
+
+/// 美俄各一辆 MTNK 的对决世界（Strength=200，供身份 / 拒绝测例）。
+pub fn duel_mtnk_world() -> World {
     let rules_text = b"[VehicleTypes]\n0=MTNK\n\
 [MTNK]\nStrength=200\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\n";
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
@@ -45,36 +74,4 @@ fn duel_world() -> World {
         },
     ];
     World::new(GameEdition::Ra2, &rules_db, map)
-}
-
-#[test]
-fn seeds_stable_entity_ids_and_players() {
-    let world = duel_world();
-    assert_eq!(world.entities[0].id, EntityId(1));
-    assert_eq!(world.entities[1].id, EntityId(2));
-    assert_eq!(world.entity_index(EntityId(2)), Some(1));
-    assert_eq!(world.entity_index(EntityId(99)), None);
-    assert_eq!(world.players.len(), 2);
-    assert_eq!(world.players[0].house, "Americans");
-    assert_eq!(world.players[1].house, "Russians");
-    assert_eq!(world.players[0].funds, 0);
-}
-
-#[test]
-fn records_reject_for_missing_entity_command() {
-    let mut world = duel_world();
-    world.push_command(GameCommand::MoveTo { entity_index: 99, x: 1, y: 1 });
-    world.advance_tick();
-    assert_eq!(world.last_rejects().len(), 1);
-    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::EntityNotFound);
-    assert_eq!(world.entities[0].x, 4);
-}
-
-#[test]
-fn records_reject_for_self_attack() {
-    let mut world = duel_world();
-    world.push_command(GameCommand::Attack { attacker_index: 0, target_index: 0 });
-    world.advance_tick();
-    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidTarget);
-    assert!(world.entities[0].attack_target.is_none());
 }
