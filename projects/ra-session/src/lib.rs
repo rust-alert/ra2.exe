@@ -352,14 +352,17 @@ impl Session {
         self.pause_reason = Some(format!("胜负已定 · {owner}"));
     }
 
-    /// 单选一个存活移动单位。
+    /// 单选一个存活实体（单位或建筑）。
     pub fn select_only(&mut self, index: usize) {
         self.selected.clear();
         if index < self.world.entities.len()
             && !self.world.entities[index].dead
             && matches!(
                 self.world.entities[index].kind,
-                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
+                MapEntityKind::Unit
+                    | MapEntityKind::Infantry
+                    | MapEntityKind::Aircraft
+                    | MapEntityKind::Structure
             )
         {
             self.selected.push(index);
@@ -372,7 +375,15 @@ impl Session {
             return;
         }
         let e = &self.world.entities[index];
-        if e.dead || !matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
+        if e.dead
+            || !matches!(
+                e.kind,
+                MapEntityKind::Unit
+                    | MapEntityKind::Infantry
+                    | MapEntityKind::Aircraft
+                    | MapEntityKind::Structure
+            )
+        {
             return;
         }
         if let Some(&first) = self.selected.first() {
@@ -481,6 +492,23 @@ impl Session {
             player: self.world.local_player,
             type_id: type_id.into(),
         });
+    }
+
+    /// 为当前选中的工厂设置集结点（非工厂由世界拒绝）。
+    pub fn order_selected_rally(&mut self, x: u16, y: u16) {
+        if self.outcome.is_some() {
+            return;
+        }
+        for &factory_index in &self.selected.clone() {
+            self.push_command(GameCommand::SetRallyPoint { factory_index, x, y });
+        }
+    }
+
+    /// 选中集合中是否包含建筑。
+    pub fn selection_has_structure(&self) -> bool {
+        self.selected.iter().any(|&i| {
+            self.world.entities.get(i).is_some_and(|e| !e.dead && e.kind == MapEntityKind::Structure)
+        })
     }
 
     /// 点选格上或其四邻的存活实体（单位优先，其次建筑）。
