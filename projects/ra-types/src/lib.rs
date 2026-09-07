@@ -15,7 +15,7 @@ mod math;
 mod time;
 
 pub use asset_source::AssetSource;
-pub use command::{CommandId, CommandKind, CommandTarget, ScheduledCommand};
+pub use command::{CommandBody, CommandId, CommandKind, CommandTarget, ScheduledCommand};
 pub use definition::{
     AnimationDefinitions, BuiltinCapability, CapabilitySet, ContentFingerprint, DeployableDefinition, DeployableDefinitions,
     DeploymentPlacement, HouseDefinitions, LocomotorDefinitions, PowerProfile, ProductionCategory, ProductionDefinitions,

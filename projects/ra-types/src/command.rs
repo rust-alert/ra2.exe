@@ -1,8 +1,7 @@
 //! 命令与事件基础载荷（跨层共享的形状，不含引擎调度细节）。
 
 use crate::{
-    id::{EntityId, PlayerId, TypeId},
-    math::Cell,
+    id::{EntityId, PlayerId},
     time::Tick,
 };
 
@@ -29,30 +28,150 @@ pub enum CommandKind {
     Other,
 }
 
-/// 命令目标。
+/// 命令目标（粗粒度，供 UI / 日志；精确载荷见 [`CommandBody`]）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CommandTarget {
     /// 无目标。
     None,
     /// 地图格。
-    Cell(Cell),
+    Cell {
+        /// 格 X。
+        x: u16,
+        /// 格 Y。
+        y: u16,
+    },
     /// 实体。
     Entity(EntityId),
-    /// 类型（生产 / 放置）。
-    Type(TypeId),
+    /// 外部类型键（生产 / 放置）。
+    TypeKey(String),
 }
 
-/// 已调度、带发出者与逻辑时间的命令信封（载荷形状预留）。
+/// 可执行命令体（跨桌面 / 测试 / 网络的共同载荷，不含调度信封）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CommandBody {
+    /// 将实体移动到目标格。
+    MoveTo {
+        /// 实体稳定 ID。
+        entity: EntityId,
+        /// 目标格 X。
+        x: u16,
+        /// 目标格 Y。
+        y: u16,
+    },
+    /// 指定攻击目标。
+    Attack {
+        /// 攻击方。
+        attacker: EntityId,
+        /// 被攻击方。
+        target: EntityId,
+    },
+    /// 部署可展开实体。
+    Deploy {
+        /// 实体稳定 ID。
+        entity: EntityId,
+    },
+    /// 在目标格放置建筑。
+    PlaceBuilding {
+        /// 出资并拥有该建筑的玩家。
+        player: PlayerId,
+        /// 外部类型键。
+        type_id: String,
+        /// 目标格 X。
+        x: u16,
+        /// 目标格 Y。
+        y: u16,
+    },
+    /// 在空闲工厂排队生产单位。
+    Produce {
+        /// 出资玩家。
+        player: PlayerId,
+        /// 外部类型键。
+        type_id: String,
+    },
+    /// 为工厂设置生产集结点。
+    SetRallyPoint {
+        /// 工厂实体稳定 ID。
+        factory: EntityId,
+        /// 集结格 X。
+        x: u16,
+        /// 集结格 Y。
+        y: u16,
+    },
+}
+
+impl CommandBody {
+    /// 对应的粗粒度种类。
+    pub fn kind(&self) -> CommandKind {
+        match self {
+            Self::MoveTo { .. } => CommandKind::MoveTo,
+            Self::Attack { .. } => CommandKind::Attack,
+            Self::Deploy { .. } => CommandKind::Deploy,
+            Self::PlaceBuilding { .. } => CommandKind::PlaceBuilding,
+            Self::Produce { .. } => CommandKind::Produce,
+            Self::SetRallyPoint { .. } => CommandKind::SetRally,
+        }
+    }
+
+    /// 对应的粗粒度主目标（攻击取目标方，移动取格子）。
+    pub fn primary_target(&self) -> CommandTarget {
+        match self {
+            Self::MoveTo { x, y, .. } | Self::SetRallyPoint { x, y, .. } | Self::PlaceBuilding { x, y, .. } => {
+                CommandTarget::Cell { x: *x, y: *y }
+            }
+            Self::Attack { target, .. } => CommandTarget::Entity(*target),
+            Self::Deploy { entity } => CommandTarget::Entity(*entity),
+            Self::Produce { type_id, .. } => CommandTarget::TypeKey(type_id.clone()),
+        }
+    }
+}
+
+/// 已调度、带发出者与逻辑时间的命令信封。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScheduledCommand {
     /// 命令 ID。
     pub id: CommandId,
     /// 发出玩家。
     pub player: PlayerId,
-    /// 计划执行的 tick（或入队 tick）。
+    /// 计划执行的 tick（或入队时的下一消费 tick）。
     pub tick: Tick,
-    /// 种类。
-    pub kind: CommandKind,
-    /// 目标。
-    pub target: CommandTarget,
+    /// 可执行载荷。
+    pub body: CommandBody,
+}
+
+impl ScheduledCommand {
+    /// 构造信封。
+    pub fn new(id: CommandId, player: PlayerId, tick: Tick, body: CommandBody) -> Self {
+        Self { id, player, tick, body }
+    }
+
+    /// 粗粒度种类。
+    pub fn kind(&self) -> CommandKind {
+        self.body.kind()
+    }
+
+    /// 粗粒度主目标。
+    pub fn target(&self) -> CommandTarget {
+        self.body.primary_target()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::id::EntityId;
+
+    #[test]
+    fn scheduled_command_exposes_kind_and_target() {
+        let cmd = ScheduledCommand::new(
+            CommandId(7),
+            PlayerId(1),
+            Tick(3),
+            CommandBody::Attack { attacker: EntityId(1), target: EntityId(2) },
+        );
+        assert_eq!(cmd.id, CommandId(7));
+        assert_eq!(cmd.player, PlayerId(1));
+        assert_eq!(cmd.tick, Tick(3));
+        assert_eq!(cmd.kind(), CommandKind::Attack);
+        assert_eq!(cmd.target(), CommandTarget::Entity(EntityId(2)));
+    }
 }
