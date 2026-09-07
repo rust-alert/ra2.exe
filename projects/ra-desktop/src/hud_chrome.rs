@@ -103,24 +103,59 @@ pub fn match_hud_chrome(hud: &HudSnapshot, local_house: Option<&str>) -> Vec<Scr
     quads
 }
 
+/// 结算页占位动作（色块可点，非原版按钮）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResultsHit {
+    /// 重开遭遇战。
+    Rematch,
+    /// 返回遭遇战大厅。
+    ToLobby,
+}
+
+/// 结算页占位按钮命中框（与 [`results_chrome`] 几何一致）。
+pub const RESULTS_REMATCH_HIT: (f32, f32, f32, f32) = (0.30, 0.38, 0.70, 0.48);
+/// 返回大厅命中框。
+pub const RESULTS_LOBBY_HIT: (f32, f32, f32, f32) = (0.30, 0.52, 0.70, 0.62);
+
 /// 结算页占位按钮色块（重开 / 返回大厅）。
 pub fn results_chrome() -> Vec<ScreenChromeQuad> {
+    let (rx0, ry0, rx1, ry1) = RESULTS_REMATCH_HIT;
+    let (lx0, ly0, lx1, ly1) = RESULTS_LOBBY_HIT;
     vec![
         ScreenChromeQuad {
-            x0: 0.30,
-            y0: 0.38,
-            x1: 0.70,
-            y1: 0.48,
+            x0: rx0,
+            y0: ry0,
+            x1: rx1,
+            y1: ry1,
             color: [0.16, 0.42, 0.22, 0.92],
         },
         ScreenChromeQuad {
-            x0: 0.30,
-            y0: 0.52,
-            x1: 0.70,
-            y1: 0.62,
+            x0: lx0,
+            y0: ly0,
+            x1: lx1,
+            y1: ly1,
             color: [0.32, 0.22, 0.18, 0.92],
         },
     ]
+}
+
+/// 窗口像素点击 → 结算占位动作。
+pub fn hit_results(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<ResultsHit> {
+    if win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let nx = (cursor_x / win_w) as f32;
+    let ny = (cursor_y / win_h) as f32;
+    let in_hit = |b: (f32, f32, f32, f32)| nx >= b.0 && nx <= b.2 && ny >= b.1 && ny <= b.3;
+    if in_hit(RESULTS_REMATCH_HIT) {
+        Some(ResultsHit::Rematch)
+    }
+    else if in_hit(RESULTS_LOBBY_HIT) {
+        Some(ResultsHit::ToLobby)
+    }
+    else {
+        None
+    }
 }
 
 #[cfg(test)]
@@ -165,5 +200,12 @@ mod tests {
     #[test]
     fn results_chrome_has_two_buttons() {
         assert_eq!(results_chrome().len(), 2);
+    }
+
+    #[test]
+    fn results_hit_maps_rematch_and_lobby() {
+        assert_eq!(hit_results(500.0, 430.0, 1000.0, 1000.0), Some(ResultsHit::Rematch));
+        assert_eq!(hit_results(500.0, 570.0, 1000.0, 1000.0), Some(ResultsHit::ToLobby));
+        assert_eq!(hit_results(50.0, 50.0, 1000.0, 1000.0), None);
     }
 }
