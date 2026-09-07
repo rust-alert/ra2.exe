@@ -8,7 +8,13 @@ fn scripted_attack_after_ai_deploy_reaches_victory() {
     let slice = alpha_skirmish_v1();
     let mut case = ai_skirmish_open();
     case.advance(1);
-    assert!(case.session.expect_game_mut().world.entities.iter().any(|e| e.owner == slice.ai_house && e.type_id == "NACNST"));
+    assert!(case
+        .session
+        .expect_game_mut()
+        .world
+        .entities
+        .iter()
+        .any(|e| e.owner.as_ref() == slice.ai_house && e.type_id.as_ref() == "NACNST"));
     // 停止继续扩建，只验收「可经命令路径打到结算」。
     case.session.expect_game_mut().ai_enabled = false;
     let tank = case
@@ -17,10 +23,16 @@ fn scripted_attack_after_ai_deploy_reaches_victory() {
         .world
         .entities
         .iter()
-        .position(|e| e.owner == slice.human_house && e.type_id == "MTNK")
+        .position(|e| e.owner.as_ref() == slice.human_house && e.type_id.as_ref() == "MTNK")
         .expect("human tank");
-    let yard =
-        case.session.expect_game_mut().world.entities.iter().position(|e| e.owner == slice.ai_house && e.type_id == "NACNST").expect("ai yard");
+    let yard = case
+        .session
+        .expect_game_mut()
+        .world
+        .entities
+        .iter()
+        .position(|e| e.owner.as_ref() == slice.ai_house && e.type_id.as_ref() == "NACNST")
+        .expect("ai yard");
     let tank_id = case.session.expect_game().world.entities[tank].id;
     let yard_id = case.session.expect_game().world.entities[yard].id;
     case.session.expect_game_mut().world.entities[yard].health = 120;
@@ -42,9 +54,22 @@ fn equal_ai_skirmish_scripts_match_hash() {
     for case in [&mut first, &mut second] {
         case.advance(1);
         case.session.expect_game_mut().ai_enabled = false;
-        let tank =
-            case.session.expect_game_mut().world.entities.iter().position(|e| e.owner == slice.human_house && e.type_id == "MTNK").unwrap();
-        let yard = case.session.expect_game_mut().world.entities.iter().position(|e| e.owner == slice.ai_house && e.type_id == "NACNST").unwrap();
+        let tank = case
+            .session
+            .expect_game_mut()
+            .world
+            .entities
+            .iter()
+            .position(|e| e.owner.as_ref() == slice.human_house && e.type_id.as_ref() == "MTNK")
+            .unwrap();
+        let yard = case
+            .session
+            .expect_game_mut()
+            .world
+            .entities
+            .iter()
+            .position(|e| e.owner.as_ref() == slice.ai_house && e.type_id.as_ref() == "NACNST")
+            .unwrap();
         let tank_id = case.session.expect_game().world.entities[tank].id;
         let yard_id = case.session.expect_game().world.entities[yard].id;
         case.session.expect_game_mut().world.entities[yard].health = 120;
