@@ -16,6 +16,19 @@ pub struct BootMapResult {
     pub note: String,
 }
 
+/// 可解析的启动候选地图摘要（供遭遇战大厅列表）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BootMapCandidate {
+    /// 文件名（如 `mp03t4.map`）。
+    pub file_name: String,
+    /// 地图宽（格）。
+    pub width: u32,
+    /// 地图高（格）。
+    pub height: u32,
+    /// 剧院。
+    pub theater: Theater,
+}
+
 /// 尝试解析一张启动地图；失败返回错误文案。
 pub fn try_parse_boot_map(edition: GameEdition, name: &str, bytes: &[u8]) -> Result<MapInfo, String> {
     MapInfo::parse_ini(edition, name, bytes).map_err(|e| e.to_string())
@@ -30,6 +43,37 @@ pub fn mount_theater_mixes(theater: Theater, mount_nested: &mut dyn FnMut(&str) 
         }
     }
     n
+}
+
+/// 列出候选表中当前资源源可解析的遭遇图（保序）。
+pub fn list_parseable_boot_maps(edition: GameEdition, source: &dyn AssetSource) -> Vec<BootMapCandidate> {
+    let mut out = Vec::new();
+    for name in BOOT_MAP_CANDIDATES {
+        let Ok(bytes) = source.read(name)
+        else {
+            continue;
+        };
+        let Ok(map) = try_parse_boot_map(edition, name, &bytes)
+        else {
+            continue;
+        };
+        out.push(BootMapCandidate {
+            file_name: (*name).to_string(),
+            width: map.width,
+            height: map.height,
+            theater: map.theater,
+        });
+    }
+    out
+}
+
+/// 按文件名解析一张启动地图；找不到或解析失败返回 `None`。
+pub fn find_boot_map_named(edition: GameEdition, source: &dyn AssetSource, name: &str) -> Option<BootMapResult> {
+    let bytes = source.read(name).ok()?;
+    let map = try_parse_boot_map(edition, name, &bytes).ok()?;
+    let mut note = format!("map:{name} {}x{} {}", map.width, map.height, map.theater.as_str());
+    note.push_str(&map_content_note(&map));
+    Some(BootMapResult { map, note })
 }
 
 /// 按候选顺序解析第一张可加载遭遇图（不挂载 MIX）。
@@ -58,6 +102,16 @@ pub fn find_first_boot_map(edition: GameEdition, source: &dyn AssetSource) -> Bo
     }
     let note = if fail_note.is_empty() { "map:无".to_string() } else { format!("{fail_note} · map:无") };
     BootMapResult { map: MapInfo::empty(edition, "boot"), note }
+}
+
+/// 优先按指定文件名装载，否则回退到 [`find_first_boot_map`]。
+pub fn find_boot_map(edition: GameEdition, source: &dyn AssetSource, preferred: Option<&str>) -> BootMapResult {
+    if let Some(name) = preferred {
+        if let Some(hit) = find_boot_map_named(edition, source, name) {
+            return hit;
+        }
+    }
+    find_first_boot_map(edition, source)
 }
 
 fn map_content_note(map: &MapInfo) -> String {
