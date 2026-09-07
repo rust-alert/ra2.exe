@@ -124,6 +124,8 @@ pub enum AnimState {
     Move,
     /// 攻击。
     Attack,
+    /// 受击闪白。
+    TakeDamage,
     /// 死亡。
     Die,
     /// 工厂生产中。
@@ -680,6 +682,9 @@ impl Session {
 fn derive_anim_state(e: &ra_world::WorldEntity) -> AnimState {
     if e.dead {
         return AnimState::Die;
+    }
+    if e.hit_flash > 0 {
+        return AnimState::TakeDamage;
     }
     if e.produce_queue.is_some() {
         return AnimState::Produce;

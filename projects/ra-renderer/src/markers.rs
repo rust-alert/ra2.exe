@@ -213,6 +213,7 @@ fn anim_tint(base: [f32; 4], state: AnimState) -> [f32; 4] {
         AnimState::Idle => base,
         AnimState::Move => [r * 0.85 + 0.15, g * 0.85 + 0.15, b * 0.7, a],
         AnimState::Attack => [r * 0.55 + 0.45, g * 0.45, b * 0.35, a],
+        AnimState::TakeDamage => [0.95, 0.95, 0.95, a],
         AnimState::Produce => [r * 0.55, g * 0.55 + 0.4, b * 0.7 + 0.25, a],
         AnimState::Die => [0.2, 0.2, 0.2, 0.55],
     }
