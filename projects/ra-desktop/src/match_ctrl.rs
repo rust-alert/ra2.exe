@@ -440,9 +440,10 @@ impl MatchController {
         }
     }
 
-    /// 推进仿真（仅对局页调用）并检测是否应进入结算。
-    pub fn pump(&mut self, dt: f64) -> MatchNav {
-        if let (Some(engine), Some(session)) = (self.engine.as_ref(), self.session.as_mut()) {
+    /// 推进仿真（仅对局页调用）并检测是否应进入结算。返回导航与本段耗时。
+    pub fn pump(&mut self, dt: f64) -> (MatchNav, std::time::Duration) {
+        let started = Instant::now();
+        let nav = if let (Some(engine), Some(session)) = (self.engine.as_ref(), self.session.as_mut()) {
             let _ = session.pump(&engine.runtime(), dt);
             if let Some(game) = session.game() {
                 self.local.prune_dead(game);
@@ -450,10 +451,16 @@ impl MatchController {
             if session.game().and_then(|g| g.outcome.as_ref()).is_some() {
                 session.phase = SessionPhase::Finished;
                 self.note_outcome_once();
-                return MatchNav::ToResults;
+                MatchNav::ToResults
+            }
+            else {
+                MatchNav::None
             }
         }
-        MatchNav::None
+        else {
+            MatchNav::None
+        };
+        (nav, started.elapsed())
     }
 
     fn note_outcome_once(&mut self) {
@@ -484,7 +491,9 @@ impl MatchController {
 
     /// 绘制当前快照并刷新标题。
     pub fn draw_frame(&mut self, renderer: &mut Renderer, window: Option<&Arc<Window>>, screen_label: &str) {
+        let snap_started = Instant::now();
         let snap = self.session.as_ref().and_then(|s| s.game()).map(|g| g.snapshot(&self.local.selected));
+        renderer.timings.presentation_build = Some(snap_started.elapsed());
         renderer.draw_frame(snap.as_ref());
         self.refresh_title(renderer, window, screen_label);
     }

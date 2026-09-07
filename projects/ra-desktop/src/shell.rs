@@ -244,7 +244,8 @@ impl AppShell {
             if let Some(ctrl) = self.match_ctrl.as_mut() {
                 let prev = ctrl.take_pump_clock();
                 let dt = Instant::now().duration_since(prev).as_secs_f64();
-                let nav = ctrl.pump(dt);
+                let (nav, sim_dt) = ctrl.pump(dt);
+                self.renderer.timings.simulation = Some(sim_dt);
                 ctrl.draw_frame(&mut self.renderer, self.window.as_ref(), self.screen.as_str());
                 self.apply_nav(nav);
             }
@@ -252,11 +253,14 @@ impl AppShell {
         else if self.screen.requires_session() {
             if let Some(ctrl) = self.match_ctrl.as_mut() {
                 let _ = ctrl.take_pump_clock();
+                self.renderer.timings.simulation = None;
                 ctrl.draw_frame(&mut self.renderer, self.window.as_ref(), self.screen.as_str());
             }
         }
         else {
             // 主菜单等前置页：不依赖 Session；原版资产接线前仅清帧 + 标题导航。
+            self.renderer.timings.simulation = None;
+            self.renderer.timings.presentation_build = None;
             self.renderer.draw_frame(None);
             self.refresh_shell_title();
         }
