@@ -45,6 +45,8 @@ pub struct RenderSnapshot {
     pub paused: bool,
     /// 暂停原因文案（胜负、手动暂停、摘要不一致等）。
     pub pause_reason: Option<String>,
+    /// 结算统计；未结束时为 `None`。
+    pub match_stats: Option<MatchStats>,
 }
 
 /// 快照中的玩家经济状态。
@@ -146,6 +148,19 @@ pub enum MatchOutcome {
     },
 }
 
+/// 结算用统计（对局结束时锁定）。
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MatchStats {
+    /// 对局持续 tick。
+    pub duration_ticks: u64,
+    /// 已死亡移动单位数。
+    pub units_lost: u32,
+    /// 已死亡建筑数。
+    pub buildings_lost: u32,
+    /// 全场累计花费。
+    pub funds_spent: i32,
+}
+
 /// 运行中会话。
 #[derive(Debug)]
 pub struct Session {
@@ -169,6 +184,8 @@ pub struct Session {
     pub pause_reason: Option<String>,
     /// 对局结果；一旦设定则停止推进并拒绝新命令。
     pub outcome: Option<MatchOutcome>,
+    /// 结算统计；对局结束时填充。
+    pub match_stats: Option<MatchStats>,
     /// 对局内容指纹（握手用；未设置时为空默认）。
     pub fingerprint: MatchFingerprint,
     /// 是否为非本地阵营自动下发 AI 命令。
@@ -189,6 +206,7 @@ impl Session {
             paused: false,
             pause_reason: None,
             outcome: None,
+            match_stats: None,
             fingerprint: MatchFingerprint { edition: String::new(), map: String::new(), rules_hash: 0 },
             ai_enabled: false,
         }
@@ -414,9 +432,33 @@ impl Session {
         else {
             return;
         };
+        self.match_stats = Some(self.compute_match_stats());
         self.outcome = Some(MatchOutcome::Victory { owner: owner.clone() });
         self.paused = true;
         self.pause_reason = Some(format!("胜负已定 · {owner}"));
+    }
+
+    fn compute_match_stats(&self) -> MatchStats {
+        let mut units_lost = 0u32;
+        let mut buildings_lost = 0u32;
+        for e in &self.world.entities {
+            if !e.dead {
+                continue;
+            }
+            match e.kind {
+                MapEntityKind::Structure => buildings_lost = buildings_lost.saturating_add(1),
+                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft => {
+                    units_lost = units_lost.saturating_add(1);
+                }
+            }
+        }
+        let funds_spent = self.world.players.iter().map(|p| p.funds_spent).sum();
+        MatchStats {
+            duration_ticks: self.world.tick,
+            units_lost,
+            buildings_lost,
+            funds_spent,
+        }
     }
 
     /// 单选一个存活实体（单位或建筑）。
@@ -713,6 +755,7 @@ impl Session {
             outcome: self.outcome.clone(),
             paused: self.paused,
             pause_reason: self.pause_reason.clone(),
+            match_stats: self.match_stats.clone(),
         }
     }
 }
