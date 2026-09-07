@@ -7,7 +7,7 @@ mod player;
 mod reject;
 
 use ra_adaptor::RulesDb;
-use ra_assets::TechnoKind;
+use ra_assets::{TechnoKind, TechnoTypeRegistry};
 use ra_map::{MapEntityKind, MapInfo, PassGrid};
 use ra_types::{EntityId, GameEdition, PlayerId};
 
@@ -100,6 +100,8 @@ pub struct World {
     pub players: Vec<PlayerState>,
     /// 本地玩家 ID。
     pub local_player: PlayerId,
+    /// 规则 techno 表（造价、生命等查询）。
+    techno_types: TechnoTypeRegistry,
     /// 下一枚可分配的稳定实体 ID（从 1 起）。
     next_entity_id: u64,
     /// 待本 tick 消费的命令（先进先出）。
@@ -175,6 +177,7 @@ impl World {
             entities,
             players,
             local_player: PlayerId(0),
+            techno_types: rules.techno_types.clone(),
             next_entity_id,
             pending_commands: Vec::new(),
             last_input_frame: InputFrame::empty(0),
@@ -439,12 +442,100 @@ impl World {
                     e.attack_cooldown = 0;
                     e.hva_frame = 0;
                 }
+                GameCommand::PlaceBuilding { player, ref type_id, x, y } => {
+                    let Some(player_index) = self.players.iter().position(|p| p.id == player)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let house = self.players[player_index].house.clone();
+                    let Some(tt) = self.techno_types.get(type_id)
+                    else {
+                        self.reject(command_index, CommandRejectReason::InvalidPlacement);
+                        continue;
+                    };
+                    if tt.kind != TechnoKind::Building {
+                        self.reject(command_index, CommandRejectReason::InvalidPlacement);
+                        continue;
+                    }
+                    if is_construction_yard(type_id) {
+                        self.reject(command_index, CommandRejectReason::InvalidPlacement);
+                        continue;
+                    }
+                    if !self.house_has_living_yard(&house) {
+                        self.reject(command_index, CommandRejectReason::MissingPrerequisite);
+                        continue;
+                    }
+                    if !self.can_place_structure(x, y) {
+                        self.reject(command_index, CommandRejectReason::InvalidPlacement);
+                        continue;
+                    }
+                    let cost = tt.cost as i32;
+                    if self.players[player_index].funds < cost {
+                        self.reject(command_index, CommandRejectReason::InsufficientFunds);
+                        continue;
+                    }
+                    let power = building_power_delta(type_id);
+                    let max_health = tt.strength.max(1);
+                    let id = self.alloc_entity_id();
+                    self.players[player_index].funds -= cost;
+                    if power >= 0 {
+                        self.players[player_index].power_output =
+                            self.players[player_index].power_output.saturating_add(power);
+                    } else {
+                        self.players[player_index].power_drain =
+                            self.players[player_index].power_drain.saturating_add(-power);
+                    }
+                    self.pass_grid.set_passable(x, y, false);
+                    self.entities.push(WorldEntity {
+                        id,
+                        kind: MapEntityKind::Structure,
+                        owner: house,
+                        type_id: type_id.to_ascii_uppercase(),
+                        x,
+                        y,
+                        facing: 0,
+                        turret_facing: 0,
+                        sub_cell: 0,
+                        health: max_health,
+                        max_health,
+                        speed: 0,
+                        attack_range: 0,
+                        attack_damage: 0,
+                        attack_cooldown_max: 0,
+                        techno_kind: Some(TechnoKind::Building),
+                        target_x: None,
+                        target_y: None,
+                        path: Vec::new(),
+                        move_accum: 0,
+                        hva_frame: 0,
+                        attack_target: None,
+                        attack_cooldown: 0,
+                        dead: false,
+                    });
+                }
             }
         }
     }
 
     fn reject(&mut self, command_index: usize, reason: CommandRejectReason) {
         self.last_rejects.push(CommandReject { command_index, reason });
+    }
+
+    fn house_has_living_yard(&self, house: &str) -> bool {
+        self.entities.iter().any(|e| {
+            !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_construction_yard(&e.type_id)
+        })
+    }
+
+    fn can_place_structure(&self, x: u16, y: u16) -> bool {
+        if !self.pass_grid.in_bounds(x, y) {
+            return false;
+        }
+        if !self.pass_grid.is_passable(x, y) {
+            return false;
+        }
+        !self.entities.iter().any(|e| !e.dead && e.x == x && e.y == y)
     }
 
     /// 当前确定性状态哈希（锁步校验用）。
@@ -536,6 +627,17 @@ fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
             h = h.wrapping_mul(1099511628211).wrapping_add(3);
             h = h.wrapping_mul(1099511628211).wrapping_add(entity_index as u64);
         }
+        GameCommand::PlaceBuilding { player, ref type_id, x, y } => {
+            h = h.wrapping_mul(1099511628211).wrapping_add(4);
+            h = h
+                .wrapping_mul(1099511628211)
+                .wrapping_add(u64::from(player.0))
+                .wrapping_add((x as u64) << 8)
+                .wrapping_add((y as u64) << 24);
+            for b in type_id.as_bytes() {
+                h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
+            }
+        }
     }
     h
 }
@@ -546,6 +648,21 @@ fn deploy_into_type(type_id: &str) -> Option<&'static str> {
         "AMCV" => Some("GACNST"),
         "SMCV" => Some("NACNST"),
         _ => None,
+    }
+}
+
+fn is_construction_yard(type_id: &str) -> bool {
+    matches!(type_id, "GACNST" | "NACNST")
+}
+
+/// 冻结竖切建筑的电力增量（正=供电，负=耗电）。后续由 adaptor 定义替换。
+fn building_power_delta(type_id: &str) -> i32 {
+    match type_id {
+        "GAPOWR" | "NAPOWR" => 200,
+        "GAPILE" | "NAHAND" => -20,
+        "GAWEAP" | "NAWEAP" => -30,
+        "GAREFN" | "NAREFN" => -50,
+        _ => 0,
     }
 }
 
