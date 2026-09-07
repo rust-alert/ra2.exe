@@ -278,6 +278,11 @@ impl World {
         self.players.iter().find(|p| p.house == house).map(|p| p.funds)
     }
 
+    /// 查询规则造价；未知类型为 `None`。
+    pub fn techno_cost(&self, type_id: &str) -> Option<u32> {
+        self.techno_types.get(type_id).map(|t| t.cost)
+    }
+
     /// 推进一个逻辑 tick：消费命令、移动、战斗与炮塔转向。
     pub fn advance_tick(&mut self) {
         self.tick = self.tick.wrapping_add(1);
@@ -803,7 +808,8 @@ impl World {
         })
     }
 
-    fn can_place_structure(&self, x: u16, y: u16) -> bool {
+    /// 目标格是否可放置单格建筑（界内、可通行、无占用实体）。
+    pub fn can_place_structure(&self, x: u16, y: u16) -> bool {
         if !self.pass_grid.in_bounds(x, y) {
             return false;
         }

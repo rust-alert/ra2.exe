@@ -354,16 +354,17 @@ impl Session {
             .iter()
             .find(|p| p.id == self.world.local_player)
             .map(|p| p.house.clone());
-        let houses: Vec<String> = self
+        let opponents: Vec<(ra_types::PlayerId, String)> = self
             .world
             .players
             .iter()
             .filter(|p| local_house.as_ref().map(|h| &p.house != h).unwrap_or(true))
-            .map(|p| p.house.clone())
+            .map(|p| (p.id, p.house.clone()))
             .collect();
         let mut cmds = Vec::new();
-        for house in &houses {
+        for (player, house) in &opponents {
             cmds.extend(ai::deploy_mcv_commands(&self.world, house));
+            cmds.extend(ai::place_power_commands(&self.world, house, *player));
             cmds.extend(ai::auto_attack_commands(&self.world, house));
         }
         for cmd in cmds {
