@@ -27,7 +27,13 @@ pub struct TechnoType {
     pub owner: String,
     /// `Image` 资源名（缺省等于 id）。
     pub image: String,
-    /// 射速间隔（tick）；来自 `ROF`，缺省 0 表示未配置。
+    /// 主武器名（`Primary`）；空表示未配置。
+    pub primary: String,
+    /// 主武器伤害（来自武器节 `Damage`）；0 表示未配置。
+    pub damage: u32,
+    /// 主武器射程（来自武器节 `Range`，格）；0 表示未配置。
+    pub range: u32,
+    /// 射速间隔（tick）；优先武器节 `ROF`，否则类型节；0 表示未配置。
     pub rof: u32,
 }
 
@@ -115,11 +121,53 @@ fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<Techn
     let speed = parse_u32(rules.get(&section_key, "Speed")).unwrap_or(0);
     let sight = parse_u32(rules.get(&section_key, "Sight")).unwrap_or(0);
     let cost = parse_u32(rules.get(&section_key, "Cost")).unwrap_or(0);
-    let rof = parse_u32(rules.get(&section_key, "ROF")).unwrap_or(0);
     let tech_level = rules.get(&section_key, "TechLevel").and_then(|s| s.parse().ok()).unwrap_or(-1);
     let owner = rules.get(&section_key, "Owner").unwrap_or("").to_string();
     let image = rules.get(&section_key, "Image").unwrap_or(id).to_ascii_uppercase();
-    Some(TechnoType { id: id.to_string(), kind, strength, armor, speed, sight, cost, tech_level, owner, image, rof })
+    let primary = rules
+        .get(&section_key, "Primary")
+        .unwrap_or("")
+        .trim()
+        .to_ascii_uppercase();
+    let techno_rof = parse_u32(rules.get(&section_key, "ROF")).unwrap_or(0);
+    let (damage, range, rof) = resolve_primary_weapon(rules, &primary, techno_rof);
+    Some(TechnoType {
+        id: id.to_string(),
+        kind,
+        strength,
+        armor,
+        speed,
+        sight,
+        cost,
+        tech_level,
+        owner,
+        image,
+        primary,
+        damage,
+        range,
+        rof,
+    })
+}
+
+/// 从 `Primary` 武器节读取 `Damage` / `Range` / `ROF`；缺省时保留类型节 ROF。
+fn resolve_primary_weapon(rules: &IniDocument, primary: &str, techno_rof: u32) -> (u32, u32, u32) {
+    if primary.is_empty() {
+        return (0, 0, techno_rof);
+    }
+    let section_key = if rules.sections.contains_key(primary) {
+        primary.to_string()
+    }
+    else if let Some(k) = rules.sections.keys().find(|k| k.eq_ignore_ascii_case(primary)) {
+        k.clone()
+    }
+    else {
+        return (0, 0, techno_rof);
+    };
+    let damage = parse_u32(rules.get(&section_key, "Damage")).unwrap_or(0);
+    let range = parse_u32(rules.get(&section_key, "Range")).unwrap_or(0);
+    let weapon_rof = parse_u32(rules.get(&section_key, "ROF")).unwrap_or(0);
+    let rof = if weapon_rof > 0 { weapon_rof } else { techno_rof };
+    (damage, range, rof)
 }
 
 fn parse_u32(raw: Option<&str>) -> Option<u32> {

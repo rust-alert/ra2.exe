@@ -19,5 +19,24 @@ fn parse_vehicle_list() {
     assert_eq!(m.cost, 800);
     assert_eq!(m.image, "MTNK");
     assert_eq!(m.rof, 12);
+    assert_eq!(m.damage, 0);
+    assert_eq!(m.range, 0);
+    assert!(m.primary.is_empty());
     assert_eq!(reg.get("htnk").unwrap().rof, 0);
+}
+
+#[test]
+fn parse_primary_weapon_damage_and_range() {
+    let doc = IniDocument::parse(
+        b"[VehicleTypes]\n0=MTNK\n\
+[MTNK]\nStrength=400\nSpeed=64\nSight=6\nCost=800\nPrimary=90mm\n\
+[90mm]\nDamage=75\nROF=20\nRange=5\nProjectile=Invisible\nWarhead=AP\n",
+    )
+    .unwrap();
+    let reg = TechnoTypeRegistry::from_rules(&doc);
+    let m = reg.get("MTNK").unwrap();
+    assert_eq!(m.primary, "90MM");
+    assert_eq!(m.damage, 75);
+    assert_eq!(m.range, 5);
+    assert_eq!(m.rof, 20);
 }
