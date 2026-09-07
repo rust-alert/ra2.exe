@@ -2,14 +2,14 @@
 
 use std::collections::HashSet;
 
-use ra_engine::RenderSnapshot;
+use ra_engine::{AnimState, RenderSnapshot, SnapshotUnit};
 use ra_types::EntityId;
 
 use crate::world::{RenderUnit, RenderWorld};
 
 /// 将只读投影应用到可复用渲染世界。
 ///
-/// 全量同步仍用于原型 marker 路径；同时维护可复用槽位，供后续脏集增量更新。
+/// 全量同步仍用于原型路径；同时维护可复用槽位，供脏集增量与 marker 读取。
 #[derive(Debug, Default)]
 pub struct FrameBuilder;
 
@@ -23,15 +23,7 @@ impl FrameBuilder {
         for u in &snap.units {
             let key = u.id.0;
             seen.insert(key);
-            let slot = RenderUnit {
-                id: u.id,
-                screen_x: u.screen_x,
-                screen_y: u.screen_y,
-                is_structure: u.is_structure(),
-                dead: u.dead,
-                selected: selected.contains(&key),
-            };
-            world.units.insert(key, slot);
+            world.units.insert(key, render_unit_from_snapshot(u, selected.contains(&key)));
             updated += 1;
         }
         world.units.retain(|k, _| seen.contains(k));
@@ -45,7 +37,7 @@ impl FrameBuilder {
         world: &mut RenderWorld,
         source_tick: u64,
         dirty: &[EntityId],
-        units: &[ra_engine::SnapshotUnit],
+        units: &[SnapshotUnit],
         selected: &[EntityId],
     ) {
         world.source_tick = source_tick;
@@ -55,17 +47,7 @@ impl FrameBuilder {
         for u in units {
             let key = u.id.0;
             provided.insert(key);
-            world.units.insert(
-                key,
-                RenderUnit {
-                    id: u.id,
-                    screen_x: u.screen_x,
-                    screen_y: u.screen_y,
-                    is_structure: u.is_structure(),
-                    dead: u.dead,
-                    selected: selected.contains(&key),
-                },
-            );
+            world.units.insert(key, render_unit_from_snapshot(u, selected.contains(&key)));
             updated += 1;
         }
         for id in dirty {
@@ -73,6 +55,48 @@ impl FrameBuilder {
                 world.units.remove(&id.0);
             }
         }
+        // 选中集合变化时刷新未出现在 dirty 投影中的槽位选中标记。
+        for unit in world.units.values_mut() {
+            unit.selected = selected.contains(&unit.id.0);
+        }
         world.dirty_count = updated;
+    }
+}
+
+fn render_unit_from_snapshot(u: &SnapshotUnit, selected: bool) -> RenderUnit {
+    RenderUnit {
+        id: u.id,
+        screen_x: u.screen_x,
+        screen_y: u.screen_y,
+        is_structure: u.is_structure(),
+        dead: u.dead,
+        selected,
+        color: anim_tint(owner_color(u.owner.as_ref()), u.anim_state),
+        health: u.health,
+        max_health: u.max_health,
+    }
+}
+
+fn owner_color(owner: &str) -> [f32; 4] {
+    let mut h: u32 = 2166136261;
+    for b in owner.bytes() {
+        h ^= u32::from(b);
+        h = h.wrapping_mul(16777619);
+    }
+    let r = ((h >> 16) & 0xff) as f32 / 255.0;
+    let g = ((h >> 8) & 0xff) as f32 / 255.0;
+    let b = (h & 0xff) as f32 / 255.0;
+    [0.35 + r * 0.55, 0.35 + g * 0.55, 0.35 + b * 0.55, 0.92]
+}
+
+fn anim_tint(base: [f32; 4], state: AnimState) -> [f32; 4] {
+    let (r, g, b, a) = (base[0], base[1], base[2], base[3]);
+    match state {
+        AnimState::Idle => base,
+        AnimState::Move => [r * 0.85 + 0.15, g * 0.85 + 0.15, b * 0.7, a],
+        AnimState::Attack => [r * 0.55 + 0.45, g * 0.45, b * 0.35, a],
+        AnimState::TakeDamage => [0.95, 0.95, 0.95, a],
+        AnimState::Produce => [r * 0.55, g * 0.55 + 0.4, b * 0.7 + 0.25, a],
+        AnimState::Die => [0.2, 0.2, 0.2, 0.55],
     }
 }

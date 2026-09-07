@@ -1,10 +1,10 @@
 //! 纯色菱形/方块标记：叠在预览图之上，表达单位位置与选中。
+//!
+//! 绘制数据来自 [`crate::world::RenderWorld`]，不再在 GPU 层扫描完整 `RenderSnapshot`。
 
 use bytemuck::{Pod, Zeroable};
 
-use ra_engine::{AnimState, RenderSnapshot};
-
-use crate::camera::Camera;
+use crate::{camera::Camera, world::RenderWorld};
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -71,10 +71,11 @@ impl MarkerGpu {
         Self { pipeline, vertex_buffer, vertex_count: 0 }
     }
 
-    pub fn write_from_snapshot(
+    /// 从可复用 [`RenderWorld`] 写入标记顶点。
+    pub fn write_from_world(
         &mut self,
         queue: &wgpu::Queue,
-        snap: &RenderSnapshot,
+        world: &RenderWorld,
         camera: &Camera,
         surface_w: u32,
         surface_h: u32,
@@ -82,24 +83,23 @@ impl MarkerGpu {
         let mut verts: Vec<Vertex> = Vec::new();
         let sw = surface_w.max(1) as f32;
         let sh = surface_h.max(1) as f32;
-        for u in snap.units.iter().filter(|u| !u.dead) {
-            let selected = snap.selected.contains(&u.id);
-            let color = anim_tint(owner_color(&u.owner), u.anim_state);
+        for u in world.units.values().filter(|u| !u.dead) {
+            let color = u.color;
             let cx = u.screen_x as f32 + 30.0;
             let cy = u.screen_y as f32 + 15.0;
-            let half = match (u.is_structure(), selected) {
+            let half = match (u.is_structure, u.selected) {
                 (true, true) => 12.0,
                 (true, false) => 9.0,
                 (false, true) => 10.0,
                 (false, false) => 7.0,
             };
-            if u.is_structure() {
+            if u.is_structure {
                 push_rect(&mut verts, camera, sw, sh, cx - half, cy - half * 0.6, half * 2.0, half * 1.2, color);
             }
             else {
                 push_diamond(&mut verts, camera, sw, sh, cx, cy, half, color);
             }
-            if selected {
+            if u.selected {
                 let ring = [1.0, 1.0, 0.2, 0.95];
                 push_ring(&mut verts, camera, sw, sh, cx, cy, half + 4.0, 2.0, ring);
             }
@@ -177,36 +177,11 @@ fn push_ring(
     thickness: f32,
     color: [f32; 4],
 ) {
-    // 简化：四个边框矩形近似环。
     let inner = outer - thickness;
     push_rect(out, camera, sw, sh, cx - outer, cy - outer, outer * 2.0, thickness, color);
     push_rect(out, camera, sw, sh, cx - outer, cy + inner, outer * 2.0, thickness, color);
     push_rect(out, camera, sw, sh, cx - outer, cy - inner, thickness, inner * 2.0, color);
     push_rect(out, camera, sw, sh, cx + inner, cy - inner, thickness, inner * 2.0, color);
-}
-
-fn owner_color(owner: &str) -> [f32; 4] {
-    let mut h: u32 = 2166136261;
-    for b in owner.bytes() {
-        h ^= u32::from(b);
-        h = h.wrapping_mul(16777619);
-    }
-    let r = ((h >> 16) & 0xff) as f32 / 255.0;
-    let g = ((h >> 8) & 0xff) as f32 / 255.0;
-    let b = (h & 0xff) as f32 / 255.0;
-    [0.35 + r * 0.55, 0.35 + g * 0.55, 0.35 + b * 0.55, 0.92]
-}
-
-fn anim_tint(base: [f32; 4], state: AnimState) -> [f32; 4] {
-    let (r, g, b, a) = (base[0], base[1], base[2], base[3]);
-    match state {
-        AnimState::Idle => base,
-        AnimState::Move => [r * 0.85 + 0.15, g * 0.85 + 0.15, b * 0.7, a],
-        AnimState::Attack => [r * 0.55 + 0.45, g * 0.45, b * 0.35, a],
-        AnimState::TakeDamage => [0.95, 0.95, 0.95, a],
-        AnimState::Produce => [r * 0.55, g * 0.55 + 0.4, b * 0.7 + 0.25, a],
-        AnimState::Die => [0.2, 0.2, 0.2, 0.55],
-    }
 }
 
 const MARKER_WGSL: &str = r#"
