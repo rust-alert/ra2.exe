@@ -5,6 +5,8 @@
 //!
 //! 命中框与入口 id 以 [`crate::ui_slots`] 为单一来源。
 
+use std::time::Instant;
+
 use ra_renderer::RgbaImage;
 
 use crate::{
@@ -247,6 +249,17 @@ fn button_color(enabled: bool, index: usize, hovered: bool, pressed: bool) -> [u
     }
 }
 
+/// 装载页标题槽脉动色（非原版进度条）。
+fn load_title_pulse_color() -> [u8; 4] {
+    let phase = (Instant::now().elapsed().as_millis() / 250) % 2;
+    if phase == 0 {
+        [56, 88, 150, 255]
+    }
+    else {
+        [96, 140, 210, 255]
+    }
+}
+
 fn paint_from_slots(
     width: u32,
     height: u32,
@@ -265,7 +278,12 @@ fn paint_from_slots(
     let mut hits = Vec::with_capacity(page.buttons.len());
     for (i, btn) in page.buttons.iter().enumerate() {
         let (x0, y0, x1, y1) = btn.hit;
-        let color = button_color(btn.enabled, i, hover == Some(i), pressed == Some(i));
+        let color = if page.screen == OriginalScreen::LoadScreen && btn.entry_id == "loading" {
+            load_title_pulse_color()
+        }
+        else {
+            button_color(btn.enabled, i, hover == Some(i), pressed == Some(i))
+        };
         let px0 = (x0 * width as f32) as u32;
         let py0 = (y0 * height as f32) as u32;
         let px1 = (x1 * width as f32) as u32;
