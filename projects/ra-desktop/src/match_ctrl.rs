@@ -2,7 +2,7 @@
 
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
-use ra_engine::{Engine, MatchOutcome, Session, SessionPhase};
+use ra_engine::{Engine, HudSnapshot, MatchOutcome, Session, SessionPhase};
 use ra_map::MapEntityKind;
 use ra_renderer::Renderer;
 use winit::{
@@ -101,6 +101,7 @@ impl MatchController {
         if let Some(preview) = boot.preview {
             renderer.set_preview(preview);
         }
+        renderer.clear_match_visuals();
         self.engine = boot.engine;
         self.session = boot.session;
         self.local.clear();
@@ -489,41 +490,76 @@ impl MatchController {
         tracing::info!("对局结束 · 胜方 {owner} · tick={}{stats} · 按 R 重开", game.world.tick);
     }
 
-    /// 绘制当前快照并刷新标题。
+    /// 绘制当前对局：首帧或空槽全量同步，其后脏集增量。标题走 `HudSnapshot`。
     pub fn draw_frame(&mut self, renderer: &mut Renderer, window: Option<&Arc<Window>>, screen_label: &str) {
-        let snap_started = Instant::now();
-        let snap = self.session.as_ref().and_then(|s| s.game()).map(|g| g.snapshot(&self.local.selected));
-        renderer.timings.presentation_build = Some(snap_started.elapsed());
-        renderer.draw_frame(snap.as_ref());
-        self.refresh_title(renderer, window, screen_label);
+        let Some(session) = self.session.as_mut()
+        else {
+            renderer.draw_frame(None);
+            self.refresh_title(renderer, window, screen_label, None);
+            return;
+        };
+        let Some(game) = session.game_mut()
+        else {
+            renderer.draw_frame(None);
+            self.refresh_title(renderer, window, screen_label, None);
+            return;
+        };
+
+        let selected = self.local.selected.clone();
+        let force_full = renderer.render_world().unit_count() == 0;
+        let pres_started = Instant::now();
+        let hud = if force_full {
+            let snap = game.snapshot(&selected);
+            renderer.timings.presentation_build = Some(pres_started.elapsed());
+            let hud = game.snapshot_hud();
+            renderer.draw_frame(Some(&snap));
+            // 全量同步已消费脏集语义：清空以免下一帧重复投影。
+            let _ = game.world.take_presentation_dirty();
+            hud
+        }
+        else {
+            let dirty = game.world.take_presentation_dirty();
+            let units = game.project_units(&dirty);
+            let tick = game.world.tick;
+            renderer.timings.presentation_build = Some(pres_started.elapsed());
+            renderer.draw_incremental(tick, &dirty, &units, &selected);
+            game.snapshot_hud()
+        };
+        self.refresh_title(renderer, window, screen_label, Some(&hud));
     }
 
-    fn refresh_title(&mut self, renderer: &Renderer, window: Option<&Arc<Window>>, screen_label: &str) {
+    fn refresh_title(
+        &mut self,
+        renderer: &Renderer,
+        window: Option<&Arc<Window>>,
+        screen_label: &str,
+        hud: Option<&HudSnapshot>,
+    ) {
         if let Some(window) = window {
             let zoom = renderer.camera().zoom;
-            let title = if let Some(game) = self.session.as_ref().and_then(|s| s.game()) {
-                let snap = game.snapshot(&self.local.selected);
-                let local = game
-                    .world
-                    .players
-                    .iter()
-                    .find(|p| p.id == game.world.local_player)
-                    .and_then(|lp| snap.players.iter().find(|p| p.house == lp.house));
+            let title = if let Some(hud) = hud {
+                let local_house = self
+                    .session
+                    .as_ref()
+                    .and_then(|s| s.game())
+                    .and_then(|g| g.world.players.iter().find(|p| p.id == g.world.local_player))
+                    .map(|p| p.house.clone());
+                let local = local_house.and_then(|house| hud.players.iter().find(|p| p.house == house));
                 let econ = local
                     .map(|p| {
                         let low = if p.low_power { "!" } else { "" };
                         format!("${} 电{}/{}{low}", p.funds, p.power_output, p.power_drain)
                     })
                     .unwrap_or_else(|| "$-".into());
-                let queue = snap
+                let queue = hud
                     .produce_queues
                     .first()
                     .map(|q| format!("q:{}:{}", q.type_id, q.remaining_ticks))
                     .unwrap_or_else(|| "q:-".into());
-                let reject = snap.last_rejects.first().map(|r| r.reason.as_hud_label()).unwrap_or("-");
+                let reject = hud.last_rejects.first().map(|r| r.reason.as_hud_label()).unwrap_or("-");
                 let place = self.place_mode.unwrap_or("-");
-                if let Some(MatchOutcome::Victory { owner }) = snap.outcome.as_ref() {
-                    let stats = snap
+                if let Some(MatchOutcome::Victory { owner }) = hud.outcome.as_ref() {
+                    let stats = hud
                         .match_stats
                         .as_ref()
                         .map(|s| {
@@ -535,12 +571,12 @@ impl MatchController {
                         .unwrap_or_default();
                     format!(
                         "{} · [{screen_label}] · t{} · 胜 {owner}{stats} · R重开 Esc菜单",
-                        self.title_base, snap.tick
+                        self.title_base, hud.tick
                     )
                 }
-                else if snap.paused {
-                    let reason = snap.pause_reason.as_deref().unwrap_or("已暂停");
-                    format!("{} · [{screen_label}] · t{} · 暂停 · {reason}", self.title_base, snap.tick)
+                else if hud.paused {
+                    let reason = hud.pause_reason.as_deref().unwrap_or("已暂停");
+                    format!("{} · [{screen_label}] · t{} · 暂停 · {reason}", self.title_base, hud.tick)
                 }
                 else {
                     let nsel = self.local.selected.len();
@@ -552,7 +588,7 @@ impl MatchController {
                     };
                     format!(
                         "{} · [{screen_label}] · t{} · {econ} · {queue} · 建:{place} · {reject} · {sel_part} · z{:.2}",
-                        self.title_base, snap.tick, zoom
+                        self.title_base, hud.tick, zoom
                     )
                 }
             }

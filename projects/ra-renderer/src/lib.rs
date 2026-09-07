@@ -159,20 +159,12 @@ impl Renderer {
         self.camera_ready = true;
     }
 
-    /// 清屏：预览底图 + 快照单位标记（原型路径）。
+    /// 清屏并提交（可选全量同步 `RenderWorld`）。
     ///
-    /// 先经 [`FrameBuilder`] 更新 [`RenderWorld`]，再走过渡期 sprite/marker 绘制。
-    /// 完整场景应扩展 [`PassGraph`] 与 instance batch，而不是在此继续堆临时绘制分支。
-    ///
+    /// 对局热路径请优先 [`Self::draw_incremental`]。菜单等无会话场景传 `None`。
     /// 保留调用方已写入的 `timings.simulation` / `presentation_build`。
     pub fn draw_frame(&mut self, snap: Option<&RenderSnapshot>) {
-        self.frames = self.frames.wrapping_add(1);
-        let keep_sim = self.timings.simulation;
-        let keep_pres = self.timings.presentation_build;
-        self.timings.clear();
-        self.timings.simulation = keep_sim;
-        self.timings.presentation_build = keep_pres;
-
+        self.begin_frame_timings();
         if let Some(snap) = snap {
             let build_start = std::time::Instant::now();
             FrameBuilder::apply_full_snapshot(&mut self.render_world, snap);
@@ -182,7 +174,40 @@ impl Renderer {
         else {
             self.render_world.clear_units();
         }
+        self.submit_frame();
+    }
 
+    /// 用脏实体投影增量更新 `RenderWorld` 并提交（不重建整表）。
+    pub fn draw_incremental(
+        &mut self,
+        source_tick: u64,
+        dirty: &[ra_types::EntityId],
+        units: &[ra_engine::SnapshotUnit],
+        selected: &[ra_types::EntityId],
+    ) {
+        self.begin_frame_timings();
+        let build_start = std::time::Instant::now();
+        FrameBuilder::apply_dirty_units(&mut self.render_world, source_tick, dirty, units, selected);
+        self.timings.frame_build = Some(build_start.elapsed());
+        let _ = (&self.frame_builder, &self.resources, &self.passes);
+        self.submit_frame();
+    }
+
+    /// 重开对局前清空可视槽，迫使下一帧全量同步。
+    pub fn clear_match_visuals(&mut self) {
+        self.render_world.clear_units();
+    }
+
+    fn begin_frame_timings(&mut self) {
+        self.frames = self.frames.wrapping_add(1);
+        let keep_sim = self.timings.simulation;
+        let keep_pres = self.timings.presentation_build;
+        self.timings.clear();
+        self.timings.simulation = keep_sim;
+        self.timings.presentation_build = keep_pres;
+    }
+
+    fn submit_frame(&mut self) {
         if !self.camera_ready {
             if let (Some(gpu), Some(sprite)) = (self.gpu.as_ref(), self.sprite.as_ref()) {
                 let (iw, ih) = sprite.size();
