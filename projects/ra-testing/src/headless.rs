@@ -1,7 +1,7 @@
 //! 无窗口遭遇战夹具。
 
 use ra_adaptor::RulesDb;
-use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry};
+use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_session::{MatchOutcome, RenderSnapshot, Session};
 use ra_types::GameEdition;
@@ -76,6 +76,7 @@ pub fn standard_duel() -> HeadlessCase {
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
+        warheads: WarheadRegistry::default(),
     };
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "testing-duel");
@@ -122,6 +123,7 @@ pub fn mcv_deploy_open() -> HeadlessCase {
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
+        warheads: WarheadRegistry::default(),
     };
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "testing-mcv-deploy");
@@ -160,6 +162,7 @@ pub fn yard_open() -> HeadlessCase {
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
+        warheads: WarheadRegistry::default(),
     };
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "testing-yard-open");

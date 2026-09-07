@@ -1,7 +1,7 @@
 //! `EntityId`、玩家状态与命令拒绝。
 
 use ra_adaptor::RulesDb;
-use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry};
+use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
 use ra_world::{CommandRejectReason, GameCommand, World};
@@ -17,6 +17,7 @@ fn duel_world() -> World {
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
+        warheads: WarheadRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "entity-id-duel");
     map.width = 16;

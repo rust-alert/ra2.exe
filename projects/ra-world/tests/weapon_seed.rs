@@ -1,7 +1,7 @@
 //! 主武器 Damage / Range 播种到世界实体。
 
 use ra_adaptor::RulesDb;
-use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry};
+use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 use ra_world::World;
@@ -21,6 +21,7 @@ fn seeds_attack_stats_from_primary_weapon() {
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         techno_types: TechnoTypeRegistry::from_rules(&doc),
+        warheads: WarheadRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "weapon");
     map.width = 16;

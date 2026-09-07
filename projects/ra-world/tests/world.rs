@@ -1,7 +1,7 @@
 //! `World` 仿真集成测试（仅通过公开 API）。
 
 use ra_adaptor::RulesDb;
-use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoKind, TechnoTypeRegistry};
+use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoKind, TechnoTypeRegistry, WarheadRegistry};
 use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
 use ra_types::GameEdition;
 use ra_world::{ATTACK_COOLDOWN_TICKS, GameCommand, World};
@@ -19,6 +19,7 @@ fn rules_with_mtnk() -> RulesDb {
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         techno_types: TechnoTypeRegistry::from_rules(&doc),
+        warheads: WarheadRegistry::default(),
     }
 }
 

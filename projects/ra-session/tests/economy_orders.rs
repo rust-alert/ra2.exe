@@ -1,7 +1,7 @@
 //! 会话层部署 / 建造 / 生产命令。
 
 use ra_adaptor::RulesDb;
-use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry};
+use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_session::Session;
 use ra_types::GameEdition;
@@ -24,6 +24,7 @@ fn economy_session() -> Session {
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
+        warheads: WarheadRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "orders");
     map.width = 16;

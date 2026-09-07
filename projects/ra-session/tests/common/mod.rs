@@ -1,7 +1,7 @@
 //! 测试共用：合成 INI 构建 `RulesDb`。
 
 use ra_adaptor::RulesDb;
-use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry};
+use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_types::GameEdition;
 
 /// 含 MTNK 坦克类型的最小规则库。
@@ -18,5 +18,6 @@ pub fn rules_with_mtnk() -> RulesDb {
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         techno_types: TechnoTypeRegistry::from_rules(&doc),
+        warheads: WarheadRegistry::default(),
     }
 }
