@@ -42,6 +42,8 @@ pub struct AppShell {
     menu: Option<MenuLayout>,
     /// 光标位置（菜单命中用）。
     cursor: (f64, f64),
+    /// 当前悬停的可点命中区下标。
+    menu_hover: Option<usize>,
     /// 后台遭遇战装载（`LoadScreen` 期间轮询）。
     load_job: Option<LoadJob>,
     /// 当前装载开始时刻（脉搏标题用）。
@@ -89,6 +91,7 @@ impl AppShell {
             pending_after_load: None,
             menu: None,
             cursor: (0.0, 0.0),
+            menu_hover: None,
             load_job: None,
             load_started: None,
             lobby_maps: Vec::new(),
@@ -113,6 +116,7 @@ impl AppShell {
             pending_after_load: None,
             menu: None,
             cursor: (0.0, 0.0),
+            menu_hover: None,
             load_job: None,
             load_started: None,
             lobby_maps: Vec::new(),
@@ -176,6 +180,7 @@ impl AppShell {
         if self.screen != next {
             tracing::info!("页面 {} → {}", self.screen.as_str(), next.as_str());
             self.screen = next;
+            self.menu_hover = None;
             self.refresh_menu_backdrop();
             self.refresh_shell_title();
         }
@@ -186,7 +191,8 @@ impl AppShell {
         let h = self.window_height.max(1.0) as u32;
         if self.screen == OriginalScreen::SkirmishLobby {
             self.ensure_lobby_maps();
-            let mut layout = layout_skirmish_lobby(w, h, &self.lobby_maps, self.selected_map.as_deref());
+            let mut layout =
+                layout_skirmish_lobby(w, h, &self.lobby_maps, self.selected_map.as_deref(), self.menu_hover);
             self.ensure_ui_probe();
             if let Some(probe) = self.ui_probe.as_ref() {
                 if let Some(frame) = probe.mouse_frame.as_ref() {
@@ -200,7 +206,7 @@ impl AppShell {
             self.menu = Some(layout);
             return;
         }
-        if let Some(mut layout) = layout_for(self.screen, w, h) {
+        if let Some(mut layout) = layout_for(self.screen, w, h, self.menu_hover) {
             self.ensure_ui_probe();
             if let Some(probe) = self.ui_probe.as_ref() {
                 if let Some(frame) = probe.mouse_frame.as_ref() {
@@ -215,6 +221,16 @@ impl AppShell {
         }
         else {
             self.menu = None;
+        }
+    }
+
+    fn update_menu_hover(&mut self) {
+        let next = self.menu.as_ref().and_then(|m| {
+            m.hover_index(self.cursor.0, self.cursor.1, self.window_width, self.window_height)
+        });
+        if next != self.menu_hover {
+            self.menu_hover = next;
+            self.refresh_menu_backdrop();
         }
     }
 
@@ -535,6 +551,7 @@ impl ApplicationHandler for AppShell {
                 match &event {
                     WindowEvent::CursorMoved { position, .. } => {
                         self.cursor = (position.x, position.y);
+                        self.update_menu_hover();
                     }
                     WindowEvent::MouseInput {
                         state: ElementState::Released,
