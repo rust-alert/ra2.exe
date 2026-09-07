@@ -4,6 +4,7 @@
 
 #![deny(missing_docs)]
 
+mod ai;
 mod boot;
 
 use ra_map::{MapEntityKind, iso_to_screen, screen_to_iso};
@@ -164,6 +165,8 @@ pub struct Session {
     pub outcome: Option<MatchOutcome>,
     /// 对局内容指纹（握手用；未设置时为空默认）。
     pub fingerprint: MatchFingerprint,
+    /// 是否为非本地阵营自动下发 AI 命令。
+    pub ai_enabled: bool,
 }
 
 impl Session {
@@ -181,6 +184,7 @@ impl Session {
             pause_reason: None,
             outcome: None,
             fingerprint: MatchFingerprint { edition: String::new(), map: String::new(), rules_hash: 0 },
+            ai_enabled: false,
         }
     }
 
@@ -199,6 +203,7 @@ impl Session {
         let mut session = Self::new(world, boot_note);
         session.set_preview_origin(preview_origin.0, preview_origin.1);
         session.set_fingerprint(fingerprint);
+        session.ai_enabled = true;
         session
     }
 
@@ -333,9 +338,36 @@ impl Session {
     }
 
     fn advance_one_tick(&mut self) {
+        if self.ai_enabled {
+            self.push_ai_commands();
+        }
         self.world.advance_tick();
         self.selected.retain(|&i| i < self.world.entities.len() && !self.world.entities[i].dead);
         self.refresh_outcome();
+    }
+
+    /// 为所有非本地阵营下发本 tick 的 AI 命令（经 `push_command`）。
+    fn push_ai_commands(&mut self) {
+        let local_house = self
+            .world
+            .players
+            .iter()
+            .find(|p| p.id == self.world.local_player)
+            .map(|p| p.house.clone());
+        let houses: Vec<String> = self
+            .world
+            .players
+            .iter()
+            .filter(|p| local_house.as_ref().map(|h| &p.house != h).unwrap_or(true))
+            .map(|p| p.house.clone())
+            .collect();
+        let mut cmds = Vec::new();
+        for house in &houses {
+            cmds.extend(ai::auto_attack_commands(&self.world, house));
+        }
+        for cmd in cmds {
+            self.push_command(cmd);
+        }
     }
 
     /// 若仅剩一个阵营存活移动单位，锁定胜负并暂停。
