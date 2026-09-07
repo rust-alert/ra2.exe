@@ -152,10 +152,30 @@ const SINGLE_PLAYER_BUTTONS: &[UiButtonSlot] = &[
 
 const SKIRMISH_LOBBY_BUTTONS: &[UiButtonSlot] = &[
     UiButtonSlot {
+        entry_id: "side",
+        action: MenuAction::CycleSide,
+        enabled: true,
+        hit: (0.18, 0.68, 0.48, 0.75),
+        normal_shp: None,
+        hover_shp: None,
+        pressed_shp: None,
+        disabled_shp: None,
+    },
+    UiButtonSlot {
+        entry_id: "difficulty",
+        action: MenuAction::CycleDifficulty,
+        enabled: true,
+        hit: (0.52, 0.68, 0.82, 0.75),
+        normal_shp: None,
+        hover_shp: None,
+        pressed_shp: None,
+        disabled_shp: None,
+    },
+    UiButtonSlot {
         entry_id: "start",
         action: MenuAction::StartSkirmish,
         enabled: true,
-        hit: (0.28, 0.78, 0.72, 0.86),
+        hit: (0.28, 0.80, 0.72, 0.87),
         normal_shp: None,
         hover_shp: None,
         pressed_shp: None,
@@ -165,7 +185,7 @@ const SKIRMISH_LOBBY_BUTTONS: &[UiButtonSlot] = &[
         entry_id: "back",
         action: MenuAction::Back,
         enabled: true,
-        hit: (0.28, 0.88, 0.72, 0.96),
+        hit: (0.28, 0.90, 0.72, 0.97),
         normal_shp: None,
         hover_shp: None,
         pressed_shp: None,
@@ -311,10 +331,11 @@ mod tests {
     }
 
     #[test]
-    fn network_keeps_disabled_online_slot() {
-        let page = slots_for(OriginalScreen::Network).unwrap();
-        assert_eq!(page.buttons[0].entry_id, "online");
-        assert!(!page.buttons[0].enabled);
-        assert!(page.buttons[1].enabled);
+    fn skirmish_lobby_exposes_side_and_difficulty() {
+        let page = slots_for(OriginalScreen::SkirmishLobby).unwrap();
+        let ids: Vec<_> = page.buttons.iter().map(|b| b.entry_id).collect();
+        assert_eq!(ids, ["side", "difficulty", "start", "back"]);
+        assert!(matches!(page.buttons[0].action, MenuAction::CycleSide));
+        assert!(matches!(page.buttons[1].action, MenuAction::CycleDifficulty));
     }
 }
