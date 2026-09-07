@@ -6,6 +6,7 @@
 mod adaptor_api;
 mod compose;
 mod definitions;
+mod layers;
 mod rules;
 
 use std::path::{Path, PathBuf};
@@ -15,6 +16,12 @@ use ra_types::{GameEdition, RaError, RaResult};
 pub use adaptor_api::{Adaptor, AdaptorError, DefinitionRequest, DetectionReport};
 pub use compose::{AdaptorStack, BaseGame, CapabilityReport, ExtensionId};
 pub use definitions::build_runtime_definitions;
+pub use layers::{
+    DetectedExpansion, ExpansionFamily, MountSpec, PRIORITY_BASE_GAME, PRIORITY_EXPANSION_BASE,
+    PRIORITY_MOD, PRIORITY_NESTED, PRIORITY_USER_OVERRIDE, ResourceComposition, ResourceDiagnostics,
+    ResourceFile, ResourceLayer, ResourceLayerKind, compose_resource_layers, discover_expansions,
+    is_expansion_mix_name, missing_base_mixes, parse_expansion_file_name,
+};
 pub use rules::{RulesDb, load_rules, load_rules_chain};
 
 /// 统一资源表视图（由各 edition adaptor 填入）。
@@ -94,11 +101,13 @@ fn from_phobos(p: ra_adaptor_phobos::ResourceProfile) -> ResourceChain {
 pub struct EditionManifest {
     /// 游戏安装根目录。
     pub root: PathBuf,
-    /// 识别出的资源链。
+    /// 识别出的资源链（INI 逻辑名与嵌套表；根 MIX 以 `composition` 为准）。
     pub chain: ResourceChain,
-    /// 根目录中已找到的 MIX 文件名。
+    /// 已决议的有序资源组合（扩展发现 + 优先级挂载计划）。
+    pub composition: ResourceComposition,
+    /// 根目录中应按计划挂载的 MIX 文件名（`composition` 的投影，兼容旧调用方）。
     pub present_mixes: Vec<String>,
-    /// 根目录中缺失的 MIX 文件名。
+    /// 基座表中缺失的非扩展 MIX 文件名。
     pub missing_mixes: Vec<String>,
     /// 可组合适配栈（含扩展探测与能力缺口报告）。
     pub stack: AdaptorStack,
@@ -135,30 +144,19 @@ pub fn detect_edition(root: &Path, explicit: Option<GameEdition>) -> RaResult<Ed
     };
 
     let chain = ResourceChain::for_edition(edition);
-    let present_missing = scan_root_mixes(root, chain.root_mix_files);
+    let composition = compose_resource_layers(root, &chain);
+    let present_mixes = composition.present_mix_names();
+    let missing_mixes = missing_base_mixes(root, &chain);
     let stack = AdaptorStack::from_edition(edition).scan_extensions(root);
 
     Ok(EditionManifest {
         root: root.to_path_buf(),
         chain,
-        present_mixes: present_missing.0,
-        missing_mixes: present_missing.1,
+        composition,
+        present_mixes,
+        missing_mixes,
         stack,
     })
-}
-
-fn scan_root_mixes(root: &Path, names: &[&str]) -> (Vec<String>, Vec<String>) {
-    let mut present = Vec::new();
-    let mut missing = Vec::new();
-    for name in names {
-        if find_ci_file(root, name).is_some() {
-            present.push((*name).to_string());
-        }
-        else {
-            missing.push((*name).to_string());
-        }
-    }
-    (present, missing)
 }
 
 /// 在目录中按大小写不敏感查找文件，返回实际磁盘名。

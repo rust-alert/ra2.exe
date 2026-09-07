@@ -37,9 +37,7 @@ pub fn profile() -> ResourceProfile {
             "mapsmd01.mix",
             "mapsmd02.mix",
             "mapsmd03.mix",
-            "expandmd01.mix",
-            "expandmd02.mix",
-            "expandmd03.mix",
+            // `expandmd*.mix` 由 adaptor 磁盘发现纳入 Expansion 层，不写死进基座表。
             // 合集盘常见：原版地图包仍在旁，供多人图名复用。
             "multi.mix",
             "maps01.mix",
