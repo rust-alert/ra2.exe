@@ -20,7 +20,7 @@ use ra_types::{EntityId, RaResult};
 use crate::{
     boot::BootMapCandidate,
     hud_chrome::{self, ResultsHit},
-    menu_view::{layout_for, layout_skirmish_lobby},
+    menu_view::{layout_for, layout_load_screen, layout_skirmish_lobby},
     screen::OriginalScreen,
     ui_assets::stamp_norm_progress_bar,
 };
@@ -227,9 +227,9 @@ pub fn dump_all_key_screens_to(dir: impl AsRef<Path>) -> RaResult<Vec<PathBuf>> 
         OriginalScreen::Network,
     ];
     for screen in menu_pages {
-        let mut layout = layout_for(screen, w, h, None, None).expect("menu layout");
-        if screen == OriginalScreen::LoadScreen {
-            // 与壳层装载进度条一致：落在 loading 槽位内。
+        let layout = if screen == OriginalScreen::LoadScreen {
+            // 装载进行中：重试禁用，进度条在 loading 槽内。
+            let mut layout = layout_load_screen(w, h, None, None, false);
             stamp_norm_progress_bar(
                 &mut layout.image,
                 0.32,
@@ -240,9 +240,17 @@ pub fn dump_all_key_screens_to(dir: impl AsRef<Path>) -> RaResult<Vec<PathBuf>> 
                 [28, 32, 48, 255],
                 [220, 180, 64, 255],
             );
+            layout
         }
+        else {
+            layout_for(screen, w, h, None, None).expect("menu layout")
+        };
         out.push(save_acceptance_png(dir, screen.as_str(), &layout.image)?);
     }
+
+    // 装载失败停留：重试可点、进度条仅保留最低可见宽度。
+    let failed = layout_load_screen(w, h, None, None, true);
+    out.push(save_acceptance_png(dir, "load_screen_failed", &failed.image)?);
 
     // 主菜单悬停态：第一个可点入口（single_player）。
     let main_hover = layout_for(OriginalScreen::MainMenu, w, h, Some(0), None).expect("menu hover");
@@ -381,6 +389,8 @@ mod tests {
         assert!(dir.join("match_paused.png").exists());
         assert!(dir.join("match_reject.png").exists());
         assert!(dir.join("results.png").exists());
+        assert!(dir.join("load_screen.png").exists());
+        assert!(dir.join("load_screen_failed.png").exists());
         assert!(dir.join("results_lobby_hover.png").exists());
     }
 
