@@ -2,12 +2,14 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::test_engine;
 use ra_engine::{Session, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
 #[test]
 fn ai_deploys_mcv_via_command() {
+    let engine = test_engine();
     let doc = IniDocument::parse(
         b"[VehicleTypes]\n0=SMCV\n\
 [BuildingTypes]\n0=NACNST\n1=GACNST\n\
@@ -50,8 +52,8 @@ fn ai_deploys_mcv_via_command() {
         sub_cell: 0,
     });
     let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "ai-deploy");
-    session.ai_enabled = true;
-    session.tick();
-    assert_eq!(session.world.entities[1].kind, MapEntityKind::Structure);
-    assert_eq!(session.world.entities[1].type_id, "NACNST");
+    session.expect_game_mut().ai_enabled = true;
+    session.tick(&engine.runtime());
+    assert_eq!(session.expect_game_mut().world.entities[1].kind, MapEntityKind::Structure);
+    assert_eq!(session.expect_game_mut().world.entities[1].type_id, "NACNST");
 }

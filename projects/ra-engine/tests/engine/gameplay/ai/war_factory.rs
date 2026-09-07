@@ -2,12 +2,14 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::test_engine;
 use ra_engine::{Session, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
 #[test]
 fn ai_places_war_factory_and_produces_tank() {
+    let engine = test_engine();
     let doc = IniDocument::parse(
         b"[VehicleTypes]\n0=HTNK\n\
 [BuildingTypes]\n0=GACNST\n1=NACNST\n2=NAPOWR\n3=NAWEAP\n\
@@ -63,10 +65,10 @@ fn ai_places_war_factory_and_produces_tank() {
     let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
     assert!(world.set_house_funds("Soviets", 10_000));
     let mut session = Session::from_state(world, "ai-weap");
-    session.ai_enabled = true;
-    session.tick();
-    assert!(session.world.entities.iter().any(|e| e.owner == "Soviets" && e.type_id == "NAWEAP"));
-    session.tick();
-    let weap = session.world.entities.iter().find(|e| e.owner == "Soviets" && e.type_id == "NAWEAP").expect("war factory");
+    session.expect_game_mut().ai_enabled = true;
+    session.tick(&engine.runtime());
+    assert!(session.expect_game_mut().world.entities.iter().any(|e| e.owner == "Soviets" && e.type_id == "NAWEAP"));
+    session.tick(&engine.runtime());
+    let weap = session.expect_game_mut().world.entities.iter().find(|e| e.owner == "Soviets" && e.type_id == "NAWEAP").expect("war factory");
     assert_eq!(weap.produce_queue.as_ref().map(|(id, _)| id.as_str()), Some("HTNK"));
 }

@@ -2,11 +2,18 @@
 
 #![allow(dead_code)]
 
+use std::sync::Arc;
+
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::MatchState;
+use ra_engine::{Engine, EngineConfig, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::GameEdition;
+use ra_types::{GameEdition, RuntimeDefinitions};
+
+/// 测试用默认引擎（空定义骨架）。
+pub fn test_engine() -> Engine {
+    Engine::new(Arc::new(RuntimeDefinitions::default()), EngineConfig::default()).expect("默认引擎应可构造")
+}
 
 /// 含 MTNK 坦克类型的最小规则库（Strength=400）。
 pub fn rules_with_mtnk() -> RulesDb {

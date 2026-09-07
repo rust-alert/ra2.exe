@@ -2,12 +2,14 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::test_engine;
 use ra_engine::{Session, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
 #[test]
 fn ai_places_power_near_yard() {
+    let engine = test_engine();
     let doc = IniDocument::parse(
         b"[BuildingTypes]\n0=GACNST\n1=NACNST\n2=NAPOWR\n\
 [GACNST]\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
@@ -50,12 +52,12 @@ fn ai_places_power_near_yard() {
     let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
     assert!(world.set_house_funds("Soviets", 10_000));
     let mut session = Session::from_state(world, "ai-power");
-    session.ai_enabled = true;
-    session.tick();
-    let power = session.world.entities.iter().find(|e| e.owner == "Soviets" && e.type_id == "NAPOWR");
+    session.expect_game_mut().ai_enabled = true;
+    session.tick(&engine.runtime());
+    let power = session.expect_game_mut().world.entities.iter().find(|e| e.owner == "Soviets" && e.type_id == "NAPOWR");
     assert!(power.is_some(), "AI should place NAPOWR");
     let p = power.unwrap();
     let dist = (i32::from(p.x) - 8).unsigned_abs() + (i32::from(p.y) - 8).unsigned_abs();
     assert!(dist >= 1 && dist <= 3);
-    assert_eq!(session.world.house_funds("Soviets"), Some(10_000 - 600));
+    assert_eq!(session.expect_game_mut().world.house_funds("Soviets"), Some(10_000 - 600));
 }

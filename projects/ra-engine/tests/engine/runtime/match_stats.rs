@@ -1,12 +1,13 @@
 //! 胜负时锁定 MatchStats。
 
-use crate::common::rules_with_mtnk;
+use crate::common::{test_engine, rules_with_mtnk};
 use ra_engine::{GameCommand, MatchOutcome, Session, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
 #[test]
 fn victory_locks_match_stats() {
+    let engine = test_engine();
     let rules = rules_with_mtnk();
     let mut map = MapInfo::empty(GameEdition::Ra2, "stats");
     map.width = 16;
@@ -32,23 +33,23 @@ fn victory_locks_match_stats() {
         sub_cell: 0,
     });
     let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "stats");
-    session.world.entities[0].attack_damage = 80;
-    session.world.entities[0].attack_range = 4;
-    session.world.entities[0].attack_cooldown_max = 1;
-    session.world.entities[1].health = 50;
-    session.world.players[0].funds_spent = 1200;
-    session.push_command(GameCommand::Attack { attacker_index: 0, target_index: 1 });
+    session.expect_game_mut().world.entities[0].attack_damage = 80;
+    session.expect_game_mut().world.entities[0].attack_range = 4;
+    session.expect_game_mut().world.entities[0].attack_cooldown_max = 1;
+    session.expect_game_mut().world.entities[1].health = 50;
+    session.expect_game_mut().world.players[0].funds_spent = 1200;
+    session.expect_game_mut().push_command(GameCommand::Attack { attacker_index: 0, target_index: 1 });
     for _ in 0..20 {
-        session.tick();
-        if session.outcome.is_some() {
+        session.tick(&engine.runtime());
+        if session.expect_game().outcome.is_some() {
             break;
         }
     }
-    assert_eq!(session.outcome, Some(MatchOutcome::Victory { owner: "Americans".into() }));
-    let stats = session.match_stats.as_ref().expect("stats");
+    assert_eq!(session.expect_game().outcome, Some(MatchOutcome::Victory { owner: "Americans".into() }));
+    let stats = session.expect_game().match_stats.as_ref().expect("stats");
     assert!(stats.duration_ticks > 0);
     assert_eq!(stats.units_lost, 1);
     assert_eq!(stats.buildings_lost, 0);
     assert_eq!(stats.funds_spent, 1200);
-    assert_eq!(session.snapshot().match_stats.as_ref().map(|s| s.funds_spent), Some(1200));
+    assert_eq!(session.expect_game().snapshot(&[]).match_stats.as_ref().map(|s| s.funds_spent), Some(1200));
 }

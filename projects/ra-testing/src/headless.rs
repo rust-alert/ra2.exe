@@ -2,15 +2,21 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{GameCommand, MatchOutcome, MatchState, RenderSnapshot, Session};
+use std::sync::Arc;
+
+use ra_engine::{
+    Engine, EngineConfig, GameCommand, MatchOutcome, MatchState, RenderSnapshot, Session,
+};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::GameEdition;
+use ra_types::{GameEdition, RuntimeDefinitions};
 
 use crate::alpha_skirmish_v1;
 
-/// 无窗口测试用例。所有推进都经过 `Session::tick`，避免测试与产品运行路径分叉。
+/// 无窗口测试用例。所有推进都经过 `Session::tick` + `EngineRuntime`，与产品路径一致。
 #[derive(Debug)]
 pub struct HeadlessCase {
+    /// 长期引擎（定义 / 调度上下文）。
+    pub engine: Engine,
     /// 被测会话。
     pub session: Session,
 }
@@ -28,22 +34,29 @@ pub struct HeadlessObservation {
     pub snapshot: RenderSnapshot,
 }
 
+fn default_engine() -> Engine {
+    Engine::new(Arc::new(RuntimeDefinitions::default()), EngineConfig::default()).expect("默认引擎应可构造")
+}
+
 impl HeadlessCase {
-    /// 包装已有会话。
+    /// 包装已有会话（附带默认引擎）。
     pub fn new(session: Session) -> Self {
-        Self { session }
+        Self {
+            engine: default_engine(),
+            session,
+        }
     }
 
     /// 在指定 tick 之前入队命令；下一次 `tick` 会按产品路径消费。
     pub fn command(&mut self, command: GameCommand) {
-        self.session.push_command(command);
+        self.session.expect_game_mut().push_command(command);
     }
 
     /// 精确推进指定次数，不依赖墙钟、窗口事件或 GPU。
     pub fn advance(&mut self, ticks: u64) {
         for _ in 0..ticks {
-            self.session.tick();
-            if self.session.outcome.is_some() {
+            self.session.tick(&self.engine.runtime());
+            if self.session.expect_game().outcome.is_some() {
                 break;
             }
         }
@@ -51,11 +64,12 @@ impl HeadlessCase {
 
     /// 采集当前观测。
     pub fn observe(&self) -> HeadlessObservation {
+        let game = self.session.expect_game();
         HeadlessObservation {
-            tick: self.session.world.tick,
-            state_hash: self.session.world.state_hash(),
-            outcome: self.session.outcome.clone(),
-            snapshot: self.session.snapshot(),
+            tick: game.world.tick,
+            state_hash: game.world.state_hash(),
+            outcome: game.outcome.clone(),
+            snapshot: game.snapshot(&[]),
         }
     }
 }
@@ -251,6 +265,6 @@ pub fn ai_skirmish_open() -> HeadlessCase {
     assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
     assert!(world.set_house_funds(slice.ai_house, slice.starting_funds));
     let mut session = Session::from_state(world, "ra-testing ai skirmish open");
-    session.ai_enabled = true;
+    session.expect_game_mut().ai_enabled = true;
     HeadlessCase::new(session)
 }
