@@ -162,3 +162,24 @@ fn fill_rect(pixels: &mut [u8], width: u32, height: u32, x: u32, y: u32, w: u32,
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{MenuAction, layout_for};
+    use crate::screen::OriginalScreen;
+
+    #[test]
+    fn main_menu_hit_single_player() {
+        let layout = layout_for(OriginalScreen::MainMenu, 1024, 768).unwrap();
+        let action = layout.hit(400.0, 280.0, 1024.0, 768.0);
+        assert_eq!(action, Some(MenuAction::OpenSinglePlayer));
+    }
+
+    #[test]
+    fn disabled_network_not_hit() {
+        let layout = layout_for(OriginalScreen::MainMenu, 1024, 768).unwrap();
+        // NETWORK 行约 y=0.44 → 338px，禁用。
+        let action = layout.hit(400.0, 340.0, 1024.0, 768.0);
+        assert_eq!(action, None);
+    }
+}
