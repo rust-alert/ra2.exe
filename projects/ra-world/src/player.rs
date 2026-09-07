@@ -22,14 +22,7 @@ pub struct PlayerState {
 impl PlayerState {
     /// 构造默认经济字段的玩家。
     pub fn new(id: PlayerId, house: impl Into<String>) -> Self {
-        Self {
-            id,
-            house: house.into(),
-            funds: 0,
-            power_output: 0,
-            power_drain: 0,
-            funds_spent: 0,
-        }
+        Self { id, house: house.into(), funds: 0, power_output: 0, power_drain: 0, funds_spent: 0 }
     }
 
     /// 是否处于低电（耗电大于供电）。
