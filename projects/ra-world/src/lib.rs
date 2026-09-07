@@ -147,8 +147,18 @@ impl World {
                 let max_health = tt.map(|t| t.strength).unwrap_or(1).max(1);
                 let health = (u64::from(max_health) * u64::from(e.health) / 256) as u32;
                 let speed = tt.map(|t| t.speed).unwrap_or(0);
-                let attack_range = tt.map(|t| t.sight.max(1)).unwrap_or(DEFAULT_ATTACK_RANGE);
-                let attack_damage = tt.map(|t| (t.strength / 4).max(1)).unwrap_or(DEFAULT_ATTACK_DAMAGE);
+                let attack_range = tt
+                    .map(|t| if t.range > 0 { t.range } else { t.sight.max(1) })
+                    .unwrap_or(DEFAULT_ATTACK_RANGE);
+                let attack_damage = tt
+                    .map(|t| {
+                        if t.damage > 0 {
+                            t.damage
+                        } else {
+                            (t.strength / 4).max(1)
+                        }
+                    })
+                    .unwrap_or(DEFAULT_ATTACK_DAMAGE);
                 let attack_cooldown_max =
                     tt.map(|t| if t.rof > 0 { t.rof } else { ATTACK_COOLDOWN_TICKS }).unwrap_or(ATTACK_COOLDOWN_TICKS);
                 let id = EntityId(next_entity_id);
@@ -690,8 +700,8 @@ impl World {
             health: max_health,
             max_health,
             speed: tt.speed,
-            attack_range: tt.sight.max(1),
-            attack_damage: (tt.strength / 4).max(1),
+            attack_range: if tt.range > 0 { tt.range } else { tt.sight.max(1) },
+            attack_damage: if tt.damage > 0 { tt.damage } else { (tt.strength / 4).max(1) },
             attack_cooldown_max: if tt.rof > 0 { tt.rof } else { ATTACK_COOLDOWN_TICKS },
             techno_kind: Some(tt.kind),
             target_x: None,
