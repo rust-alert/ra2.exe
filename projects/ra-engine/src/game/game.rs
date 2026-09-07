@@ -351,13 +351,12 @@ impl Game {
         self.world.push_command(cmd);
     }
 
-    /// 推进恰好一个仿真 tick（由 `Session` 时钟驱动；`runtime` 供后续系统调度使用）。
+    /// 推进恰好一个仿真 tick（由 `Session` 时钟驱动；阶段顺序来自 `runtime.schedule`）。
     pub fn advance_one_tick(&mut self, runtime: &EngineRuntime<'_>) {
-        let _ = runtime;
         if self.ai_enabled {
             self.push_ai_commands();
         }
-        self.world.advance_tick();
+        self.world.advance_scheduled_tick(runtime.schedule);
         self.refresh_outcome();
     }
 
