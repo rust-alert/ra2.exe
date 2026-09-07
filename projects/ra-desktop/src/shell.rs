@@ -18,6 +18,7 @@ use crate::{
     match_ctrl::{MatchController, MatchNav},
     menu_view::{MenuAction, MenuLayout, layout_for},
     screen::OriginalScreen,
+    ui_assets::{MenuUiProbe, probe_menu_ui_assets, stamp_top_right},
 };
 
 /// 外壳持有的可导航应用状态。
@@ -43,6 +44,8 @@ pub struct AppShell {
     cursor: (f64, f64),
     /// 后台遭遇战装载（`LoadScreen` 期间轮询）。
     load_job: Option<LoadJob>,
+    /// 主菜单阶段 UI 资源探测（惰性一次）。
+    ui_probe: Option<MenuUiProbe>,
 }
 
 impl AppShell {
@@ -81,6 +84,7 @@ impl AppShell {
             menu: None,
             cursor: (0.0, 0.0),
             load_job: None,
+            ui_probe: None,
         }
     }
 
@@ -101,7 +105,18 @@ impl AppShell {
             menu: None,
             cursor: (0.0, 0.0),
             load_job: None,
+            ui_probe: None,
         }
+    }
+
+    fn ensure_ui_probe(&mut self) {
+        if self.ui_probe.is_some() {
+            return;
+        }
+        let probe = probe_menu_ui_assets();
+        tracing::info!("{}", probe.note);
+        self.banner = probe.note.clone();
+        self.ui_probe = Some(probe);
     }
 
     fn set_screen(&mut self, next: OriginalScreen) {
@@ -116,7 +131,11 @@ impl AppShell {
     fn refresh_menu_backdrop(&mut self) {
         let w = self.window_width.max(1.0) as u32;
         let h = self.window_height.max(1.0) as u32;
-        if let Some(layout) = layout_for(self.screen, w, h) {
+        if let Some(mut layout) = layout_for(self.screen, w, h) {
+            self.ensure_ui_probe();
+            if let Some(frame) = self.ui_probe.as_ref().and_then(|p| p.mouse_frame.as_ref()) {
+                stamp_top_right(&mut layout.image, frame, 16);
+            }
             self.renderer.set_preview(layout.image.clone());
             self.menu = Some(layout);
         }
