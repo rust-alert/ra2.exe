@@ -9,7 +9,7 @@ mod boot;
 use ra_map::{MapEntityKind, iso_to_screen, screen_to_iso};
 use ra_net::{MatchFingerprint, StateDigest};
 use ra_types::GameEdition;
-use ra_world::{GameCommand, World};
+use ra_world::{CommandReject, GameCommand, World};
 
 pub use boot::{SkirmishOpenResult, open_skirmish_session};
 
@@ -30,10 +30,46 @@ pub struct RenderSnapshot {
     pub state_hash: u64,
     /// 可绘移动单位列表。
     pub units: Vec<SnapshotUnit>,
+    /// 玩家经济与电力（供 HUD）。
+    pub players: Vec<SnapshotPlayer>,
+    /// 工厂生产队列与集结点。
+    pub produce_queues: Vec<SnapshotProduceQueue>,
+    /// 上一 tick 的命令拒绝（供错误反馈）。
+    pub last_rejects: Vec<CommandReject>,
     /// 当前选中实体下标（与 `units[].index` 对齐）。
     pub selected: Vec<usize>,
     /// 对局结束结果；未结束时为 `None`。
     pub outcome: Option<MatchOutcome>,
+}
+
+/// 快照中的玩家经济状态。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SnapshotPlayer {
+    /// 阵营 / 房主名称。
+    pub house: String,
+    /// 当前资金。
+    pub funds: i32,
+    /// 供电量。
+    pub power_output: i32,
+    /// 耗电量。
+    pub power_drain: i32,
+    /// 是否低电。
+    pub low_power: bool,
+}
+
+/// 快照中的一条工厂生产队列。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SnapshotProduceQueue {
+    /// 工厂在 `World::entities` 中的下标。
+    pub factory_index: usize,
+    /// 正在生产的类型 ID。
+    pub type_id: String,
+    /// 剩余 tick。
+    pub remaining_ticks: u32,
+    /// 集结格 X。
+    pub rally_x: Option<u16>,
+    /// 集结格 Y。
+    pub rally_y: Option<u16>,
 }
 
 /// 快照中的一个可绘实体。
@@ -456,11 +492,42 @@ impl Session {
                 }
             })
             .collect();
+        let players = self
+            .world
+            .players
+            .iter()
+            .map(|p| SnapshotPlayer {
+                house: p.house.clone(),
+                funds: p.funds,
+                power_output: p.power_output,
+                power_drain: p.power_drain,
+                low_power: p.low_power(),
+            })
+            .collect();
+        let produce_queues = self
+            .world
+            .entities
+            .iter()
+            .enumerate()
+            .filter_map(|(factory_index, e)| {
+                let (type_id, remaining_ticks) = e.produce_queue.as_ref()?;
+                Some(SnapshotProduceQueue {
+                    factory_index,
+                    type_id: type_id.clone(),
+                    remaining_ticks: *remaining_ticks,
+                    rally_x: e.rally_x,
+                    rally_y: e.rally_y,
+                })
+            })
+            .collect();
         RenderSnapshot {
             edition: self.world.edition,
             tick: self.world.tick,
             state_hash: self.world.state_hash(),
             units,
+            players,
+            produce_queues,
+            last_rejects: self.world.last_rejects().to_vec(),
             selected: self.selected.clone(),
             outcome: self.outcome.clone(),
         }
