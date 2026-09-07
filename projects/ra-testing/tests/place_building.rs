@@ -3,7 +3,7 @@
 use ra_map::MapEntityKind;
 use ra_testing::{alpha_skirmish_v1, yard_open};
 use ra_types::PlayerId;
-use ra_world::GameCommand;
+use ra_engine::GameCommand;
 
 #[test]
 fn place_power_through_session_deducts_funds() {

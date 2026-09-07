@@ -2,7 +2,7 @@
 
 use ra_testing::{alpha_skirmish_v1, yard_open};
 use ra_types::PlayerId;
-use ra_world::{GameCommand, ORE_TRIP_TICKS};
+use ra_engine::{GameCommand, ORE_TRIP_TICKS};
 
 #[test]
 fn place_refinery_then_ore_trip_credits_through_session() {

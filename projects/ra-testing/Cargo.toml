@@ -11,6 +11,5 @@ publish = false
 ra-types = { workspace = true }
 ra-assets = { workspace = true }
 ra-adaptor = { workspace = true }
+ra-engine = { workspace = true }
 ra-map = { workspace = true }
-ra-world = { workspace = true }
-ra-session = { workspace = true }

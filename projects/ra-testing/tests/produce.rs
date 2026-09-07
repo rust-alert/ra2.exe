@@ -3,7 +3,7 @@
 use ra_map::MapEntityKind;
 use ra_testing::{alpha_skirmish_v1, yard_open};
 use ra_types::PlayerId;
-use ra_world::{GameCommand, PRODUCE_TICKS};
+use ra_engine::{GameCommand, PRODUCE_TICKS};
 
 #[test]
 fn produce_infantry_through_session_after_barracks() {
