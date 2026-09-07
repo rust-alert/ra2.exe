@@ -141,3 +141,37 @@ pub fn mcv_deploy_open() -> HeadlessCase {
     assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
     HeadlessCase::new(Session::new(world, "ra-testing mcv deploy open"))
 }
+
+/// 已展开建造场的开局夹具，供放置建筑 / 经济 headless 使用。
+pub fn yard_open() -> HeadlessCase {
+    let slice = alpha_skirmish_v1();
+    let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAPOWR\n\
+[GACNST]\nStrength=1000\nSight=8\nCost=2500\n\
+[GAPOWR]\nStrength=600\nSight=4\nCost=600\n";
+    let rules = IniDocument::parse(rules_text).expect("内置测试 INI 必须有效");
+    let rules_db = RulesDb {
+        edition: GameEdition::Ra2,
+        rules: rules.clone(),
+        art: IniDocument::default(),
+        overlay_types: OverlayTypeRegistry::default(),
+        color_schemes: ColorSchemes::default(),
+        techno_types: TechnoTypeRegistry::from_rules(&rules),
+    };
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "testing-yard-open");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: slice.human_house.into(),
+        type_id: "GACNST".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+    }];
+    let mut world = World::new(GameEdition::Ra2, &rules_db, map);
+    assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
+    HeadlessCase::new(Session::new(world, "ra-testing yard open"))
+}

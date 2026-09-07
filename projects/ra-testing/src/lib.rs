@@ -15,5 +15,5 @@ pub use alpha_slice::{
     alpha_skirmish_v1,
 };
 pub use gui::{GuiAction, GuiAutomationPlan, GuiExpectation, GuiPoint, standard_duel_gui_plan};
-pub use headless::{HeadlessCase, HeadlessObservation, mcv_deploy_open, standard_duel};
+pub use headless::{HeadlessCase, HeadlessObservation, mcv_deploy_open, standard_duel, yard_open};
 pub use status::TestStatus;
