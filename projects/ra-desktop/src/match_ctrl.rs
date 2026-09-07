@@ -22,7 +22,7 @@ pub enum MatchNav {
     Rematch,
     /// 对局已结束，应切到结算页。
     ToResults,
-    /// 返回主菜单。
+    /// 离开对局/结算，回到遭遇战大厅（保留选图）。
     ToMainMenu,
 }
 
