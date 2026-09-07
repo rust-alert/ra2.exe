@@ -605,7 +605,11 @@ impl MatchController {
                     .unwrap_or_else(|| "q:-".into());
                 let reject = hud.last_rejects.first().map(|r| r.reason.as_hud_label()).unwrap_or("-");
                 let place = self.place_mode.unwrap_or("-");
-                if let Some(MatchOutcome::Victory { owner }) = hud.outcome.as_ref() {
+                if screen_label == "results" {
+                    let outcome = match hud.outcome.as_ref() {
+                        Some(MatchOutcome::Victory { owner }) => format!("胜 {owner}"),
+                        _ => "结算".into(),
+                    };
                     let stats = hud
                         .match_stats
                         .as_ref()
@@ -617,7 +621,23 @@ impl MatchController {
                         })
                         .unwrap_or_default();
                     format!(
-                        "{} · [{screen_label}] · t{} · 胜 {owner}{stats} · R重开 Esc菜单",
+                        "{} · [results] · t{} · {outcome}{stats} · 点重开/回大厅 · R重开 Esc大厅",
+                        self.title_base, hud.tick
+                    )
+                }
+                else if let Some(MatchOutcome::Victory { owner }) = hud.outcome.as_ref() {
+                    let stats = hud
+                        .match_stats
+                        .as_ref()
+                        .map(|s| {
+                            format!(
+                                " · {}tick 损{}u/{}b 花${}",
+                                s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent
+                            )
+                        })
+                        .unwrap_or_default();
+                    format!(
+                        "{} · [{screen_label}] · t{} · 胜 {owner}{stats} · R重开 Esc大厅",
                         self.title_base, hud.tick
                     )
                 }
