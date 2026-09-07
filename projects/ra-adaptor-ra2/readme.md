@@ -78,9 +78,9 @@ GUI（`ra2` / `ra2.exe`）， **不注入、不启动**原版 `game.exe`。
 
 ```rust
 root.join("game.exe").is_file()
- || root.join("rules.ini").is_file()
- || root.join("ra2.mix").is_file()
- || root.join("language.mix").is_file()
+| | root.join("rules.ini").is_file()
+| | root.join("ra2.mix").is_file()
+| | root.join("language.mix").is_file()
 ```
 
 任意一条为真即判「像原版」。这是 OR 启发式，不是完整性证明：

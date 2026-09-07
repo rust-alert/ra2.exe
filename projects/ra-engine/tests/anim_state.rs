@@ -3,10 +3,9 @@
 mod common;
 
 use common::rules_with_mtnk;
+use ra_engine::{AnimState, GameCommand, Session, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_engine::{AnimState, Session};
 use ra_types::GameEdition;
-use ra_engine::{GameCommand, World};
 
 #[test]
 fn snapshot_anim_state_moves_when_ordered() {
@@ -26,11 +25,7 @@ fn snapshot_anim_state_moves_when_ordered() {
     });
     let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "anim");
     assert_eq!(session.snapshot().units[0].anim_state, AnimState::Idle);
-    session.push_command(GameCommand::MoveTo {
-        entity_index: 0,
-        x: 10,
-        y: 4,
-    });
+    session.push_command(GameCommand::MoveTo { entity_index: 0, x: 10, y: 4 });
     session.tick();
     assert_eq!(session.snapshot().units[0].anim_state, AnimState::Move);
 }

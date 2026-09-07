@@ -2,8 +2,7 @@
 //!
 //! 使用标准字母表。地图文件把数据拆在编号 INI 键上，解码前会去掉空白。
 
-use base64::Engine;
-use base64::engine::general_purpose::STANDARD;
+use base64::{Engine, engine::general_purpose::STANDARD};
 
 /// 将 base64 字符串解码为原始字节。
 ///

@@ -3,9 +3,11 @@
 use ra_assets::TechnoKind;
 use ra_map::MapEntityKind;
 
-use crate::spatial::repath_at;
-use crate::gameplay::{factory_matches_unit, verses_for};
-use crate::state::{ATTACK_COOLDOWN_TICKS, WorldEntity};
+use crate::{
+    gameplay::{factory_matches_unit, verses_for},
+    spatial::repath_at,
+    state::{ATTACK_COOLDOWN_TICKS, WorldEntity},
+};
 
 impl crate::state::World {
     pub(crate) fn advance_production(&mut self) {

@@ -72,8 +72,10 @@ flowchart TB
     session --> types
     renderer --> types
 ```
+
 虚线表示 `ra-webui` 已在清单中依赖相关 crate，但当前导出仍是占位（详见 [
-`projects/ra-webui/readme.md`](projects/ra-webui/readme.md)）。`ra-adaptor-phobos` 是心灵终结 3（Mental Omega 3）资源表，经 `ra-adaptor` 按 `GameEdition::Mo3` 装配。
+`projects/ra-webui/readme.md`](projects/ra-webui/readme.md)）。`ra-adaptor-phobos` 是心灵终结 3（Mental Omega 3）资源表，经
+`ra-adaptor` 按 `GameEdition::Mo3` 装配。
 
 ### Crate 依赖关系（简化）
 
@@ -164,6 +166,7 @@ sequenceDiagram
         Desk ->> Gpu: draw_frame
     end
 ```
+
 原版与尤里的复仇共用同一套内核类型与流水线；差异集中在 adaptor 资源表（文件名）以及玩家目录里的数据内容。
 
 ---
@@ -238,23 +241,23 @@ Release 配置（工作区 `Cargo.toml`）启用较高优化、LTO、符号剥�
 
 ## Crate 一览
 
-| Crate            | 作用                                                           | 文档                                        |
-|------------------|----------------------------------------------------------------|---------------------------------------------|
-| `ra-types`       | 基类型：`GameEdition`、`RaError`、`AssetSource`、`Fixed16`、ID | [readme](projects/ra-types/readme.md)       |
-| `ra-adaptor`     | 版本探测、组合适配、`ResourceChain`、`RulesDb` 装载            | [readme](projects/ra-adaptor/readme.md)     |
-| `ra-adaptor-ra2` | 原版资源表                                                     | [readme](projects/ra-adaptor-ra2/readme.md) |
-| `ra-adaptor-yuri`  | 尤里的复仇资源表                                               | [readme](projects/ra-adaptor-yuri/readme.md)  |
-| `ra-adaptor-phobos` | Phobos / MO 布局资源表                                     | [readme](projects/ra-adaptor-phobos/readme.md) |
-| `ra-assets`      | Westwood 格式与 INI 派生表：MIX / INI / 调色 / Techno 等       | [readme](projects/ra-assets/readme.md)      |
-| `ra-config`      | 配置来源合并与诊断                                             | [readme](projects/ra-config/readme.md)      |
-| `ra-map`         | 地图 / 剧院 / IsoMapPack / TMP 索引                            | [readme](projects/ra-map/readme.md)         |
-| `ra-world`       | 确定性世界句柄：`World`、tick、`GameCommand`、`state_hash` | [readme](projects/ra-world/readme.md)       |
-| `ra-session`     | 共享会话：命令转发与 `RenderSnapshot`                       | [readme](projects/ra-session/readme.md)     |
-| `ra-testing`     | 测试支撑：headless 夹具与 GUI 自动化计划（非运行时）         | [readme](projects/ra-testing/readme.md)     |
-| `ra-logger`      | 桌面文件日志                                               | [readme](projects/ra-logger/readme.md)      |
-| `ra-renderer`    | wgpu 渲染（不实现 DirectDraw）                                 | [readme](projects/ra-renderer/readme.md)    |
-| `ra-desktop`     | 原生 GUI 壳 → **`ra2` / `ra2.exe`**                            | [readme](projects/ra-desktop/readme.md)     |
-| `ra-webui`       | Wasm 壳                                                        | [readme](projects/ra-webui/readme.md)       |
+| Crate                 | 作用                                                           | 文档                                             |
+|-----------------------|----------------------------------------------------------------|--------------------------------------------------|
+| `ra-types`            | 基类型：`GameEdition`、`RaError`、`AssetSource`、`Fixed16`、ID | [readme](projects/ra-types/readme.md)            |
+| `ra-adaptor`          | 版本探测、组合适配、`ResourceChain`、`RulesDb` 装载            | [readme](projects/ra-adaptor/readme.md)          |
+| `ra-adaptor-ra2`      | 原版资源表                                                     | [readme](projects/ra-adaptor-ra2/readme.md)      |
+| `ra-adaptor-yuri`     | 尤里的复仇资源表                                               | [readme](projects/ra-adaptor-yuri/readme.md)     |
+| `ra-adaptor-phobos`   | Phobos / MO 布局资源表                                         | [readme](projects/ra-adaptor-phobos/readme.md)   |
+| `ra-assets`           | Westwood 格式与 INI 派生表：MIX / INI / 调色 / Techno 等       | [readme](projects/ra-assets/readme.md)           |
+| `ra-config`           | 配置来源合并与诊断                                             | [readme](projects/ra-config/readme.md)           |
+| `ra-map`              | 地图 / 剧院 / IsoMapPack / TMP 索引                            | [readme](projects/ra-map/readme.md)              |
+| `ra-world`            | 确定性世界句柄：`World`、tick、`GameCommand`、`state_hash`     | [readme](projects/ra-world/readme.md)            |
+| `ra-session`          | 共享会话：命令转发与 `RenderSnapshot`                          | [readme](projects/ra-session/readme.md)          |
+| `ra-testing`          | 测试支撑：headless 夹具与 GUI 自动化计划（非运行时）           | [readme](projects/ra-testing/readme.md)          |
+| `tracing（入口订阅）` | 桌面文件日志                                                   | [readme](projects/tracing（入口订阅）/readme.md) |
+| `ra-renderer`         | wgpu 渲染（不实现 DirectDraw）                                 | [readme](projects/ra-renderer/readme.md)         |
+| `ra-desktop`          | 原生 GUI 壳 → **`ra2` / `ra2.exe`**                            | [readme](projects/ra-desktop/readme.md)          |
+| `ra-webui`            | Wasm 壳                                                        | [readme](projects/ra-webui/readme.md)            |
 
 ---
 

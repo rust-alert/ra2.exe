@@ -5,10 +5,8 @@ use std::collections::HashMap;
 use crate::ini::IniDocument;
 
 /// RA2 护甲名在 `Verses` 列表中的固定顺序（11 项）。
-pub const ARMOR_ORDER: [&str; 11] = [
-    "none", "flak", "plate", "light", "medium", "heavy", "wood", "steel", "concrete", "special_1",
-    "special_2",
-];
+pub const ARMOR_ORDER: [&str; 11] =
+    ["none", "flak", "plate", "light", "medium", "heavy", "wood", "steel", "concrete", "special_1", "special_2"];
 
 /// 弹头：对各护甲的伤害百分比（默认全 100）。
 #[derive(Debug, Clone, PartialEq, Eq)]

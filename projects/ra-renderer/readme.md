@@ -38,16 +38,16 @@ const CLEAR_COLOR: wgpu::Color = wgpu::Color {
 
 ## `Renderer` 生命周期（按调用顺序读）
 
-| 方法                         | 行为                                                              |
-|------------------------------|-------------------------------------------------------------------|
-| `new()`                      | `frames=0`，无 GPU，无 preview                                    |
-| `set_preview(RgbaImage)`     | 若已有 GPU，立即建/换 `SpriteGpu`；否则只存 CPU 图，等附着        |
-| `attach_window(Arc<Window>)` | 已绑定则 Ok 忽略；否则 `GpuContext::new`，若有 preview 则上传精灵 |
-| `resize(w,h)`                | 转给 GPU 表面配置，宽高至少 1                                     |
-| `draw_frame(Option<&RenderSnapshot>)` | 无 GPU 直接 return；清屏；有 sprite 则画；`frames` wrapping_add |
-| `backend_name()`             | 来自 `GpuContext` 标签                                            |
-| `has_preview()`              | 是否持有 preview 图                                               |
-| `backend_hint(_) -> "wgpu"`  | 固定字符串，给诊断用                                              |
+| 方法                                  | 行为                                                              |
+|---------------------------------------|-------------------------------------------------------------------|
+| `new()`                               | `frames=0`，无 GPU，无 preview                                    |
+| `set_preview(RgbaImage)`              | 若已有 GPU，立即建/换 `SpriteGpu`；否则只存 CPU 图，等附着        |
+| `attach_window(Arc<Window>)`          | 已绑定则 Ok 忽略；否则 `GpuContext::new`，若有 preview 则上传精灵 |
+| `resize(w,h)`                         | 转给 GPU 表面配置，宽高至少 1                                     |
+| `draw_frame(Option<&RenderSnapshot>)` | 无 GPU 直接 return；清屏；有 sprite 则画；`frames` wrapping_add   |
+| `backend_name()`                      | 来自 `GpuContext` 标签                                            |
+| `has_preview()`                       | 是否持有 preview 图                                               |
+| `backend_hint(_) -> "wgpu"`           | 固定字符串，给诊断用                                              |
 
 桌面在构造 `App` 时可能先 `set_preview`（启动解码出的 SHP），再在 `resumed` 里 `attach_window`。顺序反了也能工作：附着时会补建
 sprite。
@@ -82,7 +82,8 @@ sprite。
 
 ## 和快照的耦合
 
-`draw_frame` 接收 `ra-engine::RenderSnapshot`，不直接依赖世界可变状态。当前绘制路径仍主要是预览纹理；快照的 tick / 单位列表供后续批次与诊断使用。标题栏上的 tick 由桌面从对局运行时读取。
+`draw_frame` 接收 `ra-engine::RenderSnapshot`，不直接依赖世界可变状态。当前绘制路径仍主要是预览纹理；快照的 tick /
+单位列表供后续批次与诊断使用。标题栏上的 tick 由桌面从对局运行时读取。
 
 ## 构建
 

@@ -1,8 +1,8 @@
 //! MCV 部署经 Session 路径。
 
+use ra_engine::GameCommand;
 use ra_map::MapEntityKind;
 use ra_testing::{alpha_skirmish_v1, mcv_deploy_open};
-use ra_engine::GameCommand;
 
 #[test]
 fn mcv_deploy_open_seeds_slice_funds() {

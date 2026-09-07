@@ -2,9 +2,9 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{CommandRejectReason, GameCommand, PRODUCE_TICKS, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition, PlayerId};
-use ra_engine::{CommandRejectReason, GameCommand, PRODUCE_TICKS, World};
 
 fn factory_world() -> World {
     let rules_text = b"[InfantryTypes]\n0=E1\n\

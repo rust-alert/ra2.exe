@@ -9,22 +9,12 @@ fn ai_deploys_mcv_and_places_power() {
     let mut case = ai_skirmish_open();
     assert!(case.session.ai_enabled);
     case.advance(1);
-    let yard = case
-        .session
-        .world
-        .entities
-        .iter()
-        .find(|e| e.owner == slice.ai_house && e.type_id == "NACNST");
+    let yard = case.session.world.entities.iter().find(|e| e.owner == slice.ai_house && e.type_id == "NACNST");
     assert!(yard.is_some(), "AI should deploy SMCV into NACNST");
     assert_eq!(yard.unwrap().kind, MapEntityKind::Structure);
 
     case.advance(1);
-    let power = case
-        .session
-        .world
-        .entities
-        .iter()
-        .find(|e| e.owner == slice.ai_house && e.type_id == "NAPOWR");
+    let power = case.session.world.entities.iter().find(|e| e.owner == slice.ai_house && e.type_id == "NAPOWR");
     assert!(power.is_some(), "AI should place NAPOWR near yard");
     assert!(case.observe().outcome.is_none());
 }

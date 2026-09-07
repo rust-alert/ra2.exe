@@ -94,17 +94,7 @@ impl MarkerGpu {
                 (false, false) => 7.0,
             };
             if u.is_structure() {
-                push_rect(
-                    &mut verts,
-                    camera,
-                    sw,
-                    sh,
-                    cx - half,
-                    cy - half * 0.6,
-                    half * 2.0,
-                    half * 1.2,
-                    color,
-                );
+                push_rect(&mut verts, camera, sw, sh, cx - half, cy - half * 0.6, half * 2.0, half * 1.2, color);
             }
             else {
                 push_diamond(&mut verts, camera, sw, sh, cx, cy, half, color);

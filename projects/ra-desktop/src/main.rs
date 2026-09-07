@@ -12,11 +12,12 @@ mod test_boot;
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
 use ra_adaptor::{ResourceChain, RulesDb, detect_edition, load_rules_chain};
-use ra_logger;
+use ra_engine::{Session, open_skirmish_session};
 use ra_map::{MapEntityKind, MapInfo, compose_boot_preview, find_first_boot_map, mount_theater_mixes};
 use ra_renderer::{Renderer, RgbaImage};
-use ra_engine::{Session, open_skirmish_session};
 use ra_types::{GameEdition, RaError, RaResult};
+use tracing_appender::non_blocking::WorkerGuard;
+use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use winit::{
     application::ApplicationHandler,
     event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
@@ -127,7 +128,7 @@ impl App {
         };
         if let Some(type_id) = self.place_mode {
             if let Some(session) = self.session.as_mut() {
-                ra_logger::info(format!("放置建筑 {type_id} @({},{})", cell.0, cell.1));
+                tracing::info!("放置建筑 {type_id} @({},{})", cell.0, cell.1);
                 session.order_place_building(type_id, cell.0, cell.1);
             }
             return;
@@ -139,27 +140,26 @@ impl App {
         if let Some(i) = session.pick_entity_at(cell.0, cell.1) {
             if add {
                 session.select_add(i);
-                ra_logger::info(format!("加选实体 #{i} @({},{}) · 选中 {:?}", cell.0, cell.1, session.selected));
+                tracing::info!("加选实体 #{i} @({},{}) · 选中 {:?}", cell.0, cell.1, session.selected);
             }
             else {
                 session.select_only(i);
-                ra_logger::info(format!("选中实体 #{i} @({},{})", cell.0, cell.1));
+                tracing::info!("选中实体 #{i} @({},{})", cell.0, cell.1);
             }
         }
         else if !add {
             session.selected.clear();
-            ra_logger::debug(format!("点空地 ({},{})，清空选中", cell.0, cell.1));
+            tracing::debug!("点空地 ({},{})，清空选中", cell.0, cell.1);
         }
     }
 
     fn cycle_place_mode(&mut self) {
-        const CYCLE: &[Option<&'static str>] =
-            &[None, Some("GAPOWR"), Some("GAPILE"), Some("GAREFN"), Some("GAWEAP")];
+        const CYCLE: &[Option<&'static str>] = &[None, Some("GAPOWR"), Some("GAPILE"), Some("GAREFN"), Some("GAWEAP")];
         let idx = CYCLE.iter().position(|m| *m == self.place_mode).unwrap_or(0);
         self.place_mode = CYCLE[(idx + 1) % CYCLE.len()];
         match self.place_mode {
-            Some(id) => ra_logger::info(format!("建造模式 · 放置 {id}（再按 B 切换，Esc 取消）")),
-            None => ra_logger::info("建造模式 · 已关闭"),
+            Some(id) => tracing::info!("建造模式 · 放置 {id}（再按 B 切换，Esc 取消）"),
+            None => tracing::info!("建造模式 · 已关闭"),
         }
     }
 
@@ -176,7 +176,7 @@ impl App {
             return;
         }
         if session.selection_has_structure() {
-            ra_logger::info(format!("设置集结点 → ({},{})（选中 {:?}）", cell.0, cell.1, session.selected));
+            tracing::info!("设置集结点 → ({},{})（选中 {:?}）", cell.0, cell.1, session.selected);
             session.order_selected_rally(cell.0, cell.1);
             return;
         }
@@ -191,12 +191,12 @@ impl App {
                 })
                 .unwrap_or(false);
             if hostile {
-                ra_logger::info(format!("命令攻击 → #{target}（选中 {:?}）", session.selected));
+                tracing::info!("命令攻击 → #{target}（选中 {:?}）", session.selected);
                 session.order_selected_attack(target);
                 return;
             }
         }
-        ra_logger::info(format!("命令移动 → ({},{})（选中 {:?}）", cell.0, cell.1, session.selected));
+        tracing::info!("命令移动 → ({},{})（选中 {:?}）", cell.0, cell.1, session.selected);
         session.order_selected_move(cell.0, cell.1);
     }
 
@@ -222,11 +222,7 @@ impl App {
                     .first()
                     .map(|q| format!("q:{}:{}", q.type_id, q.remaining_ticks))
                     .unwrap_or_else(|| "q:-".into());
-                    let reject = snap
-                    .last_rejects
-                    .first()
-                    .map(|r| r.reason.as_hud_label())
-                    .unwrap_or("-");
+                let reject = snap.last_rejects.first().map(|r| r.reason.as_hud_label()).unwrap_or("-");
                 let place = self.place_mode.unwrap_or("-");
                 if let Some(ra_engine::MatchOutcome::Victory { owner }) = snap.outcome.as_ref() {
                     let stats = snap
@@ -269,7 +265,7 @@ impl App {
                 let label = reject.reason.as_hud_label().to_string();
                 if self.logged_reject.as_deref() != Some(label.as_str()) {
                     self.logged_reject = Some(label.clone());
-                    ra_logger::info(format!("命令拒绝 · {label}"));
+                    tracing::info!("命令拒绝 · {label}");
                 }
             }
         }
@@ -304,12 +300,12 @@ impl App {
                 )
             })
             .unwrap_or_default();
-        ra_logger::info(format!("对局结束 · 胜方 {owner} · tick={}{stats} · 按 R 重开", session.world.tick));
+        tracing::info!("对局结束 · 胜方 {owner} · tick={}{stats} · 按 R 重开", session.world.tick);
     }
 
     /// 按当前启动路径重新装载一局（结算后或任意时刻）。
     fn rematch(&mut self) {
-        ra_logger::info("重开对局…");
+        tracing::info!("重开对局…");
         let boot = self.boot_again();
         if let Some(preview) = boot.preview {
             self.renderer.set_preview(preview);
@@ -322,10 +318,10 @@ impl App {
         if let Some(session) = self.session.as_ref() {
             let edition = session.world.edition.as_str();
             self.title_base = format!("ra2 ({edition})");
-            ra_logger::info(format!("重开完成 · {}", boot.note));
+            tracing::info!("重开完成 · {}", boot.note);
         }
         else {
-            ra_logger::error(format!("重开失败 · {}", boot.note));
+            tracing::error!("重开失败 · {}", boot.note);
         }
         self.refresh_title();
     }
@@ -337,11 +333,7 @@ impl App {
             if let Some(scene) = self.test_scene.as_ref() {
                 return match crate::test_boot::boot_scene(scene) {
                     Ok(t) => BootResult { note: t.note, session: Some(t.session), preview: t.preview },
-                    Err(e) => BootResult {
-                        note: format!("重开失败: {e}"),
-                        session: None,
-                        preview: None,
-                    },
+                    Err(e) => BootResult { note: format!("重开失败: {e}"), session: None, preview: None },
                 };
             }
         }
@@ -364,15 +356,15 @@ impl ApplicationHandler for App {
                 .expect("创建窗口失败"),
         );
         if let Err(e) = self.renderer.attach_window(window.clone()) {
-            ra_logger::error(format!("wgpu 附着失败: {e}"));
+            tracing::error!("wgpu 附着失败: {e}");
         }
         else {
-            ra_logger::info(format!(
+            tracing::info!(
                 "gpu={} preview={} zoom={:.2}",
                 self.renderer.backend_name(),
                 if self.renderer.has_preview() { "yes" } else { "no" },
                 self.renderer.camera().zoom
-            ));
+            );
         }
         self.window = Some(window);
         self.refresh_title();
@@ -447,7 +439,7 @@ impl ApplicationHandler for App {
                             });
                             if let Some(i) = seed {
                                 session.select_all_of_owner(i);
-                                ra_logger::info(format!("全选同阵营 · {} 个", session.selected.len()));
+                                tracing::info!("全选同阵营 · {} 个", session.selected.len());
                             }
                         }
                     }
@@ -485,7 +477,7 @@ impl ApplicationHandler for App {
                     }
                     PhysicalKey::Code(KeyCode::KeyX) => {
                         if let Some(session) = self.session.as_mut() {
-                            ra_logger::info(format!("部署选中 · {:?}", session.selected));
+                            tracing::info!("部署选中 · {:?}", session.selected);
                             session.order_selected_deploy();
                         }
                     }
@@ -495,20 +487,17 @@ impl ApplicationHandler for App {
                     PhysicalKey::Code(KeyCode::Escape) => {
                         if self.place_mode.is_some() {
                             self.place_mode = None;
-                            ra_logger::info("建造模式 · 已关闭");
+                            tracing::info!("建造模式 · 已关闭");
                         }
                     }
                     PhysicalKey::Code(KeyCode::Space) => {
                         if let Some(session) = self.session.as_mut() {
                             session.toggle_pause();
                             if session.paused {
-                                ra_logger::info(format!(
-                                    "暂停 · {}",
-                                    session.pause_reason.as_deref().unwrap_or("已暂停")
-                                ));
+                                tracing::info!("暂停 · {}", session.pause_reason.as_deref().unwrap_or("已暂停"));
                             }
                             else {
-                                ra_logger::info("继续");
+                                tracing::info!("继续");
                             }
                         }
                     }
@@ -517,23 +506,20 @@ impl ApplicationHandler for App {
                     }
                     PhysicalKey::Code(KeyCode::KeyP) => {
                         if let Some(session) = self.session.as_mut() {
-                            ra_logger::info("生产 · E1");
+                            tracing::info!("生产 · E1");
                             session.order_produce("E1");
                         }
                     }
                     PhysicalKey::Code(KeyCode::KeyO) => {
                         if let Some(session) = self.session.as_mut() {
-                            ra_logger::info("生产 · MTNK");
+                            tracing::info!("生产 · MTNK");
                             session.order_produce("MTNK");
                         }
                     }
                     PhysicalKey::Code(KeyCode::KeyY) => {
                         if let Some(cell) = self.cursor_cell() {
                             if let Some(session) = self.session.as_mut() {
-                                ra_logger::info(format!(
-                                    "设置集结点 → ({},{})（选中 {:?}）",
-                                    cell.0, cell.1, session.selected
-                                ));
+                                tracing::info!("设置集结点 → ({},{})（选中 {:?}）", cell.0, cell.1, session.selected);
                                 session.order_selected_rally(cell.0, cell.1);
                             }
                         }
@@ -605,11 +591,11 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
     };
     let manifest = detect_edition(&root, explicit)?;
     for report in &manifest.stack.unsupported {
-        ra_logger::warn(format!("适配能力缺口 [{}] {}", report.code, report.message));
+        tracing::warn!("适配能力缺口 [{}] {}", report.code, report.message);
     }
     if !manifest.stack.extensions.is_empty() {
         let ids: Vec<_> = manifest.stack.extensions.iter().map(|e| e.as_str()).collect();
-        ra_logger::info(format!("适配扩展探测: {}", ids.join("+")));
+        tracing::info!("适配扩展探测: {}", ids.join("+"));
     }
     let chain = &manifest.chain;
 
@@ -653,10 +639,12 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
         match rules.as_ref().map(|rules| open_skirmish_session(&source, chain, rules, map, note.clone(), preview_origin)) {
             Some(Ok(opened)) => {
                 note = opened.note;
-                ra_logger::info(format!(
+                tracing::info!(
                     "fingerprint edition={} map={} rules_hash={:#x}",
-                    opened.session.fingerprint.edition, opened.session.fingerprint.map, opened.session.fingerprint.rules_hash
-                ));
+                    opened.session.fingerprint.edition,
+                    opened.session.fingerprint.map,
+                    opened.session.fingerprint.rules_hash
+                );
                 Some(opened.session)
             }
             Some(Err(e)) => {
@@ -669,44 +657,48 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
     Ok(BootResult { note, session, preview })
 }
 
+/// 初始化终端 + `logs/ra2.log` 双输出。返回的 guard 必须持有到进程结束。
+fn init_tracing() -> WorkerGuard {
+    let _ = std::fs::create_dir_all("logs");
+    let file_appender = tracing_appender::rolling::never("logs", "ra2.log");
+    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    let stderr_layer = fmt::layer().with_writer(std::io::stderr);
+    let file_layer = fmt::layer().with_ansi(false).with_writer(non_blocking);
+    tracing_subscriber::registry().with(filter).with(stderr_layer).with(file_layer).init();
+    guard
+}
+
 fn main() {
     if let Err(e) = run() {
         // init 可能失败，仍尽量打 stderr。
         eprintln!("ra2 错误: {e}");
-        ra_logger::error(format!("致命错误: {e}"));
+        tracing::error!("致命错误: {e}");
         std::process::exit(1);
     }
 }
 
 fn run() -> RaResult<()> {
-    let log_path = ra_logger::init_default(true)?;
-    ra_logger::info(format!("ra2 启动 · log={}", log_path.display()));
+    let _log_guard = init_tracing();
+    tracing::info!("ra2 启动");
 
     let (boot, window_width, window_height, status_path, test_scene) = resolve_boot()?;
 
     if let Some(session) = boot.session.as_ref() {
-        ra_logger::info(format!(
+        tracing::info!(
             "preview_origin=({}, {}) entities={}",
             session.preview_origin_x,
             session.preview_origin_y,
             session.world.entities.len()
-        ));
+        );
     }
 
     let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Poll);
 
-    let mut app = App::new(
-        boot.note,
-        boot.session,
-        boot.preview,
-        window_width,
-        window_height,
-        status_path,
-        test_scene,
-    );
+    let mut app = App::new(boot.note, boot.session, boot.preview, window_width, window_height, status_path, test_scene);
     event_loop.run_app(&mut app).map_err(|e| RaError::Msg(e.to_string()))?;
-    ra_logger::info("事件循环结束");
+    tracing::info!("事件循环结束");
     Ok(())
 }
 
@@ -717,14 +709,14 @@ fn resolve_boot() -> RaResult<(BootResult, f64, f64, Option<PathBuf>, Option<Str
             let status_path = crate::test_boot::status_path();
             let window_width = crate::test_boot::TEST_WINDOW_WIDTH;
             let window_height = crate::test_boot::TEST_WINDOW_HEIGHT;
-            ra_logger::info(format!(
+            tracing::info!(
                 "test-harness scene={scene} window={}x{} status={}",
                 window_width,
                 window_height,
-                status_path.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "—".into())
-            ));
+                status_path.as_ref().map(|p| p.display().to_string().unwrap_or_else(|| "—".into()))
+            );
             let t = crate::test_boot::boot_scene(&scene)?;
-            ra_logger::info(format!("boot: {} · session=ok", t.note));
+            tracing::info!("boot: {} · session=ok", t.note);
             return Ok((
                 BootResult { note: t.note, session: Some(t.session), preview: t.preview },
                 window_width,
@@ -741,23 +733,21 @@ fn resolve_boot() -> RaResult<(BootResult, f64, f64, Option<PathBuf>, Option<Str
 fn boot_from_install() -> BootResult {
     let (cfg, cfg_diags) = load_desktop_config_with_diagnostics();
     for d in &cfg_diags {
-        ra_logger::warn(format!("配置诊断 {} · {}", d.source, d.message));
+        tracing::warn!("配置诊断 {} · {}", d.source, d.message);
     }
     match (&cfg.net_url, &cfg.net_room) {
-        (Some(url), room) => ra_logger::info(format!(
-            "联机配置预留 url={} room={}（协议未定点，不接 socket）",
-            url,
-            room.as_deref().unwrap_or("—")
-        )),
-        (None, _) => ra_logger::info("联机配置：未设 net_url"),
+        (Some(url), room) => {
+            tracing::info!("联机配置预留 url={} room={}（协议未定点，不接 socket）", url, room.as_deref().unwrap_or("—"))
+        }
+        (None, _) => tracing::info!("联机配置：未设 net_url"),
     }
     let boot = match boot_world(&cfg) {
         Ok(v) => v,
         Err(e) => {
-            ra_logger::error(format!("启动失败: {e}"));
+            tracing::error!("启动失败: {e}");
             BootResult { note: format!("启动失败: {e}"), session: None, preview: None }
         }
     };
-    ra_logger::info(format!("boot: {} · session={}", boot.note, if boot.session.is_some() { "ok" } else { "none" }));
+    tracing::info!("boot: {} · session={}", boot.note, if boot.session.is_some() { "ok" } else { "none" });
     boot
 }

@@ -2,9 +2,9 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
-use ra_engine::{ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS, World};
 
 fn refinery_world() -> World {
     let rules_text = b"[BuildingTypes]\n0=GAREFN\n\

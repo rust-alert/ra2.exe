@@ -18,9 +18,11 @@ ra-adaptor = { workspace = true }
 ra-assets = { workspace = true }
 ra-map = { workspace = true }
 ra-engine = { workspace = true }
-ra-logger = { workspace = true }
 ra-net = { workspace = true }
 ra-renderer = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
 winit = { workspace = true }
 
 [features]

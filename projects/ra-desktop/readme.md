@@ -30,9 +30,9 @@ cargo run -p ra-desktop --example probe_boot -- path/to/game
 
 按顺序尝试读取当前工作目录下的 `config.toml`、`ra2.toml`。解析器是手写「一行一个 `key = value`」，不是完整 TOML 库：
 
-| 键                      | 作用                                                                  |
-|-------------------------|-----------------------------------------------------------------------|
-| `ra2_dir` 或 `game_dir` | 含零售 MIX / INI 的目录                                               |
+| 键                      | 作用                                                                          |
+|-------------------------|-------------------------------------------------------------------------------|
+| `ra2_dir` 或 `game_dir` | 含零售 MIX / INI 的目录                                                       |
 | `edition`               | 可选；`ra2` / `yr` / `mo3` 及 `GameEdition::parse` 接受的别名；省略则自动探测 |
 
 `#` 之后当注释；以 `[` 开头的行跳过。缺文件时默认 `ra2_dir = "."`、`edition = None`。
@@ -100,7 +100,8 @@ cargo run
 `App` 实现 winit `ApplicationHandler`：
 
 - `resumed`：创建约 1024×768 窗口，`renderer.attach_window`
-- `RedrawRequested`：计算经过时间 → `Session::pump` 固定 tick → 生成 `RenderSnapshot` → `draw_frame` → 刷新标题 → 再 `request_redraw`
+- `RedrawRequested`：计算经过时间 → `Session::pump` 固定 tick → 生成 `RenderSnapshot` → `draw_frame` → 刷新标题 → 再
+  `request_redraw`
 - `about_to_wait`：再次 `request_redraw`
 - `ControlFlow::Poll`
 
@@ -118,7 +119,8 @@ set RA2_TEST_STATUS_PATH=ra2-test-status.txt
 cargo run -p ra-desktop --features test-harness
 ```
 
-此时窗口固定 1280×720，会话来自 `ra-testing::standard_duel`（不读安装目录）。若设置 `RA2_TEST_STATUS_PATH`，每帧刷新标题时写出 `tick` / `hash` / `outcome` / `selected` 旁路，供后续 GUI 自动化轮询。
+此时窗口固定 1280×720，会话来自 `ra-testing::standard_duel`（不读安装目录）。若设置 `RA2_TEST_STATUS_PATH`，每帧刷新标题时写出
+`tick` / `hash` / `outcome` / `selected` 旁路，供后续 GUI 自动化轮询。
 
 ## 依赖面
 

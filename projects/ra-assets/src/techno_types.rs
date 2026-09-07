@@ -131,11 +131,7 @@ fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<Techn
     let tech_level = rules.get(&section_key, "TechLevel").and_then(|s| s.parse().ok()).unwrap_or(-1);
     let owner = rules.get(&section_key, "Owner").unwrap_or("").to_string();
     let image = rules.get(&section_key, "Image").unwrap_or(id).to_ascii_uppercase();
-    let primary = rules
-        .get(&section_key, "Primary")
-        .unwrap_or("")
-        .trim()
-        .to_ascii_uppercase();
+    let primary = rules.get(&section_key, "Primary").unwrap_or("").trim().to_ascii_uppercase();
     let techno_rof = parse_u32(rules.get(&section_key, "ROF")).unwrap_or(0);
     let (damage, range, rof, warhead) = resolve_primary_weapon(rules, &primary, techno_rof);
     Some(TechnoType {
@@ -175,11 +171,7 @@ fn resolve_primary_weapon(rules: &IniDocument, primary: &str, techno_rof: u32) -
     let range = parse_u32(rules.get(&section_key, "Range")).unwrap_or(0);
     let weapon_rof = parse_u32(rules.get(&section_key, "ROF")).unwrap_or(0);
     let rof = if weapon_rof > 0 { weapon_rof } else { techno_rof };
-    let warhead = rules
-        .get(&section_key, "Warhead")
-        .unwrap_or("")
-        .trim()
-        .to_ascii_uppercase();
+    let warhead = rules.get(&section_key, "Warhead").unwrap_or("").trim().to_ascii_uppercase();
     (damage, range, rof, warhead)
 }
 

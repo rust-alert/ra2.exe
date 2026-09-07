@@ -35,10 +35,10 @@ pub use pal::{Palette, Rgba};
 pub use shp::{ShpFile, ShpFrame, decode_rle_frame};
 pub use techno_types::{TechnoKind, TechnoType, TechnoTypeRegistry};
 pub use tmp::{TILE_HEADER_SIZE, TmpFile, TmpTile, diamond_byte_count};
-pub use warheads::{ARMOR_ORDER, Warhead, WarheadRegistry, armor_index};
 pub use vpl::VplFile;
 pub use vxl::{VxlFile, VxlLimb, VxlVoxel};
 pub use vxl_raster::{
     VxlLayerPose, VxlSprite, rasterize_vxl, rasterize_vxl_frame, rasterize_vxl_layer_poses, rasterize_vxl_layers,
     rasterize_vxl_posed,
 };
+pub use warheads::{ARMOR_ORDER, Warhead, WarheadRegistry, armor_index};

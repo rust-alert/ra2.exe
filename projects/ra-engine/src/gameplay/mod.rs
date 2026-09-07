@@ -15,6 +15,6 @@ mod transport;
 mod triggers;
 
 pub(crate) use rules::{
-    building_power_delta, deploy_into_type, factory_matches_unit, full_verses, is_construction_yard,
-    is_power_plant, is_production_factory, is_refinery, requires_power_plant, verses_for,
+    building_power_delta, deploy_into_type, factory_matches_unit, full_verses, is_construction_yard, is_power_plant,
+    is_production_factory, is_refinery, requires_power_plant, verses_for,
 };

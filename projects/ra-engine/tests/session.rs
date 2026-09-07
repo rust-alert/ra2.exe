@@ -3,10 +3,9 @@
 mod common;
 
 use common::rules_with_mtnk;
+use ra_engine::{GameCommand, MAX_TICKS_PER_PUMP, MatchOutcome, Session, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
-use ra_engine::{MAX_TICKS_PER_PUMP, MatchOutcome, Session};
 use ra_types::GameEdition;
-use ra_engine::{GameCommand, World};
 
 #[test]
 fn session_tick_and_snapshot() {

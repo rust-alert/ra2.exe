@@ -2,10 +2,9 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{Session, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_engine::Session;
 use ra_types::GameEdition;
-use ra_engine::World;
 
 #[test]
 fn ai_places_refinery_near_yard() {
@@ -64,11 +63,7 @@ fn ai_places_refinery_near_yard() {
     let mut session = Session::new(world, "ai-refn");
     session.ai_enabled = true;
     session.tick();
-    let refn = session
-        .world
-        .entities
-        .iter()
-        .find(|e| e.owner == "Soviets" && e.type_id == "NAREFN");
+    let refn = session.world.entities.iter().find(|e| e.owner == "Soviets" && e.type_id == "NAREFN");
     assert!(refn.is_some(), "AI should place NAREFN");
     assert_eq!(session.world.house_funds("Soviets"), Some(10_000 - 2000));
 }

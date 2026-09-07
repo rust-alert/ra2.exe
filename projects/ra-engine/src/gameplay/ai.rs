@@ -1,8 +1,8 @@
 //! 基础 AI：只经 `GameCommand` 下发，不直接改写世界。
 
+use crate::{GameCommand, World};
 use ra_map::MapEntityKind;
 use ra_types::PlayerId;
-use crate::{GameCommand, World};
 
 /// 为本阵营未部署的 MCV 生成 `Deploy`（已有建造场则跳过）。
 pub fn deploy_mcv_commands(world: &World, house: &str) -> Vec<GameCommand> {
@@ -109,10 +109,7 @@ fn produce_unit(world: &World, house: &str, player: PlayerId, unit_id: &str) -> 
     if funds < cost as i32 {
         return Vec::new();
     }
-    vec![GameCommand::Produce {
-        player,
-        type_id: unit_id.to_string(),
-    }]
+    vec![GameCommand::Produce { player, type_id: unit_id.to_string() }]
 }
 
 fn place_near_yard(world: &World, house: &str, player: PlayerId, type_id: &str) -> Vec<GameCommand> {
@@ -135,12 +132,7 @@ fn place_near_yard(world: &World, house: &str, player: PlayerId, type_id: &str) 
     else {
         return Vec::new();
     };
-    vec![GameCommand::PlaceBuilding {
-        player,
-        type_id: type_id.to_string(),
-        x,
-        y,
-    }]
+    vec![GameCommand::PlaceBuilding { player, type_id: type_id.to_string(), x, y }]
 }
 
 /// 为指定阵营的空闲可攻击单位生成对最近敌军的 `Attack` 命令。
@@ -151,10 +143,7 @@ pub fn auto_attack_commands(world: &World, house: &str) -> Vec<GameCommand> {
             || attacker.owner != house
             || attacker.attack_damage == 0
             || attacker.attack_target.is_some()
-            || !matches!(
-                attacker.kind,
-                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
-            )
+            || !matches!(attacker.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
         {
             continue;
         }
@@ -176,35 +165,21 @@ enum AiSide {
 fn side_for(world: &World, house: &str) -> AiSide {
     let soviet = world.entities.iter().any(|e| {
         e.owner == house
-            && matches!(
-                e.type_id.as_str(),
-                "SMCV" | "NACNST" | "NAPOWR" | "NAHAND" | "NAWEAP" | "NAREFN" | "E2" | "HTNK"
-            )
+            && matches!(e.type_id.as_str(), "SMCV" | "NACNST" | "NAPOWR" | "NAHAND" | "NAWEAP" | "NAREFN" | "E2" | "HTNK")
     });
-    if soviet {
-        AiSide::Soviet
-    }
-    else {
-        AiSide::Allied
-    }
+    if soviet { AiSide::Soviet } else { AiSide::Allied }
 }
 
 fn house_has_yard(world: &World, house: &str) -> bool {
-    world.entities.iter().any(|e| {
-        !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_yard(&e.type_id)
-    })
+    world.entities.iter().any(|e| !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_yard(&e.type_id))
 }
 
 fn house_has_power(world: &World, house: &str) -> bool {
-    world.entities.iter().any(|e| {
-        !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_power(&e.type_id)
-    })
+    world.entities.iter().any(|e| !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_power(&e.type_id))
 }
 
 fn house_has_barracks(world: &World, house: &str) -> bool {
-    world.entities.iter().any(|e| {
-        !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_barracks(&e.type_id)
-    })
+    world.entities.iter().any(|e| !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_barracks(&e.type_id))
 }
 
 fn house_has_idle_barracks(world: &World, house: &str) -> bool {
@@ -218,9 +193,10 @@ fn house_has_idle_barracks(world: &World, house: &str) -> bool {
 }
 
 fn house_has_war_factory(world: &World, house: &str) -> bool {
-    world.entities.iter().any(|e| {
-        !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_war_factory(&e.type_id)
-    })
+    world
+        .entities
+        .iter()
+        .any(|e| !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_war_factory(&e.type_id))
 }
 
 fn house_has_idle_war_factory(world: &World, house: &str) -> bool {
@@ -234,9 +210,7 @@ fn house_has_idle_war_factory(world: &World, house: &str) -> bool {
 }
 
 fn house_has_refinery(world: &World, house: &str) -> bool {
-    world.entities.iter().any(|e| {
-        !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_refinery(&e.type_id)
-    })
+    world.entities.iter().any(|e| !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_refinery(&e.type_id))
 }
 
 fn yard_cell(world: &World, house: &str) -> Option<(u16, u16)> {

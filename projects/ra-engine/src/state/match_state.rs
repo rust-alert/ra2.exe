@@ -5,11 +5,12 @@ use ra_assets::{TechnoTypeRegistry, WarheadRegistry};
 use ra_map::{MapInfo, PassGrid};
 use ra_types::{EntityId, GameEdition, PlayerId};
 
-use crate::gameplay::{full_verses, verses_for};
-use crate::runtime::{CommandReject, GameCommand, InputFrame};
-use crate::spatial::{is_mobile, repath_at};
-use super::entities::WorldEntity;
-use super::players::PlayerState;
+use super::{entities::WorldEntity, players::PlayerState};
+use crate::{
+    gameplay::{full_verses, verses_for},
+    runtime::{CommandReject, GameCommand, InputFrame},
+    spatial::{is_mobile, repath_at},
+};
 
 /// 走一格所需的移动点（预览用常量，非零售精确换算）。
 pub const CELL_MOVE_COST: u32 = 64;

@@ -2,9 +2,9 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{GameCommand, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
-use ra_engine::{GameCommand, World};
 
 #[test]
 fn attack_structure_kills_and_frees_cell() {

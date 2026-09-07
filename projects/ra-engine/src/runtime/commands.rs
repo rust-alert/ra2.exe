@@ -234,13 +234,15 @@ impl crate::state::World {
         use ra_assets::TechnoKind;
         use ra_map::MapEntityKind;
 
-        use crate::spatial::{is_mobile, repath_at};
-        use crate::runtime::CommandRejectReason;
-        use crate::gameplay::{
-            building_power_delta, deploy_into_type, full_verses, is_construction_yard, is_production_factory,
-            requires_power_plant,
+        use crate::{
+            gameplay::{
+                building_power_delta, deploy_into_type, full_verses, is_construction_yard, is_production_factory,
+                requires_power_plant,
+            },
+            runtime::CommandRejectReason,
+            spatial::{is_mobile, repath_at},
+            state::{PRODUCE_TICKS, WorldEntity},
         };
-        use crate::state::{PRODUCE_TICKS, WorldEntity};
 
         for (command_index, cmd) in cmds.iter().enumerate() {
             match *cmd {

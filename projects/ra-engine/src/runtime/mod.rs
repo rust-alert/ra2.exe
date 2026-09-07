@@ -1,11 +1,11 @@
 //! 对局生命周期、时钟、命令与系统调度。
 
-#[path = "match.rs"]
-mod match_mod;
 mod boot;
 mod clock;
 mod commands;
 mod config;
+#[path = "match.rs"]
+mod match_mod;
 mod phase;
 mod reject;
 mod schedule;

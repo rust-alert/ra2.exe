@@ -1,7 +1,7 @@
 //! `GameCommand` 编解码集成测试。
 
-use ra_types::PlayerId;
 use ra_engine::{GameCommand, decode_commands, encode_commands};
+use ra_types::PlayerId;
 
 #[test]
 fn command_codec_roundtrip() {
