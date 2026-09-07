@@ -12,13 +12,13 @@ pub struct OverlayTypeRegistry {
 impl OverlayTypeRegistry {
     /// 解析 `[OverlayTypes]`；键为十进制 id。
     pub fn from_rules(rules: &IniDocument) -> Self {
-        let Some(section) = rules.sections.get("OverlayTypes")
+        let Some(section) = rules.section("OverlayTypes")
         else {
             return Self::default();
         };
         let mut max_id = 0usize;
         let mut pairs: Vec<(usize, String)> = Vec::new();
-        for (key, value) in &section.order {
+        for (key, value) in section.pairs() {
             let Ok(id) = key.parse::<usize>()
             else {
                 continue;

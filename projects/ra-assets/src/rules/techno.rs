@@ -68,11 +68,11 @@ impl TechnoTypeRegistry {
             ("AircraftTypes", TechnoKind::Aircraft),
             ("BuildingTypes", TechnoKind::Building),
         ] {
-            let Some(list) = rules.sections.get(section)
+            let Some(list) = rules.section(section)
             else {
                 continue;
             };
-            for (_key, name) in &list.order {
+            for (_key, name) in list.pairs() {
                 let id = name.trim();
                 if id.is_empty() {
                     continue;
@@ -116,23 +116,19 @@ impl TechnoTypeRegistry {
 }
 
 fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<TechnoType> {
-    // 节名可能与列表项大小写不一致，先精确再忽略大小写匹配。
-    let section_key = if rules.sections.contains_key(id) {
-        id.to_string()
+    if !rules.has_section(id) {
+        return None;
     }
-    else {
-        rules.sections.keys().find(|k| k.eq_ignore_ascii_case(id))?.clone()
-    };
-    let strength = parse_u32(rules.get(&section_key, "Strength")).unwrap_or(1);
-    let armor = rules.get(&section_key, "Armor").unwrap_or("none").to_string();
-    let speed = parse_u32(rules.get(&section_key, "Speed")).unwrap_or(0);
-    let sight = parse_u32(rules.get(&section_key, "Sight")).unwrap_or(0);
-    let cost = parse_u32(rules.get(&section_key, "Cost")).unwrap_or(0);
-    let tech_level = rules.get(&section_key, "TechLevel").and_then(|s| s.parse().ok()).unwrap_or(-1);
-    let owner = rules.get(&section_key, "Owner").unwrap_or("").to_string();
-    let image = rules.get(&section_key, "Image").unwrap_or(id).to_ascii_uppercase();
-    let primary = rules.get(&section_key, "Primary").unwrap_or("").trim().to_ascii_uppercase();
-    let techno_rof = parse_u32(rules.get(&section_key, "ROF")).unwrap_or(0);
+    let strength = parse_u32(rules.get(id, "Strength")).unwrap_or(1);
+    let armor = rules.get(id, "Armor").unwrap_or("none").to_string();
+    let speed = parse_u32(rules.get(id, "Speed")).unwrap_or(0);
+    let sight = parse_u32(rules.get(id, "Sight")).unwrap_or(0);
+    let cost = parse_u32(rules.get(id, "Cost")).unwrap_or(0);
+    let tech_level = rules.get(id, "TechLevel").and_then(|s| s.parse().ok()).unwrap_or(-1);
+    let owner = rules.get(id, "Owner").unwrap_or("").to_string();
+    let image = rules.get(id, "Image").unwrap_or(id).to_ascii_uppercase();
+    let primary = rules.get(id, "Primary").unwrap_or("").trim().to_ascii_uppercase();
+    let techno_rof = parse_u32(rules.get(id, "ROF")).unwrap_or(0);
     let (damage, range, rof, warhead) = resolve_primary_weapon(rules, &primary, techno_rof);
     Some(TechnoType {
         id: id.to_string(),
@@ -155,23 +151,14 @@ fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<Techn
 
 /// 从 `Primary` 武器节读取 `Damage` / `Range` / `ROF` / `Warhead`；缺省时保留类型节 ROF。
 fn resolve_primary_weapon(rules: &IniDocument, primary: &str, techno_rof: u32) -> (u32, u32, u32, String) {
-    if primary.is_empty() {
+    if primary.is_empty() || !rules.has_section(primary) {
         return (0, 0, techno_rof, String::new());
     }
-    let section_key = if rules.sections.contains_key(primary) {
-        primary.to_string()
-    }
-    else if let Some(k) = rules.sections.keys().find(|k| k.eq_ignore_ascii_case(primary)) {
-        k.clone()
-    }
-    else {
-        return (0, 0, techno_rof, String::new());
-    };
-    let damage = parse_u32(rules.get(&section_key, "Damage")).unwrap_or(0);
-    let range = parse_u32(rules.get(&section_key, "Range")).unwrap_or(0);
-    let weapon_rof = parse_u32(rules.get(&section_key, "ROF")).unwrap_or(0);
+    let damage = parse_u32(rules.get(primary, "Damage")).unwrap_or(0);
+    let range = parse_u32(rules.get(primary, "Range")).unwrap_or(0);
+    let weapon_rof = parse_u32(rules.get(primary, "ROF")).unwrap_or(0);
     let rof = if weapon_rof > 0 { weapon_rof } else { techno_rof };
-    let warhead = rules.get(&section_key, "Warhead").unwrap_or("").trim().to_ascii_uppercase();
+    let warhead = rules.get(primary, "Warhead").unwrap_or("").trim().to_ascii_uppercase();
     (damage, range, rof, warhead)
 }
 

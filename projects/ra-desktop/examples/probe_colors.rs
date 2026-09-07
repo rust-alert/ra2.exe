@@ -33,9 +33,9 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
     let source = ProbeSource { root: root.to_path_buf(), vfs };
     let db = load_rules(&source, edition)?;
     eprintln!("OK color_schemes#{} overlay_types#{}", db.color_schemes.len(), db.overlay_types.len());
-    if let Some(sec) = db.rules.sections.get("Colors") {
-        eprintln!("[Colors] entries={}", sec.order.len());
-        for (i, (k, v)) in sec.order.iter().take(12).enumerate() {
+    if let Some(sec) = db.rules.section("Colors") {
+        eprintln!("[Colors] entries={}", sec.entries.len());
+        for (i, (k, v)) in sec.pairs().take(12).enumerate() {
             eprintln!("  {i}: {k}={v}");
         }
     }
@@ -55,7 +55,7 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
         "Neutral",
         "Special",
     ] {
-        if db.rules.sections.contains_key(house) {
+        if db.rules.has_section(house) {
             let color = db.rules.get(house, "Color").unwrap_or("?");
             let side = db.rules.get(house, "Side").unwrap_or("?");
             eprintln!("  house {house} Color={color} Side={side}");
