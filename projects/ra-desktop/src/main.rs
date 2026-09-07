@@ -60,6 +60,8 @@ struct App {
     status_path: Option<PathBuf>,
     /// 建造放置模式：待放置的建筑类型 ID；`None` 表示普通点选。
     place_mode: Option<&'static str>,
+    /// 测试场景名（test-harness 重开用）。
+    test_scene: Option<String>,
 }
 
 impl App {
@@ -70,6 +72,7 @@ impl App {
         window_width: f64,
         window_height: f64,
         status_path: Option<PathBuf>,
+        test_scene: Option<String>,
     ) -> Self {
         let edition = session.as_ref().map(|s| s.world.edition.as_str()).unwrap_or("—");
         let mut renderer = Renderer::new();
@@ -94,6 +97,7 @@ impl App {
             window_height,
             status_path,
             place_mode: None,
+            test_scene,
         }
     }
 
@@ -225,7 +229,17 @@ impl App {
                     .unwrap_or("-");
                 let place = self.place_mode.unwrap_or("-");
                 if let Some(ra_session::MatchOutcome::Victory { owner }) = snap.outcome.as_ref() {
-                    format!("{} · t{} · 胜 {owner}", self.title_base, snap.tick)
+                    let stats = snap
+                        .match_stats
+                        .as_ref()
+                        .map(|s| {
+                            format!(
+                                " · {}tick 损{}u/{}b 花${}",
+                                s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent
+                            )
+                        })
+                        .unwrap_or_default();
+                    format!("{} · t{} · 胜 {owner}{stats} · R重开", self.title_base, snap.tick)
                 }
                 else if snap.paused {
                     let reason = snap.pause_reason.as_deref().unwrap_or("已暂停");
@@ -280,7 +294,58 @@ impl App {
             return;
         }
         self.logged_outcome = Some(owner.clone());
-        ra_logger::info(format!("对局结束 · 胜方 {owner} · tick={}", session.world.tick));
+        let stats = session
+            .match_stats
+            .as_ref()
+            .map(|s| {
+                format!(
+                    " · {}tick · 损单位{} · 损建筑{} · 花费{}",
+                    s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent
+                )
+            })
+            .unwrap_or_default();
+        ra_logger::info(format!("对局结束 · 胜方 {owner} · tick={}{stats} · 按 R 重开", session.world.tick));
+    }
+
+    /// 按当前启动路径重新装载一局（结算后或任意时刻）。
+    fn rematch(&mut self) {
+        ra_logger::info("重开对局…");
+        let boot = self.boot_again();
+        if let Some(preview) = boot.preview {
+            self.renderer.set_preview(preview);
+        }
+        self.session = boot.session;
+        self.logged_outcome = None;
+        self.logged_reject = None;
+        self.place_mode = None;
+        self.last_pump = Instant::now();
+        if let Some(session) = self.session.as_ref() {
+            let edition = session.world.edition.as_str();
+            self.title_base = format!("ra2 ({edition})");
+            ra_logger::info(format!("重开完成 · {}", boot.note));
+        }
+        else {
+            ra_logger::error(format!("重开失败 · {}", boot.note));
+        }
+        self.refresh_title();
+    }
+
+    fn boot_again(&self) -> BootResult {
+        let _ = self.test_scene.as_ref();
+        #[cfg(feature = "test-harness")]
+        {
+            if let Some(scene) = self.test_scene.as_ref() {
+                return match crate::test_boot::boot_scene(scene) {
+                    Ok(t) => BootResult { note: t.note, session: Some(t.session), preview: t.preview },
+                    Err(e) => BootResult {
+                        note: format!("重开失败: {e}"),
+                        session: None,
+                        preview: None,
+                    },
+                };
+            }
+        }
+        boot_from_install()
     }
 }
 
@@ -446,6 +511,9 @@ impl ApplicationHandler for App {
                                 ra_logger::info("继续");
                             }
                         }
+                    }
+                    PhysicalKey::Code(KeyCode::KeyR) => {
+                        self.rematch();
                     }
                     PhysicalKey::Code(KeyCode::KeyP) => {
                         if let Some(session) = self.session.as_mut() {
@@ -614,7 +682,7 @@ fn run() -> RaResult<()> {
     let log_path = ra_logger::init_default(true)?;
     ra_logger::info(format!("ra2 启动 · log={}", log_path.display()));
 
-    let (boot, window_width, window_height, status_path) = resolve_boot()?;
+    let (boot, window_width, window_height, status_path, test_scene) = resolve_boot()?;
 
     if let Some(session) = boot.session.as_ref() {
         ra_logger::info(format!(
@@ -628,13 +696,21 @@ fn run() -> RaResult<()> {
     let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Poll);
 
-    let mut app = App::new(boot.note, boot.session, boot.preview, window_width, window_height, status_path);
+    let mut app = App::new(
+        boot.note,
+        boot.session,
+        boot.preview,
+        window_width,
+        window_height,
+        status_path,
+        test_scene,
+    );
     event_loop.run_app(&mut app).map_err(|e| RaError::Msg(e.to_string()))?;
     ra_logger::info("事件循环结束");
     Ok(())
 }
 
-fn resolve_boot() -> RaResult<(BootResult, f64, f64, Option<PathBuf>)> {
+fn resolve_boot() -> RaResult<(BootResult, f64, f64, Option<PathBuf>, Option<String>)> {
     #[cfg(feature = "test-harness")]
     {
         if let Some(scene) = crate::test_boot::requested_scene() {
@@ -654,11 +730,12 @@ fn resolve_boot() -> RaResult<(BootResult, f64, f64, Option<PathBuf>)> {
                 window_width,
                 window_height,
                 status_path,
+                Some(scene),
             ));
         }
     }
 
-    Ok((boot_from_install(), 1024.0, 768.0, None))
+    Ok((boot_from_install(), 1024.0, 768.0, None, None))
 }
 
 fn boot_from_install() -> BootResult {
