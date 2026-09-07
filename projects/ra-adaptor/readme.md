@@ -1,18 +1,69 @@
 # ra-adaptor
 
-按安装布局识别并装配资源表，组合扩展能力，并按 `ResourceChain` 装载 `RulesDb`。
+本 crate 负责 **按安装布局识别游戏版本、组合扩展能力、装配统一资源表，并按资源链装载规则数据库**。它是内容进入 **
+`ra-engine`** 之前的编排层：把磁盘上的 MIX 与 INI 文件名映射成可执行的 `ResourceChain` 与 `RulesDb`，再交给桌面壳挂载与开局。
 
-依赖：`ra-types`、`ra-assets`、`ra-adaptor-ra2`、`ra-adaptor-yuri`、`ra-adaptor-phobos`。各 edition 的文件名清单在 profile
-crate；本层做编排、探测与规则装载。
+**硬边界**：本 crate **不依赖** `ra-engine`，也不持有对局 tick 或实体状态。冻结的运行时定义契约经 **`ra-definition`**
+单向流入引擎；adaptor 只产出规则快照与版本元数据，不参与仿真推进。
 
----
+## 读者动线
 
-## 探测状态机：`detect_edition`
+1. 理解 adaptor 在整仓中的位置（相对引擎与 profile crate）。
+2. 弄清版本探测与歧义处理（`detect_edition`）。
+3. 阅读 `ResourceChain` 与 `RulesDb` 装载路径。
+4. 了解可组合适配栈 `AdaptorStack`（基础环境 × 扩展）。
+5. 对照各 edition profile crate 的分工。
+
+```mermaid
+flowchart TB
+    subgraph profiles["edition profile（数据表）"]
+        ra2p[ra-adaptor-ra2]
+        yrp[ra-adaptor-yuri]
+        ph[ra-adaptor-phobos]
+    end
+    ad[ra-adaptor]
+    def[ra-definition]
+    eng[ra-engine]
+
+    ra2p --> ad
+    yrp --> ad
+    ph --> ad
+    ad --> def
+    def --> eng
+    ad -.->|不依赖| eng
+```
+
+## 在仓库中的位置
+
+桌面启动时，adaptor 位于「配置目录」与「字节解析器」之间：
+
+```mermaid
+sequenceDiagram
+    participant Desk as ra-desktop
+    participant Ad as ra-adaptor
+    participant As as ra-assets
+    participant Eng as ra-engine
+
+    Desk ->> Ad: detect_edition
+    Ad -->> Desk: EditionManifest
+    Desk ->> As: MixVfs 挂载（壳层执行）
+    Desk ->> Ad: load_rules_chain(AssetSource)
+    Ad ->> As: IniDocument / 派生表
+    Ad -->> Desk: RulesDb
+    Desk ->> Eng: open_skirmish_session(RulesDb, …)
+```
+
+- **本层做**：版本消歧、`ResourceChain` 装配、根 MIX 存在性扫描、大小写不敏感路径查找、规则 INI 装载。
+- **本层不做**：打开 MIX 索引（除通过 `AssetSource` 读已挂载字节）、解析 SHP/TMP、推进 World tick、创建 GPU 设备。
+
+依赖：`ra-types`、`ra-assets`、`ra-adaptor-ra2`、`ra-adaptor-yuri`、`ra-adaptor-phobos`。
+
+## 版本探测：`detect_edition`
 
 ```text
-root 不是目录？ → Io("游戏目录不存在: …")
-有显式 GameEdition？ → 直接用
-否则：
+root 不是目录？ → Io("游戏目录不存在")
+有显式 GameEdition？ → 直接使用
+否则启发式：
   looks_like(YR) × looks_like(RA2)
   (true, false)  → Ra2
   (false, true)  → Yr
@@ -20,51 +71,86 @@ root 不是目录？ → Io("游戏目录不存在: …")
   (false, false) → CannotDetectEdition
 然后：
   ResourceChain::for_edition(edition)
-  扫描 chain.root_mix_files → present_mixes / missing_mixes
-  打成 EditionManifest
+  扫描 root_mix_files → present_mixes / missing_mixes
+  组装 EditionManifest
 ```
 
-显式版本优先于启发式。混装目录（既有 `game.exe` 又有 `gamemd.exe`）必须在 `config.toml` 写明 `edition`，否则启动失败——这是刻意行为，不是漏判。
+显式 `edition` 配置优先于启发式。混装目录（既有 `game.exe` 又有 `gamemd.exe`）必须在配置中写明版本，否则启动失败——这是刻意行为。若命中心灵终结
+3 布局启发式，优先 `Mo3`，不再与原版/YR 报歧义。
 
-`scan_root_mixes` 只用 `find_ci_file` 看文件在不在， **不打开 MIX、不验索引**。嵌套包名列在 `chain.nested_mix_files`
-里，挂载发生在 `ra-desktop` 的 `boot_world`，不在本 crate。
-
----
+`scan_root_mixes` 只用 `find_ci_file` 检查文件是否存在， **不打开 MIX、不验证索引**。嵌套包名列在 `nested_mix_files`，实际
+`mount_nested` 由 `ra-desktop` 在 boot 阶段执行。
 
 ## `ResourceChain`
 
-统一视图，字段全部是 `'static` 字符串切片引用：
+统一资源表视图，字段均为 `'static` 字符串切片：
 
 | 字段                                             | 含义                                       |
 |--------------------------------------------------|--------------------------------------------|
 | `edition`                                        | `GameEdition`                              |
-| `root_mix_files`                                 | 安装根旁主 MIX                             |
+| `root_mix_files`                                 | 安装根旁主 MIX 名列表                      |
 | `nested_mix_files`                               | 主 MIX 内常见嵌套名                        |
-| `rules_ini` / `art_ini` / `ui_ini` / `sound_ini` | INI 文件名                                 |
+| `rules_ini` / `art_ini` / `ui_ini` / `sound_ini` | INI 逻辑路径                               |
 | `exe_name`                                       | 布局特征用的主程序名（引擎不启动原版 exe） |
 
-`ResourceChain::for_edition` 内部 `match`：
+`ResourceChain::for_edition` 内部委托各 profile：
 
-- `Ra2` → `from_ra2(ra_adaptor_ra2::profile())`
-- `Yr` → `from_yr(ra_adaptor_yuri::profile())`
-- `Mo3` → `from_phobos(ra_adaptor_phobos::profile())`
+- `Ra2` → `ra_adaptor_ra2::profile()`
+- `Yr` → `ra_adaptor_yuri::profile()`
+- `Mo3` → `ra_adaptor_phobos::mo_layout_profile()`
 
-`from_ra2` / `from_yr` / `from_phobos` 是私有映射函数，把各 edition 的 `ResourceProfile` 抄进同一结构。profile
-类型故意重复定义（注释：避免跨 crate 循环依赖），所以映射不能写成泛型一份。
+各 edition 的 `ResourceProfile` 类型 **同形但分别定义**，避免 adaptor 编排层与 profile crate 形成循环依赖；映射函数
+`from_ra2` / `from_yr` / `from_phobos` 将静态表抄入 `ResourceChain`。
 
----
+## `RulesDb` 与规则装载
 
-## `RulesDb` / `load_rules_chain`
+`RulesDb` 是一局启动用的规则快照：
 
-从 `AssetSource` 按链读取 rules/art INI，并派生 `OverlayTypeRegistry`、`ColorSchemes`、`TechnoTypeRegistry`（解析实现在
-`ra-assets`）。
+| 字段            | 来源                     |
+|-----------------|--------------------------|
+| `rules` / `art` | `IniDocument` 解析       |
+| `overlay_types` | 从 rules 派生            |
+| `color_schemes` | 从 rules 派生            |
+| `techno_types`  | 从 rules 派生            |
+| `warheads`      | 从 techno 主武器引用派生 |
 
-`load_rules(edition)` 仍可用：内部先 `ResourceChain::for_edition` 再调用 `load_rules_chain`。遭遇战装载走
-`ra-session::open_skirmish_session`。
+```mermaid
+flowchart LR
+    src[AssetSource.read]
+    ini[ra-assets IniDocument]
+    db[RulesDb]
+    src --> ini --> db
+```
 
----
+- **`load_rules_chain(source, chain)`**：显式资源链入口，适配组合装配后的调用方。
+- **`load_rules(source, edition)`**：兼容旧 API，内部先 `ResourceChain::for_edition` 再调用 `load_rules_chain`。
 
-## `EditionManifest`
+遭遇战开局由 `ra-engine::open_skirmish_session` 消费 `RulesDb` 与地图信息；adaptor 本身不构造 `World`。
+
+## 可组合适配栈
+
+`compose` 模块引入 **`AdaptorStack`**：基础游戏环境（`BaseGame::Ra2 | Yr`）与扩展能力（`ExtensionId::Ares | Phobos | Kratos`
+）正交组合。心灵终结 3 等内容布局归入 Phobos 扩展下的 `mo_layout` 标记，而非独立的第三游戏轴。
+
+```mermaid
+flowchart TB
+    base[BaseGame Ra2 / Yr]
+    ext[ExtensionId 列表]
+    mo[mo_layout 标记]
+    stack[AdaptorStack]
+    base --> stack
+    ext --> stack
+    mo --> stack
+    stack --> report[CapabilityReport 缺口]
+```
+
+`CapabilityReport` 记录已探测但引擎尚未实现的能力（如某扩展特性）， **不得静默忽略**。`AdaptorStack::from_edition` 可从历史互斥
+`GameEdition` 推导初始栈；`to_edition` 在扩展细节不完全保留时映射回当前仍在用的枚举值。
+
+冻结定义与 adaptor 输出的衔接经 **`ra-definition`**：`RulesDb` 中的 techno / overlay 等投影最终会收敛为引擎消费的不可变契约，避免引擎反向引用
+adaptor 内部类型。
+
+## `EditionManifest` 与 `find_ci_file`
 
 ```rust
 pub struct EditionManifest {
@@ -75,55 +161,41 @@ pub struct EditionManifest {
 }
 ```
 
-桌面启动日志里的「缺盘 N」来自 `missing_mixes.len()`；真正 `mount_bytes` 时用的是 `present_mixes` 里能再次 `find_ci_file`
-到的路径。缺盘不一定阻止开窗——那是壳层策略，本层只报告。
+桌面启动日志里的「缺盘 N」来自 `missing_mixes.len()`。缺盘不一定阻止开窗——那是壳层策略；本层只报告扫描结果。
 
----
-
-## `find_ci_file`
-
-大小写不敏感查找，返回 **实际磁盘路径**：
-
-1. 先试 `root.join(wanted)` 是否为文件
-2. 否则 `read_dir`，把每个名字 ASCII 小写后与目标比较
-3. 命中且 `is_file` 则返回该 `PathBuf`
-
-Windows 默认不敏感，但开发机、网络盘、将来非 Windows 目标可能不同；资源表里的名字大小写固定，磁盘上却可能是 `RA2.MIX`。
-`GameAssetSource` 读松散文件时也走同一助手。
-
----
+`find_ci_file(root, wanted)` 大小写不敏感查找实际磁盘路径：先直拼路径，再 `read_dir` 逐条 ASCII 小写比较。Windows
+通常不敏感，但跨平台与网络盘需要此助手；`GameAssetSource` 读松散文件时同样使用。
 
 ## 与 profile crate 的分工
 
-| Crate               | 职责                                            |
-|---------------------|-------------------------------------------------|
-| `ra-adaptor-ra2`    | 原版静态表 + `looks_like`                       |
-| `ra-adaptor-yuri`   | YR 静态表 + `looks_like`                        |
-| `ra-adaptor-phobos` | Phobos / MO 布局静态表 + `looks_like`           |
-| **本 crate**        | 消歧、装配 `ResourceChain`、扫描根 MIX、CI 查找 |
+| Crate               | 职责                                          |
+|---------------------|-----------------------------------------------|
+| `ra-adaptor-ra2`    | 原版静态表 + `looks_like`                     |
+| `ra-adaptor-yuri`   | 尤里的复仇静态表 + `looks_like`               |
+| `ra-adaptor-phobos` | Phobos / MO 布局静态表 + `looks_like`         |
+| **本 crate**        | 消歧、装配、扫描、CI 查找、规则装载、扩展组合 |
 
-本层是 adaptor 家族里 **唯一直接 `std::fs`** 的（`is_dir` / `read_dir` / `is_file`）。仍然不解析内容。
+本层是 adaptor 家族中 **唯一直接使用 `std::fs`** 的 crate（`is_dir` / `read_dir` / `is_file`），但仍不解析 MIX/SHP
+二进制内容——解析在 `ra-assets`。
 
-探测时若命中心灵终结 3 启发式，优先 `Mo3`，不再与原版/YR 报歧义。
-
----
-
-## 构建与调用
+## 构建与验证
 
 ```shell
 cargo build -p ra-adaptor
 ```
 
-无测试、无 feature。真实目录验证请跑 `ra-desktop` 或它的 `examples/probe_*.rs`。
+无单元测试、无 feature 开关。真实目录验证请运行 `ra-desktop` 或 `examples/probe_*.rs`。
 
-典型调用（桌面）：
+典型调用链：
 
 ```text
 DesktopConfig → GameEdition::parse(可选)
 → detect_edition(root, explicit)
-→ 对 present_mixes 做 mount_bytes
-→ 对 nested_mix_files 做 mount_nested
-→ load_rules / 读地图 …
+→ mount_bytes / mount_nested（壳层）
+→ load_rules_chain → RulesDb
+→ open_skirmish_session（ra-engine）
 ```
 
-许可证 MPL-2.0。玩家自备游戏目录。本仓库不含 MIX / INI 二进制。
+## 许可
+
+MPL-2.0。玩家自备游戏目录；本仓库不含 MIX / INI 二进制内容。
