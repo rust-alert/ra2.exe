@@ -396,7 +396,7 @@ impl World {
             }
         }
         for (ti, dmg) in damage_events {
-            apply_damage(&mut self.entities, ti, dmg);
+            self.apply_damage(ti, dmg);
         }
     }
 
@@ -405,6 +405,55 @@ impl World {
             if e.hit_flash > 0 {
                 e.hit_flash -= 1;
             }
+        }
+    }
+
+    fn apply_damage(&mut self, index: usize, amount: u32) {
+        if index >= self.entities.len() || self.entities[index].dead || amount == 0 {
+            return;
+        }
+        let house = self.entities[index].owner.clone();
+        let kind = self.entities[index].kind;
+        let type_id = self.entities[index].type_id.clone();
+        let (x, y) = (self.entities[index].x, self.entities[index].y);
+        {
+            let e = &mut self.entities[index];
+            e.health = e.health.saturating_sub(amount);
+            e.hit_flash = HIT_FLASH_TICKS;
+            if e.health > 0 {
+                return;
+            }
+            e.dead = true;
+            e.speed = 0;
+            e.path.clear();
+            e.target_x = None;
+            e.target_y = None;
+            e.attack_target = None;
+            e.move_accum = 0;
+        }
+        let dead_i = index;
+        for o in self.entities.iter_mut() {
+            if o.attack_target == Some(dead_i) {
+                o.attack_target = None;
+            }
+        }
+        if kind == MapEntityKind::Structure {
+            self.pass_grid.set_passable(x, y, true);
+            self.revoke_structure_power(&house, &type_id);
+        }
+    }
+
+    fn revoke_structure_power(&mut self, house: &str, type_id: &str) {
+        let Some(player) = self.players.iter_mut().find(|p| p.house == house)
+        else {
+            return;
+        };
+        let power = building_power_delta(type_id);
+        if power >= 0 {
+            player.power_output = player.power_output.saturating_sub(power);
+        }
+        else {
+            player.power_drain = player.power_drain.saturating_sub(-power);
         }
     }
 
@@ -1058,31 +1107,6 @@ fn facing_toward(from_x: u16, from_y: u16, to_x: u16, to_y: u16) -> u8 {
         (0, -1) => 192,
         (1, -1) => 224,
         _ => 0,
-    }
-}
-
-fn apply_damage(entities: &mut [WorldEntity], index: usize, amount: u32) {
-    if index >= entities.len() || entities[index].dead || amount == 0 {
-        return;
-    }
-    let e = &mut entities[index];
-    e.health = e.health.saturating_sub(amount);
-    e.hit_flash = HIT_FLASH_TICKS;
-    if e.health == 0 {
-        e.dead = true;
-        e.speed = 0;
-        e.path.clear();
-        e.target_x = None;
-        e.target_y = None;
-        e.attack_target = None;
-        e.move_accum = 0;
-        // 清除指向死者的攻击锁定。
-        let dead_i = index;
-        for o in entities.iter_mut() {
-            if o.attack_target == Some(dead_i) {
-                o.attack_target = None;
-            }
-        }
     }
 }
 
