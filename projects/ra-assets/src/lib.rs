@@ -16,7 +16,9 @@ pub use image::{
     shp::{ShpFile, ShpFrame, decode_rle_frame},
     tmp::{TILE_HEADER_SIZE, TmpFile, TmpTile, diamond_byte_count},
 };
-pub use ini::{IniDocument, IniSection};
+pub use ini::{
+    IniDocument, IniEntry, IniSection, IniSectionNode, ParsedIniDocument, SourceId, SourceSpan, parse_with_oak,
+};
 pub use mix::{
     archive::{MixArchive, MixEntry},
     crypto::blowfish_decrypt_ecb,
