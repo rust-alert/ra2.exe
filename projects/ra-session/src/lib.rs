@@ -367,6 +367,7 @@ impl Session {
             cmds.extend(ai::place_power_commands(&self.world, house, *player));
             cmds.extend(ai::place_barracks_commands(&self.world, house, *player));
             cmds.extend(ai::place_war_factory_commands(&self.world, house, *player));
+            cmds.extend(ai::place_refinery_commands(&self.world, house, *player));
             cmds.extend(ai::produce_infantry_commands(&self.world, house, *player));
             cmds.extend(ai::produce_vehicle_commands(&self.world, house, *player));
             cmds.extend(ai::auto_attack_commands(&self.world, house));
