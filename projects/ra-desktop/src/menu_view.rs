@@ -7,7 +7,11 @@
 
 use ra_renderer::RgbaImage;
 
-use crate::{screen::OriginalScreen, ui_slots::{UiPageSlots, slots_for}};
+use crate::{
+    boot::BootMapCandidate,
+    screen::OriginalScreen,
+    ui_slots::{UiPageSlots, slots_for},
+};
 
 /// 菜单上的一个可点区域（窗口归一化坐标 0..1）。
 #[derive(Debug, Clone, Copy)]
@@ -45,6 +49,8 @@ pub enum MenuAction {
     Back,
     /// 开始装载遭遇战。
     StartSkirmish,
+    /// 选中大厅地图列表中的一项。
+    SelectMap(usize),
 }
 
 /// 某页的占位布局：底图 + 命中区。
@@ -80,6 +86,127 @@ pub fn layout_for(screen: OriginalScreen, width: u32, height: u32) -> Option<Men
     let (w, h) = (width.max(320), height.max(240));
     let page = slots_for(screen)?;
     Some(paint_from_slots(w, h, &page))
+}
+
+/// 遭遇战大厅：地图列表 + Start/Back 槽位。
+pub fn layout_skirmish_lobby(
+    width: u32,
+    height: u32,
+    maps: &[BootMapCandidate],
+    selected: Option<&str>,
+) -> MenuLayout {
+    let (w, h) = (width.max(320), height.max(240));
+    let mut pixels = vec![0u8; (w as usize) * (h as usize) * 4];
+    fill_rect(&mut pixels, w, h, 0, 0, w, h, [12, 18, 36, 255]);
+    fill_rect(&mut pixels, w, h, 0, 0, w, h / 10, [28, 40, 72, 255]);
+
+    let mut hits = Vec::new();
+    let list_top = 0.18_f32;
+    let row_h = 0.07_f32;
+    for (i, map) in maps.iter().enumerate().take(6) {
+        let y0 = list_top + (i as f32) * (row_h + 0.015);
+        let y1 = y0 + row_h;
+        let x0 = 0.18_f32;
+        let x1 = 0.82_f32;
+        let selected_row = selected == Some(map.file_name.as_str());
+        let color = if selected_row {
+            [64, 120, 72, 255]
+        }
+        else {
+            [40, 70, 120, 255]
+        };
+        let px0 = (x0 * w as f32) as u32;
+        let py0 = (y0 * h as f32) as u32;
+        let px1 = (x1 * w as f32) as u32;
+        let py1 = (y1 * h as f32) as u32;
+        fill_rect(
+            &mut pixels,
+            w,
+            h,
+            px0,
+            py0,
+            px1.saturating_sub(px0),
+            py1.saturating_sub(py0),
+            color,
+        );
+        if selected_row {
+            fill_rect(
+                &mut pixels,
+                w,
+                h,
+                px0,
+                py0,
+                8,
+                py1.saturating_sub(py0),
+                [220, 180, 64, 255],
+            );
+        }
+        hits.push(MenuHit {
+            entry_id: "map",
+            action: MenuAction::SelectMap(i),
+            x0,
+            y0,
+            x1,
+            y1,
+            enabled: true,
+        });
+    }
+
+    // Start / Back 沿用槽位矩形，叠在列表下方。
+    if let Some(page) = slots_for(OriginalScreen::SkirmishLobby) {
+        for (i, btn) in page.buttons.iter().enumerate() {
+            let (x0, y0, x1, y1) = btn.hit;
+            let color = if btn.enabled {
+                if i % 2 == 0 {
+                    [48, 92, 160, 255]
+                }
+                else {
+                    [40, 78, 140, 255]
+                }
+            }
+            else {
+                [40, 40, 48, 255]
+            };
+            let px0 = (x0 * w as f32) as u32;
+            let py0 = (y0 * h as f32) as u32;
+            let px1 = (x1 * w as f32) as u32;
+            let py1 = (y1 * h as f32) as u32;
+            fill_rect(
+                &mut pixels,
+                w,
+                h,
+                px0,
+                py0,
+                px1.saturating_sub(px0),
+                py1.saturating_sub(py0),
+                color,
+            );
+            if btn.enabled {
+                fill_rect(
+                    &mut pixels,
+                    w,
+                    h,
+                    px0,
+                    py0,
+                    6,
+                    py1.saturating_sub(py0),
+                    [220, 180, 64, 255],
+                );
+            }
+            hits.push(MenuHit {
+                entry_id: btn.entry_id,
+                action: btn.action,
+                x0,
+                y0,
+                x1,
+                y1,
+                enabled: btn.enabled,
+            });
+        }
+    }
+
+    let image = RgbaImage::new(w, h, pixels).expect("lobby image size");
+    MenuLayout { image, hits }
 }
 
 fn paint_from_slots(width: u32, height: u32, page: &UiPageSlots) -> MenuLayout {
@@ -159,7 +286,7 @@ fn fill_rect(pixels: &mut [u8], width: u32, height: u32, x: u32, y: u32, w: u32,
 
 #[cfg(test)]
 mod tests {
-    use super::{MenuAction, layout_for};
+    use super::{MenuAction, layout_for, layout_skirmish_lobby};
     use crate::screen::OriginalScreen;
 
     #[test]
@@ -176,5 +303,19 @@ mod tests {
         // NETWORK 行约 y=0.44 → 338px，禁用。
         let action = layout.hit(400.0, 340.0, 1024.0, 768.0);
         assert_eq!(action, None);
+    }
+
+    #[test]
+    fn lobby_map_row_is_selectable() {
+        let maps = vec![ra_map::BootMapCandidate {
+            file_name: "mp03t4.map".into(),
+            width: 50,
+            height: 50,
+            theater: ra_map::Theater::Temperate,
+        }];
+        let layout = layout_skirmish_lobby(1024, 768, &maps, Some("mp03t4.map"));
+        // 首行约 y=0.18 → 138px
+        let action = layout.hit(400.0, 150.0, 1024.0, 768.0);
+        assert_eq!(action, Some(MenuAction::SelectMap(0)));
     }
 }
