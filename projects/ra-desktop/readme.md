@@ -174,7 +174,7 @@ cargo test -p ra-desktop dump_key_ui_screenshots_for_acceptance -- --nocapture
 
 - `main_menu.png` / `main_menu_hover.png` / `single_player_menu.png` / `skirmish_lobby.png` / `skirmish_lobby_alt.png`
 - `load_screen.png`（含占位进度条） / `options.png` / `network.png`
-- `match.png` / `results.png`（合成底图 + 占位 HUD chrome）
+- `match.png` / `match_paused.png` / `match_reject.png` / `results.png`（合成底图 + 占位 HUD chrome）
 
 无窗口、无安装目录即可跑。色块占位 **不是** 原版 SHP；打开这些 PNG 可对照页面布局与可点区。
 
