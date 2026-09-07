@@ -104,7 +104,7 @@ cargo run
 - `about_to_wait`：再次 `request_redraw`
 - `ControlFlow::Poll`
 
-逻辑帧由 `ra-session` 以固定频率推进，与绘制帧率解耦。
+逻辑帧由 `ra-engine` 以固定频率推进，与绘制帧率解耦。
 
 ## 测试启动（可选 feature）
 
@@ -122,7 +122,7 @@ cargo run -p ra-desktop --features test-harness
 
 ## 依赖面
 
-串联工作区几乎全部库：`ra-types`、`ra-adaptor`、`ra-assets`、`ra-config`、`ra-map`、`ra-world`、`ra-session`、`ra-renderer`，外加 `winit`。不直接依赖
+串联工作区主要库：`ra-types`、`ra-adaptor`、`ra-assets`、`ra-config`、`ra-map`、`ra-engine`、`ra-renderer`，外加 `winit`。不直接依赖
 `ra-adaptor-phobos`（经 `ra-adaptor` 间接装配）、`ra-webui`。
 
 ## 许可

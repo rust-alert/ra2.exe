@@ -17,8 +17,7 @@ ra-config = { workspace = true }
 ra-adaptor = { workspace = true }
 ra-assets = { workspace = true }
 ra-map = { workspace = true }
-ra-world = { workspace = true }
-ra-session = { workspace = true }
+ra-engine = { workspace = true }
 ra-logger = { workspace = true }
 ra-net = { workspace = true }
 ra-renderer = { workspace = true }

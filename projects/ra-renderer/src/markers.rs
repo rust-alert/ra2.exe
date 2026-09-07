@@ -2,7 +2,7 @@
 
 use bytemuck::{Pod, Zeroable};
 
-use ra_session::{AnimState, RenderSnapshot};
+use ra_engine::{AnimState, RenderSnapshot};
 
 use crate::camera::Camera;
 

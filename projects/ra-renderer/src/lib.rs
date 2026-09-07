@@ -13,7 +13,7 @@ mod sprite;
 
 use std::sync::Arc;
 
-use ra_session::RenderSnapshot;
+use ra_engine::RenderSnapshot;
 use ra_types::{GameEdition, RaResult};
 use winit::window::Window;
 
