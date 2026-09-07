@@ -5,7 +5,7 @@ use std::sync::Arc;
 use ra_adaptor::{RulesDb, build_runtime_definitions};
 use ra_assets::{TechnoTypeRegistry, WarheadRegistry};
 use ra_map::{MapInfo, PassGrid};
-use ra_types::{EntityId, GameEdition, PlayerId, RuntimeDefinitions};
+use ra_types::{CommandId, EntityId, GameEdition, PlayerId, RuntimeDefinitions, ScheduledCommand, Tick};
 
 use super::{entities::WorldEntity, players::PlayerState};
 use crate::{
@@ -66,8 +66,10 @@ pub struct MatchState {
     pub(crate) warheads: WarheadRegistry,
     /// 下一枚可分配的稳定实体 ID（从 1 起）。
     pub(crate) next_entity_id: u64,
-    /// 待本 tick 消费的命令（先进先出）。
-    pub(crate) pending_commands: Vec<GameCommand>,
+    /// 下一枚可分配的命令 ID（从 1 起）。
+    pub(crate) next_command_id: u64,
+    /// 待本 tick 消费的已调度命令（先进先出）。
+    pub(crate) pending_commands: Vec<ScheduledCommand>,
     /// 上一 tick 实际消费的输入帧（含空帧）。
     pub(crate) last_input_frame: InputFrame,
     /// 上一 tick 产生的命令拒绝记录。
@@ -152,6 +154,7 @@ impl MatchState {
             techno_types: rules.techno_types.clone(),
             warheads: rules.warheads.clone(),
             next_entity_id,
+            next_command_id: 1,
             pending_commands: Vec::new(),
             last_input_frame: InputFrame::empty(0),
             last_rejects: Vec::new(),
@@ -164,8 +167,25 @@ impl MatchState {
         world
     }
 
-    /// 入队命令；在下一次 `advance_tick` 开头按序应用。
+    /// 入队命令载荷；自动包装为 [`ScheduledCommand`]（发出者为本地玩家，tick 为下一消费 tick）。
     pub fn push_command(&mut self, cmd: GameCommand) {
+        self.push_player_command(self.local_player, cmd);
+    }
+
+    /// 以指定发出者入队命令载荷并包装调度信封。
+    pub fn push_player_command(&mut self, player: PlayerId, cmd: GameCommand) {
+        let player = match &cmd {
+            GameCommand::PlaceBuilding { player: p, .. } | GameCommand::Produce { player: p, .. } => *p,
+            _ => player,
+        };
+        let id = CommandId(self.next_command_id);
+        self.next_command_id = self.next_command_id.saturating_add(1);
+        let tick = Tick(self.tick.wrapping_add(1));
+        self.pending_commands.push(ScheduledCommand::new(id, player, tick, cmd));
+    }
+
+    /// 直接入队已调度命令（测试 / 网络回放）。
+    pub fn push_scheduled(&mut self, cmd: ScheduledCommand) {
         self.pending_commands.push(cmd);
     }
 

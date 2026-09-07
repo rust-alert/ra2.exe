@@ -22,7 +22,7 @@ pub use engine::{
 pub use game::{
     AnimState, CommandReject, CommandRejectReason, DEFAULT_TICK_HZ, Game, GameCommand, InputFrame, MAX_TICKS_PER_PUMP,
     MatchOutcome, MatchStats, RenderSnapshot, SessionScreen, SnapshotPlayer, SnapshotProduceQueue, SnapshotUnit,
-    decode_command, decode_commands, encode_command, encode_commands,
+    decode_command, decode_commands, decode_scheduled, encode_command, encode_commands, encode_scheduled,
 };
 pub use session::{Session, SessionPhase, SessionSpec, SkirmishOpenResult, open_skirmish_session};
 pub use state::{

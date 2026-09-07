@@ -17,4 +17,7 @@ fn every_tick_records_input_frame_including_empty() {
     world.advance_tick();
     assert_eq!(world.last_input_frame().tick, 2);
     assert_eq!(world.last_input_frame().commands.len(), 1);
+    let scheduled = &world.last_input_frame().commands[0];
+    assert_eq!(scheduled.tick.0, 2);
+    assert_eq!(scheduled.body, GameCommand::MoveTo { entity: EntityId(1), x: 1, y: 1 });
 }
