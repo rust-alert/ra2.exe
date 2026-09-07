@@ -196,27 +196,61 @@ const LOAD_SCREEN_BUTTONS: &[UiButtonSlot] = &[
     },
 ];
 
-const OPTIONS_BUTTONS: &[UiButtonSlot] = &[UiButtonSlot {
-    entry_id: "back",
-    action: MenuAction::Back,
-    enabled: true,
-    hit: (0.28, 0.48, 0.72, 0.56),
-    normal_shp: None,
-    hover_shp: None,
-    pressed_shp: None,
-    disabled_shp: None,
-}];
+const OPTIONS_BUTTONS: &[UiButtonSlot] = &[
+    UiButtonSlot {
+        entry_id: "audio",
+        action: MenuAction::Noop,
+        enabled: false,
+        hit: (0.28, 0.28, 0.72, 0.36),
+        normal_shp: None,
+        hover_shp: None,
+        pressed_shp: None,
+        disabled_shp: None,
+    },
+    UiButtonSlot {
+        entry_id: "video",
+        action: MenuAction::Noop,
+        enabled: false,
+        hit: (0.28, 0.40, 0.72, 0.48),
+        normal_shp: None,
+        hover_shp: None,
+        pressed_shp: None,
+        disabled_shp: None,
+    },
+    UiButtonSlot {
+        entry_id: "back",
+        action: MenuAction::Back,
+        enabled: true,
+        hit: (0.28, 0.60, 0.72, 0.68),
+        normal_shp: None,
+        hover_shp: None,
+        pressed_shp: None,
+        disabled_shp: None,
+    },
+];
 
-const NETWORK_BUTTONS: &[UiButtonSlot] = &[UiButtonSlot {
-    entry_id: "back",
-    action: MenuAction::Back,
-    enabled: true,
-    hit: (0.22, 0.48, 0.78, 0.56),
-    normal_shp: None,
-    hover_shp: None,
-    pressed_shp: None,
-    disabled_shp: None,
-}];
+const NETWORK_BUTTONS: &[UiButtonSlot] = &[
+    UiButtonSlot {
+        entry_id: "online",
+        action: MenuAction::Noop,
+        enabled: false,
+        hit: (0.22, 0.36, 0.78, 0.44),
+        normal_shp: None,
+        hover_shp: None,
+        pressed_shp: None,
+        disabled_shp: None,
+    },
+    UiButtonSlot {
+        entry_id: "back",
+        action: MenuAction::Back,
+        enabled: true,
+        hit: (0.22, 0.56, 0.78, 0.64),
+        normal_shp: None,
+        hover_shp: None,
+        pressed_shp: None,
+        disabled_shp: None,
+    },
+];
 
 /// 返回某原版产品页的逻辑槽位；对局/结算无前置菜单槽。
 pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
@@ -264,5 +298,23 @@ mod tests {
         let cancel = page.buttons.iter().find(|b| b.entry_id == "cancel").unwrap();
         assert!(cancel.enabled);
         assert!(matches!(cancel.action, MenuAction::CancelLoad));
+    }
+
+    #[test]
+    fn options_keeps_disabled_audio_video_slots() {
+        let page = slots_for(OriginalScreen::Options).unwrap();
+        let ids: Vec<_> = page.buttons.iter().map(|b| b.entry_id).collect();
+        assert_eq!(ids, ["audio", "video", "back"]);
+        assert!(!page.buttons[0].enabled);
+        assert!(!page.buttons[1].enabled);
+        assert!(page.buttons[2].enabled);
+    }
+
+    #[test]
+    fn network_keeps_disabled_online_slot() {
+        let page = slots_for(OriginalScreen::Network).unwrap();
+        assert_eq!(page.buttons[0].entry_id, "online");
+        assert!(!page.buttons[0].enabled);
+        assert!(page.buttons[1].enabled);
     }
 }
