@@ -62,19 +62,45 @@ fn solid_preview(width: u32, height: u32, rgba: [u8; 4]) -> Option<RgbaImage> {
 
 /// 写出机器可读会话旁路（给 GUI 自动化轮询）。
 pub fn write_status(path: &std::path::Path, session: &Session) {
-    let outcome = match &session.outcome {
+    let snap = session.snapshot();
+    let outcome = match &snap.outcome {
         Some(ra_session::MatchOutcome::Victory { owner }) => format!("victory:{owner}"),
         None => "none".into(),
     };
     let selected = session.selected.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
+    let local = session
+        .world
+        .players
+        .iter()
+        .find(|p| p.id == session.world.local_player)
+        .and_then(|lp| snap.players.iter().find(|p| p.house == lp.house));
+    let (funds, power_output, power_drain, low_power) = local
+        .map(|p| (p.funds, p.power_output, p.power_drain, p.low_power))
+        .unwrap_or((0, 0, 0, false));
+    let queue = snap
+        .produce_queues
+        .first()
+        .map(|q| format!("{}:{}", q.type_id, q.remaining_ticks))
+        .unwrap_or_else(|| "none".into());
+    let last_reject = snap
+        .last_rejects
+        .first()
+        .map(|r| format!("{:?}", r.reason))
+        .unwrap_or_else(|| "none".into());
     let body = format!(
-        "tick={}\nhash={:#x}\noutcome={}\npaused={}\nselected={}\nentities={}\n",
-        session.world.tick,
-        session.world.state_hash(),
+        "tick={}\nhash={:#x}\noutcome={}\npaused={}\nselected={}\nentities={}\nfunds={}\npower_output={}\npower_drain={}\nlow_power={}\nqueue={}\nlast_reject={}\n",
+        snap.tick,
+        snap.state_hash,
         outcome,
         session.paused,
         selected,
-        session.world.entities.len()
+        session.world.entities.len(),
+        funds,
+        power_output,
+        power_drain,
+        low_power,
+        queue,
+        last_reject
     );
     let _ = std::fs::write(path, body);
 }
