@@ -165,6 +165,8 @@ impl crate::state::MatchState {
                     break;
                 }
                 self.entities[i].hva_frame = self.entities[i].hva_frame.wrapping_add(1);
+                let id = self.entities[i].id;
+                self.mark_entity_dirty(id);
             }
         }
     }

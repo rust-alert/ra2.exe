@@ -54,10 +54,15 @@ impl crate::state::MatchState {
     }
 
     pub(crate) fn tick_hit_flash(&mut self) {
+        let mut dirty = Vec::new();
         for e in &mut self.entities {
             if e.hit_flash > 0 {
                 e.hit_flash -= 1;
+                dirty.push(e.id);
             }
+        }
+        for id in dirty {
+            self.mark_entity_dirty(id);
         }
     }
 
@@ -69,11 +74,13 @@ impl crate::state::MatchState {
         let kind = self.entities[index].kind;
         let type_id = self.entities[index].type_id.clone();
         let (x, y) = (self.entities[index].x, self.entities[index].y);
+        let dirty_id = self.entities[index].id;
         {
             let e = &mut self.entities[index];
             e.health = e.health.saturating_sub(amount);
             e.hit_flash = HIT_FLASH_TICKS;
             if e.health > 0 {
+                self.mark_entity_dirty(dirty_id);
                 return;
             }
             e.dead = true;
@@ -84,7 +91,8 @@ impl crate::state::MatchState {
             e.attack_target = None;
             e.move_accum = 0;
         }
-        let dead_id = self.entities[index].id;
+        self.mark_entity_dirty(dirty_id);
+        let dead_id = dirty_id;
         for o in self.entities.iter_mut() {
             if o.attack_target == Some(dead_id) {
                 o.attack_target = None;
@@ -128,7 +136,12 @@ impl crate::state::MatchState {
             else {
                 self.entities[i].facing
             };
+            let before = self.entities[i].turret_facing;
             turn_facing_toward(&mut self.entities[i].turret_facing, desired, TURRET_TURN_STEP);
+            if self.entities[i].turret_facing != before {
+                let id = self.entities[i].id;
+                self.mark_entity_dirty(id);
+            }
         }
     }
 }
