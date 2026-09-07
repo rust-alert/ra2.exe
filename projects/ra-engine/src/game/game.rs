@@ -212,7 +212,7 @@ pub struct Game {
     pub fingerprint: MatchFingerprint,
     /// 是否为非本地阵营自动下发 AI 命令。
     pub ai_enabled: bool,
-    /// 遭遇战难度标签（大厅选择；仅元数据，尚未驱动 AI 权重）。
+    /// 遭遇战难度标签（大厅选择；影响 AI 进攻/生产节奏）。
     pub difficulty: String,
 }
 
@@ -253,7 +253,7 @@ impl Game {
         session
     }
 
-    /// 写入遭遇战大厅所选难度（元数据；不改 AI 行为）。
+    /// 写入遭遇战大厅所选难度（影响 AI 进攻与生产节奏）。
     pub fn set_difficulty(&mut self, difficulty: impl Into<String>) {
         self.difficulty = difficulty.into();
     }
@@ -390,6 +390,9 @@ impl Game {
     }
 
     /// 为所有非本地阵营下发本 tick 的 AI 命令（经 `push_command`）。
+    ///
+    /// `Easy`：奇数 tick 跳过生产与自动进攻，仅保留部署/建造节奏。
+    /// `Normal` / `Hard`：每 tick 完整下发。
     fn push_ai_commands(&mut self) {
         let local_house = self.world.players.iter().find(|p| p.id == self.world.local_player).map(|p| p.house.clone());
         let opponents: Vec<(ra_types::PlayerId, std::sync::Arc<str>)> = self
@@ -399,6 +402,7 @@ impl Game {
             .filter(|p| local_house.as_ref().map(|h| p.house.as_ref() != h.as_ref()).unwrap_or(true))
             .map(|p| (p.id, p.house.clone()))
             .collect();
+        let skip_offensive = self.difficulty.eq_ignore_ascii_case("Easy") && (self.world.tick % 2 == 1);
         for (player, house) in &opponents {
             let house = house.as_ref();
             let mut cmds = Vec::new();
@@ -407,9 +411,11 @@ impl Game {
             cmds.extend(crate::gameplay::ai::place_barracks_commands(&self.world, house, *player));
             cmds.extend(crate::gameplay::ai::place_war_factory_commands(&self.world, house, *player));
             cmds.extend(crate::gameplay::ai::place_refinery_commands(&self.world, house, *player));
-            cmds.extend(crate::gameplay::ai::produce_infantry_commands(&self.world, house, *player));
-            cmds.extend(crate::gameplay::ai::produce_vehicle_commands(&self.world, house, *player));
-            cmds.extend(crate::gameplay::ai::auto_attack_commands(&self.world, house));
+            if !skip_offensive {
+                cmds.extend(crate::gameplay::ai::produce_infantry_commands(&self.world, house, *player));
+                cmds.extend(crate::gameplay::ai::produce_vehicle_commands(&self.world, house, *player));
+                cmds.extend(crate::gameplay::ai::auto_attack_commands(&self.world, house));
+            }
             for cmd in cmds {
                 self.world.push_player_command(*player, cmd);
             }
