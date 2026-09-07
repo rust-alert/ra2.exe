@@ -6,7 +6,7 @@
 
 `HeadlessCase` 包装同一套 `ra-session`，通过 `GameCommand` 入队、`Session::tick` 推进，并产出包含 tick、状态摘要、胜负和 `RenderSnapshot` 的 `HeadlessObservation`。测试不创建窗口、不初始化 wgpu，也不读取用户安装目录。
 
-`standard_duel()` 提供两辆 `MTNK` 的合成遭遇战夹具，是 `alpha-skirmish-v1` 的最小战斗前身，用于命令、移动、攻击、胜负与确定性回归。完整竖切清单见 `alpha_skirmish_v1()`（建筑链、开局资金、MCV 类型等）。
+`standard_duel()` 提供两辆 `MTNK` 的合成遭遇战夹具，是 `alpha-skirmish-v1` 的最小战斗前身，用于命令、移动、攻击、胜负与确定性回归。`mcv_deploy_open()` 播种盟军 MCV 与冻结初始资金，用于部署/经济 headless。完整竖切清单见 `alpha_skirmish_v1()`。
 
 ```shell
 cargo test -p ra-testing

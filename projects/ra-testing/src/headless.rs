@@ -7,6 +7,8 @@ use ra_session::{MatchOutcome, RenderSnapshot, Session};
 use ra_types::GameEdition;
 use ra_world::{GameCommand, World};
 
+use crate::alpha_skirmish_v1;
+
 /// 无窗口测试用例。所有推进都经过 `Session::tick`，避免测试与产品运行路径分叉。
 #[derive(Debug)]
 pub struct HeadlessCase {
@@ -103,4 +105,39 @@ pub fn standard_duel() -> HeadlessCase {
     ];
     let world = World::new(GameEdition::Ra2, &rules_db, map);
     HeadlessCase::new(Session::new(world, "ra-testing standard duel"))
+}
+
+/// 单人 MCV 开局夹具：播种盟军 MCV 与冻结竖切初始资金，供部署/经济 headless 使用。
+pub fn mcv_deploy_open() -> HeadlessCase {
+    let slice = alpha_skirmish_v1();
+    let rules_text = b"[VehicleTypes]\n0=AMCV\n\
+[BuildingTypes]\n0=GACNST\n\
+[AMCV]\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
+[GACNST]\nStrength=1000\nSight=8\nCost=2500\n";
+    let rules = IniDocument::parse(rules_text).expect("内置测试 INI 必须有效");
+    let rules_db = RulesDb {
+        edition: GameEdition::Ra2,
+        rules: rules.clone(),
+        art: IniDocument::default(),
+        overlay_types: OverlayTypeRegistry::default(),
+        color_schemes: ColorSchemes::default(),
+        techno_types: TechnoTypeRegistry::from_rules(&rules),
+    };
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "testing-mcv-deploy");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![MapEntity {
+        kind: MapEntityKind::Unit,
+        owner: slice.human_house.into(),
+        type_id: slice.allied_mcv.into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+    }];
+    let mut world = World::new(GameEdition::Ra2, &rules_db, map);
+    assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
+    HeadlessCase::new(Session::new(world, "ra-testing mcv deploy open"))
 }
