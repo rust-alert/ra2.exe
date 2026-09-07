@@ -41,6 +41,10 @@ pub struct RenderSnapshot {
     pub selected: Vec<usize>,
     /// 对局结束结果；未结束时为 `None`。
     pub outcome: Option<MatchOutcome>,
+    /// 是否暂停（`pump` 不推进）。
+    pub paused: bool,
+    /// 暂停原因文案（胜负、手动暂停、摘要不一致等）。
+    pub pause_reason: Option<String>,
 }
 
 /// 快照中的玩家经济状态。
@@ -230,6 +234,28 @@ impl Session {
         }
         self.paused = false;
         self.pause_reason = None;
+    }
+
+    /// 手动暂停（胜负已定时无效）。
+    pub fn pause(&mut self, reason: impl Into<String>) {
+        if self.outcome.is_some() {
+            return;
+        }
+        self.paused = true;
+        self.pause_reason = Some(reason.into());
+    }
+
+    /// 切换手动暂停；胜负已定时保持暂停。
+    pub fn toggle_pause(&mut self) {
+        if self.outcome.is_some() {
+            return;
+        }
+        if self.paused {
+            self.resume();
+        }
+        else {
+            self.pause("已暂停");
+        }
     }
 
     /// 本地状态摘要（联机上报用）。
@@ -589,7 +615,11 @@ impl Session {
     }
 
     /// 若仅剩一个阵营仍有作战力量（存活建筑或可作战移动单位），返回其 owner。
+    /// 至少需要两名玩家槽位，避免单机装载尚未开战时误判胜负。
     pub fn sole_victor(&self) -> Option<&str> {
+        if self.world.players.len() < 2 {
+            return None;
+        }
         let mut owners: Vec<&str> = self
             .world
             .entities
@@ -675,6 +705,8 @@ impl Session {
             last_rejects: self.world.last_rejects().to_vec(),
             selected: self.selected.clone(),
             outcome: self.outcome.clone(),
+            paused: self.paused,
+            pause_reason: self.pause_reason.clone(),
         }
     }
 }
