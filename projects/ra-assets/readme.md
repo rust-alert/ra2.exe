@@ -25,35 +25,28 @@ flowchart TB
 
 ## 模块概览
 
-```
-src/lib.rs           再导出
-src/mix_hash.rs      名称 → i32 哈希
-src/mix_crypto.rs    RSA + Blowfish 解索引
-src/mix.rs           MixArchive 旧/新格式
-src/mix_vfs.rs       多层 MIX 挂载
-src/ini.rs           INI 节/键
-src/pal.rs           VGA 调色板 → RGBA
-src/shp/             SHP(TS) 帧与 RLE
-src/tmp.rs           等距地形砖
-src/vxl.rs           体素模型
-src/vxl_raster.rs    VXL 光栅化
-src/hva.rs           体素动画段
-src/overlay_types.rs rules 派生
-src/techno_types.rs  rules 派生
-src/color_schemes.rs rules 派生
-src/warheads.rs      弹头表
+按格式族分目录（字节 → 结构）；`lib.rs` 仍扁平再导出，下游继续 `use ra_assets::…`。
+
+```text
+src/
+  lib.rs                 扁平再导出
+  mix/                   MIX：hash / crypto / archive / vfs
+  ini/                   INI 文档模型
+  image/                 PAL、SHP、TMP
+  voxel/                 VXL、HVA、VPL、预览光栅
+  rules/                 rules/art 派生注册表（techno / overlay / warhead / …）
 ```
 
 依赖：`ra-types`、`blowfish`、`byteorder`、`num-bigint`。
 
 ## MIX：哈希、解密与虚拟文件系统
 
-### 名称哈希（`mix_hash`）
+### 名称哈希（`mix/hash`）
 
 Westwood 用 CRC-32 变体将文件名映射为 `i32` 索引键：名字转大写 → `westwood_pad` 填充至 4 字节倍数 → CRC32 → 转 `i32`。
 `MixArchive::get_by_name` 走此哈希并在排序条目上二分查找。
 
-### 索引解密（`mix_crypto`）
+### 索引解密（`mix/crypto`）
 
 新格式 MIX 可对 **索引区**加密（正文通常不加密）：80 字节 RSA 块解出 Blowfish 密钥，再 ECB 解密索引。常量与公开工具 ccmix
 同族；单元测试覆盖对齐块往返。
@@ -93,12 +86,12 @@ flowchart LR
 
 ## 调色板与 2D 精灵
 
-### PAL（`pal`）
+### PAL（`image/pal`）
 
 768 字节 VGA 调色板：6-bit 分量左移 2 位扩至 8-bit。索引 0 或品红键 `[63,0,63]` 视为透明。`to_rgba_bytes()` 输出 1024 字节
 RGBA 缓冲。
 
-### SHP（`shp`）
+### SHP（`image/shp`）
 
 SHP (TS) 精灵：文件头 + 每帧 24 字节描述。`FORMAT_RLE_ZERO_BIT` 行用 RLE-Zero 解码。`ShpFrame::to_rgba(&Palette)` 供启动预览与
 UI 精灵。`decode_rle_frame` 可单独用于测试夹具。
@@ -113,19 +106,18 @@ TMP 仍在演进中。
 
 ## VXL 与 HVA：体素单位
 
-| 格式                   | 职责                        |
-|------------------------|-----------------------------|
-| `VxlFile` / `VxlVoxel` | 体素 limb 与体素列          |
-| `vxl_raster`           | 按层/姿态光栅化为 RGBA 精灵 |
-| `HvaFile`              | 体素动画段（帧间变换）      |
+| 格式 | 职责 |
+|------|------|
+| `VxlFile` / `VxlVoxel` | 体素 limb 与体素列 |
+| `voxel::raster` | 按层/姿态光栅化为 RGBA 精灵 |
+| `HvaFile` | 体素动画段（帧间变换） |
 
-VXL/HVA 是 RA2 3D 单位在 2D 等距视图中的数据来源。解析在本 crate；呈现批次在 `ra-renderer` 演进；逻辑身份与状态在 **
-`ra-engine`**。
+VXL/HVA 是 RA2 3D 单位在 2D 等距视图中的数据来源。解析在本 crate；呈现批次在 `ra-renderer` 演进；逻辑身份与状态在 **`ra-engine`**。
 
 ```mermaid
 flowchart LR
     vxl[VxlFile + HvaFile]
-    raster[vxl_raster]
+    raster[voxel::raster]
     snap[RenderSnapshot 精灵列表]
     vxl --> raster --> snap
 ```
@@ -137,6 +129,10 @@ flowchart LR
 - **`lcw` / 地图侧重叠**：部分地图二进制段在 `ra-map` 内解压；MIX 内资源仍经本 crate 的 VFS 读出。
 
 ## 使用纪律
+
+- 只吃 `AssetSource` / 已挂载字节，不在本包打开安装目录。
+- 格式兼容性用合成夹具测；原版 MIX 不进 git。
+- 版本探测与资源文件名表在 `ra-adaptor*`；对局 tick 在 `ra-engine`；GPU 纹理生命周期在 `ra-renderer`。
 
 ## 测试与构建
 

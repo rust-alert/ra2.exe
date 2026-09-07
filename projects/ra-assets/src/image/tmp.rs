@@ -2,7 +2,7 @@
 
 use ra_types::{RaError, RaResult};
 
-use crate::pal::Palette;
+use super::pal::Palette;
 
 const TMP_HEADER_SIZE: usize = 16;
 /// TMP 单格头大小（字节）。

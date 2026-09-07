@@ -4,7 +4,7 @@ mod decode;
 
 use ra_types::{RaError, RaResult};
 
-use crate::Palette;
+use super::pal::Palette;
 
 pub use decode::decode_rle_frame;
 
