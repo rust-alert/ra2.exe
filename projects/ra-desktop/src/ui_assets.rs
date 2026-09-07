@@ -221,6 +221,43 @@ pub fn downscale_to_fit(img: &RgbaImage, max_w: u32, max_h: u32) -> Option<RgbaI
     RgbaImage::new(nw, nh, pixels)
 }
 
+/// 在归一化矩形内画水平进度条（底轨 + 填充）。`ratio` 钳到 0..1。
+pub fn stamp_norm_progress_bar(
+    dst: &mut RgbaImage,
+    x0: f32,
+    y0: f32,
+    x1: f32,
+    y1: f32,
+    ratio: f32,
+    track: [u8; 4],
+    fill: [u8; 4],
+) {
+    let w = dst.width.max(1) as f32;
+    let h = dst.height.max(1) as f32;
+    let px0 = (x0.clamp(0.0, 1.0) * w) as u32;
+    let py0 = (y0.clamp(0.0, 1.0) * h) as u32;
+    let px1 = (x1.clamp(0.0, 1.0) * w) as u32;
+    let py1 = (y1.clamp(0.0, 1.0) * h) as u32;
+    let bw = px1.saturating_sub(px0).max(1);
+    let bh = py1.saturating_sub(py0).max(1);
+    fill_rect_rgba(dst, px0, py0, bw, bh, track);
+    let fill_w = ((bw as f32) * ratio.clamp(0.0, 1.0)).round() as u32;
+    if fill_w > 0 {
+        fill_rect_rgba(dst, px0, py0, fill_w, bh, fill);
+    }
+}
+
+fn fill_rect_rgba(dst: &mut RgbaImage, x: u32, y: u32, w: u32, h: u32, rgba: [u8; 4]) {
+    let x1 = (x + w).min(dst.width);
+    let y1 = (y + h).min(dst.height);
+    for py in y..y1 {
+        for px in x..x1 {
+            let i = ((py * dst.width + px) * 4) as usize;
+            dst.pixels[i..i + 4].copy_from_slice(&rgba);
+        }
+    }
+}
+
 fn stamp_at(dst: &mut RgbaImage, src: &RgbaImage, ox: u32, oy: u32) {
     for sy in 0..src.height {
         let dy = oy.saturating_add(sy);
@@ -276,5 +313,24 @@ mod tests {
         stamp_bottom_right_pending(&mut dst, 20, 16, 0, 1);
         let di = ((32u32 * 64 + 44) * 4) as usize; // inside bottom-right slot
         assert_ne!(dst.pixels[di..di + 3], [0, 0, 0]);
+    }
+
+    #[test]
+    fn progress_bar_fills_left_portion() {
+        let mut dst = RgbaImage::new(100, 10, vec![0u8; 100 * 10 * 4]).unwrap();
+        stamp_norm_progress_bar(
+            &mut dst,
+            0.0,
+            0.0,
+            1.0,
+            1.0,
+            0.5,
+            [20, 20, 20, 255],
+            [200, 180, 40, 255],
+        );
+        let mid = ((5u32 * 100 + 25) * 4) as usize;
+        let right = ((5u32 * 100 + 75) * 4) as usize;
+        assert_eq!(&dst.pixels[mid..mid + 3], &[200, 180, 40]);
+        assert_eq!(&dst.pixels[right..right + 3], &[20, 20, 20]);
     }
 }
