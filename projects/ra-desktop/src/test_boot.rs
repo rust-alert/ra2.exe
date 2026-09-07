@@ -87,7 +87,7 @@ pub fn write_status(path: &std::path::Path, session: &Session, selected: &[ra_ty
         snap.produce_queues.first().map(|q| format!("{}:{}", q.type_id, q.remaining_ticks)).unwrap_or_else(|| "none".into());
     let last_reject = snap.last_rejects.first().map(|r| format!("{:?}", r.reason)).unwrap_or_else(|| "none".into());
     let body = format!(
-        "tick={}\nhash={:#x}\noutcome={}\npaused={}\nselected={}\nentities={}\nfunds={}\npower_output={}\npower_drain={}\nlow_power={}\nqueue={}\nlast_reject={}\n",
+        "tick={}\nhash={:#x}\noutcome={}\npaused={}\nselected={}\nentities={}\nfunds={}\npower_output={}\npower_drain={}\nlow_power={}\nqueue={}\nlast_reject={}\ndifficulty={}\n",
         snap.tick,
         snap.state_hash,
         outcome,
@@ -99,7 +99,8 @@ pub fn write_status(path: &std::path::Path, session: &Session, selected: &[ra_ty
         power_drain,
         low_power,
         queue,
-        last_reject
+        last_reject,
+        game.difficulty
     );
     let _ = std::fs::write(path, body);
 }
