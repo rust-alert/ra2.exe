@@ -39,7 +39,7 @@ fn attack_command_damages_and_kills() {
     world.push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     let start_hp = world.entities[1].health;
     world.advance_tick();
-    assert_eq!(world.entities[0].attack_target, Some(1));
+    assert_eq!(world.entities[0].attack_target, Some(EntityId(2)));
     assert!(world.entities[1].health < start_hp);
     for _ in 0..64 {
         world.advance_tick();

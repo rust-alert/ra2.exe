@@ -5,7 +5,7 @@ use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegist
 use crate::common::test_engine;
 use ra_engine::{Session, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::GameEdition;
+use ra_types::{EntityId, GameEdition};
 
 fn duel_session() -> Session {
     let doc = IniDocument::parse(
@@ -62,6 +62,6 @@ fn ai_issues_attack_via_commands() {
     for _ in 0..30 {
         session.tick(&engine.runtime());
     }
-    assert!(session.expect_game_mut().world.entities[1].attack_target == Some(0) || session.expect_game_mut().world.entities[0].health < before);
+    assert!(session.expect_game_mut().world.entities[1].attack_target == Some(EntityId(1)) || session.expect_game_mut().world.entities[0].health < before);
     assert!(session.expect_game_mut().world.entities[0].health < before);
 }
