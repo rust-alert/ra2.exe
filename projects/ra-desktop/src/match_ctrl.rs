@@ -340,6 +340,20 @@ impl MatchController {
                             tracing::info!("建造模式 · 已关闭");
                             MatchNav::None
                         }
+                        else if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
+                            // 对局中 Esc 先暂停；暂停后再 Esc 回大厅（空格仍可切换暂停）。
+                            if game.paused {
+                                MatchNav::ToMainMenu
+                            }
+                            else {
+                                game.toggle_pause();
+                                tracing::info!(
+                                    "暂停 · {}",
+                                    game.pause_reason.as_deref().unwrap_or("已暂停")
+                                );
+                                MatchNav::None
+                            }
+                        }
                         else {
                             MatchNav::ToMainMenu
                         }
@@ -670,7 +684,10 @@ impl MatchController {
                 }
                 else if hud.paused {
                     let reason = hud.pause_reason.as_deref().unwrap_or("已暂停");
-                    format!("{} · [{screen_label}] · t{} · 暂停 · {reason}", self.title_base, hud.tick)
+                    format!(
+                        "{} · [{screen_label}] · t{} · 暂停 · {reason} · Esc大厅 Space继续",
+                        self.title_base, hud.tick
+                    )
                 }
                 else {
                     let nsel = self.local.selected.len();
@@ -681,7 +698,7 @@ impl MatchController {
                         (None, _) => "#-".into(),
                     };
                     format!(
-                        "{} · [{screen_label}] · t{} · {econ} · {queue} · 建:{place} · {reject} · {sel_part} · z{:.2}",
+                        "{} · [{screen_label}] · t{} · {econ} · {queue} · 建:{place} · {reject} · {sel_part} · Esc暂停 · z{:.2}",
                         self.title_base, hud.tick, zoom
                     )
                 }
