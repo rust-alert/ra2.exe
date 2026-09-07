@@ -3,6 +3,27 @@
 use ra_map::MapEntityKind;
 use ra_world::{GameCommand, World};
 
+/// 为本阵营未部署的 MCV 生成 `Deploy`（已有建造场则跳过）。
+pub fn deploy_mcv_commands(world: &World, house: &str) -> Vec<GameCommand> {
+    if house_has_yard(world, house) {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    for (entity_index, e) in world.entities.iter().enumerate() {
+        if e.dead || e.owner != house {
+            continue;
+        }
+        if !is_mcv(&e.type_id) {
+            continue;
+        }
+        if e.kind != MapEntityKind::Unit {
+            continue;
+        }
+        out.push(GameCommand::Deploy { entity_index });
+    }
+    out
+}
+
 /// 为指定阵营的空闲可攻击单位生成对最近敌军的 `Attack` 命令。
 pub fn auto_attack_commands(world: &World, house: &str) -> Vec<GameCommand> {
     let mut out = Vec::new();
@@ -25,6 +46,20 @@ pub fn auto_attack_commands(world: &World, house: &str) -> Vec<GameCommand> {
         out.push(GameCommand::Attack { attacker_index, target_index });
     }
     out
+}
+
+fn house_has_yard(world: &World, house: &str) -> bool {
+    world.entities.iter().any(|e| {
+        !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_yard(&e.type_id)
+    })
+}
+
+fn is_mcv(type_id: &str) -> bool {
+    matches!(type_id, "AMCV" | "SMCV")
+}
+
+fn is_yard(type_id: &str) -> bool {
+    matches!(type_id, "GACNST" | "NACNST")
 }
 
 fn nearest_enemy(world: &World, from: usize, house: &str) -> Option<usize> {
