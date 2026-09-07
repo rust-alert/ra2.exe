@@ -6,7 +6,7 @@ use ra_testing::{alpha_skirmish_v1, mcv_deploy_open};
 
 #[test]
 fn mcv_deploy_open_seeds_slice_funds() {
-    let mut case = mcv_deploy_open();
+    let case = mcv_deploy_open();
     let slice = alpha_skirmish_v1();
     assert_eq!(case.session.expect_game().world.house_funds(slice.human_house), Some(slice.starting_funds));
     assert_eq!(case.session.expect_game().world.entities[0].type_id.as_ref(), slice.allied_mcv);
