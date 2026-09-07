@@ -154,6 +154,7 @@ pub fn pre_alpha_acceptance_capture_names() -> &'static [&'static str] {
         "match_paused",
         "match_reject",
         "results",
+        "results_lobby_hover",
     ]
 }
 

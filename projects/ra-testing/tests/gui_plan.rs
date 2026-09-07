@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use ra_testing::standard_duel_gui_plan;
+use ra_testing::{pre_alpha_acceptance_capture_names, standard_duel_gui_plan};
 
 #[test]
 fn duel_plan_has_harness_args_and_status_waits() {
@@ -8,4 +8,12 @@ fn duel_plan_has_harness_args_and_status_waits() {
     assert_eq!(plan.name, "standard-duel");
     assert!(plan.args.iter().any(|a| a.contains("test-scene=duel")));
     assert!(plan.actions.iter().any(|a| matches!(a, ra_testing::GuiAction::WaitStatus { .. })));
+}
+
+#[test]
+fn pre_alpha_acceptance_names_include_lobby_and_results_variants() {
+    let names = pre_alpha_acceptance_capture_names();
+    assert!(names.contains(&"skirmish_lobby_alt"));
+    assert!(names.contains(&"results_lobby_hover"));
+    assert!(names.contains(&"match_paused"));
 }
