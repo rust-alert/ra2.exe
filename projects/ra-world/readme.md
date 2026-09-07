@@ -57,7 +57,7 @@ state_hash = state_hash
 
 ## 当前边界
 
-`GameCommand` 目前只有 `MoveTo` 与 `Attack`。实体已带稳定 `EntityId`，命令暂仍可用下标寻址。`PlayerState` 与 `CommandReject` 已就位，供后续经济、建造与 HUD 反馈使用。生产、采矿与完整建筑语义尚未实现。
+`GameCommand` 现含 `MoveTo`、`Attack` 与 `Deploy`（MCV → 建造场）。实体已带稳定 `EntityId`，命令暂仍可用下标寻址。`PlayerState`、资金播种与 `CommandReject` 已就位。放置建筑、采矿与生产队列尚未实现。
 
 ## 构建
 

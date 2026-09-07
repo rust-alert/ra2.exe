@@ -11,6 +11,8 @@ pub enum CommandRejectReason {
     NotMobile,
     /// 攻击目标非法。
     InvalidTarget,
+    /// 该实体不能部署。
+    CannotDeploy,
     /// 资金不足。
     InsufficientFunds,
     /// 供电不足。

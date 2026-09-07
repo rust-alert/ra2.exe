@@ -1,6 +1,6 @@
 //! 玩家/AI 注入的确定性命令（按 tick 排序消费）。
 
-/// 单条命令。后续扩展生产、部署等。
+/// 单条命令。后续扩展生产、放置等。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GameCommand {
     /// 将实体移动到目标格（会重算路径）。
@@ -18,6 +18,11 @@ pub enum GameCommand {
         attacker_index: usize,
         /// 被攻击方实体下标。
         target_index: usize,
+    },
+    /// 部署可展开实体（如 MCV → 建造场）。
+    Deploy {
+        /// 实体在世界实体列表中的下标。
+        entity_index: usize,
     },
 }
 
@@ -59,6 +64,10 @@ pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
             b.extend_from_slice(&(attacker_index as u32).to_be_bytes());
             b.extend_from_slice(&(target_index as u32).to_be_bytes());
         }
+        GameCommand::Deploy { entity_index } => {
+            b.push(3);
+            b.extend_from_slice(&(entity_index as u32).to_be_bytes());
+        }
     }
     b
 }
@@ -85,6 +94,13 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
             let attacker_index = u32::from_be_bytes(bytes[1..5].try_into().ok()?) as usize;
             let target_index = u32::from_be_bytes(bytes[5..9].try_into().ok()?) as usize;
             Some(GameCommand::Attack { attacker_index, target_index })
+        }
+        3 => {
+            if bytes.len() < 1 + 4 {
+                return None;
+            }
+            let entity_index = u32::from_be_bytes(bytes[1..5].try_into().ok()?) as usize;
+            Some(GameCommand::Deploy { entity_index })
         }
         _ => None,
     }
