@@ -30,6 +30,12 @@ pub const DEFAULT_ATTACK_DAMAGE: u32 = 50;
 /// 两次开火之间的 tick 数；rules 无 `ROF` 时回退。
 pub const ATTACK_COOLDOWN_TICKS: u32 = 8;
 
+/// 矿场完成一趟采矿所需的 tick 数（Alpha 简化，无独立采矿车）。
+pub const ORE_TRIP_TICKS: u32 = 30;
+
+/// 矿场每趟采矿给所属房主增加的资金。
+pub const ORE_INCOME_PER_TRIP: u32 = 700;
+
 /// 世界中的一个已放置实体（由地图播种，后续仿真就地改）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorldEntity {
@@ -79,6 +85,8 @@ pub struct WorldEntity {
     pub attack_target: Option<usize>,
     /// 开火冷却剩余 tick。
     pub attack_cooldown: u32,
+    /// 矿场采矿行程累计 tick；非矿场保持 0。
+    pub ore_trip_accum: u32,
     /// 生命归零后为真；不再移动/占格。
     pub dead: bool,
 }
@@ -160,6 +168,7 @@ impl World {
                     hva_frame: 0,
                     attack_target: None,
                     attack_cooldown: 0,
+                    ore_trip_accum: 0,
                     dead: false,
                 }
             })
@@ -244,6 +253,7 @@ impl World {
         self.advance_movement();
         self.resolve_combat();
         self.advance_turrets();
+        self.advance_refinery_income();
         self.rehash();
     }
 
@@ -515,6 +525,7 @@ impl World {
                         hva_frame: 0,
                         attack_target: None,
                         attack_cooldown: 0,
+                        ore_trip_accum: 0,
                         dead: false,
                     });
                 }
@@ -524,6 +535,25 @@ impl World {
 
     fn reject(&mut self, command_index: usize, reason: CommandRejectReason) {
         self.last_rejects.push(CommandReject { command_index, reason });
+    }
+
+    fn advance_refinery_income(&mut self) {
+        let mut credits: Vec<(String, i32)> = Vec::new();
+        for e in &mut self.entities {
+            if e.dead || !is_refinery(&e.type_id) {
+                continue;
+            }
+            e.ore_trip_accum = e.ore_trip_accum.saturating_add(1);
+            if e.ore_trip_accum >= ORE_TRIP_TICKS {
+                e.ore_trip_accum = 0;
+                credits.push((e.owner.clone(), ORE_INCOME_PER_TRIP as i32));
+            }
+        }
+        for (house, amount) in credits {
+            if let Some(player) = self.players.iter_mut().find(|p| p.house == house) {
+                player.funds = player.funds.saturating_add(amount);
+            }
+        }
     }
 
     fn house_has_living_yard(&self, house: &str) -> bool {
@@ -596,6 +626,7 @@ impl World {
                 .wrapping_add(u64::from(e.dead))
                 .wrapping_add(u64::from(e.hva_frame) << 8)
                 .wrapping_add(u64::from(e.attack_cooldown) << 24)
+                .wrapping_add(u64::from(e.ore_trip_accum) << 8)
                 .wrapping_add(e.attack_target.map(|i| i as u64 + 1).unwrap_or(0) << 32);
             for b in e.type_id.as_bytes() {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
@@ -671,6 +702,10 @@ fn is_power_plant(type_id: &str) -> bool {
 
 fn requires_power_plant(type_id: &str) -> bool {
     matches!(type_id, "GAPILE" | "NAHAND" | "GAWEAP" | "NAWEAP" | "GAREFN" | "NAREFN")
+}
+
+fn is_refinery(type_id: &str) -> bool {
+    matches!(type_id, "GAREFN" | "NAREFN")
 }
 
 /// 冻结竖切建筑的电力增量（正=供电，负=耗电）。后续由 adaptor 定义替换。
