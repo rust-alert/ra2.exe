@@ -8,10 +8,11 @@ use ra_world::{CommandRejectReason, GameCommand, World};
 
 fn yard_world() -> World {
     let rules_text = b"[VehicleTypes]\n0=AMCV\n\
-[BuildingTypes]\n0=GACNST\n1=GAPOWR\n\
+[BuildingTypes]\n0=GACNST\n1=GAPOWR\n2=GAREFN\n\
 [AMCV]\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
 [GACNST]\nStrength=1000\nSight=8\nCost=2500\n\
-[GAPOWR]\nStrength=600\nSight=4\nCost=600\n";
+[GAPOWR]\nStrength=600\nSight=4\nCost=600\n\
+[GAREFN]\nStrength=900\nSight=4\nCost=2000\n";
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
     let rules_db = RulesDb {
         edition: GameEdition::Ra2,
@@ -106,4 +107,43 @@ fn place_building_rejects_occupied_cell() {
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidPlacement);
     assert_eq!(world.entities.len(), 1);
     assert_eq!(world.house_funds("Americans"), Some(10_000));
+}
+
+#[test]
+fn place_refinery_rejects_without_power_plant() {
+    let mut world = yard_world();
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: "GAREFN".into(),
+        x: 6,
+        y: 4,
+    });
+    world.advance_tick();
+    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::MissingPrerequisite);
+    assert_eq!(world.entities.len(), 1);
+    assert_eq!(world.house_funds("Americans"), Some(10_000));
+}
+
+#[test]
+fn place_refinery_after_power_deducts_and_drains() {
+    let mut world = yard_world();
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: "GAPOWR".into(),
+        x: 6,
+        y: 4,
+    });
+    world.advance_tick();
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: "GAREFN".into(),
+        x: 8,
+        y: 4,
+    });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty());
+    assert_eq!(world.house_funds("Americans"), Some(10_000 - 600 - 2000));
+    assert_eq!(world.entities[2].type_id, "GAREFN");
+    assert_eq!(world.players[0].power_output, 200);
+    assert_eq!(world.players[0].power_drain, 50);
 }

@@ -466,6 +466,10 @@ impl World {
                         self.reject(command_index, CommandRejectReason::MissingPrerequisite);
                         continue;
                     }
+                    if requires_power_plant(type_id) && !self.house_has_living_power(&house) {
+                        self.reject(command_index, CommandRejectReason::MissingPrerequisite);
+                        continue;
+                    }
                     if !self.can_place_structure(x, y) {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
@@ -525,6 +529,12 @@ impl World {
     fn house_has_living_yard(&self, house: &str) -> bool {
         self.entities.iter().any(|e| {
             !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_construction_yard(&e.type_id)
+        })
+    }
+
+    fn house_has_living_power(&self, house: &str) -> bool {
+        self.entities.iter().any(|e| {
+            !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_power_plant(&e.type_id)
         })
     }
 
@@ -653,6 +663,14 @@ fn deploy_into_type(type_id: &str) -> Option<&'static str> {
 
 fn is_construction_yard(type_id: &str) -> bool {
     matches!(type_id, "GACNST" | "NACNST")
+}
+
+fn is_power_plant(type_id: &str) -> bool {
+    matches!(type_id, "GAPOWR" | "NAPOWR")
+}
+
+fn requires_power_plant(type_id: &str) -> bool {
+    matches!(type_id, "GAPILE" | "NAHAND" | "GAWEAP" | "NAWEAP" | "GAREFN" | "NAREFN")
 }
 
 /// 冻结竖切建筑的电力增量（正=供电，负=耗电）。后续由 adaptor 定义替换。
