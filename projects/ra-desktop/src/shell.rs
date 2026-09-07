@@ -585,6 +585,10 @@ impl AppShell {
             self.renderer.timings.presentation_build = None;
             if self.screen == OriginalScreen::LoadScreen {
                 self.poll_load_job();
+                // 装载中刷新占位底图，让 loading 条有可见脉动（非原版进度条）。
+                if self.load_job.is_some() {
+                    self.refresh_menu_backdrop();
+                }
             }
             if self.screen == OriginalScreen::SkirmishLobby {
                 let ready = self.poll_lobby_preview();
