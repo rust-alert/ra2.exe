@@ -379,7 +379,7 @@ impl Session {
         }
     }
 
-    /// 若仅剩一个阵营存活移动单位，锁定胜负并暂停。
+    /// 若仅剩一个阵营仍有作战力量，锁定胜负并暂停。
     fn refresh_outcome(&mut self) {
         if self.outcome.is_some() {
             return;
@@ -588,13 +588,13 @@ impl Session {
             .map(|(j, _)| j)
     }
 
-    /// 若仅剩一个阵营仍有存活移动单位，返回其 owner。
+    /// 若仅剩一个阵营仍有作战力量（存活建筑或可作战移动单位），返回其 owner。
     pub fn sole_victor(&self) -> Option<&str> {
         let mut owners: Vec<&str> = self
             .world
             .entities
             .iter()
-            .filter(|e| !e.dead && matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
+            .filter(|e| is_combat_force(e))
             .map(|e| e.owner.as_str())
             .collect();
         owners.sort_unstable();
@@ -696,4 +696,13 @@ fn derive_anim_state(e: &ra_world::WorldEntity) -> AnimState {
         return AnimState::Move;
     }
     AnimState::Idle
+}
+
+/// 冻结胜负：存活建筑或可作战移动单位均算作战力量。
+fn is_combat_force(e: &ra_world::WorldEntity) -> bool {
+    !e.dead
+        && matches!(
+            e.kind,
+            MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
+        )
 }
