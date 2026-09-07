@@ -12,7 +12,7 @@ use ra_renderer::RgbaImage;
 use crate::{
     boot::BootMapCandidate,
     screen::OriginalScreen,
-    ui_slots::{UiPageSlots, slots_for},
+    ui_slots::slots_for,
 };
 
 /// 菜单上的一个可点区域（窗口归一化坐标 0..1）。
@@ -112,7 +112,31 @@ pub fn layout_for(
 ) -> Option<MenuLayout> {
     let (w, h) = (width.max(320), height.max(240));
     let page = slots_for(screen)?;
-    Some(paint_from_slots(w, h, &page, hover, pressed))
+    Some(paint_from_slots(w, h, page.screen, page.buttons, hover, pressed))
+}
+
+/// 装载页：装载进行中禁用「重试」，失败停留时可点重试。
+pub fn layout_load_screen(
+    width: u32,
+    height: u32,
+    hover: Option<usize>,
+    pressed: Option<usize>,
+    allow_retry: bool,
+) -> MenuLayout {
+    let (w, h) = (width.max(320), height.max(240));
+    let page = slots_for(OriginalScreen::LoadScreen).expect("LoadScreen slots");
+    let buttons: Vec<_> = page
+        .buttons
+        .iter()
+        .cloned()
+        .map(|mut btn| {
+            if btn.entry_id == "retry" {
+                btn.enabled = allow_retry;
+            }
+            btn
+        })
+        .collect();
+    paint_from_slots(w, h, OriginalScreen::LoadScreen, &buttons, hover, pressed)
 }
 
 /// 遭遇战大厅：地图列表 + 阵营/难度/Start/Back 槽位。
@@ -323,22 +347,23 @@ fn load_title_pulse_color() -> [u8; 4] {
 fn paint_from_slots(
     width: u32,
     height: u32,
-    page: &UiPageSlots,
+    screen: OriginalScreen,
+    buttons: &[crate::ui_slots::UiButtonSlot],
     hover: Option<usize>,
     pressed: Option<usize>,
 ) -> MenuLayout {
     let mut pixels = vec![0u8; (width as usize) * (height as usize) * 4];
-    let bg = match page.screen {
+    let bg = match screen {
         OriginalScreen::LoadScreen => [18, 22, 40, 255],
         _ => [12, 18, 36, 255],
     };
     fill_rect(&mut pixels, width, height, 0, 0, width, height, bg);
     fill_rect(&mut pixels, width, height, 0, 0, width, height / 10, [28, 40, 72, 255]);
 
-    let mut hits = Vec::with_capacity(page.buttons.len());
-    for (i, btn) in page.buttons.iter().enumerate() {
+    let mut hits = Vec::with_capacity(buttons.len());
+    for (i, btn) in buttons.iter().enumerate() {
         let (x0, y0, x1, y1) = btn.hit;
-        let color = if page.screen == OriginalScreen::LoadScreen && btn.entry_id == "loading" {
+        let color = if screen == OriginalScreen::LoadScreen && btn.entry_id == "loading" {
             load_title_pulse_color()
         }
         else {
@@ -398,7 +423,7 @@ fn fill_rect(pixels: &mut [u8], width: u32, height: u32, x: u32, y: u32, w: u32,
 
 #[cfg(test)]
 mod tests {
-    use super::{MenuAction, layout_for, layout_skirmish_lobby};
+    use super::{MenuAction, layout_for, layout_load_screen, layout_skirmish_lobby};
     use crate::screen::OriginalScreen;
 
     #[test]
@@ -407,6 +432,16 @@ mod tests {
         assert_eq!(layout.hits[0].entry_id, "single_player");
         let action = layout.hit(400.0, 280.0, 1024.0, 768.0);
         assert_eq!(action, Some(MenuAction::OpenSinglePlayer));
+    }
+
+    #[test]
+    fn load_screen_disables_retry_while_loading() {
+        let loading = layout_load_screen(1024, 768, None, None, false);
+        let retry = loading.hits.iter().find(|h| h.entry_id == "retry").expect("retry");
+        assert!(!retry.enabled);
+        let failed = layout_load_screen(1024, 768, None, None, true);
+        let retry = failed.hits.iter().find(|h| h.entry_id == "retry").expect("retry");
+        assert!(retry.enabled);
     }
 
     #[test]
