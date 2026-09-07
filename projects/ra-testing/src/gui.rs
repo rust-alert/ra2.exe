@@ -158,6 +158,25 @@ pub fn pre_alpha_acceptance_capture_names() -> &'static [&'static str] {
     ]
 }
 
+/// Pre-Alpha 关键页截图计划骨架：仅 `Capture` 动作，供执行器逐页归档。
+///
+/// 不启动进程、不点击。完整鼠标路径仍需后续把 `Click` / `Key` 接上。
+pub fn pre_alpha_acceptance_capture_plan(executable: PathBuf, working_directory: PathBuf) -> GuiAutomationPlan {
+    let actions = pre_alpha_acceptance_capture_names()
+        .iter()
+        .map(|name| GuiAction::Capture { name: (*name).into() })
+        .collect();
+    GuiAutomationPlan {
+        name: "pre-alpha-acceptance-captures".into(),
+        executable,
+        working_directory,
+        args: Vec::new(),
+        env: Vec::new(),
+        actions,
+        expectations: vec![GuiExpectation::WindowTitleContains("ra2".into())],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -170,5 +189,18 @@ mod tests {
         assert!(names.contains(&"match"));
         assert!(names.contains(&"results"));
         assert!(names.len() >= 8);
+    }
+
+    #[test]
+    fn pre_alpha_capture_plan_lists_one_capture_per_name() {
+        let plan = pre_alpha_acceptance_capture_plan(PathBuf::from("ra2"), PathBuf::from("."));
+        assert_eq!(plan.name, "pre-alpha-acceptance-captures");
+        assert_eq!(plan.actions.len(), pre_alpha_acceptance_capture_names().len());
+        for (action, name) in plan.actions.iter().zip(pre_alpha_acceptance_capture_names()) {
+            match action {
+                GuiAction::Capture { name: captured } => assert_eq!(captured, name),
+                other => panic!("expected Capture, got {other:?}"),
+            }
+        }
     }
 }
