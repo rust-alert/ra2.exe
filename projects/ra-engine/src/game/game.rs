@@ -212,6 +212,8 @@ pub struct Game {
     pub fingerprint: MatchFingerprint,
     /// 是否为非本地阵营自动下发 AI 命令。
     pub ai_enabled: bool,
+    /// 遭遇战难度标签（大厅选择；仅元数据，尚未驱动 AI 权重）。
+    pub difficulty: String,
 }
 
 impl Game {
@@ -228,6 +230,7 @@ impl Game {
             match_stats: None,
             fingerprint: MatchFingerprint { edition: String::new(), map: String::new(), rules_hash: 0 },
             ai_enabled: false,
+            difficulty: "Normal".into(),
         }
     }
 
@@ -248,6 +251,11 @@ impl Game {
         session.set_fingerprint(fingerprint);
         session.ai_enabled = true;
         session
+    }
+
+    /// 写入遭遇战大厅所选难度（元数据；不改 AI 行为）。
+    pub fn set_difficulty(&mut self, difficulty: impl Into<String>) {
+        self.difficulty = difficulty.into();
     }
 
     /// 构建对局指纹：规则字节 + 地图尺寸与实体数混入。
