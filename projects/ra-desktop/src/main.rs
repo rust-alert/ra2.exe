@@ -171,6 +171,11 @@ impl App {
         if session.selected.is_empty() {
             return;
         }
+        if session.selection_has_structure() {
+            ra_logger::info(format!("设置集结点 → ({},{})（选中 {:?}）", cell.0, cell.1, session.selected));
+            session.order_selected_rally(cell.0, cell.1);
+            return;
+        }
         if let Some(target) = session.pick_mobile_at(cell.0, cell.1) {
             let hostile = session
                 .selected
@@ -434,6 +439,17 @@ impl ApplicationHandler for App {
                         if let Some(session) = self.session.as_mut() {
                             ra_logger::info("生产 · MTNK");
                             session.order_produce("MTNK");
+                        }
+                    }
+                    PhysicalKey::Code(KeyCode::KeyY) => {
+                        if let Some(cell) = self.cursor_cell() {
+                            if let Some(session) = self.session.as_mut() {
+                                ra_logger::info(format!(
+                                    "设置集结点 → ({},{})（选中 {:?}）",
+                                    cell.0, cell.1, session.selected
+                                ));
+                                session.order_selected_rally(cell.0, cell.1);
+                            }
                         }
                     }
                     _ => {}
