@@ -18,7 +18,7 @@ use crate::{
     match_ctrl::{MatchController, MatchNav},
     menu_view::{MenuAction, MenuLayout, layout_for},
     screen::OriginalScreen,
-    ui_assets::{MenuUiProbe, probe_menu_ui_assets, stamp_top_right},
+    ui_assets::{MenuUiProbe, probe_menu_ui_assets, stamp_top_left, stamp_top_right},
 };
 
 /// 外壳持有的可导航应用状态。
@@ -114,7 +114,13 @@ impl AppShell {
             return;
         }
         let probe = probe_menu_ui_assets();
-        tracing::info!("{}", probe.note);
+        tracing::info!(
+            ui_ini = ?probe.ui_ini_name,
+            ui_ini_ok = probe.ui_ini_readable,
+            has_source = probe.source.is_some(),
+            "{}",
+            probe.note
+        );
         self.banner = probe.note.clone();
         self.ui_probe = Some(probe);
     }
@@ -133,8 +139,13 @@ impl AppShell {
         let h = self.window_height.max(1.0) as u32;
         if let Some(mut layout) = layout_for(self.screen, w, h) {
             self.ensure_ui_probe();
-            if let Some(frame) = self.ui_probe.as_ref().and_then(|p| p.mouse_frame.as_ref()) {
-                stamp_top_right(&mut layout.image, frame, 16);
+            if let Some(probe) = self.ui_probe.as_ref() {
+                if let Some(frame) = probe.mouse_frame.as_ref() {
+                    stamp_top_right(&mut layout.image, frame, 16);
+                }
+                if let Some(clock) = probe.clock_frame.as_ref() {
+                    stamp_top_left(&mut layout.image, clock, 16);
+                }
             }
             self.renderer.set_preview(layout.image.clone());
             self.menu = Some(layout);
