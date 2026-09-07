@@ -365,6 +365,8 @@ impl Session {
         for (player, house) in &opponents {
             cmds.extend(ai::deploy_mcv_commands(&self.world, house));
             cmds.extend(ai::place_power_commands(&self.world, house, *player));
+            cmds.extend(ai::place_barracks_commands(&self.world, house, *player));
+            cmds.extend(ai::produce_infantry_commands(&self.world, house, *player));
             cmds.extend(ai::auto_attack_commands(&self.world, house));
         }
         for cmd in cmds {
