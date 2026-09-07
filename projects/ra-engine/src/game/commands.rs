@@ -215,6 +215,7 @@ impl crate::state::MatchState {
     pub(crate) fn apply_commands(&mut self, cmds: &[ScheduledCommand]) {
         use ra_assets::TechnoKind;
         use ra_map::MapEntityKind;
+        use ra_types::TechnoClass;
 
         use crate::{
             gameplay::{
@@ -296,7 +297,12 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::CannotDeploy);
                         continue;
                     };
-                    let armor = self.techno_types.get(building_type).map(|t| t.armor.clone()).unwrap_or_else(|| "none".into());
+                    let armor = self
+                        .definitions
+                        .techno
+                        .get(building_type)
+                        .map(|t| t.armor.clone())
+                        .unwrap_or_else(|| "none".into());
                     let e = &mut self.entities[entity_index];
                     e.kind = MapEntityKind::Structure;
                     e.type_id = building_type.to_string();
@@ -311,6 +317,7 @@ impl crate::state::MatchState {
                     e.attack_cooldown = 0;
                     e.attack_verses = full_verses();
                     e.armor = armor;
+                    e.techno_kind = Some(TechnoKind::Building);
                     e.hva_frame = 0;
                 }
                 GameCommand::PlaceBuilding { player, ref type_id, x, y } => {
@@ -320,12 +327,12 @@ impl crate::state::MatchState {
                         continue;
                     };
                     let house = self.players[player_index].house.clone();
-                    let Some(tt) = self.techno_types.get(type_id)
+                    let Some(tt) = self.definitions.techno.get(type_id)
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     };
-                    if tt.kind != TechnoKind::Building {
+                    if tt.class != TechnoClass::Building {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
@@ -345,7 +352,7 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
-                    let cost = tt.cost as i32;
+                    let cost = tt.cost;
                     if self.players[player_index].funds < cost {
                         self.reject(command_index, CommandRejectReason::InsufficientFunds);
                         continue;
@@ -401,18 +408,24 @@ impl crate::state::MatchState {
                         continue;
                     };
                     let house = self.players[player_index].house.clone();
-                    let Some(tt) = self.techno_types.get(type_id)
+                    let Some(tt) = self.definitions.techno.get(type_id)
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     };
-                    if !matches!(tt.kind, TechnoKind::Infantry | TechnoKind::Vehicle) {
+                    if !matches!(tt.class, TechnoClass::Infantry | TechnoClass::Vehicle) {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
-                    let Some(factory_index) = self.find_idle_factory(&house, tt.kind)
+                    let kind = match tt.class {
+                        TechnoClass::Infantry => TechnoKind::Infantry,
+                        TechnoClass::Vehicle => TechnoKind::Vehicle,
+                        TechnoClass::Aircraft => TechnoKind::Aircraft,
+                        TechnoClass::Building => TechnoKind::Building,
+                    };
+                    let Some(factory_index) = self.find_idle_factory(&house, kind)
                     else {
-                        let has_busy = self.find_factory(&house, tt.kind).is_some();
+                        let has_busy = self.find_factory(&house, kind).is_some();
                         if has_busy {
                             self.reject(command_index, CommandRejectReason::QueueFull);
                         }
@@ -421,7 +434,7 @@ impl crate::state::MatchState {
                         }
                         continue;
                     };
-                    let cost = tt.cost as i32;
+                    let cost = tt.cost;
                     if self.players[player_index].funds < cost {
                         self.reject(command_index, CommandRejectReason::InsufficientFunds);
                         continue;
