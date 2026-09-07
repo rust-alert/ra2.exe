@@ -1,10 +1,11 @@
 use ra_engine::{GameCommand, MatchOutcome};
 use ra_testing::standard_duel;
+use ra_types::EntityId;
 
 #[test]
 fn standard_duel_reaches_a_repeatable_victory() {
     let mut case = standard_duel();
-    case.command(GameCommand::Attack { attacker_index: 0, target_index: 1 });
+    case.command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     case.advance(64);
     let result = case.observe();
     assert_eq!(result.outcome, Some(MatchOutcome::Victory { owner: "Americans".into() }));
@@ -17,7 +18,7 @@ fn equal_scripts_produce_equal_observations() {
     let mut first = standard_duel();
     let mut second = standard_duel();
     for case in [&mut first, &mut second] {
-        case.command(GameCommand::MoveTo { entity_index: 0, x: 5, y: 8 });
+        case.command(GameCommand::MoveTo { entity: EntityId(1), x: 5, y: 8 });
         case.advance(3);
     }
     let a = first.observe();
@@ -30,7 +31,7 @@ fn equal_scripts_produce_equal_observations() {
 #[test]
 fn move_script_advances_unit_cell() {
     let mut case = standard_duel();
-    case.command(GameCommand::MoveTo { entity_index: 0, x: 6, y: 8 });
+    case.command(GameCommand::MoveTo { entity: EntityId(1), x: 6, y: 8 });
     case.advance(4);
     let result = case.observe();
     assert_eq!(result.snapshot.units[0].x, 6);
@@ -41,8 +42,8 @@ fn move_script_advances_unit_cell() {
 #[test]
 fn out_of_bounds_commands_are_ignored_without_panic() {
     let mut case = standard_duel();
-    case.command(GameCommand::MoveTo { entity_index: 99, x: 1, y: 1 });
-    case.command(GameCommand::Attack { attacker_index: 0, target_index: 99 });
+    case.command(GameCommand::MoveTo { entity: EntityId(99), x: 1, y: 1 });
+    case.command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(99) });
     case.advance(2);
     let result = case.observe();
     assert_eq!(result.snapshot.units[0].x, 4);
@@ -53,7 +54,7 @@ fn out_of_bounds_commands_are_ignored_without_panic() {
 #[test]
 fn victory_pauses_further_ticks() {
     let mut case = standard_duel();
-    case.command(GameCommand::Attack { attacker_index: 0, target_index: 1 });
+    case.command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     case.advance(64);
     let after_win = case.observe();
     assert!(after_win.outcome.is_some());

@@ -3,7 +3,7 @@
 use crate::common::{map_with_size, rules_with_mtnk};
 use ra_engine::{GameCommand, MatchState};
 use ra_map::{MapEntity, MapEntityKind, Waypoint};
-use ra_types::GameEdition;
+use ra_types::{EntityId, GameEdition};
 
 #[test]
 fn advances_when_ordered_to_move() {
@@ -22,7 +22,7 @@ fn advances_when_ordered_to_move() {
     let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
     assert_eq!(world.entities[0].target_x, None);
     assert!(world.entities[0].path.is_empty());
-    world.push_command(GameCommand::MoveTo { entity_index: 0, x: 12, y: 20 });
+    world.push_command(GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 20 });
     world.advance_tick();
     assert_eq!(world.entities[0].target_x, Some(12));
     assert_eq!(world.entities[0].x, 11);
@@ -50,7 +50,7 @@ fn move_to_command_sets_target() {
     });
     let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
     assert_eq!(world.entities[0].target_x, None);
-    world.push_command(GameCommand::MoveTo { entity_index: 0, x: 12, y: 20 });
+    world.push_command(GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 20 });
     world.advance_tick();
     assert_eq!(world.entities[0].target_x, Some(12));
     assert_eq!(world.entities[0].x, 11);
@@ -73,7 +73,7 @@ fn turret_chases_body_facing() {
     });
     let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
     world.entities[0].turret_facing = 128;
-    world.push_command(GameCommand::MoveTo { entity_index: 0, x: 12, y: 20 });
+    world.push_command(GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 20 });
     world.advance_tick();
     // 车身迈步后 facing 变；炮塔每 tick 最多转 TURRET_TURN_STEP。
     let body = world.entities[0].facing;

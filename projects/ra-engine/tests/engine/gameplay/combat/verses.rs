@@ -4,7 +4,7 @@ use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{GameCommand, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::GameEdition;
+use ra_types::{EntityId, GameEdition};
 
 #[test]
 fn verses_scales_damage_against_armor() {
@@ -54,7 +54,7 @@ fn verses_scales_damage_against_armor() {
     assert_eq!(world.entities[0].attack_damage, 100);
     assert_eq!(world.entities[0].attack_verses[5], 50);
     assert_eq!(world.entities[1].armor, "heavy");
-    world.push_command(GameCommand::Attack { attacker_index: 0, target_index: 1 });
+    world.push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     world.advance_tick();
     // 100 * 50% = 50
     assert_eq!(world.entities[1].health, 350);

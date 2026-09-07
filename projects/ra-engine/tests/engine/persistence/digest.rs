@@ -3,7 +3,7 @@
 use crate::common::{map_with_size, rules_with_mtnk};
 use ra_engine::{GameCommand, MatchState};
 use ra_map::{MapEntity, MapEntityKind};
-use ra_types::GameEdition;
+use ra_types::{EntityId, GameEdition};
 
 #[test]
 fn twin_worlds_same_command_stream_match_hash() {
@@ -42,7 +42,7 @@ fn twin_worlds_same_command_stream_match_hash() {
     let mut b = mk();
     assert_eq!(a.state_hash(), b.state_hash());
     let cmds =
-        [GameCommand::MoveTo { entity_index: 0, x: 12, y: 10 }, GameCommand::Attack { attacker_index: 0, target_index: 1 }];
+        [GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 10 }, GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) }];
     for cmd in &cmds {
         a.push_command(cmd.clone());
         b.push_command(cmd.clone());

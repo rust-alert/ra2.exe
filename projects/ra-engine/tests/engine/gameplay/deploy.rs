@@ -51,7 +51,7 @@ fn set_house_funds_updates_player_state() {
 fn deploy_mcv_becomes_construction_yard() {
     let mut world = mcv_world();
     let id = world.entities[0].id;
-    world.push_command(GameCommand::Deploy { entity_index: 0 });
+    world.push_command(GameCommand::Deploy { entity: EntityId(1) });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
     assert_eq!(world.entities[0].id, id);
@@ -66,7 +66,7 @@ fn deploy_mcv_becomes_construction_yard() {
 fn deploy_rejects_non_mcv_unit() {
     let mut world = mcv_world();
     world.entities[0].type_id = "MTNK".into();
-    world.push_command(GameCommand::Deploy { entity_index: 0 });
+    world.push_command(GameCommand::Deploy { entity: EntityId(1) });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::CannotDeploy);
     assert_eq!(world.entities[0].kind, MapEntityKind::Unit);

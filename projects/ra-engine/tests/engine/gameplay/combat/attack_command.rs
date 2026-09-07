@@ -3,7 +3,7 @@
 use crate::common::{map_with_size, rules_with_mtnk};
 use ra_engine::{GameCommand, MatchState};
 use ra_map::{MapEntity, MapEntityKind};
-use ra_types::GameEdition;
+use ra_types::{EntityId, GameEdition};
 
 #[test]
 fn attack_command_damages_and_kills() {
@@ -36,7 +36,7 @@ fn attack_command_damages_and_kills() {
     world.entities[1].target_x = None;
     world.entities[1].target_y = None;
     world.entities[1].speed = 0;
-    world.push_command(GameCommand::Attack { attacker_index: 0, target_index: 1 });
+    world.push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     let start_hp = world.entities[1].health;
     world.advance_tick();
     assert_eq!(world.entities[0].attack_target, Some(1));
