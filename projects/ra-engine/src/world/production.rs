@@ -3,9 +3,9 @@
 use ra_assets::TechnoKind;
 use ra_map::MapEntityKind;
 
-use crate::navigation::repath_at;
-use crate::rules::{factory_matches_unit, verses_for};
-use crate::{ATTACK_COOLDOWN_TICKS, World, WorldEntity};
+use super::navigation::repath_at;
+use super::rules::{factory_matches_unit, verses_for};
+use super::{ATTACK_COOLDOWN_TICKS, World, WorldEntity};
 
 impl World {
     pub(crate) fn advance_production(&mut self) {

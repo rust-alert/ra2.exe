@@ -4,10 +4,14 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "确定性世界推进与状态"
+description = "世界状态类型转发（实现已迁入 ra-engine）"
 
 [dependencies]
-ra-types = { workspace = true }
-ra-assets = { workspace = true }
-ra-map = { workspace = true }
+ra-engine = { workspace = true }
+
+[dev-dependencies]
 ra-adaptor = { workspace = true }
+ra-assets = { workspace = true }
+ra-engine = { workspace = true }
+ra-map = { workspace = true }
+ra-types = { workspace = true }

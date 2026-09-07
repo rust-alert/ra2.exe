@@ -1,6 +1,6 @@
 //! 确定性状态摘要（锁步校验用）。
 
-use crate::{GameCommand, World};
+use super::{GameCommand, World};
 
 impl World {
     pub(crate) fn rehash(&mut self) {

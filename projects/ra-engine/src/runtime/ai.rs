@@ -2,7 +2,7 @@
 
 use ra_map::MapEntityKind;
 use ra_types::PlayerId;
-use ra_world::{GameCommand, World};
+use crate::{GameCommand, World};
 
 /// 为本阵营未部署的 MCV 生成 `Deploy`（已有建造场则跳过）。
 pub fn deploy_mcv_commands(world: &World, house: &str) -> Vec<GameCommand> {
