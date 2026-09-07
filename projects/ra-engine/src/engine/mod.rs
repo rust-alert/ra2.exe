@@ -8,7 +8,7 @@ mod version;
 
 pub use capabilities::CapabilityRegistry;
 pub use config::EngineConfig;
-pub use schedule::SystemSchedule;
+pub use schedule::{SystemPhase, SystemSchedule};
 pub use validation::SessionValidationError;
 pub use version::EngineVersion;
 
