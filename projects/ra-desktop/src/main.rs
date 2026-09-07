@@ -17,6 +17,7 @@ mod match_ctrl;
 mod menu_view;
 mod preview_job;
 mod screen;
+mod screenshot;
 mod shell;
 mod ui_assets;
 mod ui_slots;
