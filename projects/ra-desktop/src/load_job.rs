@@ -3,7 +3,8 @@
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::thread;
 
-use crate::boot::{BootResult, boot_from_install_with_map};
+use crate::boot::{BootResult, boot_from_install_with_request};
+use crate::skirmish_setup::SkirmishBootRequest;
 
 /// 后台装载句柄。
 pub struct LoadJob {
@@ -13,13 +14,13 @@ pub struct LoadJob {
 impl LoadJob {
     /// 启动安装目录遭遇战装载（不阻塞调用方）。
     ///
-    /// `preferred_map` 为大厅所选地图文件名；`None` 时按候选表首张可解析图。
-    pub fn start_install_boot(preferred_map: Option<String>) -> Self {
+    /// 请求携带大厅所选地图、阵营与难度。
+    pub fn start_install_boot(request: SkirmishBootRequest) -> Self {
         let (tx, rx) = mpsc::channel();
         thread::Builder::new()
             .name("ra2-skirmish-load".into())
             .spawn(move || {
-                let boot = boot_from_install_with_map(preferred_map);
+                let boot = boot_from_install_with_request(request);
                 let _ = tx.send(boot);
             })
             .expect("spawn load thread");
