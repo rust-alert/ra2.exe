@@ -176,7 +176,7 @@ impl App {
             session.order_selected_rally(cell.0, cell.1);
             return;
         }
-        if let Some(target) = session.pick_mobile_at(cell.0, cell.1) {
+        if let Some(target) = session.pick_entity_at(cell.0, cell.1) {
             let hostile = session
                 .selected
                 .first()
