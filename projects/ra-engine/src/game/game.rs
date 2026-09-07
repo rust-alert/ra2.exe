@@ -47,6 +47,27 @@ pub struct RenderSnapshot {
     pub screen: SessionScreen,
 }
 
+/// HUD / 标题栏用的轻量投影（不含单位表，避免第二遍全表扫描）。
+#[derive(Debug, Clone)]
+pub struct HudSnapshot {
+    /// 世界已推进的仿真 tick 数。
+    pub tick: u64,
+    /// 玩家经济与电力。
+    pub players: Vec<SnapshotPlayer>,
+    /// 工厂生产队列。
+    pub produce_queues: Vec<SnapshotProduceQueue>,
+    /// 上一 tick 的命令拒绝。
+    pub last_rejects: Vec<CommandReject>,
+    /// 对局结束结果。
+    pub outcome: Option<MatchOutcome>,
+    /// 是否暂停。
+    pub paused: bool,
+    /// 暂停原因。
+    pub pause_reason: Option<String>,
+    /// 结算统计。
+    pub match_stats: Option<MatchStats>,
+}
+
 /// 会话画面（供桌面流程切换，不进入 MatchState tick）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SessionScreen {
@@ -596,7 +617,7 @@ impl Game {
     /// 从当前世界与本地选中构建一帧呈现快照。
     ///
     /// **原型路径**：每次全表扫描。单位投影经 [`Self::project_entity`]；
-    /// 增量路径请优先使用脏集 + [`Self::project_units`]。
+    /// 增量路径请优先使用脏集 + [`Self::project_units`]，HUD 用 [`Self::snapshot_hud`]。
     pub fn snapshot(&self, selected: &[EntityId]) -> RenderSnapshot {
         let units = self
             .world
@@ -610,6 +631,26 @@ impl Game {
             })
             .map(|e| self.project_entity(e))
             .collect();
+        let hud = self.snapshot_hud();
+        RenderSnapshot {
+            edition: self.world.edition,
+            tick: hud.tick,
+            state_hash: self.world.state_hash(),
+            units,
+            players: hud.players,
+            produce_queues: hud.produce_queues,
+            last_rejects: hud.last_rejects,
+            selected: selected.to_vec(),
+            outcome: hud.outcome,
+            paused: hud.paused,
+            pause_reason: hud.pause_reason,
+            match_stats: hud.match_stats,
+            screen: if self.outcome.is_some() { SessionScreen::Results } else { SessionScreen::InMatch },
+        }
+    }
+
+    /// 轻量 HUD 投影：玩家、队列、拒绝与结算，不含单位表。
+    pub fn snapshot_hud(&self) -> HudSnapshot {
         let players = self
             .world
             .players
@@ -637,20 +678,15 @@ impl Game {
                 })
             })
             .collect();
-        RenderSnapshot {
-            edition: self.world.edition,
+        HudSnapshot {
             tick: self.world.tick,
-            state_hash: self.world.state_hash(),
-            units,
             players,
             produce_queues,
             last_rejects: self.world.last_rejects().to_vec(),
-            selected: selected.to_vec(),
             outcome: self.outcome.clone(),
             paused: self.paused,
             pause_reason: self.pause_reason.clone(),
             match_stats: self.match_stats.clone(),
-            screen: if self.outcome.is_some() { SessionScreen::Results } else { SessionScreen::InMatch },
         }
     }
 }
