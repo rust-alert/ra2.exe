@@ -26,3 +26,13 @@ fn preserves_list_values_with_commas() {
     let doc = IniDocument::parse(b"[MTNK]\nOwner=Britishs,Americans\n").unwrap();
     assert_eq!(doc.get("MTNK", "Owner"), Some("Britishs,Americans"));
 }
+
+#[test]
+fn collect_shp_refs_dedupes_and_keeps_order() {
+    let doc = IniDocument::parse(
+        b"[A]\nBg=Menu.shp\nBtn=ok.shp, Menu.shp\nOther=readme.txt\n[B]\nX=\"Hover.SHP\"\n",
+    )
+    .unwrap();
+    assert_eq!(doc.collect_shp_refs(), vec!["Menu.shp", "ok.shp", "Hover.SHP"]);
+}
+
