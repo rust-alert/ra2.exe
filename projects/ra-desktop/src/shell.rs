@@ -377,10 +377,21 @@ impl AppShell {
             OriginalScreen::MainMenu => format!("ra2 · 主菜单 · {}", self.banner),
             OriginalScreen::SinglePlayerMenu => "ra2 · 单人游戏 · 遭遇战 Enter · Esc 返回".into(),
             OriginalScreen::SkirmishLobby => {
-                let map = self.selected_map.as_deref().unwrap_or("（无可用图）");
-                format!(
-                    "ra2 · 遭遇战大厅 · 地图 {map} · ←/→ 切换 · Enter 开始 · Esc 返回"
-                )
+                let detail = self
+                    .selected_map
+                    .as_ref()
+                    .and_then(|name| self.lobby_maps.iter().find(|m| &m.file_name == name))
+                    .map(|m| {
+                        format!(
+                            "{} {}x{} {}",
+                            m.file_name,
+                            m.width,
+                            m.height,
+                            m.theater.as_str()
+                        )
+                    })
+                    .unwrap_or_else(|| "（无可用图）".into());
+                format!("ra2 · 遭遇战大厅 · {detail} · ←/→ 切换 · Enter 开始 · Esc 返回")
             }
             OriginalScreen::Network => "ra2 · 网络（未开放）· Esc 返回".into(),
             OriginalScreen::LoadScreen => format!("ra2 · 加载 · {}", self.banner),
