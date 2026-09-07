@@ -18,6 +18,7 @@ fn pre_alpha_acceptance_names_include_lobby_and_results_variants() {
     assert!(names.contains(&"skirmish_lobby_alt"));
     assert!(names.contains(&"results_lobby_hover"));
     assert!(names.contains(&"match_paused"));
+    assert!(names.contains(&"load_screen_failed"));
 }
 
 #[test]
