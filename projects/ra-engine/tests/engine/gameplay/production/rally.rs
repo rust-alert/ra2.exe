@@ -61,7 +61,7 @@ fn produced_unit_paths_toward_rally_point() {
     }
     assert_eq!(world.entities.len(), 2);
     let unit = &world.entities[1];
-    assert_eq!(unit.type_id, "E1");
+    assert_eq!(unit.type_id.as_ref(), "E1");
     assert_eq!(unit.target_x, Some(10));
     assert_eq!(unit.target_y, Some(2));
     assert!(!unit.path.is_empty());

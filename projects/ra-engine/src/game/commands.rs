@@ -2,6 +2,7 @@
 //!
 //! 对外调度形状为 [`ScheduledCommand`]；[`GameCommand`] 是其中的可执行载荷（与 `ra_types::CommandBody` 同一类型）。
 
+use std::sync::Arc;
 use ra_types::{CommandBody, CommandId, EntityId, PlayerId, ScheduledCommand, Tick};
 
 /// 可执行命令载荷（跨层与 `ra_types::CommandBody` 共用）。
@@ -305,7 +306,7 @@ impl crate::state::MatchState {
                         .unwrap_or_else(|| "none".into());
                     let e = &mut self.entities[entity_index];
                     e.kind = MapEntityKind::Structure;
-                    e.type_id = building_type.to_string();
+                    e.type_id = Arc::<str>::from(building_type);
                     e.speed = 0;
                     e.target_x = None;
                     e.target_y = None;
@@ -371,7 +372,7 @@ impl crate::state::MatchState {
                         id,
                         kind: MapEntityKind::Structure,
                         owner: house,
-                        type_id: type_id.to_ascii_uppercase(),
+                        type_id: Arc::<str>::from(type_id.to_ascii_uppercase()),
                         x,
                         y,
                         facing: 0,
@@ -441,7 +442,7 @@ impl crate::state::MatchState {
                     }
                     self.players[player_index].funds -= cost;
                     self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_add(cost);
-                    self.entities[factory_index].produce_queue = Some((type_id.to_ascii_uppercase(), PRODUCE_TICKS));
+                    self.entities[factory_index].produce_queue = Some((Arc::<str>::from(type_id.to_ascii_uppercase()), PRODUCE_TICKS));
                 }
                 GameCommand::SetRallyPoint { factory, x, y } => {
                     let Some(factory_index) = self.entity_index(factory) else {

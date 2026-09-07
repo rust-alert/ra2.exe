@@ -1,20 +1,22 @@
 //! 世界实体的运行时状态。
 
+use std::sync::Arc;
+
 use ra_assets::TechnoKind;
 use ra_map::MapEntityKind;
 use ra_types::EntityId;
 
-/// 世界中的一个已放置或生产的实体。
+/// 世界实体的运行时状态。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorldEntity {
     /// 稳定实体 ID（不随列表紧凑化改变）。
     pub id: EntityId,
     /// 地图实体种类（单位、建筑、步兵等）。
     pub kind: MapEntityKind,
-    /// 所属方名称（地图放置段字符串）。
-    pub owner: String,
-    /// 外部类型键（来自冻结定义）。
-    pub type_id: String,
+    /// 所属方名称（跨帧以 `Arc` 共享，避免每显示帧整串拷贝）。
+    pub owner: Arc<str>,
+    /// 外部类型键（跨帧以 `Arc` 共享）。
+    pub type_id: Arc<str>,
     /// 当前格坐标。
     pub x: u16,
     /// 当前格坐标。
@@ -60,7 +62,7 @@ pub struct WorldEntity {
     /// 矿场采矿行程累计 tick。
     pub ore_trip_accum: u32,
     /// 生产队列：（类型 ID，剩余 tick）。
-    pub produce_queue: Option<(String, u32)>,
+    pub produce_queue: Option<(Arc<str>, u32)>,
     /// 生产集结格。
     pub rally_x: Option<u16>,
     /// 生产集结格。

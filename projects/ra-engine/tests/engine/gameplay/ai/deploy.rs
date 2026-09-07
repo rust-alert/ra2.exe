@@ -55,5 +55,5 @@ fn ai_deploys_mcv_via_command() {
     session.expect_game_mut().ai_enabled = true;
     session.tick(&engine.runtime());
     assert_eq!(session.expect_game_mut().world.entities[1].kind, MapEntityKind::Structure);
-    assert_eq!(session.expect_game_mut().world.entities[1].type_id, "NACNST");
+    assert_eq!(session.expect_game_mut().world.entities[1].type_id.as_ref(), "NACNST");
 }

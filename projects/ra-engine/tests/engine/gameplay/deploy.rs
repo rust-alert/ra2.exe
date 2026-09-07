@@ -57,7 +57,7 @@ fn deploy_mcv_becomes_construction_yard() {
     assert_eq!(world.entities[0].id, id);
     assert_eq!(world.entities[0].id, EntityId(1));
     assert_eq!(world.entities[0].kind, MapEntityKind::Structure);
-    assert_eq!(world.entities[0].type_id, "GACNST");
+    assert_eq!(world.entities[0].type_id.as_ref(), "GACNST");
     assert_eq!(world.entities[0].speed, 0);
     assert!(world.entities[0].attack_target.is_none());
 }
@@ -70,5 +70,5 @@ fn deploy_rejects_non_mcv_unit() {
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::CannotDeploy);
     assert_eq!(world.entities[0].kind, MapEntityKind::Unit);
-    assert_eq!(world.entities[0].type_id, "MTNK");
+    assert_eq!(world.entities[0].type_id.as_ref(), "MTNK");
 }

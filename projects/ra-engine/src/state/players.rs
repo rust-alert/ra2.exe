@@ -1,5 +1,7 @@
 //! 玩家侧仿真状态（资金、电力等）。
 
+use std::sync::Arc;
+
 use ra_types::PlayerId;
 
 /// 一名玩家在世界中的可哈希状态。
@@ -7,8 +9,8 @@ use ra_types::PlayerId;
 pub struct PlayerState {
     /// 稳定玩家编号。
     pub id: PlayerId,
-    /// 阵营 / 房主名称（与地图放置段 `owner` 对齐）。
-    pub house: String,
+    /// 阵营 / 房主名称（与地图放置段 `owner` 对齐，`Arc` 共享）。
+    pub house: Arc<str>,
     /// 当前资金。
     pub funds: i32,
     /// 供电量。
@@ -21,8 +23,15 @@ pub struct PlayerState {
 
 impl PlayerState {
     /// 构造默认经济字段的玩家。
-    pub fn new(id: PlayerId, house: impl Into<String>) -> Self {
-        Self { id, house: house.into(), funds: 0, power_output: 0, power_drain: 0, funds_spent: 0 }
+    pub fn new(id: PlayerId, house: impl AsRef<str>) -> Self {
+        Self {
+            id,
+            house: Arc::<str>::from(house.as_ref()),
+            funds: 0,
+            power_output: 0,
+            power_drain: 0,
+            funds_spent: 0,
+        }
     }
 
     /// 是否处于低电（耗电大于供电）。

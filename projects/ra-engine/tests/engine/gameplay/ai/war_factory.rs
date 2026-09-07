@@ -67,8 +67,8 @@ fn ai_places_war_factory_and_produces_tank() {
     let mut session = Session::from_state(world, "ai-weap");
     session.expect_game_mut().ai_enabled = true;
     session.tick(&engine.runtime());
-    assert!(session.expect_game_mut().world.entities.iter().any(|e| e.owner == "Soviets" && e.type_id == "NAWEAP"));
+    assert!(session.expect_game_mut().world.entities.iter().any(|e| e.owner.as_ref() == "Soviets" && e.type_id.as_ref() == "NAWEAP"));
     session.tick(&engine.runtime());
-    let weap = session.expect_game_mut().world.entities.iter().find(|e| e.owner == "Soviets" && e.type_id == "NAWEAP").expect("war factory");
-    assert_eq!(weap.produce_queue.as_ref().map(|(id, _)| id.as_str()), Some("HTNK"));
+    let weap = session.expect_game_mut().world.entities.iter().find(|e| e.owner.as_ref() == "Soviets" && e.type_id.as_ref() == "NAWEAP").expect("war factory");
+    assert_eq!(weap.produce_queue.as_ref().map(|(id, _)| id.as_ref()), Some("HTNK"));
 }
