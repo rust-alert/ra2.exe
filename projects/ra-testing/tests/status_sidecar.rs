@@ -1,4 +1,5 @@
 use ra_testing::TestStatus;
+use ra_types::EntityId;
 
 #[test]
 fn parse_sidecar_roundtrip_shape() {
@@ -21,7 +22,7 @@ last_reject=QueueFull
     assert_eq!(s.hash, 0xabc);
     assert_eq!(s.outcome, "victory:Americans");
     assert!(s.paused);
-    assert_eq!(s.selected, vec![0, 2]);
+    assert_eq!(s.selected, vec![EntityId(0), EntityId(2)]);
     assert_eq!(s.entities, 2);
     assert_eq!(s.funds, 9400);
     assert_eq!(s.power_output, 200);

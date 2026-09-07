@@ -3,7 +3,7 @@
 use crate::common::rules_with_mtnk;
 use ra_engine::{Session, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::GameEdition;
+use ra_types::{EntityId, GameEdition};
 
 #[test]
 fn nearest_hostile_includes_structures() {
@@ -34,5 +34,5 @@ fn nearest_hostile_includes_structures() {
     let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "hostile-bldg");
     session.expect_game_mut().world.entities[1].kind = MapEntityKind::Structure;
     session.expect_game_mut().world.entities[1].type_id = "NACNST".into();
-    assert_eq!(session.expect_game().nearest_hostile(0), Some(1));
+    assert_eq!(session.expect_game().nearest_hostile(EntityId(1)), Some(EntityId(2)));
 }

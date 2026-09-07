@@ -144,14 +144,14 @@ impl App {
         else {
             return;
         };
-        if let Some(i) = game.pick_entity_at(cell.0, cell.1) {
+        if let Some(id) = game.pick_entity_at(cell.0, cell.1) {
             if add {
-                self.local.select_add(game, i);
-                tracing::info!("加选实体 #{i} @({},{}) · 选中 {:?}", cell.0, cell.1, self.local.selected);
+                self.local.select_add(game, id);
+                tracing::info!("加选实体 #{} @({},{}) · 选中 {:?}", id.0, cell.0, cell.1, self.local.selected);
             }
             else {
-                self.local.select_only(game, i);
-                tracing::info!("选中实体 #{i} @({},{})", cell.0, cell.1);
+                self.local.select_only(game, id);
+                tracing::info!("选中实体 #{} @({},{})", id.0, cell.0, cell.1);
             }
         }
         else if !add {
@@ -192,13 +192,15 @@ impl App {
             let hostile = selected
                 .first()
                 .and_then(|&atk| {
-                    let a = game.world.entities.get(atk)?;
-                    let t = game.world.entities.get(target)?;
+                    let ai = game.world.entity_index(atk)?;
+                    let ti = game.world.entity_index(target)?;
+                    let a = game.world.entities.get(ai)?;
+                    let t = game.world.entities.get(ti)?;
                     Some(a.owner != t.owner)
                 })
                 .unwrap_or(false);
             if hostile {
-                tracing::info!("命令攻击 → #{target}（选中 {:?}）", selected);
+                tracing::info!("命令攻击 → #{}（选中 {:?}）", target.0, selected);
                 game.order_attack(&selected, target);
                 return;
             }
@@ -252,8 +254,8 @@ impl App {
                     let nsel = self.local.selected.len();
                     let sel = self.local.selected.first().copied();
                     let sel_part = match (sel, nsel) {
-                        (Some(i), n) if n > 1 => format!("#{i}+{}", n - 1),
-                        (Some(i), _) => format!("#{i}"),
+                        (Some(id), n) if n > 1 => format!("#{}+{}", id.0, n - 1),
+                        (Some(id), _) => format!("#{}", id.0),
                         (None, _) => "#-".into(),
                     };
                     format!(
@@ -448,16 +450,20 @@ impl ApplicationHandler for App {
                     PhysicalKey::Code(KeyCode::KeyA) if self.ctrl_down => {
                         if let Some(game) = self.session.as_ref().and_then(|s| s.game()) {
                             let seed = self.local.selected.first().copied().or_else(|| {
-                                game.world.entities.iter().position(|e| {
-                                    !e.dead
-                                        && matches!(
-                                            e.kind,
-                                            MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
-                                        )
-                                })
+                                game.world
+                                    .entities
+                                    .iter()
+                                    .find(|e| {
+                                        !e.dead
+                                            && matches!(
+                                                e.kind,
+                                                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
+                                            )
+                                    })
+                                    .map(|e| e.id)
                             });
-                            if let Some(i) = seed {
-                                self.local.select_all_of_owner(game, i);
+                            if let Some(id) = seed {
+                                self.local.select_all_of_owner(game, id);
                                 tracing::info!("全选同阵营 · {} 个", self.local.selected.len());
                             }
                         }

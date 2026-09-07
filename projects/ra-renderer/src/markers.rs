@@ -83,7 +83,7 @@ impl MarkerGpu {
         let sw = surface_w.max(1) as f32;
         let sh = surface_h.max(1) as f32;
         for u in snap.units.iter().filter(|u| !u.dead) {
-            let selected = snap.selected.contains(&u.index);
+            let selected = snap.selected.contains(&u.id);
             let color = anim_tint(owner_color(&u.owner), u.anim_state);
             let cx = u.screen_x as f32 + 30.0;
             let cy = u.screen_y as f32 + 15.0;

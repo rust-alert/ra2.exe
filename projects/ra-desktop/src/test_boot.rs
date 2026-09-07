@@ -67,14 +67,14 @@ fn solid_preview(width: u32, height: u32, rgba: [u8; 4]) -> Option<RgbaImage> {
 }
 
 /// 写出机器可读会话旁路（给 GUI 自动化轮询）。
-pub fn write_status(path: &std::path::Path, session: &Session, selected: &[usize]) {
+pub fn write_status(path: &std::path::Path, session: &Session, selected: &[ra_types::EntityId]) {
     let game = session.expect_game();
     let snap = game.snapshot(selected);
     let outcome = match &snap.outcome {
         Some(ra_engine::MatchOutcome::Victory { owner }) => format!("victory:{owner}"),
         None => "none".into(),
     };
-    let selected_s = selected.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
+    let selected_s = selected.iter().map(|id| id.0.to_string()).collect::<Vec<_>>().join(",");
     let local = game
         .world
         .players

@@ -2,6 +2,8 @@
 
 use std::path::Path;
 
+use ra_types::EntityId;
+
 /// `RA2_TEST_STATUS_PATH` 文件内容。
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct TestStatus {
@@ -13,8 +15,8 @@ pub struct TestStatus {
     pub outcome: String,
     /// 会话是否暂停。
     pub paused: bool,
-    /// 当前选中实体下标。
-    pub selected: Vec<usize>,
+    /// 当前选中实体的稳定 ID。
+    pub selected: Vec<EntityId>,
     /// 实体总数。
     pub entities: usize,
     /// 本地玩家资金。
@@ -70,7 +72,11 @@ impl TestStatus {
                     else {
                         value
                             .split(',')
-                            .map(|s| s.parse::<usize>().map_err(|_| format!("无效 selected: {value}")))
+                            .map(|s| {
+                                s.parse::<u64>()
+                                    .map(EntityId)
+                                    .map_err(|_| format!("无效 selected: {value}"))
+                            })
                             .collect::<Result<Vec<_>, _>>()?
                     };
                 }
