@@ -13,6 +13,7 @@ wgpu = { workspace = true }
 winit = { workspace = true }
 pollster = { workspace = true }
 bytemuck = { workspace = true }
+png = { workspace = true }
 
 [dev-dependencies]
 ra-map = { workspace = true }

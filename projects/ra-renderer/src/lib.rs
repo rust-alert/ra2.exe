@@ -19,6 +19,7 @@ mod frame;
 mod gpu;
 mod markers;
 mod pass;
+mod png_out;
 mod resources;
 mod rgba_image;
 mod sprite;
@@ -49,6 +50,10 @@ pub use crate::pass::{PassGraph, RenderPassKind};
 pub use crate::resources::RenderResourceCache;
 /// CPU 侧 RGBA 像素缓冲，可上传到 GPU 作为预览纹理。
 pub use crate::rgba_image::RgbaImage;
+/// 将 RGBA 写成 PNG 文件。
+pub use crate::png_out::write_png_file;
+/// RGBA → PNG 字节。
+pub use crate::png_out::encode_png;
 /// 帧分段计时。
 pub use crate::timings::FrameTimings;
 /// 可复用渲染世界。
