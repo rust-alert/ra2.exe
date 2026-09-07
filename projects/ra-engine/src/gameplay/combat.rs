@@ -2,12 +2,12 @@
 
 use ra_map::MapEntityKind;
 
-use super::navigation::{facing_toward, is_mobile, manhattan, turn_facing_toward};
-use super::rules::building_power_delta;
-use super::{HIT_FLASH_TICKS, TURRET_TURN_STEP, World};
+use crate::spatial::{facing_toward, is_mobile, manhattan, turn_facing_toward};
+use crate::gameplay::building_power_delta;
+use crate::state::{HIT_FLASH_TICKS, TURRET_TURN_STEP, World};
 use ra_assets::armor_index;
 
-impl World {
+impl crate::state::World {
     pub(crate) fn resolve_combat(&mut self) {
         let n = self.entities.len();
         let mut damage_events: Vec<(usize, u32)> = Vec::new();

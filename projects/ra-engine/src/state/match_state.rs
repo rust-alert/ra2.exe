@@ -1,27 +1,15 @@
 //! 确定性世界推进。不依赖渲染器与文件系统。
 
-mod combat;
-mod command;
-mod economy;
-mod entity;
-mod navigation;
-mod player;
-mod production;
-mod reject;
-mod rules;
-mod state_hash;
-
 use ra_adaptor::RulesDb;
 use ra_assets::{TechnoTypeRegistry, WarheadRegistry};
 use ra_map::{MapInfo, PassGrid};
 use ra_types::{EntityId, GameEdition, PlayerId};
 
-pub use command::{GameCommand, InputFrame, decode_command, decode_commands, encode_command, encode_commands};
-pub use entity::WorldEntity;
-use navigation::{is_mobile, repath_at};
-pub use player::PlayerState;
-pub use reject::{CommandReject, CommandRejectReason};
-use rules::{full_verses, verses_for};
+use crate::gameplay::{full_verses, verses_for};
+use crate::runtime::{CommandReject, GameCommand, InputFrame};
+use crate::spatial::{is_mobile, repath_at};
+use super::entities::WorldEntity;
+use super::players::PlayerState;
 
 /// 走一格所需的移动点（预览用常量，非零售精确换算）。
 pub const CELL_MOVE_COST: u32 = 64;
@@ -68,18 +56,18 @@ pub struct World {
     /// 本地玩家 ID。
     pub local_player: PlayerId,
     /// 规则 techno 表（造价、生命等查询）。
-    techno_types: TechnoTypeRegistry,
+    pub(crate) techno_types: TechnoTypeRegistry,
     /// 弹头 `Verses` 表（攻击结算）。
-    warheads: WarheadRegistry,
+    pub(crate) warheads: WarheadRegistry,
     /// 下一枚可分配的稳定实体 ID（从 1 起）。
-    next_entity_id: u64,
+    pub(crate) next_entity_id: u64,
     /// 待本 tick 消费的命令（先进先出）。
-    pending_commands: Vec<GameCommand>,
+    pub(crate) pending_commands: Vec<GameCommand>,
     /// 上一 tick 实际消费的输入帧（含空帧）。
-    last_input_frame: InputFrame,
+    pub(crate) last_input_frame: InputFrame,
     /// 上一 tick 产生的命令拒绝记录。
-    last_rejects: Vec<CommandReject>,
-    state_hash: u64,
+    pub(crate) last_rejects: Vec<CommandReject>,
+    pub(crate) state_hash: u64,
 }
 
 impl World {
