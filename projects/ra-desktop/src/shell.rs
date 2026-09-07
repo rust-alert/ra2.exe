@@ -769,6 +769,14 @@ impl ApplicationHandler for AppShell {
             }
             WindowEvent::Resized(size) => {
                 self.renderer.resize(size.width, size.height);
+                // 命中框与菜单底图按逻辑窗口尺寸算；物理缓冲变化后必须同步，否则缩放后点击错位。
+                let scale = self.window.as_ref().map(|w| w.scale_factor()).unwrap_or(1.0);
+                let logical = size.to_logical::<f64>(scale);
+                self.window_width = logical.width.max(1.0);
+                self.window_height = logical.height.max(1.0);
+                if !matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results) {
+                    self.refresh_menu_backdrop();
+                }
             }
             WindowEvent::RedrawRequested => {
                 self.redraw();
