@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use ra_testing::TestStatus;
 use ra_types::EntityId;
 
@@ -39,4 +41,34 @@ difficulty=Hard
     assert!(s.matches_expect("paused=true"));
     assert!(s.matches_expect("difficulty=Hard"));
     assert!(!s.matches_expect("difficulty=Easy"));
+}
+
+#[test]
+fn wait_until_reads_file_when_expect_matches() {
+    let dir = std::env::temp_dir().join(format!(
+        "ra2-status-wait-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join("status.txt");
+    std::fs::write(&path, "tick=3\nhash=0x1\noutcome=none\n").unwrap();
+    let status = TestStatus::wait_until(&path, "tick>=2", Duration::from_secs(2)).expect("wait");
+    assert!(status.tick >= 2);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_dir(&dir);
+}
+
+#[test]
+fn wait_until_times_out_when_expect_never_matches() {
+    let dir = std::env::temp_dir().join(format!(
+        "ra2-status-wait-miss-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join("status.txt");
+    std::fs::write(&path, "tick=0\nhash=0x0\noutcome=none\n").unwrap();
+    let err = TestStatus::wait_until(&path, "tick>=99", Duration::from_millis(120)).unwrap_err();
+    assert!(err.contains("超时"), "{err}");
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_dir(&dir);
 }
