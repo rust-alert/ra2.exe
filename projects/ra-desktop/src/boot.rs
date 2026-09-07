@@ -230,7 +230,30 @@ pub fn boot_from_install_with_map(preferred_map: Option<String>) -> BootResult {
 
 /// 按大厅遭遇战请求装载。
 pub fn boot_from_install_with_request(request: crate::skirmish_setup::SkirmishBootRequest) -> BootResult {
-    boot_from_install_with_progress(request, |_, _| {})
+    let (cfg, cfg_diags) = load_desktop_config_with_diagnostics();
+    for d in &cfg_diags {
+        tracing::warn!("配置诊断 {} · {}", d.source, d.message);
+    }
+    match (&cfg.net_url, &cfg.net_room) {
+        (Some(url), room) => {
+            tracing::info!("联机配置预留 url={} room={}（协议未定点，不接 socket）", url, room.as_deref().unwrap_or("—"))
+        }
+        (None, _) => tracing::info!("联机配置：未设 net_url"),
+    }
+    let boot = match boot_world(&cfg, &request) {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::error!("启动失败: {e}");
+            BootResult {
+                note: format!("启动失败: {e}"),
+                engine: None,
+                session: None,
+                preview: None,
+            }
+        }
+    };
+    tracing::info!("boot: {} · session={}", boot.note, if boot.session.is_some() { "ok" } else { "none" });
+    boot
 }
 
 /// 按大厅遭遇战请求装载，并向回调报告阶段进度。
