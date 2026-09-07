@@ -2,7 +2,7 @@
 
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
-use ra_renderer::Renderer;
+use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{RaError, RaResult};
 use winit::{
     application::ApplicationHandler,
@@ -18,7 +18,9 @@ use crate::{
     match_ctrl::{MatchController, MatchNav},
     menu_view::{MenuAction, MenuLayout, layout_for, layout_skirmish_lobby},
     screen::OriginalScreen,
-    ui_assets::{MenuUiProbe, probe_menu_ui_assets, stamp_top_left, stamp_top_right},
+    ui_assets::{
+        MenuUiProbe, downscale_to_fit, probe_menu_ui_assets, stamp_bottom_right_opaque, stamp_top_left, stamp_top_right,
+    },
 };
 
 /// 外壳持有的可导航应用状态。
@@ -54,6 +56,10 @@ pub struct AppShell {
     lobby_maps: Vec<crate::boot::BootMapCandidate>,
     /// 当前选中的地图文件名。
     selected_map: Option<String>,
+    /// 大厅缩略图对应的地图名（与 `lobby_preview` 配对）。
+    lobby_preview_for: Option<String>,
+    /// 已缩小的选中地图预览。
+    lobby_preview: Option<RgbaImage>,
     /// 主菜单阶段 UI 资源探测（惰性一次）。
     ui_probe: Option<MenuUiProbe>,
 }
@@ -99,6 +105,8 @@ impl AppShell {
             load_started: None,
             lobby_maps: Vec::new(),
             selected_map: None,
+            lobby_preview_for: None,
+            lobby_preview: None,
             ui_probe: None,
         }
     }
@@ -125,6 +133,8 @@ impl AppShell {
             load_started: None,
             lobby_maps: Vec::new(),
             selected_map: None,
+            lobby_preview_for: None,
+            lobby_preview: None,
             ui_probe: None,
         }
     }
@@ -142,6 +152,31 @@ impl AppShell {
             selected = ?self.selected_map,
             "遭遇战地图列表已刷新"
         );
+    }
+
+    fn ensure_lobby_preview(&mut self) {
+        let Some(name) = self.selected_map.clone()
+        else {
+            self.lobby_preview = None;
+            self.lobby_preview_for = None;
+            return;
+        };
+        if self.lobby_preview_for.as_deref() == Some(name.as_str()) {
+            return;
+        }
+        match crate::boot::preview_install_boot_map(&name) {
+            Some((note, image)) => {
+                let thumb = downscale_to_fit(&image, 320, 200).unwrap_or(image);
+                tracing::info!(map = %name, w = thumb.width, h = thumb.height, "{note}");
+                self.lobby_preview = Some(thumb);
+                self.lobby_preview_for = Some(name);
+            }
+            None => {
+                tracing::warn!(map = %name, "遭遇战大厅地图预览失败");
+                self.lobby_preview = None;
+                self.lobby_preview_for = Some(name);
+            }
+        }
     }
 
     fn cycle_lobby_map(&mut self, delta: isize) {
@@ -204,6 +239,10 @@ impl AppShell {
                 self.menu_hover,
                 self.menu_pressed,
             );
+            self.ensure_lobby_preview();
+            if let Some(preview) = self.lobby_preview.as_ref() {
+                stamp_bottom_right_opaque(&mut layout.image, preview, 12);
+            }
             self.ensure_ui_probe();
             if let Some(probe) = self.ui_probe.as_ref() {
                 if let Some(frame) = probe.mouse_frame.as_ref() {

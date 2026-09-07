@@ -78,7 +78,6 @@ pub fn list_install_boot_maps() -> Vec<BootMapCandidate> {
 /// 为遭遇战大厅生成指定地图的地形预览（未缩小）。
 ///
 /// 失败时返回 `None`（缺图、缺剧院资源或规则不可读）。
-#[allow(dead_code)] // 下一提交接到遭遇战大厅绘制。
 pub fn preview_install_boot_map(map_name: &str) -> Option<(String, RgbaImage)> {
     let (cfg, _) = load_desktop_config_with_diagnostics();
     let explicit = match cfg.edition.as_deref() {
