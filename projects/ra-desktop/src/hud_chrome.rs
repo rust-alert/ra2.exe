@@ -140,25 +140,47 @@ pub const RESULTS_REMATCH_HIT: (f32, f32, f32, f32) = (0.30, 0.38, 0.70, 0.48);
 pub const RESULTS_LOBBY_HIT: (f32, f32, f32, f32) = (0.30, 0.52, 0.70, 0.62);
 
 /// 结算页占位按钮色块（重开 / 返回大厅）。
-pub fn results_chrome() -> Vec<ScreenChromeQuad> {
+///
+/// `hover` 为当前悬停项时加亮对应按钮（非原版悬停帧）。
+pub fn results_chrome(hover: Option<ResultsHit>) -> Vec<ScreenChromeQuad> {
+    let mut quads = Vec::with_capacity(3);
+    // 压暗地图，突出结算按钮（非原版战报底板）。
+    quads.push(ScreenChromeQuad {
+        x0: 0.0,
+        y0: 0.0,
+        x1: 1.0,
+        y1: 1.0,
+        color: [0.02, 0.03, 0.05, 0.55],
+    });
     let (rx0, ry0, rx1, ry1) = RESULTS_REMATCH_HIT;
     let (lx0, ly0, lx1, ly1) = RESULTS_LOBBY_HIT;
-    vec![
-        ScreenChromeQuad {
-            x0: rx0,
-            y0: ry0,
-            x1: rx1,
-            y1: ry1,
-            color: [0.16, 0.42, 0.22, 0.92],
-        },
-        ScreenChromeQuad {
-            x0: lx0,
-            y0: ly0,
-            x1: lx1,
-            y1: ly1,
-            color: [0.32, 0.22, 0.18, 0.92],
-        },
-    ]
+    let rematch = if hover == Some(ResultsHit::Rematch) {
+        [0.28, 0.62, 0.36, 0.96]
+    }
+    else {
+        [0.16, 0.42, 0.22, 0.92]
+    };
+    let lobby = if hover == Some(ResultsHit::ToLobby) {
+        [0.52, 0.36, 0.28, 0.96]
+    }
+    else {
+        [0.32, 0.22, 0.18, 0.92]
+    };
+    quads.push(ScreenChromeQuad {
+        x0: rx0,
+        y0: ry0,
+        x1: rx1,
+        y1: ry1,
+        color: rematch,
+    });
+    quads.push(ScreenChromeQuad {
+        x0: lx0,
+        y0: ly0,
+        x1: lx1,
+        y1: ly1,
+        color: lobby,
+    });
+    quads
 }
 
 /// 窗口像素点击 → 结算占位动作。
@@ -249,7 +271,15 @@ mod tests {
 
     #[test]
     fn results_chrome_has_two_buttons() {
-        assert_eq!(results_chrome().len(), 2);
+        assert_eq!(results_chrome(None).len(), 3);
+    }
+
+    #[test]
+    fn results_chrome_brightens_hovered_rematch() {
+        let idle = results_chrome(None);
+        let hovered = results_chrome(Some(ResultsHit::Rematch));
+        assert!(hovered[1].color[1] > idle[1].color[1]);
+        assert_eq!(hovered[2].color, idle[2].color);
     }
 
     #[test]
