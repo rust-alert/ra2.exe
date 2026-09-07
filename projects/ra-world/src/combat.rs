@@ -3,7 +3,8 @@
 use ra_map::MapEntityKind;
 
 use crate::navigation::{facing_toward, is_mobile, manhattan, turn_facing_toward};
-use crate::{HIT_FLASH_TICKS, TURRET_TURN_STEP, World, building_power_delta};
+use crate::rules::building_power_delta;
+use crate::{HIT_FLASH_TICKS, TURRET_TURN_STEP, World};
 use ra_assets::armor_index;
 
 impl World {
