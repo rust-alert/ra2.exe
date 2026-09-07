@@ -2,7 +2,7 @@
 
 use bytemuck::{Pod, Zeroable};
 
-use ra_session::RenderSnapshot;
+use ra_session::{AnimState, RenderSnapshot};
 
 use crate::camera::Camera;
 
@@ -84,11 +84,31 @@ impl MarkerGpu {
         let sh = surface_h.max(1) as f32;
         for u in snap.units.iter().filter(|u| !u.dead) {
             let selected = snap.selected.contains(&u.index);
-            let color = owner_color(&u.owner);
+            let color = anim_tint(owner_color(&u.owner), u.anim_state);
             let cx = u.screen_x as f32 + 30.0;
             let cy = u.screen_y as f32 + 15.0;
-            let half = if selected { 10.0 } else { 7.0 };
-            push_diamond(&mut verts, camera, sw, sh, cx, cy, half, color);
+            let half = match (u.is_structure(), selected) {
+                (true, true) => 12.0,
+                (true, false) => 9.0,
+                (false, true) => 10.0,
+                (false, false) => 7.0,
+            };
+            if u.is_structure() {
+                push_rect(
+                    &mut verts,
+                    camera,
+                    sw,
+                    sh,
+                    cx - half,
+                    cy - half * 0.6,
+                    half * 2.0,
+                    half * 1.2,
+                    color,
+                );
+            }
+            else {
+                push_diamond(&mut verts, camera, sw, sh, cx, cy, half, color);
+            }
             if selected {
                 let ring = [1.0, 1.0, 0.2, 0.95];
                 push_ring(&mut verts, camera, sw, sh, cx, cy, half + 4.0, 2.0, ring);
@@ -185,6 +205,17 @@ fn owner_color(owner: &str) -> [f32; 4] {
     let g = ((h >> 8) & 0xff) as f32 / 255.0;
     let b = (h & 0xff) as f32 / 255.0;
     [0.35 + r * 0.55, 0.35 + g * 0.55, 0.35 + b * 0.55, 0.92]
+}
+
+fn anim_tint(base: [f32; 4], state: AnimState) -> [f32; 4] {
+    let (r, g, b, a) = (base[0], base[1], base[2], base[3]);
+    match state {
+        AnimState::Idle => base,
+        AnimState::Move => [r * 0.85 + 0.15, g * 0.85 + 0.15, b * 0.7, a],
+        AnimState::Attack => [r * 0.55 + 0.45, g * 0.45, b * 0.35, a],
+        AnimState::Produce => [r * 0.55, g * 0.55 + 0.4, b * 0.7 + 0.25, a],
+        AnimState::Die => [0.2, 0.2, 0.2, 0.55],
+    }
 }
 
 const MARKER_WGSL: &str = r#"
