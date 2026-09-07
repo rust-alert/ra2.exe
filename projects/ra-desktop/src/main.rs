@@ -227,6 +227,10 @@ impl App {
                 if let Some(ra_session::MatchOutcome::Victory { owner }) = snap.outcome.as_ref() {
                     format!("{} · t{} · 胜 {owner}", self.title_base, snap.tick)
                 }
+                else if snap.paused {
+                    let reason = snap.pause_reason.as_deref().unwrap_or("已暂停");
+                    format!("{} · t{} · 暂停 · {reason}", self.title_base, snap.tick)
+                }
                 else {
                     let nsel = session.selected.len();
                     let sel = session.selected.first().copied();
@@ -427,6 +431,20 @@ impl ApplicationHandler for App {
                         if self.place_mode.is_some() {
                             self.place_mode = None;
                             ra_logger::info("建造模式 · 已关闭");
+                        }
+                    }
+                    PhysicalKey::Code(KeyCode::Space) => {
+                        if let Some(session) = self.session.as_mut() {
+                            session.toggle_pause();
+                            if session.paused {
+                                ra_logger::info(format!(
+                                    "暂停 · {}",
+                                    session.pause_reason.as_deref().unwrap_or("已暂停")
+                                ));
+                            }
+                            else {
+                                ra_logger::info("继续");
+                            }
                         }
                     }
                     PhysicalKey::Code(KeyCode::KeyP) => {
