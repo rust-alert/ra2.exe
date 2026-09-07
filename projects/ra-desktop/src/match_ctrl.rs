@@ -274,6 +274,26 @@ impl MatchController {
                 }
                 MatchNav::None
             }
+            WindowEvent::MouseInput {
+                state: ElementState::Released,
+                button: MouseButton::Left,
+                ..
+            } if !accept_commands =>
+            {
+                // 结算页：占位色块可点重开 / 回大厅（非原版按钮）。
+                let size = window.inner_size();
+                match hud_chrome::hit_results(self.cursor.0, self.cursor.1, size.width as f64, size.height as f64) {
+                    Some(hud_chrome::ResultsHit::Rematch) => {
+                        tracing::info!("结算 · 点击重开");
+                        MatchNav::Rematch
+                    }
+                    Some(hud_chrome::ResultsHit::ToLobby) => {
+                        tracing::info!("结算 · 点击返回大厅");
+                        MatchNav::ToMainMenu
+                    }
+                    None => MatchNav::None,
+                }
+            }
             WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. }
                 if accept_commands =>
             {
