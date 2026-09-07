@@ -6,7 +6,7 @@
 
 `HeadlessCase` 包装同一套 `ra-session`，通过 `GameCommand` 入队、`Session::tick` 推进，并产出包含 tick、状态摘要、胜负和 `RenderSnapshot` 的 `HeadlessObservation`。测试不创建窗口、不初始化 wgpu，也不读取用户安装目录。
 
-`standard_duel()` 提供两辆 `MTNK` 的合成遭遇战夹具，用于命令、移动、攻击、胜负与确定性回归。它不是 Alpha 最终的平衡数据或内容承诺。
+`standard_duel()` 提供两辆 `MTNK` 的合成遭遇战夹具，是 `alpha-skirmish-v1` 的最小战斗前身，用于命令、移动、攻击、胜负与确定性回归。完整竖切清单见 `alpha_skirmish_v1()`（建筑链、开局资金、MCV 类型等）。
 
 ```shell
 cargo test -p ra-testing
@@ -22,7 +22,7 @@ Windows 第一版执行器应独立放在测试工具或专属路径中，使用
 
 ## 下一步
 
-1. 为 Alpha 冻结地图、单位和胜负剧本后，用真实场景替换合成夹具。
+1. 用 `alpha_skirmish_v1` 驱动 MCV、建造、采矿与生产的 headless 剧本，逐步取代仅互殴的验收。
 2. 在 `ra-desktop` 增加仅测试构建可用的启动场景和可读状态接口：`--features test-harness`，`--test-scene=duel` / `RA2_TEST_SCENE`，以及 `RA2_TEST_STATUS_PATH` 旁路文件。
 3. 实现 Windows GUI 执行器，先覆盖启动、选中、移动、攻击、胜负、截图和退出。
 4. 把 headless 回归放入所有平台 CI，把 GUI 自动化放入 Windows 带桌面会话的独立作业。
