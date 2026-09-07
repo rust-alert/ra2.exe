@@ -29,5 +29,5 @@ pub use sound::SoundDefinitions;
 pub use structure::{HouseDefinitions, PowerProfile, StructureDefinition, StructureDefinitions};
 pub use techno::{TechnoClass, TechnoDefinition, TechnoDefinitions};
 pub use type_definition::TypeDefinitionId;
-pub use warhead::WarheadDefinitions;
+pub use warhead::{WarheadDefinition, WarheadDefinitions};
 pub use weapon::WeaponDefinitions;

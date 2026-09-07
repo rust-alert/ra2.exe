@@ -5,7 +5,7 @@
 use ra_assets::TechnoKind;
 use ra_types::{
     BuiltinCapability, DeployableDefinition, DeploymentPlacement, PowerProfile, ProductionCategory, ProductionProfile,
-    RuntimeDefinitions, StructureDefinition, TechnoClass, TechnoDefinition, TypeId,
+    RuntimeDefinitions, StructureDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition,
 };
 
 use crate::RulesDb;
@@ -38,6 +38,11 @@ pub fn build_runtime_definitions(rules: &RulesDb) -> RuntimeDefinitions {
             armor: tt.armor.clone(),
             speed: tt.speed,
             owner: tt.owner.clone(),
+            sight: tt.sight,
+            damage: tt.damage,
+            range: tt.range,
+            rof: tt.rof,
+            warhead: tt.warhead.to_ascii_uppercase(),
         });
 
         if tt.kind != TechnoKind::Building {
@@ -125,6 +130,25 @@ pub fn build_runtime_definitions(rules: &RulesDb) -> RuntimeDefinitions {
     }
 
     defs.production.count = defs.structures.iter().filter(|s| s.production.is_some()).count() as u32;
+
+    let mut warhead_keys: Vec<String> = defs
+        .techno
+        .iter()
+        .map(|t| t.warhead.clone())
+        .filter(|w| !w.is_empty())
+        .collect();
+    warhead_keys.sort();
+    warhead_keys.dedup();
+    for key in warhead_keys {
+        let verses = rules.warheads.get(&key).map(|w| w.verses).unwrap_or([100; 11]);
+        let id = alloc();
+        defs.warheads.insert(WarheadDefinition {
+            id,
+            type_key: key,
+            verses,
+        });
+    }
+
     defs
 }
 
