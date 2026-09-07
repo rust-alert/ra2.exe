@@ -92,6 +92,10 @@ pub struct WorldEntity {
     pub ore_trip_accum: u32,
     /// 生产队列：（类型 ID，剩余 tick）；空闲为 `None`。
     pub produce_queue: Option<(String, u32)>,
+    /// 生产集结格 X。
+    pub rally_x: Option<u16>,
+    /// 生产集结格 Y。
+    pub rally_y: Option<u16>,
     /// 生命归零后为真；不再移动/占格。
     pub dead: bool,
 }
@@ -175,6 +179,8 @@ impl World {
                     attack_cooldown: 0,
                     ore_trip_accum: 0,
                     produce_queue: None,
+                    rally_x: None,
+                    rally_y: None,
                     dead: false,
                 }
             })
@@ -534,6 +540,8 @@ impl World {
                         attack_cooldown: 0,
                         ore_trip_accum: 0,
                         produce_queue: None,
+                        rally_x: None,
+                        rally_y: None,
                         dead: false,
                     });
                 }
@@ -571,6 +579,27 @@ impl World {
                     self.players[player_index].funds -= cost;
                     self.entities[factory_index].produce_queue =
                         Some((type_id.to_ascii_uppercase(), PRODUCE_TICKS));
+                }
+                GameCommand::SetRallyPoint { factory_index, x, y } => {
+                    if factory_index >= self.entities.len() {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    }
+                    if self.entities[factory_index].dead {
+                        self.reject(command_index, CommandRejectReason::EntityDead);
+                        continue;
+                    }
+                    if !is_production_factory(&self.entities[factory_index].type_id) {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
+                    if !self.pass_grid.in_bounds(x, y) {
+                        self.reject(command_index, CommandRejectReason::InvalidPlacement);
+                        continue;
+                    }
+                    let e = &mut self.entities[factory_index];
+                    e.rally_x = Some(x);
+                    e.rally_y = Some(y);
                 }
             }
         }
@@ -631,6 +660,10 @@ impl World {
         let owner = factory.owner.clone();
         let fx = factory.x;
         let fy = factory.y;
+        let rally = match (factory.rally_x, factory.rally_y) {
+            (Some(rx), Some(ry)) => Some((rx, ry)),
+            _ => None,
+        };
         let Some((x, y)) = self.find_spawn_cell(fx, fy)
         else {
             return;
@@ -643,6 +676,7 @@ impl World {
         };
         let max_health = tt.strength.max(1);
         let id = self.alloc_entity_id();
+        let unit_index = self.entities.len();
         self.entities.push(WorldEntity {
             id,
             kind,
@@ -669,8 +703,18 @@ impl World {
             attack_cooldown: 0,
             ore_trip_accum: 0,
             produce_queue: None,
+            rally_x: None,
+            rally_y: None,
             dead: false,
         });
+        if let Some((rx, ry)) = rally {
+            let e = &mut self.entities[unit_index];
+            e.target_x = Some(rx);
+            e.target_y = Some(ry);
+            e.path.clear();
+            e.move_accum = 0;
+            repath_at(&mut self.entities, unit_index, &self.pass_grid);
+        }
     }
 
     fn find_spawn_cell(&self, fx: u16, fy: u16) -> Option<(u16, u16)> {
@@ -787,6 +831,10 @@ impl World {
                     h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
                 }
             }
+            h = h
+                .wrapping_mul(1099511628211)
+                .wrapping_add(e.rally_x.map(u64::from).unwrap_or(0))
+                .wrapping_add(e.rally_y.map(|v| u64::from(v) << 16).unwrap_or(0));
             for b in e.type_id.as_bytes() {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
             }
@@ -845,6 +893,14 @@ fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
             }
         }
+        GameCommand::SetRallyPoint { factory_index, x, y } => {
+            h = h.wrapping_mul(1099511628211).wrapping_add(6);
+            h = h
+                .wrapping_mul(1099511628211)
+                .wrapping_add(factory_index as u64)
+                .wrapping_add((x as u64) << 16)
+                .wrapping_add((y as u64) << 32);
+        }
     }
     h
 }
@@ -880,6 +936,10 @@ fn factory_matches_unit(factory_type: &str, kind: TechnoKind) -> bool {
         TechnoKind::Vehicle => matches!(factory_type, "GAWEAP" | "NAWEAP"),
         TechnoKind::Aircraft | TechnoKind::Building => false,
     }
+}
+
+fn is_production_factory(type_id: &str) -> bool {
+    matches!(type_id, "GAPILE" | "NAHAND" | "GAWEAP" | "NAWEAP")
 }
 
 /// 冻结竖切建筑的电力增量（正=供电，负=耗电）。后续由 adaptor 定义替换。
