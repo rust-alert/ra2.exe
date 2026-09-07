@@ -11,6 +11,7 @@ use super::{entities::WorldEntity, players::PlayerState};
 use crate::{
     gameplay::{full_verses, verses_for},
     game::{CommandReject, GameCommand, InputFrame},
+    presentation::DirtyEntitySet,
     spatial::{is_mobile, repath_at},
 };
 
@@ -71,6 +72,8 @@ pub struct MatchState {
     /// 上一 tick 产生的命令拒绝记录。
     pub(crate) last_rejects: Vec<CommandReject>,
     pub(crate) state_hash: u64,
+    /// 呈现脏实体集（增量 `RenderWorld` 用；与全量 snapshot 并存）。
+    pub(crate) presentation_dirty: DirtyEntitySet,
 }
 
 impl MatchState {
@@ -154,12 +157,29 @@ impl MatchState {
             last_input_frame: InputFrame::empty(0),
             last_rejects: Vec::new(),
             state_hash: 0,
+            presentation_dirty: DirtyEntitySet::new(),
         };
         for i in 0..world.entities.len() {
             repath_at(&mut world.entities, i, &world.pass_grid);
+            world.mark_entity_dirty(world.entities[i].id);
         }
         world.rehash();
         world
+    }
+
+    /// 标记实体对呈现层变脏。
+    pub fn mark_entity_dirty(&mut self, id: EntityId) {
+        self.presentation_dirty.mark(id);
+    }
+
+    /// 只读查看当前脏集（可能含重复）。
+    pub fn presentation_dirty(&self) -> &DirtyEntitySet {
+        &self.presentation_dirty
+    }
+
+    /// 取出并清空脏集（排序去重），供帧构建消费。
+    pub fn take_presentation_dirty(&mut self) -> Vec<EntityId> {
+        self.presentation_dirty.drain()
     }
 
     /// 入队命令载荷；自动包装为 [`ScheduledCommand`]（发出者为本地玩家，tick 为下一消费 tick）。

@@ -320,6 +320,8 @@ impl crate::state::MatchState {
                     e.armor = armor;
                     e.techno_kind = Some(TechnoKind::Building);
                     e.hva_frame = 0;
+                    let dirty_id = e.id;
+                    self.mark_entity_dirty(dirty_id);
                 }
                 GameCommand::PlaceBuilding { player, ref type_id, x, y } => {
                     let Some(player_index) = self.players.iter().position(|p| p.id == player)
@@ -401,6 +403,7 @@ impl crate::state::MatchState {
                         hit_flash: 0,
                         dead: false,
                     });
+                    self.mark_entity_dirty(id);
                 }
                 GameCommand::Produce { player, ref type_id } => {
                     let Some(player_index) = self.players.iter().position(|p| p.id == player)
@@ -443,6 +446,7 @@ impl crate::state::MatchState {
                     self.players[player_index].funds -= cost;
                     self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_add(cost);
                     self.entities[factory_index].produce_queue = Some((Arc::<str>::from(type_id.to_ascii_uppercase()), PRODUCE_TICKS));
+                    self.mark_entity_dirty(self.entities[factory_index].id);
                 }
                 GameCommand::SetRallyPoint { factory, x, y } => {
                     let Some(factory_index) = self.entity_index(factory) else {
@@ -464,6 +468,8 @@ impl crate::state::MatchState {
                     let e = &mut self.entities[factory_index];
                     e.rally_x = Some(x);
                     e.rally_y = Some(y);
+                    let id = e.id;
+                    self.mark_entity_dirty(id);
                 }
             }
         }

@@ -99,6 +99,7 @@ impl crate::state::MatchState {
             hit_flash: 0,
             dead: false,
         });
+        self.mark_entity_dirty(id);
         if let Some((rx, ry)) = rally {
             let e = &mut self.entities[unit_index];
             e.target_x = Some(rx);
