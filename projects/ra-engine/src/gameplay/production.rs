@@ -9,7 +9,7 @@ use crate::{
     state::{ATTACK_COOLDOWN_TICKS, WorldEntity},
 };
 
-impl crate::state::World {
+impl crate::state::MatchState {
     pub(crate) fn advance_production(&mut self) {
         let mut spawns: Vec<(usize, String)> = Vec::new();
         for (index, e) in self.entities.iter_mut().enumerate() {

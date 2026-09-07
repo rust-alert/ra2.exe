@@ -110,7 +110,7 @@ pub(crate) fn step_along_path(entity: &mut WorldEntity) -> bool {
     true
 }
 
-impl crate::state::World {
+impl crate::state::MatchState {
     pub(crate) fn advance_movement(&mut self) {
         let n = self.entities.len();
         for i in 0..n {

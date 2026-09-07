@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{Session, World};
+use ra_engine::{Session, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -49,7 +49,7 @@ fn ai_deploys_mcv_via_command() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "ai-deploy");
+    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "ai-deploy");
     session.ai_enabled = true;
     session.tick();
     assert_eq!(session.world.entities[1].kind, MapEntityKind::Structure);

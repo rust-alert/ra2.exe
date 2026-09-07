@@ -2,11 +2,11 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{CommandRejectReason, GameCommand, World};
+use ra_engine::{CommandRejectReason, GameCommand, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
 
-fn mcv_world() -> World {
+fn mcv_world() -> MatchState {
     let rules_text = b"[VehicleTypes]\n0=AMCV\n1=MTNK\n\
 [BuildingTypes]\n0=GACNST\n\
 [AMCV]\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
@@ -35,7 +35,7 @@ fn mcv_world() -> World {
         facing: 0,
         sub_cell: 0,
     }];
-    World::new(GameEdition::Ra2, &rules_db, map)
+    MatchState::new(GameEdition::Ra2, &rules_db, map)
 }
 
 #[test]

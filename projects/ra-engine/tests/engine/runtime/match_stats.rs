@@ -1,7 +1,7 @@
 //! 胜负时锁定 MatchStats。
 
 use crate::common::rules_with_mtnk;
-use ra_engine::{GameCommand, MatchOutcome, Session, World};
+use ra_engine::{GameCommand, MatchOutcome, Session, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -31,7 +31,7 @@ fn victory_locks_match_stats() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "stats");
+    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "stats");
     session.world.entities[0].attack_damage = 80;
     session.world.entities[0].attack_range = 4;
     session.world.entities[0].attack_cooldown_max = 1;

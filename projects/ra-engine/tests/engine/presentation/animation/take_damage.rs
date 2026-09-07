@@ -1,7 +1,7 @@
 //! 受击闪白派生 TakeDamage 动画状态。
 
 use crate::common::rules_with_mtnk;
-use ra_engine::{AnimState, GameCommand, HIT_FLASH_TICKS, Session, World};
+use ra_engine::{AnimState, GameCommand, HIT_FLASH_TICKS, Session, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -31,7 +31,7 @@ fn snapshot_anim_state_take_damage_then_die() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "hit");
+    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "hit");
     // 压低生命，下一击即可致死或可见闪白。
     session.world.entities[1].health = 30;
     session.world.entities[0].attack_damage = 20;

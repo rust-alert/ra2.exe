@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{GameCommand, MatchOutcome, RenderSnapshot, Session, World};
+use ra_engine::{GameCommand, MatchOutcome, MatchState, RenderSnapshot, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -103,8 +103,8 @@ pub fn standard_duel() -> HeadlessCase {
             sub_cell: 0,
         },
     ];
-    let world = World::new(GameEdition::Ra2, &rules_db, map);
-    HeadlessCase::new(Session::new(world, "ra-testing standard duel"))
+    let world = MatchState::new(GameEdition::Ra2, &rules_db, map);
+    HeadlessCase::new(Session::from_state(world, "ra-testing standard duel"))
 }
 
 /// 单人 MCV 开局夹具：播种盟军 MCV 与冻结竖切初始资金，供部署/经济 headless 使用。
@@ -138,9 +138,9 @@ pub fn mcv_deploy_open() -> HeadlessCase {
         facing: 0,
         sub_cell: 0,
     }];
-    let mut world = World::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = MatchState::new(GameEdition::Ra2, &rules_db, map);
     assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
-    HeadlessCase::new(Session::new(world, "ra-testing mcv deploy open"))
+    HeadlessCase::new(Session::from_state(world, "ra-testing mcv deploy open"))
 }
 
 /// 已展开建造场的开局夹具，供放置建筑 / 经济 headless 使用。
@@ -177,9 +177,9 @@ pub fn yard_open() -> HeadlessCase {
         facing: 0,
         sub_cell: 0,
     }];
-    let mut world = World::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = MatchState::new(GameEdition::Ra2, &rules_db, map);
     assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
-    HeadlessCase::new(Session::new(world, "ra-testing yard open"))
+    HeadlessCase::new(Session::from_state(world, "ra-testing yard open"))
 }
 
 /// 双人 AI 遭遇战开局：本地盟军建造场 + 苏军 MCV，AI 经 `GameCommand` 展开基地。
@@ -247,10 +247,10 @@ pub fn ai_skirmish_open() -> HeadlessCase {
             sub_cell: 0,
         },
     ];
-    let mut world = World::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = MatchState::new(GameEdition::Ra2, &rules_db, map);
     assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
     assert!(world.set_house_funds(slice.ai_house, slice.starting_funds));
-    let mut session = Session::new(world, "ra-testing ai skirmish open");
+    let mut session = Session::from_state(world, "ra-testing ai skirmish open");
     session.ai_enabled = true;
     HeadlessCase::new(session)
 }

@@ -2,7 +2,7 @@
 
 use crate::common::{map_with_size, rules_with_mtnk};
 use ra_assets::TechnoKind;
-use ra_engine::{ATTACK_COOLDOWN_TICKS, World};
+use ra_engine::{ATTACK_COOLDOWN_TICKS, MatchState};
 use ra_map::{MapEntity, MapEntityKind};
 use ra_types::GameEdition;
 
@@ -20,7 +20,7 @@ fn binds_strength_and_speed() {
         facing: 64,
         sub_cell: 0,
     });
-    let world = World::new(GameEdition::Ra2, &rules, map);
+    let world = MatchState::new(GameEdition::Ra2, &rules, map);
     assert_eq!(world.entities.len(), 1);
     let e = &world.entities[0];
     assert_eq!(e.max_health, 400);

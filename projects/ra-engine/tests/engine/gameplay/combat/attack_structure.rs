@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{GameCommand, World};
+use ra_engine::{GameCommand, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -51,7 +51,7 @@ fn attack_structure_kills_and_frees_cell() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut world = World::new(GameEdition::Ra2, &rules, map);
+    let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
     world.pass_grid.set_passable(6, 4, false);
     world.players[1].power_output = 200;
     assert!(!world.pass_grid.is_passable(6, 4));

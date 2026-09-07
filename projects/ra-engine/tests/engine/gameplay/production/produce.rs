@@ -2,11 +2,11 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{CommandRejectReason, GameCommand, PRODUCE_TICKS, World};
+use ra_engine::{CommandRejectReason, GameCommand, PRODUCE_TICKS, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition, PlayerId};
 
-fn factory_world() -> World {
+fn factory_world() -> MatchState {
     let rules_text = b"[InfantryTypes]\n0=E1\n\
 [VehicleTypes]\n0=MTNK\n\
 [BuildingTypes]\n0=GAPILE\n1=GAWEAP\n\
@@ -49,7 +49,7 @@ fn factory_world() -> World {
             sub_cell: 0,
         },
     ];
-    let mut world = World::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = MatchState::new(GameEdition::Ra2, &rules_db, map);
     assert!(world.set_house_funds("Americans", 10_000));
     world
 }

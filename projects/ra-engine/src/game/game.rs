@@ -1,8 +1,10 @@
-//! 对局运行时：持有世界、转发命令、产出呈现快照。
+//! 一局 RTS 游戏：权威状态、命令推进与结算。
 //!
-//! 不碰窗口与 GPU；可通过 `AssetSource` 装载遭遇战（见 `boot`）。
+//! 不碰窗口与 GPU；不持有 UI 选中（选中属桌面 LocalPlayerController）。
 
-use crate::{CommandReject, GameCommand, World};
+use crate::game::commands::GameCommand;
+use crate::game::reject::CommandReject;
+use crate::state::MatchState;
 use ra_map::{MapEntityKind, iso_to_screen, screen_to_iso};
 use ra_net::{MatchFingerprint, StateDigest};
 use ra_types::GameEdition;
@@ -44,7 +46,7 @@ pub struct RenderSnapshot {
     pub screen: SessionScreen,
 }
 
-/// 会话画面（供桌面流程切换，不进入 World tick）。
+/// 会话画面（供桌面流程切换，不进入 MatchState tick）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SessionScreen {
     /// 对局进行中（含暂停）。
@@ -71,7 +73,7 @@ pub struct SnapshotPlayer {
 /// 快照中的一条工厂生产队列。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SnapshotProduceQueue {
-    /// 工厂在 `World::entities` 中的下标。
+    /// 工厂在 `MatchState::entities` 中的下标。
     pub factory_index: usize,
     /// 正在生产的类型 ID。
     pub type_id: String,
@@ -86,7 +88,7 @@ pub struct SnapshotProduceQueue {
 /// 快照中的一个可绘实体。
 #[derive(Debug, Clone)]
 pub struct SnapshotUnit {
-    /// 在 `World::entities` 中的下标。
+    /// 在 `MatchState::entities` 中的下标。
     pub index: usize,
     /// 实体种类（单位 / 步兵 / 飞行器）。
     pub kind: MapEntityKind,
@@ -108,7 +110,7 @@ pub struct SnapshotUnit {
     pub turret_facing: u8,
     /// 当前 HVA 动画帧。
     pub hva_frame: u16,
-    /// 呈现用动画状态（由仿真快照派生，不推进 World tick）。
+    /// 呈现用动画状态（由仿真快照派生，不推进 MatchState tick）。
     pub anim_state: AnimState,
     /// 当前生命值。
     pub health: u32,
@@ -167,12 +169,12 @@ pub struct MatchStats {
 
 /// 运行中会话。
 #[derive(Debug)]
-pub struct Session {
+pub struct Game {
     /// 仿真世界（规则、地图、实体、通行格）。
-    pub world: World,
+    pub world: MatchState,
     /// 装载或启动时的备注（规则统计、实体数等）。
     pub boot_note: String,
-    /// 当前选中的实体下标（本地玩家操作）。
+    /// 本地选中下标（过渡：应迁出至桌面 LocalPlayerController；非权威状态）。
     pub selected: Vec<usize>,
     /// 预览图画布原点 X（等距屏幕坐标），用于点选逆变换。
     pub preview_origin_x: i32,
@@ -196,9 +198,9 @@ pub struct Session {
     pub ai_enabled: bool,
 }
 
-impl Session {
+impl Game {
     /// 用已有世界与装载备注创建会话（默认 tick 频率与空指纹）。
-    pub fn new(world: World, boot_note: impl Into<String>) -> Self {
+    pub fn new(world: MatchState, boot_note: impl Into<String>) -> Self {
         Self {
             world,
             boot_note: boot_note.into(),
@@ -223,7 +225,7 @@ impl Session {
 
     /// 由世界与装载备注打开一局（设置预览原点与指纹）。
     pub fn open_skirmish(
-        world: World,
+        world: MatchState,
         boot_note: impl Into<String>,
         preview_origin: (i32, i32),
         fingerprint: MatchFingerprint,
