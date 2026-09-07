@@ -1,0 +1,11 @@
+[package]
+name = "ra-engine"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "一局游戏运行时：命令、固定 tick、权威状态与呈现投影"
+
+[dependencies]
+ra-session = { workspace = true }
+ra-world = { workspace = true }
