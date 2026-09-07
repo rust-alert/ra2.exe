@@ -164,7 +164,25 @@ hash / outcome 供自动化轮询。
 
 ## 关键页截图（验收用，不进 git）
 
-运行中按 **F12** 将当前画面写入 `screenshots/{screen}_{unix_ms}.png`（可用 `RA2_SCREENSHOT_DIR` 改目录）。
+### 自动测试导出（推荐对照）
+
+```shell
+cargo test -p ra-desktop dump_key_ui_screenshots_for_acceptance -- --nocapture
+```
+
+会在包目录下 `projects/ra-desktop/screenshots/acceptance/`（或 `RA2_SCREENSHOT_DIR/acceptance/`）写出稳定文件名（覆盖）：
+
+- `main_menu.png` / `single_player_menu.png` / `skirmish_lobby.png`
+- `load_screen.png` / `options.png` / `network.png`
+- `match.png` / `results.png`（合成底图 + 占位 HUD chrome）
+
+无窗口、无安装目录即可跑。色块占位 **不是** 原版 SHP；打开这些 PNG 可对照页面布局与可点区。
+
+也可用 `RA2_SCREENSHOT_DIR` 改根目录。
+
+### 运行中手动 / 自动回读
+
+运行中按 **F12** 将当前 GPU 画面写入 `screenshots/{screen}_{unix_ms}.png`。
 
 进入关键页时自动各截一次：
 
