@@ -20,6 +20,7 @@ use crate::{
     preview_job::PreviewJob,
     screen::OriginalScreen,
     screenshot::AutoScreenshotTracker,
+    skirmish_setup::SkirmishBootRequest,
     ui_assets::{
         MenuUiProbe, probe_menu_ui_assets, stamp_bottom_right_opaque, stamp_bottom_right_pending,
         stamp_norm_progress_bar, stamp_top_left, stamp_top_right,
@@ -71,6 +72,8 @@ pub struct AppShell {
     pending_screenshot: Option<&'static str>,
     /// 自动关键页截图去重。
     auto_screenshots: AutoScreenshotTracker,
+    /// 遭遇战大厅阵营 / 难度（进入装载请求）。
+    skirmish: SkirmishBootRequest,
 }
 
 impl AppShell {
@@ -120,6 +123,7 @@ impl AppShell {
             ui_probe: None,
             pending_screenshot: None,
             auto_screenshots: AutoScreenshotTracker::default(),
+            skirmish: SkirmishBootRequest::default_lobby(),
         }
     }
 
@@ -151,6 +155,7 @@ impl AppShell {
             ui_probe: None,
             pending_screenshot: None,
             auto_screenshots: AutoScreenshotTracker::default(),
+            skirmish: SkirmishBootRequest::default_lobby(),
         }
     }
 
@@ -161,6 +166,9 @@ impl AppShell {
         self.lobby_maps = crate::boot::list_install_boot_maps();
         if self.selected_map.is_none() {
             self.selected_map = self.lobby_maps.first().map(|m| m.file_name.clone());
+        }
+        if self.skirmish.preferred_map.is_none() {
+            self.skirmish.preferred_map = self.selected_map.clone();
         }
         tracing::info!(
             count = self.lobby_maps.len(),
@@ -313,6 +321,8 @@ impl AppShell {
                 h,
                 &self.lobby_maps,
                 self.selected_map.as_deref(),
+                self.skirmish.side.as_str(),
+                self.skirmish.difficulty.as_str(),
                 self.menu_hover,
                 self.menu_pressed,
             );
@@ -413,9 +423,22 @@ impl AppShell {
             MenuAction::StartSkirmish => self.begin_skirmish_load(),
             MenuAction::CancelLoad => self.cancel_skirmish_load(),
             MenuAction::Noop => {}
+            MenuAction::CycleSide => {
+                self.skirmish.cycle_side();
+                self.banner = format!("阵营 · {}", self.skirmish.side);
+                self.refresh_menu_backdrop();
+                self.refresh_shell_title();
+            }
+            MenuAction::CycleDifficulty => {
+                self.skirmish.cycle_difficulty();
+                self.banner = format!("难度 · {}", self.skirmish.difficulty);
+                self.refresh_menu_backdrop();
+                self.refresh_shell_title();
+            }
             MenuAction::SelectMap(i) => {
                 if let Some(map) = self.lobby_maps.get(i) {
                     self.selected_map = Some(map.file_name.clone());
+                    self.skirmish.preferred_map = Some(map.file_name.clone());
                     self.refresh_menu_backdrop();
                     self.refresh_shell_title();
                 }
@@ -449,7 +472,10 @@ impl AppShell {
                         )
                     })
                     .unwrap_or_else(|| "（无可用图）".into());
-                format!("ra2 · 遭遇战大厅 · {detail} · ←/→ 切换 · Enter 开始 · Esc 返回 · F12 截图")
+                format!(
+                    "ra2 · 遭遇战大厅 · {detail} · {}/{} · ←/→ 图 · Enter 开始 · Esc 返回 · F12 截图",
+                    self.skirmish.side, self.skirmish.difficulty
+                )
             }
             OriginalScreen::Network => "ra2 · 网络（占位禁用）· Esc 返回 · F12 截图".into(),
             OriginalScreen::LoadScreen => format!("ra2 · 加载 · {} · F12 截图", self.banner),
@@ -479,7 +505,11 @@ impl AppShell {
                 return;
             }
         }
-        self.load_job = Some(LoadJob::start_install_boot(self.selected_map.clone()));
+        self.load_job = Some(LoadJob::start_install_boot({
+            let mut req = self.skirmish.clone();
+            req.preferred_map = self.selected_map.clone();
+            req
+        }));
     }
 
     /// 放弃进行中的装载并回到遭遇战大厅（工作线程结果会被丢弃）。
