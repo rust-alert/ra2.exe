@@ -8,7 +8,8 @@
 
 仓库 **不包含**原版 MIX / INI / 音频 / 地图等资源文件。运行前请自行准备合法取得的游戏安装目录。
 
-阅读建议按动线前进：准备数据与配置 → 构建运行 → 理解启动时发生了什么 → 再看以 `ra-engine` 为重心的分层与各 crate 文档。
+从配置与构建开始，再往下看启动与架构：准备数据与配置 → 构建运行 → 理解启动时发生了什么 → 再看以 `ra-engine` 为重心的分层与各
+crate 文档。
 
 ---
 
@@ -108,7 +109,6 @@ flowchart TB
     subgraph runtime["对局运行时 · 重心"]
         engine["ra-engine"]
         ecs["ra-ecs"]
-        defs["ra-definition"]
     end
 
     subgraph content["内容投影"]
@@ -121,10 +121,9 @@ flowchart TB
         config["ra-config"]
     end
 
-    types["ra-types"]
+    types["ra-types<br/>含 RuntimeDefinitions"]
     net["ra-net"]
     testing["ra-testing"]
-
     desktop --> config
     desktop --> renderer
     desktop --> engine
@@ -135,16 +134,13 @@ flowchart TB
     webui -.-> engine
     renderer --> engine
     engine --> ecs
-    engine --> defs
     engine --> map
     engine --> adaptor
     map --> assets
     adaptor --> assets
-    adaptor --> defs
     assets --> types
     config --> types
     adaptor --> types
-    defs --> types
     ecs --> types
     engine --> types
     renderer --> types
@@ -161,7 +157,6 @@ flowchart TB
 ```mermaid
 flowchart LR
     types[ra-types]
-    defs[ra-definition]
     ecs[ra-ecs]
     ra2a[ra-adaptor-ra2]
     yra[ra-adaptor-yuri]
@@ -179,11 +174,9 @@ flowchart LR
     ra2a --> types
     yra --> types
     phobos --> types
-    defs --> types
     ecs --> types
     ad --> types
     ad --> as
-    ad --> defs
     ad --> ra2a
     ad --> yra
     ad --> phobos
@@ -193,7 +186,6 @@ flowchart LR
     mp --> as
     eng --> types
     eng --> ecs
-    eng --> defs
     eng --> ad
     eng --> mp
     eng --> as
@@ -224,8 +216,7 @@ ra2.exe/                 工作区根（本 README）
 ├── License.md           MPL-2.0
 ├── scripts/             仓库内开发用脚本
 └── projects/
-    ├── ra-types/
-    ├── ra-definition/
+    ├── ra-types/        → 基类型 + RuntimeDefinitions
     ├── ra-ecs/
     ├── ra-adaptor/ · ra-adaptor-ra2/ · ra-adaptor-yuri/ · ra-adaptor-phobos/
     ├── ra-assets/
@@ -246,30 +237,29 @@ map / assets / renderer。
 
 ## Crate 一览
 
-| Crate               | 作用                                              | 文档                                           |
-|---------------------|---------------------------------------------------|------------------------------------------------|
-| `ra-types`          | 基类型：标识、坐标、定点数、错误、`AssetSource`   | [readme](projects/ra-types/readme.md)          |
-| `ra-definition`     | adaptor 输出、engine 消费的冻结运行时定义契约     | [readme](projects/ra-definition/readme.md)     |
-| `ra-ecs`            | 通用实体/组件存储与结构变更（无 RTS 语义）        | [readme](projects/ra-ecs/readme.md)            |
-| `ra-assets`         | Westwood 格式与 INI 派生表                        | [readme](projects/ra-assets/readme.md)         |
-| `ra-config`         | 配置来源合并与诊断                                | [readme](projects/ra-config/readme.md)         |
-| `ra-map`            | 地图 / 剧院 / 通行与预览装配                      | [readme](projects/ra-map/readme.md)            |
-| `ra-adaptor`        | 版本探测、组合适配、资源链与规则投影              | [readme](projects/ra-adaptor/readme.md)        |
-| `ra-adaptor-ra2`    | 原版资源表                                        | [readme](projects/ra-adaptor-ra2/readme.md)    |
-| `ra-adaptor-yuri`   | 尤里的复仇资源表                                  | [readme](projects/ra-adaptor-yuri/readme.md)   |
-| `ra-adaptor-phobos` | Phobos / MO 布局资源表                            | [readme](projects/ra-adaptor-phobos/readme.md) |
-| `ra-engine`         | **一局对局：命令、固定 tick、权威状态、呈现快照** | [readme](projects/ra-engine/readme.md)         |
-| `ra-net`            | 联机协议无关基础类型（Beta 接入点）               | [readme](projects/ra-net/readme.md)            |
-| `ra-testing`        | headless 夹具与 GUI 自动化计划（非运行时）        | [readme](projects/ra-testing/readme.md)        |
-| `ra-renderer`       | 呈现（只消费引擎快照）                            | [readme](projects/ra-renderer/readme.md)       |
-| `ra-desktop`        | 原生 GUI 壳 → **`ra2` / `ra2.exe`**               | [readme](projects/ra-desktop/readme.md)        |
-| `ra-webui`          | Wasm 壳                                           | [readme](projects/ra-webui/readme.md)          |
+| Crate               | 作用                                                 | 文档                                           |
+|---------------------|------------------------------------------------------|------------------------------------------------|
+| `ra-types`          | 基类型 + 冻结 `RuntimeDefinitions`（全体层共同语言） | [readme](projects/ra-types/readme.md)          |
+| `ra-ecs`            | 通用实体/组件存储与结构变更（无 RTS 语义）           | [readme](projects/ra-ecs/readme.md)            |
+| `ra-assets`         | Westwood 格式与 INI 派生表                           | [readme](projects/ra-assets/readme.md)         |
+| `ra-config`         | 配置来源合并与诊断                                   | [readme](projects/ra-config/readme.md)         |
+| `ra-map`            | 地图 / 剧院 / 通行与预览装配                         | [readme](projects/ra-map/readme.md)            |
+| `ra-adaptor`        | 版本探测、组合适配、资源链与规则投影                 | [readme](projects/ra-adaptor/readme.md)        |
+| `ra-adaptor-ra2`    | 原版资源表                                           | [readme](projects/ra-adaptor-ra2/readme.md)    |
+| `ra-adaptor-yuri`   | 尤里的复仇资源表                                     | [readme](projects/ra-adaptor-yuri/readme.md)   |
+| `ra-adaptor-phobos` | Phobos / MO 布局资源表                               | [readme](projects/ra-adaptor-phobos/readme.md) |
+| `ra-engine`         | **一局对局：命令、固定 tick、权威状态、呈现快照**    | [readme](projects/ra-engine/readme.md)         |
+| `ra-net`            | 联机协议无关基础类型（Beta 接入点）                  | [readme](projects/ra-net/readme.md)            |
+| `ra-testing`        | headless 夹具与 GUI 自动化计划（非运行时）           | [readme](projects/ra-testing/readme.md)        |
+| `ra-renderer`       | 呈现（只消费引擎快照）                               | [readme](projects/ra-renderer/readme.md)       |
+| `ra-desktop`        | 原生 GUI 壳 → **`ra2` / `ra2.exe`**                  | [readme](projects/ra-desktop/readme.md)        |
+| `ra-webui`          | Wasm 壳                                              | [readme](projects/ra-webui/readme.md)          |
 
 ---
 
 ## 设计要点
 
-- **共内核**：版本与扩展差异尽量落在 adaptor 与数据；仿真与呈现共用 `ra-engine` / `ra-renderer`。
+- **共享内核**：版本与扩展差异尽量落在 adaptor 与数据；仿真与呈现共用 `ra-engine` / `ra-renderer`。
 - **I/O 边界**：解析器只吃字节（`AssetSource` / 资源挂载）；文件系统与窗口留在壳层。
 - **现代 GPU**：呈现路径基于现代图形 API；不把 DirectDraw / 原版 exe 注入作为主路径。
 - **可测运行时**：`ra-testing` 经 `ra-engine` 做无窗口确定性回归；完整启动验证需自备游戏目录。
@@ -280,4 +270,3 @@ map / assets / renderer。
 
 - 引擎源代码： **MPL-2.0**（[`License.md`](License.md)）。
 - 游戏资源：由用户自行提供；请确保你有权使用对应安装文件。
-- 作者信息见各 `Cargo.toml` 的 `authors` 字段。

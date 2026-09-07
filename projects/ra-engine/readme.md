@@ -6,13 +6,6 @@ UI、动画与渲染使用的只读快照。它不创建操作系统窗口，不
 
 若你正在查找「世界如何往前走」「命令如何被拒绝」「胜负如何判定」「HUD 资金从哪来」，答案应首先落在本包，而不是渲染器或桌面事件循环。
 
-## 读者动线
-
-1. 理解本包在整仓中的位置（下文「在仓库中的位置」）。
-2. 弄清对外能力：开局、提交命令、推进 tick、暂停、取快照与摘要（「对外职责」）。
-3. 再进入内部正交模块：runtime / state / spatial / gameplay / lifecycle / presentation / persistence。
-4. 最后看测试入口与构建命令。
-
 ```mermaid
 flowchart LR
   A[壳层提交命令] --> B[runtime 校验与调度]
@@ -39,11 +32,10 @@ flowchart TB
 
   subgraph deps["本包依赖"]
     ecs[ra-ecs]
-    def[ra-definition]
     map[ra-map]
     ad[ra-adaptor]
     assets[ra-assets]
-    types[ra-types]
+    types["ra-types<br/>RuntimeDefinitions"]
   end
 
   desk --> eng
@@ -51,7 +43,6 @@ flowchart TB
   ren --> eng
   net --> eng
   eng --> ecs
-  eng --> def
   eng --> map
   eng --> ad
   eng --> assets
@@ -61,7 +52,7 @@ flowchart TB
 硬边界：
 
 - **消费方不得**把 ECS 内部句柄、组件存储下标或 `World` 可变借用当作长期公开 API 扩散到 UI / 网络协议。
-- **adaptor 不得**依赖本 crate；冻结定义经 `ra-definition`（及当前过渡中的 Rules 投影）单向流入。
+- **adaptor 不得**依赖本 crate；冻结定义经 `ra-types::RuntimeDefinitions`（及当前过渡中的 Rules 投影）单向流入。
 - **渲染器不得**为了播动画去改权威生命值或占格；逻辑死亡与爆炸播放解耦。
 
 ## 对外职责

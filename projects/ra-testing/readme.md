@@ -6,14 +6,6 @@
 核心原则： **测试必须与产品走同一条路**——通过 `ra-engine` 的 `Session`、`GameCommand` 与 `Session::tick`
 推进，而不是复制一份简化仿真。Headless 用例不创建窗口、不初始化 wgpu、不读取用户安装目录。
 
-## 读者动线
-
-1. 理解 headless 与 GUI 自动化在本仓测试策略中的角色（「它是什么」）。
-2. 看清与 `ra-engine` 的关系（「在仓库中的位置」）。
-3. 编写集成测试：标准决斗、MCV 部署、竖切清单（「如何使用」）。
-4. `HeadlessCase`、`GuiAutomationPlan`、`AlphaSkirmishSlice` 设计（「内部设计」）。
-5. 运行测试与许可证。
-
 ## 它是什么
 
 RTS 引擎的质量依赖三类验证：
