@@ -267,12 +267,24 @@ pub fn dump_all_key_screens_to(dir: impl AsRef<Path>) -> RaResult<Vec<PathBuf>> 
         h,
         &maps,
         Some("mp03t4.map"),
-        "allies",
-        "normal",
+        "Americans",
+        "Normal",
         Some(0),
         None,
     );
     out.push(save_acceptance_png(dir, OriginalScreen::SkirmishLobby.as_str(), &lobby.image)?);
+
+    let lobby_alt = layout_skirmish_lobby(
+        w,
+        h,
+        &maps,
+        Some("sample_snow.map"),
+        "Russians",
+        "Hard",
+        None,
+        None,
+    );
+    out.push(save_acceptance_png(dir, "skirmish_lobby_alt", &lobby_alt.image)?);
 
     let mut match_img = solid_bg(w, h, [24, 48, 28, 255]);
     let hud = sample_hud();
@@ -331,6 +343,7 @@ mod tests {
         assert!(dir.join("main_menu.png").exists());
         assert!(dir.join("main_menu_hover.png").exists());
         assert!(dir.join("skirmish_lobby.png").exists());
+        assert!(dir.join("skirmish_lobby_alt.png").exists());
         assert!(dir.join("match.png").exists());
         assert!(dir.join("results.png").exists());
     }
