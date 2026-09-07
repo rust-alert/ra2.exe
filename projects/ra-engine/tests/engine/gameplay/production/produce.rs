@@ -12,8 +12,8 @@ fn factory_world() -> MatchState {
 [BuildingTypes]\n0=GAPILE\n1=GAWEAP\n\
 [E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\n\
 [MTNK]\nStrength=200\nSpeed=64\nSight=6\nCost=800\n\
-[GAPILE]\nStrength=500\nSight=5\nCost=500\n\
-[GAWEAP]\nStrength=1000\nSight=5\nCost=2000\n";
+[GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\n\
+[GAWEAP]\nPower=-30\nPowered=yes\nFactory=UnitType\nOwner=Americans\nStrength=1000\nSight=5\nCost=2000\n";
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
     let rules_db = RulesDb {
         edition: GameEdition::Ra2,

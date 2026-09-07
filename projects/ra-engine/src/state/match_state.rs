@@ -1,9 +1,11 @@
 //! 确定性世界推进。不依赖渲染器与文件系统。
 
-use ra_adaptor::RulesDb;
+use std::sync::Arc;
+
+use ra_adaptor::{RulesDb, build_runtime_definitions};
 use ra_assets::{TechnoTypeRegistry, WarheadRegistry};
 use ra_map::{MapInfo, PassGrid};
-use ra_types::{EntityId, GameEdition, PlayerId};
+use ra_types::{EntityId, GameEdition, PlayerId, RuntimeDefinitions};
 
 use super::{entities::WorldEntity, players::PlayerState};
 use crate::{
@@ -56,7 +58,9 @@ pub struct MatchState {
     pub players: Vec<PlayerState>,
     /// 本地玩家 ID。
     pub local_player: PlayerId,
-    /// 规则 techno 表（造价、生命等查询）。
+    /// 冻结运行时定义（adaptor 生成；玩法查询只走此表）。
+    pub definitions: Arc<RuntimeDefinitions>,
+    /// 规则 techno 表（造价、生命等查询；逐步迁入 definitions.techno）。
     pub(crate) techno_types: TechnoTypeRegistry,
     /// 弹头 `Verses` 表（攻击结算）。
     pub(crate) warheads: WarheadRegistry,
@@ -135,6 +139,7 @@ impl MatchState {
             .collect();
         let players: Vec<PlayerState> =
             house_order.into_iter().enumerate().map(|(i, house)| PlayerState::new(PlayerId(i as u8), house)).collect();
+        let definitions = Arc::new(build_runtime_definitions(rules));
         let mut world = Self {
             edition,
             tick: 0,
@@ -143,6 +148,7 @@ impl MatchState {
             entities,
             players,
             local_player: PlayerId(0),
+            definitions,
             techno_types: rules.techno_types.clone(),
             warheads: rules.warheads.clone(),
             next_entity_id,

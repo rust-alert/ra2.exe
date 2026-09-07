@@ -8,7 +8,7 @@ use ra_types::GameEdition;
 
 fn refinery_world() -> MatchState {
     let rules_text = b"[BuildingTypes]\n0=GAREFN\n\
-[GAREFN]\nStrength=900\nSight=4\nCost=2000\n";
+[GAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nOwner=Americans\nStrength=900\nSight=4\nCost=2000\n";
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
     let rules_db = RulesDb {
         edition: GameEdition::Ra2,

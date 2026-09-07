@@ -13,7 +13,7 @@ pub struct WorldEntity {
     pub kind: MapEntityKind,
     /// 所属方名称（地图放置段字符串）。
     pub owner: String,
-    /// 规则类型 ID（如 `MTNK`）。
+    /// 外部类型键（来自冻结定义）。
     pub type_id: String,
     /// 当前格坐标。
     pub x: u16,

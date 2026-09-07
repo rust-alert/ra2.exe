@@ -12,10 +12,10 @@ fn ai_places_refinery_near_yard() {
     let engine = test_engine();
     let doc = IniDocument::parse(
         b"[BuildingTypes]\n0=GACNST\n1=NACNST\n2=NAPOWR\n3=NAREFN\n\
-[GACNST]\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
-[NACNST]\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
-[NAPOWR]\nStrength=600\nSight=4\nCost=600\nArmor=wood\n\
-[NAREFN]\nStrength=900\nSight=4\nCost=2000\nArmor=wood\n",
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
+[NACNST]\nConstructionYard=yes\nOwner=Soviets\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
+[NAPOWR]\nPower=200\nOwner=Soviets\nStrength=600\nSight=4\nCost=600\nArmor=wood\n\
+[NAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nOwner=Soviets\nStrength=900\nSight=4\nCost=2000\nArmor=wood\n",
     )
     .unwrap();
     let rules = RulesDb {

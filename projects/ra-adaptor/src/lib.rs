@@ -5,6 +5,7 @@
 
 mod adaptor_api;
 mod compose;
+mod definitions;
 mod rules;
 
 use std::path::{Path, PathBuf};
@@ -13,6 +14,7 @@ use ra_types::{GameEdition, RaError, RaResult};
 
 pub use adaptor_api::{Adaptor, AdaptorError, DefinitionRequest, DetectionReport};
 pub use compose::{AdaptorStack, BaseGame, CapabilityReport, ExtensionId};
+pub use definitions::build_runtime_definitions;
 pub use rules::{RulesDb, load_rules, load_rules_chain};
 
 /// 统一资源表视图（由各 edition adaptor 填入）。

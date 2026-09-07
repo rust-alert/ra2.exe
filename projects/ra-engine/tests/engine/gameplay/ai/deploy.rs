@@ -13,9 +13,9 @@ fn ai_deploys_mcv_via_command() {
     let doc = IniDocument::parse(
         b"[VehicleTypes]\n0=SMCV\n\
 [BuildingTypes]\n0=NACNST\n1=GACNST\n\
-[SMCV]\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
+[SMCV]\nDeploysInto=NACNST\nOwner=Soviets\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
 [NACNST]\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
-[GACNST]\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n",
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n",
     )
     .unwrap();
     let rules = RulesDb {

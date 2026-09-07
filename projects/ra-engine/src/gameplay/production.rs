@@ -119,18 +119,32 @@ impl crate::state::MatchState {
     }
 
     pub(crate) fn find_factory(&self, house: &str, kind: TechnoKind) -> Option<usize> {
+        let class = techno_kind_to_class(kind);
         self.entities.iter().position(|e| {
-            !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && factory_matches_unit(&e.type_id, kind)
+            !e.dead
+                && e.owner == house
+                && e.kind == MapEntityKind::Structure
+                && factory_matches_unit(&self.definitions, &e.type_id, class)
         })
     }
 
     pub(crate) fn find_idle_factory(&self, house: &str, kind: TechnoKind) -> Option<usize> {
+        let class = techno_kind_to_class(kind);
         self.entities.iter().position(|e| {
             !e.dead
                 && e.owner == house
                 && e.kind == MapEntityKind::Structure
                 && e.produce_queue.is_none()
-                && factory_matches_unit(&e.type_id, kind)
+                && factory_matches_unit(&self.definitions, &e.type_id, class)
         })
+    }
+}
+
+fn techno_kind_to_class(kind: TechnoKind) -> ra_types::TechnoClass {
+    match kind {
+        TechnoKind::Infantry => ra_types::TechnoClass::Infantry,
+        TechnoKind::Vehicle => ra_types::TechnoClass::Vehicle,
+        TechnoKind::Aircraft => ra_types::TechnoClass::Aircraft,
+        TechnoKind::Building => ra_types::TechnoClass::Building,
     }
 }
