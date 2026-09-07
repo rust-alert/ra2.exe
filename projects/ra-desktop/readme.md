@@ -162,6 +162,19 @@ cargo run -p ra-desktop --features test-harness -- --test-scene=duel
 此时窗口固定 1280×720，对局来自 `ra-testing::standard_duel`，不读安装目录。设置 `RA2_TEST_STATUS_PATH` 可每帧写出 tick /
 hash / outcome 供自动化轮询。
 
+## 关键页截图（验收用，不进 git）
+
+运行中按 **F12** 将当前画面写入 `screenshots/{screen}_{unix_ms}.png`（可用 `RA2_SCREENSHOT_DIR` 改目录）。
+
+进入关键页时自动各截一次：
+
+```shell
+set RA2_AUTO_SCREENSHOT=1
+cargo run -p ra-desktop
+```
+
+`screenshots/` 已在 `.gitignore` 中，请勿把 PNG 提交进仓库。
+
 ## 依赖关系
 
 串联：`ra-types`、`ra-config`、`ra-adaptor`、`ra-assets`、`ra-map`、 **`ra-engine`**、`ra-renderer`。不直接依赖各 edition
