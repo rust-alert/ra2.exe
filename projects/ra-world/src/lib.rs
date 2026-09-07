@@ -36,6 +36,9 @@ pub const ORE_TRIP_TICKS: u32 = 30;
 /// 矿场每趟采矿给所属房主增加的资金。
 pub const ORE_INCOME_PER_TRIP: u32 = 700;
 
+/// 工厂完成一件生产所需的 tick 数（Alpha 简化）。
+pub const PRODUCE_TICKS: u32 = 20;
+
 /// 世界中的一个已放置实体（由地图播种，后续仿真就地改）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorldEntity {
@@ -87,6 +90,8 @@ pub struct WorldEntity {
     pub attack_cooldown: u32,
     /// 矿场采矿行程累计 tick；非矿场保持 0。
     pub ore_trip_accum: u32,
+    /// 生产队列：（类型 ID，剩余 tick）；空闲为 `None`。
+    pub produce_queue: Option<(String, u32)>,
     /// 生命归零后为真；不再移动/占格。
     pub dead: bool,
 }
@@ -169,6 +174,7 @@ impl World {
                     attack_target: None,
                     attack_cooldown: 0,
                     ore_trip_accum: 0,
+                    produce_queue: None,
                     dead: false,
                 }
             })
@@ -254,6 +260,7 @@ impl World {
         self.resolve_combat();
         self.advance_turrets();
         self.advance_refinery_income();
+        self.advance_production();
         self.rehash();
     }
 
@@ -526,8 +533,44 @@ impl World {
                         attack_target: None,
                         attack_cooldown: 0,
                         ore_trip_accum: 0,
+                        produce_queue: None,
                         dead: false,
                     });
+                }
+                GameCommand::Produce { player, ref type_id } => {
+                    let Some(player_index) = self.players.iter().position(|p| p.id == player)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let house = self.players[player_index].house.clone();
+                    let Some(tt) = self.techno_types.get(type_id)
+                    else {
+                        self.reject(command_index, CommandRejectReason::InvalidPlacement);
+                        continue;
+                    };
+                    if !matches!(tt.kind, TechnoKind::Infantry | TechnoKind::Vehicle) {
+                        self.reject(command_index, CommandRejectReason::InvalidPlacement);
+                        continue;
+                    }
+                    let Some(factory_index) = self.find_idle_factory(&house, tt.kind)
+                    else {
+                        let has_busy = self.find_factory(&house, tt.kind).is_some();
+                        if has_busy {
+                            self.reject(command_index, CommandRejectReason::QueueFull);
+                        } else {
+                            self.reject(command_index, CommandRejectReason::MissingPrerequisite);
+                        }
+                        continue;
+                    };
+                    let cost = tt.cost as i32;
+                    if self.players[player_index].funds < cost {
+                        self.reject(command_index, CommandRejectReason::InsufficientFunds);
+                        continue;
+                    }
+                    self.players[player_index].funds -= cost;
+                    self.entities[factory_index].produce_queue =
+                        Some((type_id.to_ascii_uppercase(), PRODUCE_TICKS));
                 }
             }
         }
@@ -554,6 +597,116 @@ impl World {
                 player.funds = player.funds.saturating_add(amount);
             }
         }
+    }
+
+    fn advance_production(&mut self) {
+        let mut spawns: Vec<(usize, String)> = Vec::new();
+        for (index, e) in self.entities.iter_mut().enumerate() {
+            if e.dead {
+                continue;
+            }
+            let Some((type_id, remaining)) = e.produce_queue.as_mut()
+            else {
+                continue;
+            };
+            if *remaining > 1 {
+                *remaining -= 1;
+                continue;
+            }
+            let type_id = type_id.clone();
+            e.produce_queue = None;
+            spawns.push((index, type_id));
+        }
+        for (factory_index, type_id) in spawns {
+            self.spawn_produced_unit(factory_index, &type_id);
+        }
+    }
+
+    fn spawn_produced_unit(&mut self, factory_index: usize, type_id: &str) {
+        let Some(tt) = self.techno_types.get(type_id).cloned()
+        else {
+            return;
+        };
+        let factory = &self.entities[factory_index];
+        let owner = factory.owner.clone();
+        let fx = factory.x;
+        let fy = factory.y;
+        let Some((x, y)) = self.find_spawn_cell(fx, fy)
+        else {
+            return;
+        };
+        let kind = match tt.kind {
+            TechnoKind::Infantry => MapEntityKind::Infantry,
+            TechnoKind::Vehicle => MapEntityKind::Unit,
+            TechnoKind::Aircraft => MapEntityKind::Aircraft,
+            TechnoKind::Building => return,
+        };
+        let max_health = tt.strength.max(1);
+        let id = self.alloc_entity_id();
+        self.entities.push(WorldEntity {
+            id,
+            kind,
+            owner,
+            type_id: type_id.to_ascii_uppercase(),
+            x,
+            y,
+            facing: 0,
+            turret_facing: 0,
+            sub_cell: 0,
+            health: max_health,
+            max_health,
+            speed: tt.speed,
+            attack_range: tt.sight.max(1),
+            attack_damage: (tt.strength / 4).max(1),
+            attack_cooldown_max: if tt.rof > 0 { tt.rof } else { ATTACK_COOLDOWN_TICKS },
+            techno_kind: Some(tt.kind),
+            target_x: None,
+            target_y: None,
+            path: Vec::new(),
+            move_accum: 0,
+            hva_frame: 0,
+            attack_target: None,
+            attack_cooldown: 0,
+            ore_trip_accum: 0,
+            produce_queue: None,
+            dead: false,
+        });
+    }
+
+    fn find_spawn_cell(&self, fx: u16, fy: u16) -> Option<(u16, u16)> {
+        const DELTAS: [(i32, i32); 8] =
+            [(1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (-1, 1), (-1, -1), (1, -1)];
+        for (dx, dy) in DELTAS {
+            let x = i32::from(fx) + dx;
+            let y = i32::from(fy) + dy;
+            if x < 0 || y < 0 {
+                continue;
+            }
+            let (x, y) = (x as u16, y as u16);
+            if self.can_place_structure(x, y) {
+                return Some((x, y));
+            }
+        }
+        None
+    }
+
+    fn find_factory(&self, house: &str, kind: TechnoKind) -> Option<usize> {
+        self.entities.iter().position(|e| {
+            !e.dead
+                && e.owner == house
+                && e.kind == MapEntityKind::Structure
+                && factory_matches_unit(&e.type_id, kind)
+        })
+    }
+
+    fn find_idle_factory(&self, house: &str, kind: TechnoKind) -> Option<usize> {
+        self.entities.iter().position(|e| {
+            !e.dead
+                && e.owner == house
+                && e.kind == MapEntityKind::Structure
+                && e.produce_queue.is_none()
+                && factory_matches_unit(&e.type_id, kind)
+        })
     }
 
     fn house_has_living_yard(&self, house: &str) -> bool {
@@ -628,6 +781,12 @@ impl World {
                 .wrapping_add(u64::from(e.attack_cooldown) << 24)
                 .wrapping_add(u64::from(e.ore_trip_accum) << 8)
                 .wrapping_add(e.attack_target.map(|i| i as u64 + 1).unwrap_or(0) << 32);
+            if let Some((ref qid, rem)) = e.produce_queue {
+                h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(rem));
+                for b in qid.as_bytes() {
+                    h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
+                }
+            }
             for b in e.type_id.as_bytes() {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
             }
@@ -679,6 +838,13 @@ fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
             }
         }
+        GameCommand::Produce { player, ref type_id } => {
+            h = h.wrapping_mul(1099511628211).wrapping_add(5);
+            h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(player.0));
+            for b in type_id.as_bytes() {
+                h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
+            }
+        }
     }
     h
 }
@@ -706,6 +872,14 @@ fn requires_power_plant(type_id: &str) -> bool {
 
 fn is_refinery(type_id: &str) -> bool {
     matches!(type_id, "GAREFN" | "NAREFN")
+}
+
+fn factory_matches_unit(factory_type: &str, kind: TechnoKind) -> bool {
+    match kind {
+        TechnoKind::Infantry => matches!(factory_type, "GAPILE" | "NAHAND"),
+        TechnoKind::Vehicle => matches!(factory_type, "GAWEAP" | "NAWEAP"),
+        TechnoKind::Aircraft | TechnoKind::Building => false,
+    }
 }
 
 /// 冻结竖切建筑的电力增量（正=供电，负=耗电）。后续由 adaptor 定义替换。

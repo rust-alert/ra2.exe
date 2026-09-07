@@ -57,7 +57,7 @@ state_hash = state_hash
 
 ## 当前边界
 
-`GameCommand` 现含 `MoveTo`、`Attack`、`Deploy` 与 `PlaceBuilding`。实体已带稳定 `EntityId`，命令暂仍可用下标或 `PlayerId` 寻址。`PlayerState`、资金扣除、建造场/供电前置与 `CommandReject` 已就位。存活矿场按 `ORE_TRIP_TICKS` 周期入账 `ORE_INCOME_PER_TRIP`。生产队列尚未实现。
+`GameCommand` 现含 `MoveTo`、`Attack`、`Deploy`、`PlaceBuilding` 与 `Produce`。实体已带稳定 `EntityId`。建造链支持建造场/供电前置、资金扣除与矿场周期入账。工厂可用单槽生产队列在 `PRODUCE_TICKS` 后生成单位。集结点尚未实现。
 
 ## 构建
 

@@ -37,6 +37,13 @@ pub enum GameCommand {
         /// 目标格 Y。
         y: u16,
     },
+    /// 在空闲工厂排队生产单位（立即扣费）。
+    Produce {
+        /// 出资并拥有产出单位的玩家。
+        player: PlayerId,
+        /// 规则类型 ID（如 `E1` / `MTNK`）。
+        type_id: String,
+    },
 }
 
 /// 一个仿真 tick 的完整输入帧。
@@ -90,6 +97,13 @@ pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
             b.extend_from_slice(&x.to_be_bytes());
             b.extend_from_slice(&y.to_be_bytes());
         }
+        GameCommand::Produce { player, ref type_id } => {
+            b.push(5);
+            b.push(player.0);
+            let id_bytes = type_id.as_bytes();
+            b.extend_from_slice(&(id_bytes.len() as u16).to_be_bytes());
+            b.extend_from_slice(id_bytes);
+        }
     }
     b
 }
@@ -138,6 +152,18 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
             let x = u16::from_be_bytes(bytes[xy..xy + 2].try_into().ok()?);
             let y = u16::from_be_bytes(bytes[xy + 2..xy + 4].try_into().ok()?);
             Some(GameCommand::PlaceBuilding { player, type_id, x, y })
+        }
+        5 => {
+            if bytes.len() < 1 + 1 + 2 {
+                return None;
+            }
+            let player = PlayerId(bytes[1]);
+            let id_len = u16::from_be_bytes(bytes[2..4].try_into().ok()?) as usize;
+            if bytes.len() < 1 + 1 + 2 + id_len {
+                return None;
+            }
+            let type_id = std::str::from_utf8(&bytes[4..4 + id_len]).ok()?.to_string();
+            Some(GameCommand::Produce { player, type_id })
         }
         _ => None,
     }
