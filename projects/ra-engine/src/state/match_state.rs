@@ -167,6 +167,17 @@ impl MatchState {
         world
     }
 
+    /// 若存在同名 house，将 `local_player` 切到该玩家；否则保持原值并返回 `false`。
+    pub fn prefer_local_house(&mut self, house: &str) -> bool {
+        if let Some(p) = self.players.iter().find(|p| p.house.as_ref() == house) {
+            self.local_player = p.id;
+            true
+        }
+        else {
+            false
+        }
+    }
+
     /// 标记实体对呈现层变脏。
     pub fn mark_entity_dirty(&mut self, id: EntityId) {
         self.presentation_dirty.mark(id);
