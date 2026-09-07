@@ -173,16 +173,28 @@ const SKIRMISH_LOBBY_BUTTONS: &[UiButtonSlot] = &[
     },
 ];
 
-const LOAD_SCREEN_BUTTONS: &[UiButtonSlot] = &[UiButtonSlot {
-    entry_id: "loading",
-    action: MenuAction::Back,
-    enabled: false,
-    hit: (0.30, 0.45, 0.74, 0.53),
-    normal_shp: None,
-    hover_shp: None,
-    pressed_shp: None,
-    disabled_shp: None,
-}];
+const LOAD_SCREEN_BUTTONS: &[UiButtonSlot] = &[
+    UiButtonSlot {
+        entry_id: "loading",
+        action: MenuAction::CancelLoad,
+        enabled: false,
+        hit: (0.30, 0.40, 0.74, 0.48),
+        normal_shp: None,
+        hover_shp: None,
+        pressed_shp: None,
+        disabled_shp: None,
+    },
+    UiButtonSlot {
+        entry_id: "cancel",
+        action: MenuAction::CancelLoad,
+        enabled: true,
+        hit: (0.30, 0.56, 0.74, 0.64),
+        normal_shp: None,
+        hover_shp: None,
+        pressed_shp: None,
+        disabled_shp: None,
+    },
+];
 
 const OPTIONS_BUTTONS: &[UiButtonSlot] = &[UiButtonSlot {
     entry_id: "back",
@@ -244,5 +256,13 @@ mod tests {
         assert_eq!(page.buttons[0].entry_id, "campaign");
         assert!(!page.buttons[0].enabled);
         assert!(page.buttons.iter().any(|b| b.entry_id == "skirmish" && b.enabled));
+    }
+
+    #[test]
+    fn load_screen_exposes_cancel_slot() {
+        let page = slots_for(OriginalScreen::LoadScreen).unwrap();
+        let cancel = page.buttons.iter().find(|b| b.entry_id == "cancel").unwrap();
+        assert!(cancel.enabled);
+        assert!(matches!(cancel.action, MenuAction::CancelLoad));
     }
 }
