@@ -3,13 +3,17 @@
 #![deny(missing_docs)]
 
 mod command;
+mod player;
+mod reject;
 
 use ra_adaptor::RulesDb;
 use ra_assets::TechnoKind;
 use ra_map::{MapEntityKind, MapInfo, PassGrid};
-use ra_types::{GameEdition, PlayerId};
+use ra_types::{EntityId, GameEdition, PlayerId};
 
 pub use command::{GameCommand, InputFrame, decode_command, decode_commands, encode_command, encode_commands};
+pub use player::PlayerState;
+pub use reject::{CommandReject, CommandRejectReason};
 
 /// 走一格所需的移动点（预览用常量，非零售精确换算）。
 pub const CELL_MOVE_COST: u32 = 64;
@@ -29,6 +33,8 @@ pub const ATTACK_COOLDOWN_TICKS: u32 = 8;
 /// 世界中的一个已放置实体（由地图播种，后续仿真就地改）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorldEntity {
+    /// 稳定实体 ID（不随列表紧凑化改变）。
+    pub id: EntityId,
     /// 地图实体种类（单位、建筑、步兵等）。
     pub kind: MapEntityKind,
     /// 所属方名称（地图放置段字符串）。
@@ -90,12 +96,18 @@ pub struct World {
     pub pass_grid: PassGrid,
     /// 世界实体列表（与地图播种顺序对应）。
     pub entities: Vec<WorldEntity>,
+    /// 玩家状态（资金、电力等）。
+    pub players: Vec<PlayerState>,
     /// 本地玩家 ID。
     pub local_player: PlayerId,
+    /// 下一枚可分配的稳定实体 ID（从 1 起）。
+    next_entity_id: u64,
     /// 待本 tick 消费的命令（先进先出）。
     pending_commands: Vec<GameCommand>,
     /// 上一 tick 实际消费的输入帧（含空帧）。
     last_input_frame: InputFrame,
+    /// 上一 tick 产生的命令拒绝记录。
+    last_rejects: Vec<CommandReject>,
     state_hash: u64,
 }
 
@@ -103,10 +115,15 @@ impl World {
     /// 由规则与地图播种新世界，并为移动单位预计算路径。
     pub fn new(edition: GameEdition, rules: &RulesDb, map: MapInfo) -> Self {
         let pass_grid = PassGrid::from_map(&map);
+        let mut next_entity_id = 1u64;
+        let mut house_order: Vec<String> = Vec::new();
         let entities: Vec<WorldEntity> = map
             .entities
             .iter()
             .map(|e| {
+                if !house_order.iter().any(|h| h == &e.owner) {
+                    house_order.push(e.owner.clone());
+                }
                 let tt = rules.techno_types.get(&e.type_id);
                 let max_health = tt.map(|t| t.strength).unwrap_or(1).max(1);
                 let health = (u64::from(max_health) * u64::from(e.health) / 256) as u32;
@@ -115,7 +132,10 @@ impl World {
                 let attack_damage = tt.map(|t| (t.strength / 4).max(1)).unwrap_or(DEFAULT_ATTACK_DAMAGE);
                 let attack_cooldown_max =
                     tt.map(|t| if t.rof > 0 { t.rof } else { ATTACK_COOLDOWN_TICKS }).unwrap_or(ATTACK_COOLDOWN_TICKS);
+                let id = EntityId(next_entity_id);
+                next_entity_id = next_entity_id.saturating_add(1);
                 WorldEntity {
+                    id,
                     kind: e.kind,
                     owner: e.owner.clone(),
                     type_id: e.type_id.clone(),
@@ -142,15 +162,23 @@ impl World {
                 }
             })
             .collect();
+        let players: Vec<PlayerState> = house_order
+            .into_iter()
+            .enumerate()
+            .map(|(i, house)| PlayerState::new(PlayerId(i as u8), house))
+            .collect();
         let mut world = Self {
             edition,
             tick: 0,
             map,
             pass_grid,
             entities,
+            players,
             local_player: PlayerId(0),
+            next_entity_id,
             pending_commands: Vec::new(),
             last_input_frame: InputFrame::empty(0),
+            last_rejects: Vec::new(),
             state_hash: 0,
         };
         for i in 0..world.entities.len() {
@@ -170,11 +198,29 @@ impl World {
         &self.last_input_frame
     }
 
+    /// 上一 tick 产生的命令拒绝记录。
+    pub fn last_rejects(&self) -> &[CommandReject] {
+        &self.last_rejects
+    }
+
+    /// 按稳定 ID 查找实体下标。
+    pub fn entity_index(&self, id: EntityId) -> Option<usize> {
+        self.entities.iter().position(|e| e.id == id)
+    }
+
+    /// 分配下一枚稳定实体 ID（供后续生成建筑/单位使用）。
+    pub fn alloc_entity_id(&mut self) -> EntityId {
+        let id = EntityId(self.next_entity_id);
+        self.next_entity_id = self.next_entity_id.saturating_add(1);
+        id
+    }
+
     /// 推进一个逻辑 tick：消费命令、移动、战斗与炮塔转向。
     pub fn advance_tick(&mut self) {
         self.tick = self.tick.wrapping_add(1);
         let commands = std::mem::take(&mut self.pending_commands);
         self.last_input_frame = InputFrame { tick: self.tick, commands: commands.clone() };
+        self.last_rejects.clear();
         self.apply_commands(&commands);
         self.advance_movement();
         self.resolve_combat();
@@ -296,16 +342,22 @@ impl World {
     }
 
     fn apply_commands(&mut self, cmds: &[GameCommand]) {
-        for cmd in cmds {
+        for (command_index, cmd) in cmds.iter().enumerate() {
             match *cmd {
                 GameCommand::MoveTo { entity_index, x, y } => {
                     if entity_index >= self.entities.len() {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    }
+                    if self.entities[entity_index].dead {
+                        self.reject(command_index, CommandRejectReason::EntityDead);
+                        continue;
+                    }
+                    if !is_mobile(self.entities[entity_index].kind) {
+                        self.reject(command_index, CommandRejectReason::NotMobile);
                         continue;
                     }
                     let e = &mut self.entities[entity_index];
-                    if e.dead || !is_mobile(e.kind) {
-                        continue;
-                    }
                     e.attack_target = None;
                     e.target_x = Some(x);
                     e.target_y = Some(y);
@@ -314,16 +366,24 @@ impl World {
                     repath_at(&mut self.entities, entity_index, &self.pass_grid);
                 }
                 GameCommand::Attack { attacker_index, target_index } => {
-                    if attacker_index >= self.entities.len()
-                        || target_index >= self.entities.len()
-                        || attacker_index == target_index
-                    {
+                    if attacker_index >= self.entities.len() || target_index >= self.entities.len() {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
                         continue;
                     }
-                    if self.entities[attacker_index].dead
-                        || self.entities[target_index].dead
-                        || !is_mobile(self.entities[attacker_index].kind)
-                    {
+                    if attacker_index == target_index {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
+                    if self.entities[attacker_index].dead {
+                        self.reject(command_index, CommandRejectReason::EntityDead);
+                        continue;
+                    }
+                    if self.entities[target_index].dead {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
+                    if !is_mobile(self.entities[attacker_index].kind) {
+                        self.reject(command_index, CommandRejectReason::NotMobile);
                         continue;
                     }
                     let (tx, ty) = (self.entities[target_index].x, self.entities[target_index].y);
@@ -337,6 +397,10 @@ impl World {
                 }
             }
         }
+    }
+
+    fn reject(&mut self, command_index: usize, reason: CommandRejectReason) {
+        self.last_rejects.push(CommandReject { command_index, reason });
     }
 
     /// 当前确定性状态哈希（锁步校验用）。
@@ -373,6 +437,7 @@ impl World {
         for e in &self.entities {
             h = h
                 .wrapping_mul(1099511628211)
+                .wrapping_add(e.id.0)
                 .wrapping_add(e.x as u64)
                 .wrapping_add((e.y as u64) << 16)
                 .wrapping_add((e.facing as u64) << 32)
@@ -391,6 +456,17 @@ impl World {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
             }
             for b in e.owner.as_bytes() {
+                h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
+            }
+        }
+        for p in &self.players {
+            h = h
+                .wrapping_mul(1099511628211)
+                .wrapping_add(u64::from(p.id.0))
+                .wrapping_add(p.funds as u64)
+                .wrapping_add((p.power_output as u64) << 16)
+                .wrapping_add((p.power_drain as u64) << 32);
+            for b in p.house.as_bytes() {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
             }
         }

@@ -57,7 +57,7 @@ state_hash = state_hash
 
 ## 当前边界
 
-`GameCommand` 目前只有 `MoveTo` 与 `Attack`，实体仍使用 `usize` 下标，攻击参数和部分行为是最小遭遇战常量。生产、经济、建筑、战役和完整扩展语义尚未实现。
+`GameCommand` 目前只有 `MoveTo` 与 `Attack`。实体已带稳定 `EntityId`，命令暂仍可用下标寻址。`PlayerState` 与 `CommandReject` 已就位，供后续经济、建造与 HUD 反馈使用。生产、采矿与完整建筑语义尚未实现。
 
 ## 构建
 
