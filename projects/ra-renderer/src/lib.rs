@@ -13,6 +13,7 @@
 #![deny(missing_docs)]
 
 mod camera;
+mod capture;
 mod chrome;
 mod frame;
 mod gpu;
@@ -69,6 +70,10 @@ pub struct Renderer {
     chrome: Option<ChromeGpu>,
     /// 本帧屏上色块（归一化坐标）；空则跳过 UI 叠加。
     screen_chrome: Vec<ScreenChromeQuad>,
+    /// 下一帧 `submit_frame` 结束后做表面回读。
+    capture_pending: bool,
+    /// 最近一次成功截图（RGBA）。
+    last_capture: Option<RgbaImage>,
     camera: Camera,
     camera_ready: bool,
     /// 跨帧复用的渲染世界（R1）。
@@ -92,6 +97,8 @@ impl Renderer {
             markers: None,
             chrome: None,
             screen_chrome: Vec::new(),
+            capture_pending: false,
+            last_capture: None,
             camera: Camera { center_x: 0.0, center_y: 0.0, zoom: 1.0 },
             camera_ready: false,
             render_world: RenderWorld::default(),
@@ -110,6 +117,16 @@ impl Renderer {
         if !self.screen_chrome.is_empty() && !self.passes.passes.contains(&RenderPassKind::Ui) {
             self.passes.passes.push(RenderPassKind::Ui);
         }
+    }
+
+    /// 请求在下一帧提交后回读表面（用于关键页验收截图）。
+    pub fn request_capture(&mut self) {
+        self.capture_pending = true;
+    }
+
+    /// 取走最近一次回读结果（若有）。
+    pub fn take_capture(&mut self) -> Option<RgbaImage> {
+        self.last_capture.take()
     }
 
     /// 设置启动预览图（窗口附着后上传）。
@@ -303,6 +320,15 @@ impl Renderer {
         }
         gpu.queue.submit(std::iter::once(encoder.finish()));
         self.timings.gpu_submit = Some(submit_start.elapsed());
+
+        if self.capture_pending {
+            self.capture_pending = false;
+            match crate::capture::readback_surface_rgba(gpu, &frame.texture) {
+                Ok(img) => self.last_capture = Some(img),
+                Err(_e) => self.last_capture = None,
+            }
+        }
+
         gpu.queue.present(frame);
     }
 
