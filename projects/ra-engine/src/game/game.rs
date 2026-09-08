@@ -308,11 +308,14 @@ impl Game {
         StateDigest { tick: self.world.tick, hash: self.world.state_hash() }
     }
 
-    /// 与远端摘要比对；同 tick 且哈希不同则暂停。返回是否一致（或暂不可比）。
+    /// 与远端摘要比对。
+    ///
+    /// 仅在 **同 tick 且哈希相同** 时返回 `true`。tick 不一致或哈希不同均返回 `false`
+    ///（tick 不一致不暂停，但不视为「已同步成功」）。
     pub fn apply_remote_digest(&mut self, remote: &StateDigest) -> bool {
         let local = self.local_digest();
         if remote.tick != local.tick {
-            return true;
+            return false;
         }
         if remote.hash == local.hash {
             return true;
