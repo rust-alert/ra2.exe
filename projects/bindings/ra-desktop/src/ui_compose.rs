@@ -117,6 +117,31 @@ fn fill_rect(dst: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
     }
 }
 
+/// 将矩形区域整体压暗（`amount` 越大越暗，0..255）。
+fn dim_rect(dst: &mut RgbaImage, rect: RectPx, amount: u8) {
+    if rect.w <= 0 || rect.h <= 0 || amount == 0 {
+        return;
+    }
+    let keep = 255u32.saturating_sub(u32::from(amount));
+    for row in 0..rect.h {
+        let dy = rect.y + row;
+        if dy < 0 || dy as u32 >= dst.height() {
+            continue;
+        }
+        for col in 0..rect.w {
+            let dx = rect.x + col;
+            if dx < 0 || dx as u32 >= dst.width() {
+                continue;
+            }
+            let di = ((dy as u32 * dst.width() + dx as u32) * 4) as usize;
+            for c in 0..3 {
+                let v = u32::from(dst.as_raw()[di + c]);
+                dst.as_mut()[di + c] = ((v * keep) / 255) as u8;
+            }
+        }
+    }
+}
+
 fn draw_trackbar(dst: &mut RgbaImage, track: RectPx, pos: u8, max: u8) {
     fill_rect(dst, track, [64, 16, 16, 255]);
     let inner = RectPx::new(track.x + 2, track.y + 2, (track.w - 4).max(1), (track.h - 4).max(1));

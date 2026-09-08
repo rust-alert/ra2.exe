@@ -42,6 +42,9 @@ pub const SKIRMISH_LOBBY_BUTTON_IDS: [&str; 4] = ["side", "difficulty", "start",
 /// 选项页按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
 pub const OPTIONS_BUTTON_IDS: [&str; 3] = ["accept", "cancel", "main_menu"];
 
+/// 退出确认对话框按钮 id。
+pub const EXIT_CONFIRM_BUTTON_IDS: [&str; 2] = ["ok", "cancel"];
+
 /// 大厅地图列表最多可见行。
 pub const LOBBY_MAP_ROW_MAX: i32 = 6;
 /// 大厅地图列表行高（像素）。
@@ -218,4 +221,33 @@ pub fn skirmish_map_row_rect(layout: &MainMenuLayout, index: usize) -> RectPx {
     let list_w = (layout.movie.w - 48).max(1);
     let y = layout.movie.y + 48 + (index as i32) * (LOBBY_MAP_ROW_H + LOBBY_MAP_ROW_GAP);
     RectPx::new(list_x, y, list_w, LOBBY_MAP_ROW_H)
+}
+
+/// 退出确认居中框几何（800×600 内容坐标）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExitConfirmLayout {
+    /// 对话框底板。
+    pub dialog: RectPx,
+    /// 提示文案区。
+    pub prompt: RectPx,
+    /// 确定 / 取消。
+    pub buttons: [RectPx; 2],
+}
+
+/// 退出确认布局（相对壳层画布居中）。
+pub fn exit_confirm_layout(_viewport_w: u32, _viewport_h: u32) -> ExitConfirmLayout {
+    let dialog = RectPx::new(180, 180, 440, 200);
+    let prompt = RectPx::new(dialog.x + 24, dialog.y + 28, dialog.w - 48, 64);
+    let btn_y = dialog.y + dialog.h - BUTTON_CELL_H - 24;
+    let gap = 24;
+    let total_w = BUTTON_CELL_W * 2 + gap;
+    let btn_x0 = dialog.x + (dialog.w - total_w) / 2;
+    ExitConfirmLayout {
+        dialog,
+        prompt,
+        buttons: [
+            RectPx::new(btn_x0, btn_y, BUTTON_CELL_W, BUTTON_CELL_H),
+            RectPx::new(btn_x0 + BUTTON_CELL_W + gap, btn_y, BUTTON_CELL_W, BUTTON_CELL_H),
+        ],
+    }
 }
