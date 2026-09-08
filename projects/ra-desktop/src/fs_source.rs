@@ -116,25 +116,28 @@ impl GameAssetSource {
     }
 
     /// 按组合里的嵌套挂载计划展开子包（当前仅 `AllParents`）。
-    pub fn mount_nested_plan(&mut self, plan: &[NestedMountSpec]) -> usize {
+    ///
+    /// 返回 `(新挂载份数, 失败/跳过条目数)`。展开失败不得静默丢弃计数。
+    pub fn mount_nested_plan(&mut self, plan: &[NestedMountSpec]) -> (usize, usize) {
         let mut mounted = 0usize;
+        let mut skipped = 0usize;
         for spec in plan {
             match spec.strategy {
                 NestedMountStrategy::AllParents => {
                     match self.vfs.mount_nested_all_from_parents(&spec.name) {
                         Ok(n) => mounted += n,
-                        Err(_) => {}
+                        Err(_) => skipped += 1,
                     }
                 }
             }
         }
-        mounted
+        (mounted, skipped)
     }
 
     /// 按名单从**所有**已挂载父档展开同名嵌套包，继承各父档内容层优先级。
     ///
     /// 新路径请优先 [`Self::mount_nested_plan`]。
-    pub fn mount_nested_names(&mut self, names: &[&str]) -> usize {
+    pub fn mount_nested_names(&mut self, names: &[&str]) -> (usize, usize) {
         let plan: Vec<NestedMountSpec> = names
             .iter()
             .map(|name| NestedMountSpec {

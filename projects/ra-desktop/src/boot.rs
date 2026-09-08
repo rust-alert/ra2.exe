@@ -144,7 +144,7 @@ pub fn boot_world_with_progress(
     for line in manifest.composition.mount_plan_lines() {
         tracing::info!("资源组合 {line}");
     }
-    let mounted_nested = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
+    let (mounted_nested, skipped_nested) = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
 
     if let Some(hit) = source.resolve(chain.rules_ini) {
         tracing::info!("资源组合 resolved: rules={} · {}", chain.rules_ini, hit.explain());
@@ -154,12 +154,13 @@ pub fn boot_world_with_progress(
     }
 
     let expand_n = manifest.composition.diagnostics.detected_expansions.len();
+    let skipped_total = skipped_root.saturating_add(skipped_nested);
     let mut note = format!(
         "{} · 根mix {} · 嵌套 {} · 跳过 {} · 缺盘 {} · expand#{} · {}",
         chain.edition.as_str(),
         mounted_root,
         mounted_nested,
-        skipped_root,
+        skipped_total,
         manifest.missing_mixes.len(),
         expand_n,
         request.note_fragment()
