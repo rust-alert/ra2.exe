@@ -3,7 +3,7 @@
 /// 大厅可选阵营短名（需与地图实体 `owner` 对得上才会成为本地玩家）。
 pub const LOBBY_SIDES: &[&str] = &["Americans", "Russians"];
 
-/// 大厅可选难度标签（先写入装载请求与日志；AI 权重后续再接）。
+/// 大厅可选难度标签（写入装载请求；引擎按 Easy/Normal/Hard 调节 AI 节奏）。
 pub const LOBBY_DIFFICULTIES: &[&str] = &["Easy", "Normal", "Hard"];
 
 /// 遭遇战装载请求（大厅选项的可序列化快照）。
