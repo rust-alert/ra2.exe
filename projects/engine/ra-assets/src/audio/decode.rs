@@ -21,6 +21,14 @@ pub fn decode_audio_bytes(data: &[u8], hint_ext: Option<&str>) -> Result<PcmAudi
     if let Some(riff) = super::wav_riff::try_decode_riff_wave(data) {
         return riff;
     }
+    // 中文盘菜单曲常见为 `local.mix` 内 `intro.aud`（Westwood AUD / 格式 99）。
+    if let Some(aud) = super::aud::try_decode_aud(data) {
+        return aud;
+    }
+    // 扩展名提示为 aud 但仍未识别时，给出更明确错误。
+    if hint_ext.is_some_and(|e| e.eq_ignore_ascii_case("aud")) {
+        return Err(WavError::UnsupportedWavFormat(0));
+    }
 
     let cursor = Cursor::new(data.to_vec());
     let mss = MediaSourceStream::new(Box::new(cursor), Default::default());
