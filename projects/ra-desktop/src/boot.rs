@@ -16,6 +16,8 @@ use crate::{
 pub use ra_map::BootMapCandidate;
 
 /// 一次装载尝试的结果（成功或带说明的失败）。
+///
+/// `Result::Ok` 只表示装载流程跑完；是否可开战看 [`BootResult::is_ready`]。
 #[derive(Debug)]
 pub struct BootResult {
     /// 人类可读装载备注。
@@ -26,6 +28,13 @@ pub struct BootResult {
     pub session: Option<Session>,
     /// 可选地形预览图。
     pub preview: Option<RgbaImage>,
+}
+
+impl BootResult {
+    /// 是否已打开可玩会话（进度「完成」与进对局的唯一判据）。
+    pub fn is_ready(&self) -> bool {
+        self.session.as_ref().and_then(|s| s.game()).is_some()
+    }
 }
 
 fn load_map_terrain_preview(
@@ -227,7 +236,12 @@ pub fn boot_world_with_progress(
             None => (None, None),
         };
 
-    report(1.0, "完成");
+    if session.as_ref().and_then(|s| s.game()).is_some() {
+        report(1.0, "完成");
+    }
+    else {
+        report(1.0, "装载失败");
+    }
     Ok(BootResult { note, engine, session, preview })
 }
 
