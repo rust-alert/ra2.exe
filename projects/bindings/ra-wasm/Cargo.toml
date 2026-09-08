@@ -1,14 +1,15 @@
 [package]
-name = "ra-webui"
+name = "ra-wasm"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "Wasm / WebGL2 壳"
+description = "Wasm / WebGL2 绑定；产物进 @game-gpt/red-alert2-unknown-wasm32"
 publish = false
 
 [lib]
 crate-type = ["cdylib", "rlib"]
+name = "ra_wasm"
 
 [dependencies]
 ra-types = { workspace = true }

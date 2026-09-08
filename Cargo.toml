@@ -1,7 +1,12 @@
 [workspace]
 resolver = "2"
-members = ["projects/*"]
-default-members = ["projects/ra-desktop"]
+members = [
+    "projects/engine/*",
+    "projects/adapters/*",
+    "projects/desktop/*",
+    "projects/bindings/*",
+]
+default-members = ["projects/desktop/ra-desktop"]
 
 [workspace.package]
 version = "0.1.0"
@@ -10,19 +15,19 @@ authors = ["Aster <192607617@qq.com>"]
 license = "MPL-2.0"
 
 [workspace.dependencies]
-ra-types = { path = "projects/ra-types" }
-ra-assets = { path = "projects/ra-assets" }
-ra-config = { path = "projects/ra-config" }
-ra-map = { path = "projects/ra-map" }
-ra-engine = { path = "projects/ra-engine" }
-ra-ecs = { path = "projects/ra-ecs" }
-ra-testing = { path = "projects/ra-testing" }
-ra-net = { path = "projects/ra-net" }
-ra-renderer = { path = "projects/ra-renderer" }
-ra-adaptor = { path = "projects/ra-adaptor" }
-ra-adaptor-ra2 = { path = "projects/ra-adaptor-ra2" }
-ra-adaptor-yuri = { path = "projects/ra-adaptor-yuri" }
-ra-adaptor-phobos = { path = "projects/ra-adaptor-phobos" }
+ra-types = { path = "projects/engine/ra-types" }
+ra-assets = { path = "projects/engine/ra-assets" }
+ra-config = { path = "projects/engine/ra-config" }
+ra-map = { path = "projects/engine/ra-map" }
+ra-engine = { path = "projects/engine/ra-engine" }
+ra-ecs = { path = "projects/engine/ra-ecs" }
+ra-testing = { path = "projects/engine/ra-testing" }
+ra-net = { path = "projects/engine/ra-net" }
+ra-renderer = { path = "projects/engine/ra-renderer" }
+ra-adaptor = { path = "projects/adapters/ra-adaptor" }
+ra-adaptor-ra2 = { path = "projects/adapters/ra-adaptor-ra2" }
+ra-adaptor-yuri = { path = "projects/adapters/ra-adaptor-yuri" }
+ra-adaptor-phobos = { path = "projects/adapters/ra-adaptor-phobos" }
 thiserror = "2"
 bitflags = "2"
 bytemuck = { version = "1", features = ["derive"] }
@@ -44,6 +49,8 @@ base64 = "0.23.1"
 oak-ini = { git = "https://github.com/ygg-lang/oaks.git", branch = "dev" }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp"] }
 toml_edit = "0.25"
+napi = { version = "3", default-features = true, features = ["napi4"] }
+napi-derive = "3"
 
 [profile.release]
 opt-level = 3
