@@ -368,7 +368,7 @@ impl crate::state::MatchState {
                         continue;
                     }
                     if requires_power_plant(&self.definitions, type_id) && !self.house_has_living_power(&house) {
-                        self.reject(command_index, CommandRejectReason::MissingPrerequisite);
+                        self.reject(command_index, CommandRejectReason::InsufficientPower);
                         continue;
                     }
                     if !self.can_place_structure(x, y) {

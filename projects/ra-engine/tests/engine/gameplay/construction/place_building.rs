@@ -95,7 +95,7 @@ fn place_refinery_rejects_without_power_plant() {
     let mut world = yard_world();
     world.push_command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: "GAREFN".into(), x: 6, y: 4 });
     world.advance_tick();
-    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::MissingPrerequisite);
+    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InsufficientPower);
     assert_eq!(world.entities.len(), 1);
     assert_eq!(world.house_funds("Americans"), Some(10_000));
 }
