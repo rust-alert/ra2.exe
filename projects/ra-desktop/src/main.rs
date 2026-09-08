@@ -10,12 +10,10 @@
 mod boot;
 mod config;
 mod fs_source;
-mod hud_chrome;
 mod load_job;
 mod local_player;
 mod match_ctrl;
 mod menu_action;
-mod menu_view;
 mod preview_job;
 mod screen;
 mod screenshot;

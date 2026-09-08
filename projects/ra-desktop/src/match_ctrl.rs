@@ -11,7 +11,7 @@ use winit::{
     window::Window,
 };
 
-use crate::{boot::BootResult, hud_chrome, local_player::LocalPlayerController};
+use crate::{boot::BootResult, local_player::LocalPlayerController};
 
 /// 对局控制器向外壳报告的导航意图（外壳改 `AppScreen`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -282,22 +282,7 @@ impl MatchController {
                 state: ElementState::Released,
                 button: MouseButton::Left,
                 ..
-            } if !accept_commands =>
-            {
-                // 结算页：占位色块可点重开 / 回大厅（非原版按钮）。
-                let size = window.inner_size();
-                match hud_chrome::hit_results(self.cursor.0, self.cursor.1, size.width as f64, size.height as f64) {
-                    Some(hud_chrome::ResultsHit::Rematch) => {
-                        tracing::info!("结算 · 点击重开");
-                        MatchNav::Rematch
-                    }
-                    Some(hud_chrome::ResultsHit::ToLobby) => {
-                        tracing::info!("结算 · 点击返回大厅");
-                        MatchNav::ToMainMenu
-                    }
-                    None => MatchNav::None,
-                }
-            }
+            } if !accept_commands => MatchNav::None,
             WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. }
                 if accept_commands =>
             {
@@ -554,52 +539,28 @@ impl MatchController {
     }
 
     /// 绘制当前对局：首帧或空槽全量同步，其后脏集增量。标题走 `HudSnapshot`。
-    /// 屏上色块为占位 HUD，不是原版侧栏交付。
+    /// 不绘制屏上色块 HUD；原版 UI 未接线前仅世界标记 + 窗口标题。
     pub fn draw_frame(&mut self, renderer: &mut Renderer, window: Option<&Arc<Window>>, screen_label: &str) {
         let Some(session) = self.session.as_mut()
         else {
-            renderer.set_screen_chrome(&[]);
             renderer.draw_frame(None);
             self.refresh_title(renderer, window, screen_label, None);
             return;
         };
         let Some(game) = session.game_mut()
         else {
-            renderer.set_screen_chrome(&[]);
             renderer.draw_frame(None);
             self.refresh_title(renderer, window, screen_label, None);
             return;
         };
 
         let selected = self.local.selected.clone();
-        let local_house = game
-            .world
-            .players
-            .iter()
-            .find(|p| p.id == game.world.local_player)
-            .map(|p| p.house.clone());
-        let (win_w, win_h) = window
-            .map(|w| {
-                let s = w.inner_size();
-                (s.width as f64, s.height as f64)
-            })
-            .unwrap_or((1.0, 1.0));
-        let cursor = self.cursor;
         let force_full = renderer.render_world().unit_count() == 0;
         let pres_started = Instant::now();
         let hud = if force_full {
             let snap = game.snapshot(&selected);
             renderer.timings.presentation_build = Some(pres_started.elapsed());
             let hud = game.snapshot_hud();
-            Self::apply_screen_chrome(
-                renderer,
-                &hud,
-                local_house.as_deref(),
-                screen_label,
-                cursor,
-                win_w,
-                win_h,
-            );
             renderer.draw_frame(Some(&snap));
             // 全量同步已消费脏集语义：清空以免下一帧重复投影。
             let _ = game.world.take_presentation_dirty();
@@ -611,36 +572,10 @@ impl MatchController {
             let tick = game.world.tick;
             renderer.timings.presentation_build = Some(pres_started.elapsed());
             let hud = game.snapshot_hud();
-            Self::apply_screen_chrome(
-                renderer,
-                &hud,
-                local_house.as_deref(),
-                screen_label,
-                cursor,
-                win_w,
-                win_h,
-            );
             renderer.draw_incremental(tick, &dirty, &units, &selected);
             hud
         };
         self.refresh_title(renderer, window, screen_label, Some(&hud));
-    }
-
-    fn apply_screen_chrome(
-        renderer: &mut Renderer,
-        hud: &HudSnapshot,
-        local_house: Option<&str>,
-        screen_label: &str,
-        cursor: (f64, f64),
-        win_w: f64,
-        win_h: f64,
-    ) {
-        let mut quads = hud_chrome::match_hud_chrome(hud, local_house);
-        if screen_label == "results" {
-            let hover = hud_chrome::hit_results(cursor.0, cursor.1, win_w, win_h);
-            quads.extend(hud_chrome::results_chrome(hover));
-        }
-        renderer.set_screen_chrome(&quads);
     }
 
     fn refresh_title(
@@ -689,7 +624,7 @@ impl MatchController {
                         })
                         .unwrap_or_default();
                     format!(
-                        "{} · [results] · t{} · {outcome}{stats} · 点重开/回大厅 · Enter/R重开 L/Esc大厅",
+                        "{} · [results] · t{} · {outcome}{stats} · Enter/R重开 L/Esc大厅",
                         self.title_base, hud.tick
                     )
                 }

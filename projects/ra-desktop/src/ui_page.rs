@@ -1,11 +1,11 @@
 //! 原版产品页的逻辑资源索引（背景 / 按钮多状态 / 字体句柄）。
 //!
 //! 本模块只描述「页面需要哪些资源」，不负责解码或 GPU 上传。
-//! 色块占位菜单仍由 [`crate::menu_view`] 绘制；**在 `visuals_ready` 为真之前，
-//! 不得宣称 Pre-Alpha 原版 UI 已交付。**
+//! **在 `visuals_ready` 为真之前，不得宣称 Pre-Alpha 原版 UI 已交付。**
+//! 当前仅键盘与 [`crate::ui_hit`] 逻辑命中，不绘制按钮图。
 
 use crate::{
-    menu_view::MenuAction,
+    menu_action::MenuAction,
     screen::OriginalScreen,
     ui_slots::{UiButtonSlot, slots_for},
 };
