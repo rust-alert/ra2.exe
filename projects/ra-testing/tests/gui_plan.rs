@@ -25,6 +25,8 @@ fn pre_alpha_acceptance_names_include_lobby_and_results_variants() {
     assert!(names.contains(&"load_screen_failed_retry_hover"));
     assert!(names.contains(&"options_back_hover"));
     assert!(names.contains(&"network_back_hover"));
+    assert!(names.contains(&"single_player_skirmish_hover"));
+    assert!(names.contains(&"single_player_back_hover"));
 }
 
 #[test]
