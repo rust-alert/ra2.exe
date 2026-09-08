@@ -135,7 +135,15 @@ impl Renderer {
     }
 
     /// 设置启动预览图（窗口附着后上传）。
+    ///
+    /// 适用于地图缩略图等**内容预览**。前置菜单请勿把整页色块/合成图长期当作唯一 UI
+    /// 表示；页面资源索引见桌面 `ui_page`，独立 UI pass 落地前此路径仅为过渡。
     pub fn set_preview(&mut self, image: RgbaImage) {
+        self.set_map_preview(image);
+    }
+
+    /// 设置地图 / 地形预览图（与未来 UI 页通道分离的命名入口）。
+    pub fn set_map_preview(&mut self, image: RgbaImage) {
         if let Some(gpu) = self.gpu.as_ref() {
             match self.sprite.as_mut() {
                 Some(sprite) => sprite.replace_image(&gpu.device, &gpu.queue, &image),
