@@ -193,9 +193,46 @@ pub fn single_player_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout 
     layout
 }
 
-/// 遭遇战大厅：右侧四钮几何与单人页相同；`movie` 区作地图预览占位。
-pub fn skirmish_lobby_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout {
-    single_player_layout(viewport_w, viewport_h)
+/// 遭遇战大厅专用布局（壳层 chrome + 左侧列表/预览分区）。
+///
+/// 不再复用单人页布局函数；右侧四钮几何可与壳层惯例相近，但左侧分区独立。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SkirmishLobbyLayout {
+    /// 共用壳层 chrome（背景 / 右栏 / 底条）。
+    pub shell: MainMenuLayout,
+    /// 地图名列表区（左上）。
+    pub map_list: RectPx,
+    /// 地图预览区（列表下方）。
+    pub map_preview: RectPx,
+}
+
+/// 遭遇战大厅布局（800×600 内容坐标）。
+pub fn skirmish_lobby_layout(viewport_w: u32, viewport_h: u32) -> SkirmishLobbyLayout {
+    let shell = main_menu_layout(viewport_w, viewport_h);
+    let exit_y = shell.panel_bottom.y - BUTTON_CELL_H;
+    let panel_x = shell.panel_top.x;
+    let tile_y = shell.panel_tile.y;
+    let mut shell = shell;
+    // 右栏：阵营 / 难度 / 开始 连格，返回贴底盖。
+    shell.buttons = [
+        button_cell(panel_x, tile_y),
+        button_cell(panel_x, tile_y + BUTTON_CELL_H),
+        button_cell(panel_x, tile_y + 2 * BUTTON_CELL_H),
+        button_cell(panel_x, exit_y),
+        RectPx::new(0, 0, 0, 0),
+        RectPx::new(0, 0, 0, 0),
+    ];
+    let content_w = (shell.movie.w - 32).max(1);
+    let list_h = LOBBY_MAP_ROW_MAX * LOBBY_MAP_ROW_H + (LOBBY_MAP_ROW_MAX - 1) * LOBBY_MAP_ROW_GAP + 16;
+    let map_list = RectPx::new(shell.movie.x + 16, shell.movie.y + 16, content_w, list_h);
+    let preview_y = map_list.y + map_list.h + 12;
+    let preview_h = (shell.movie.y + shell.movie.h - preview_y - 16).max(80);
+    let map_preview = RectPx::new(shell.movie.x + 16, preview_y, content_w, preview_h);
+    SkirmishLobbyLayout {
+        shell,
+        map_list,
+        map_preview,
+    }
 }
 
 /// 选项页：接受 / 取消 / 主菜单贴底盖（左栏控件另由 `options_dialog` 绘制）。
@@ -215,11 +252,11 @@ pub fn options_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout {
     layout
 }
 
-/// 大厅地图列表第 `index` 行的像素矩形（内容坐标）。
-pub fn skirmish_map_row_rect(layout: &MainMenuLayout, index: usize) -> RectPx {
-    let list_x = 24;
-    let list_w = (layout.movie.w - 48).max(1);
-    let y = layout.movie.y + 48 + (index as i32) * (LOBBY_MAP_ROW_H + LOBBY_MAP_ROW_GAP);
+/// 大厅地图列表第 `index` 行的像素矩形（相对大厅布局）。
+pub fn skirmish_map_row_rect(layout: &SkirmishLobbyLayout, index: usize) -> RectPx {
+    let list_x = layout.map_list.x + 8;
+    let list_w = (layout.map_list.w - 16).max(1);
+    let y = layout.map_list.y + 8 + (index as i32) * (LOBBY_MAP_ROW_H + LOBBY_MAP_ROW_GAP);
     RectPx::new(list_x, y, list_w, LOBBY_MAP_ROW_H)
 }
 

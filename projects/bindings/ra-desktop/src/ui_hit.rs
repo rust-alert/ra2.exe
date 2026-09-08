@@ -349,8 +349,8 @@ fn hits_load_screen(allow_retry: bool) -> Vec<MenuHit> {
 
 fn hits_skirmish_lobby(maps: &[BootMapCandidate]) -> Vec<MenuHit> {
     let layout = skirmish_lobby_layout(0, 0);
-    let bw = layout.canvas.w as f32;
-    let bh = layout.canvas.h as f32;
+    let bw = layout.shell.canvas.w as f32;
+    let bh = layout.shell.canvas.h as f32;
     let mut hits = Vec::new();
     let n = maps.len().min(LOBBY_MAP_ROW_MAX as usize);
     for i in 0..n {
@@ -371,7 +371,7 @@ fn hits_skirmish_lobby(maps: &[BootMapCandidate]) -> Vec<MenuHit> {
             else {
                 continue;
             };
-            let cell = layout.buttons[i];
+            let cell = layout.shell.buttons[i];
             hits.push(MenuHit {
                 entry_id: btn.entry_id,
                 action: btn.action,
@@ -407,7 +407,7 @@ fn hit_skirmish_lobby_at(maps: &[BootMapCandidate], cursor_x: f64, cursor_y: f64
         if !btn.enabled {
             continue;
         }
-        if layout.buttons[i].contains(sx, sy) {
+        if layout.shell.buttons[i].contains(sx, sy) {
             return Some((n + i, btn.action));
         }
     }
