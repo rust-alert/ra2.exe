@@ -161,26 +161,27 @@ const fn empty_button(
     }
 }
 
+// 命中框为 800×600 内容归一化；实际点击经 `ui_layout` + fit 相机，不直接用窗口比例。
 const MAIN_MENU_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button(
         "single_player",
         MenuAction::OpenSinglePlayer,
         true,
-        (0.28, 0.32, 0.72, 0.40),
+        (0.805, 0.3317, 1.0, 0.4017),
     ),
     main_menu_button(
         "network",
         MenuAction::OpenNetwork,
         false,
-        (0.28, 0.44, 0.72, 0.52),
+        (0.805, 0.4017, 1.0, 0.4717),
     ),
     main_menu_button(
         "options",
         MenuAction::OpenOptions,
         true,
-        (0.28, 0.56, 0.72, 0.64),
+        (0.805, 0.4717, 1.0, 0.5417),
     ),
-    main_menu_button("exit", MenuAction::Exit, true, (0.28, 0.68, 0.72, 0.76)),
+    main_menu_button("exit", MenuAction::Exit, true, (0.805, 0.5417, 1.0, 0.6117)),
 ];
 
 const SINGLE_PLAYER_BUTTONS: &[UiButtonSlot] = &[
