@@ -108,7 +108,7 @@ fn compose_skirmish_lobby_uses_side_id() {
 }
 
 #[test]
-fn compose_options_uses_back_id() {
+fn compose_options_uses_main_menu_id() {
     let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
     let normal = solid_sprite("sdbtnanm.shp#2", [10, 10, 10, 255]);
     let pressed = solid_sprite("sdbtnanm.shp#4", [200, 200, 0, 255]);
@@ -117,10 +117,10 @@ fn compose_options_uses_back_id() {
         panels: Vec::new(),
         button_normals: OPTIONS_BUTTON_IDS.iter().map(|id| (*id, normal.clone())).collect(),
         button_hovers: Vec::new(),
-        button_presseds: vec![("back", pressed)],
+        button_presseds: vec![("main_menu", pressed)],
         errors: Vec::new(),
     };
-    let page = compose_options_page(&decoded, 800, 600, Some("back"), None, None, None, None).unwrap();
+    let page = compose_options_page(&decoded, 800, 600, Some("main_menu"), None, None, None, None).unwrap();
     let layout = options_layout(800, 600);
     let cell = layout.buttons[2];
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;

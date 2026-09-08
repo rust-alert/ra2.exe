@@ -48,14 +48,16 @@ fn load_screen_exposes_retry_and_cancel_slots() {
 }
 
 #[test]
-fn options_enables_video_display_mode_cycle() {
+fn options_rail_accept_cancel_main_menu() {
     let page = slots_for(OriginalScreen::Options).unwrap();
     let ids: Vec<_> = page.buttons.iter().map(|b| b.entry_id).collect();
-    assert_eq!(ids, ["audio", "video", "back"]);
-    assert!(!page.buttons[0].enabled);
+    assert_eq!(ids, ["accept", "cancel", "main_menu"]);
+    assert!(page.buttons[0].enabled);
+    assert!(matches!(page.buttons[0].action, MenuAction::OptionsAccept));
     assert!(page.buttons[1].enabled);
-    assert!(matches!(page.buttons[1].action, MenuAction::CycleDisplayMode));
+    assert!(matches!(page.buttons[1].action, MenuAction::OptionsCancel));
     assert!(page.buttons[2].enabled);
+    assert!(matches!(page.buttons[2].action, MenuAction::Back));
     assert!(page.has_any_asset_name());
     assert_eq!(page.background_shp, Some("mnscrnl.shp"));
     assert_eq!(page.background_pal, Some("shell.pal"));

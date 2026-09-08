@@ -40,7 +40,7 @@ pub const SINGLE_PLAYER_BUTTON_IDS: [&str; 4] = ["campaign", "skirmish", "traini
 pub const SKIRMISH_LOBBY_BUTTON_IDS: [&str; 4] = ["side", "difficulty", "start", "back"];
 
 /// 选项页按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
-pub const OPTIONS_BUTTON_IDS: [&str; 3] = ["audio", "video", "back"];
+pub const OPTIONS_BUTTON_IDS: [&str; 3] = ["accept", "cancel", "main_menu"];
 
 /// 大厅地图列表最多可见行。
 pub const LOBBY_MAP_ROW_MAX: i32 = 6;
@@ -195,7 +195,7 @@ pub fn skirmish_lobby_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout
     single_player_layout(viewport_w, viewport_h)
 }
 
-/// 选项页：音频 / 视频连格 + 返回贴底盖（音频/视频仍为禁用占位）。
+/// 选项页：接受 / 取消 / 主菜单贴底盖（左栏控件另由 `options_dialog` 绘制）。
 pub fn options_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout {
     let mut layout = main_menu_layout(viewport_w, viewport_h);
     let exit_y = layout.panel_bottom.y - BUTTON_CELL_H;
