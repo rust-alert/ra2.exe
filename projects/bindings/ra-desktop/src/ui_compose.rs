@@ -157,7 +157,7 @@ fn compose_shell_menu_page(
         let normal = find_button_normal(decoded, entry_id)?;
         let disabled = matches!(
             *entry_id,
-            "ww_online" | "network" | "movies" | "campaign" | "training" | "audio" | "video"
+            "ww_online" | "network" | "movies" | "campaign" | "training" | "audio"
         );
         let sprite = if pressed_entry_id == Some(*entry_id) && !disabled {
             find_button_pressed(decoded, entry_id).unwrap_or(normal)

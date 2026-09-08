@@ -48,12 +48,13 @@ fn load_screen_exposes_retry_and_cancel_slots() {
 }
 
 #[test]
-fn options_keeps_disabled_audio_video_slots() {
+fn options_enables_video_display_mode_cycle() {
     let page = slots_for(OriginalScreen::Options).unwrap();
     let ids: Vec<_> = page.buttons.iter().map(|b| b.entry_id).collect();
     assert_eq!(ids, ["audio", "video", "back"]);
     assert!(!page.buttons[0].enabled);
-    assert!(!page.buttons[1].enabled);
+    assert!(page.buttons[1].enabled);
+    assert!(matches!(page.buttons[1].action, MenuAction::CycleDisplayMode));
     assert!(page.buttons[2].enabled);
     assert!(page.has_any_asset_name());
     assert_eq!(page.background_shp, Some("mnscrnl.shp"));
