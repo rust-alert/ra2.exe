@@ -35,6 +35,8 @@ pub struct TestStatus {
     pub last_reject: String,
     /// 遭遇战难度标签，缺省为 `Normal`。
     pub difficulty: String,
+    /// 当前原版产品页短名（如 `match` / `results`），缺省为空。
+    pub screen: String,
 }
 
 impl TestStatus {
@@ -45,6 +47,7 @@ impl TestStatus {
         status.queue = "none".into();
         status.last_reject = "none".into();
         status.difficulty = "Normal".into();
+        status.screen = String::new();
         for raw in text.lines() {
             let line = raw.trim();
             if line.is_empty() {
@@ -107,6 +110,7 @@ impl TestStatus {
                 "queue" => status.queue = value.to_string(),
                 "last_reject" => status.last_reject = value.to_string(),
                 "difficulty" => status.difficulty = value.to_string(),
+                "screen" => status.screen = value.to_string(),
                 _ => {}
             }
         }
@@ -119,7 +123,7 @@ impl TestStatus {
         Self::parse(&text)
     }
 
-    /// 解释计划里的粗略期望串（当前支持 `tick>=N` / `outcome!=none` / `paused=true|false` / `funds>=N` / `difficulty=Label`）。
+    /// 解释计划里的粗略期望串（当前支持 `tick>=N` / `outcome!=none` / `paused=true|false` / `funds>=N` / `difficulty=Label` / `screen=Name`）。
     pub fn matches_expect(&self, expect: &str) -> bool {
         let expect = expect.trim();
         if let Some(n) = expect.strip_prefix("tick>=") {
@@ -130,6 +134,9 @@ impl TestStatus {
         }
         if let Some(label) = expect.strip_prefix("difficulty=") {
             return self.difficulty == label;
+        }
+        if let Some(name) = expect.strip_prefix("screen=") {
+            return self.screen == name;
         }
         if expect == "outcome!=none" {
             return self.outcome != "none" && !self.outcome.is_empty();
