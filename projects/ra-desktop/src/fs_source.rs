@@ -6,7 +6,9 @@
 
 use std::path::PathBuf;
 
-use ra_adaptor::{MountSpec, PRIORITY_USER_OVERRIDE, find_ci_file};
+use ra_adaptor::{
+    MountSpec, NestedMountSpec, NestedMountStrategy, PRIORITY_USER_OVERRIDE, find_ci_file,
+};
 use ra_assets::{MixResolveHit, MixVfs};
 use ra_types::{AssetSource, RaError, RaResult};
 
@@ -113,18 +115,34 @@ impl GameAssetSource {
         self.mount_root_plan(&plan)
     }
 
-    /// 按名单从**所有**已挂载父档展开同名嵌套包，继承各父档内容层优先级。
-    ///
-    /// 返回新挂载份数（同一逻辑名可能对应多份来源）。
-    pub fn mount_nested_names(&mut self, names: &[&str]) -> usize {
+    /// 按组合里的嵌套挂载计划展开子包（当前仅 `AllParents`）。
+    pub fn mount_nested_plan(&mut self, plan: &[NestedMountSpec]) -> usize {
         let mut mounted = 0usize;
-        for name in names {
-            match self.vfs.mount_nested_all_from_parents(name) {
-                Ok(n) => mounted += n,
-                Err(_) => {}
+        for spec in plan {
+            match spec.strategy {
+                NestedMountStrategy::AllParents => {
+                    match self.vfs.mount_nested_all_from_parents(&spec.name) {
+                        Ok(n) => mounted += n,
+                        Err(_) => {}
+                    }
+                }
             }
         }
         mounted
+    }
+
+    /// 按名单从**所有**已挂载父档展开同名嵌套包，继承各父档内容层优先级。
+    ///
+    /// 新路径请优先 [`Self::mount_nested_plan`]。
+    pub fn mount_nested_names(&mut self, names: &[&str]) -> usize {
+        let plan: Vec<NestedMountSpec> = names
+            .iter()
+            .map(|name| NestedMountSpec {
+                name: (*name).to_string(),
+                strategy: NestedMountStrategy::AllParents,
+            })
+            .collect();
+        self.mount_nested_plan(&plan)
     }
 
     /// 统一解析：松散层与 MIX 比较优先级后得出唯一胜出。
