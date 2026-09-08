@@ -177,6 +177,8 @@ pub fn default_rust_alert_toml_text(ra2_dir: &Path) -> String {
          \n\
          ra2_dir = \"{dir}\"\n\
          # display_mode = \"1024x768\"   # 640x480 / 800x600 / 1024x768\n\
+         # music_volume = 0.4           # 壳层 BGM，0..1\n\
+         # sound_volume = 0.7           # 壳层点击等短音效，0..1\n\
          # edition = \"ra2\"   # 或 \"yr\"；省略则按目录特征自动探测\n\
          # net_url = \"\"      # 预留战网地址\n\
          # net_room = \"\"     # 预留房间名\n"
@@ -241,6 +243,11 @@ impl RustAlertDocument {
         self.doc[key] = Item::Value(value.as_ref().into());
     }
 
+    /// 设置根级浮点键（覆盖或插入）。
+    pub fn set_f64(&mut self, key: &str, value: f64) {
+        self.doc[key] = Item::Value(value.into());
+    }
+
     /// 移除根级键。
     pub fn remove(&mut self, key: &str) {
         let _ = self.doc.remove(key);
@@ -260,6 +267,16 @@ impl RustAlertDocument {
     }
 }
 
+/// 解析 0..1 音量；非法或非有限值返回 `None`（调用方保留默认）。
+pub fn parse_unit_volume(raw: &str) -> Option<f32> {
+    let v: f32 = raw.trim().parse().ok()?;
+    if v.is_finite() {
+        Some(v.clamp(0.0, 1.0))
+    } else {
+        None
+    }
+}
+
 /// 桌面启动设置（由合并后的键值填充）。
 #[derive(Debug, Clone)]
 pub struct DesktopSettings {
@@ -269,6 +286,10 @@ pub struct DesktopSettings {
     pub edition: Option<String>,
     /// 客户区显示分辨率档（离散，非自由宽高）。
     pub display_mode: DisplayMode,
+    /// 壳层 BGM 音量（0..1）。
+    pub music_volume: f32,
+    /// 壳层短音效音量（0..1）。
+    pub sound_volume: f32,
     /// 预留目标战网连接地址（协议未落地前可空置，不建 socket）。
     pub net_url: Option<String>,
     /// 预留房间名。
@@ -277,7 +298,15 @@ pub struct DesktopSettings {
 
 impl Default for DesktopSettings {
     fn default() -> Self {
-        Self { ra2_dir: exe_dir(), edition: None, display_mode: DisplayMode::DEFAULT, net_url: None, net_room: None }
+        Self {
+            ra2_dir: exe_dir(),
+            edition: None,
+            display_mode: DisplayMode::DEFAULT,
+            music_volume: 0.4,
+            sound_volume: 0.7,
+            net_url: None,
+            net_room: None,
+        }
     }
 }
 
@@ -303,6 +332,20 @@ impl DesktopSettings {
                 }
             }
         }
+        if let Some(v) = merged
+            .get("music_volume")
+            .or_else(|| merged.get("score_volume"))
+            .and_then(parse_unit_volume)
+        {
+            s.music_volume = v;
+        }
+        if let Some(v) = merged
+            .get("sound_volume")
+            .or_else(|| merged.get("sfx_volume"))
+            .and_then(parse_unit_volume)
+        {
+            s.sound_volume = v;
+        }
         if let Some(v) = merged.get("net_url").or_else(|| merged.get("battlenet_url")).filter(|v| !v.is_empty()) {
             s.net_url = Some(v.to_string());
         }
@@ -322,6 +365,8 @@ impl DesktopSettings {
                 let mut t = ConfigTable::new();
                 t.insert("ra2_dir", exe.to_string_lossy());
                 t.insert("display_mode", DisplayMode::DEFAULT.as_str());
+                t.insert("music_volume", "0.4");
+                t.insert("sound_volume", "0.7");
                 t
             },
         };
@@ -367,6 +412,16 @@ impl DesktopSettings {
     pub fn persist_display_mode(mode: DisplayMode) -> Result<(), String> {
         let mut doc = RustAlertDocument::open_or_create()?;
         doc.set_str("display_mode", mode.as_str());
+        doc.save()
+    }
+
+    /// 将壳层音量写回规范路径上的 `RustAlert.toml`（保留其它键）。
+    pub fn persist_audio_volumes(music_volume: f32, sound_volume: f32) -> Result<(), String> {
+        let music = music_volume.clamp(0.0, 1.0) as f64;
+        let sound = sound_volume.clamp(0.0, 1.0) as f64;
+        let mut doc = RustAlertDocument::open_or_create()?;
+        doc.set_f64("music_volume", music);
+        doc.set_f64("sound_volume", sound);
         doc.save()
     }
 }

@@ -84,3 +84,33 @@ fn unknown_display_mode_keeps_default() {
     let merged = MergedConfig::merge_layers(&[ConfigLayer { label: "t".into(), table }]);
     assert_eq!(DesktopSettings::from_merged(&merged).display_mode, DisplayMode::DEFAULT);
 }
+
+#[test]
+fn audio_volumes_from_merged_and_aliases() {
+    let mut table = ConfigTable::new();
+    table.insert("music_volume", "0.25");
+    table.insert("sound_volume", "0.9");
+    let merged = MergedConfig::merge_layers(&[ConfigLayer { label: "t".into(), table }]);
+    let s = DesktopSettings::from_merged(&merged);
+    assert!((s.music_volume - 0.25).abs() < 1e-6);
+    assert!((s.sound_volume - 0.9).abs() < 1e-6);
+
+    let mut table = ConfigTable::new();
+    table.insert("score_volume", "1.5");
+    table.insert("sfx_volume", "-0.2");
+    let merged = MergedConfig::merge_layers(&[ConfigLayer { label: "t".into(), table }]);
+    let s = DesktopSettings::from_merged(&merged);
+    assert!((s.music_volume - 1.0).abs() < 1e-6);
+    assert!((s.sound_volume - 0.0).abs() < 1e-6);
+}
+
+#[test]
+fn invalid_audio_volume_keeps_default() {
+    let mut table = ConfigTable::new();
+    table.insert("music_volume", "loud");
+    table.insert("sound_volume", "nan");
+    let merged = MergedConfig::merge_layers(&[ConfigLayer { label: "t".into(), table }]);
+    let s = DesktopSettings::from_merged(&merged);
+    assert!((s.music_volume - 0.4).abs() < 1e-6);
+    assert!((s.sound_volume - 0.7).abs() < 1e-6);
+}
