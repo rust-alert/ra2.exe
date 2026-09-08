@@ -16,17 +16,15 @@ fn duel_plan_has_harness_args_and_status_waits() {
 }
 
 #[test]
-fn pre_alpha_acceptance_names_include_lobby_and_results_variants() {
+fn pre_alpha_acceptance_names_cover_entry_screens_only() {
     let names = pre_alpha_acceptance_capture_names();
-    assert!(names.contains(&"skirmish_lobby_alt"));
-    assert!(names.contains(&"results_lobby_hover"));
-    assert!(names.contains(&"match_paused"));
-    assert!(names.contains(&"load_screen_failed"));
-    assert!(names.contains(&"load_screen_failed_retry_hover"));
-    assert!(names.contains(&"options_back_hover"));
-    assert!(names.contains(&"network_back_hover"));
-    assert!(names.contains(&"single_player_skirmish_hover"));
-    assert!(names.contains(&"single_player_back_hover"));
+    assert!(names.contains(&"main_menu"));
+    assert!(names.contains(&"skirmish_lobby"));
+    assert!(names.contains(&"load_screen"));
+    assert!(names.contains(&"match"));
+    assert!(names.contains(&"results"));
+    assert!(!names.iter().any(|n| n.contains("hover")));
+    assert_eq!(names.len(), 8);
 }
 
 #[test]
