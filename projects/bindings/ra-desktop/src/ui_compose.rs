@@ -103,6 +103,10 @@ fn find_button_normal<'a>(decoded: &'a PageDecodeReport, entry_id: &str) -> Opti
     decoded.button_normals.iter().find(|(id, _)| *id == entry_id).map(|(_, sprite)| sprite)
 }
 
+fn find_button_hover<'a>(decoded: &'a PageDecodeReport, entry_id: &str) -> Option<&'a DecodedUiSprite> {
+    decoded.button_hovers.iter().find(|(id, _)| *id == entry_id).map(|(_, sprite)| sprite)
+}
+
 fn find_button_pressed<'a>(decoded: &'a PageDecodeReport, entry_id: &str) -> Option<&'a DecodedUiSprite> {
     decoded.button_presseds.iter().find(|(id, _)| *id == entry_id).map(|(_, sprite)| sprite)
 }
@@ -112,6 +116,7 @@ fn compose_shell_menu_page(
     layout: MainMenuLayout,
     button_ids: &[&str],
     pressed_entry_id: Option<&str>,
+    hovered_entry_id: Option<&str>,
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
@@ -147,7 +152,13 @@ fn compose_shell_menu_page(
 
     for (i, entry_id) in button_ids.iter().enumerate() {
         let normal = find_button_normal(decoded, entry_id)?;
-        let sprite = if pressed_entry_id == Some(*entry_id) { find_button_pressed(decoded, entry_id).unwrap_or(normal) } else { normal };
+        let sprite = if pressed_entry_id == Some(*entry_id) {
+            find_button_pressed(decoded, entry_id).unwrap_or(normal)
+        } else if hovered_entry_id == Some(*entry_id) {
+            find_button_hover(decoded, entry_id).unwrap_or(normal)
+        } else {
+            normal
+        };
         let cell = layout.buttons[i];
         blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
         if let Some(fnt) = fnt {
@@ -168,6 +179,7 @@ pub fn compose_main_menu_page(
     viewport_w: u32,
     viewport_h: u32,
     pressed_entry_id: Option<&str>,
+    hovered_entry_id: Option<&str>,
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
@@ -177,6 +189,7 @@ pub fn compose_main_menu_page(
         main_menu_layout(viewport_w, viewport_h),
         &MAIN_MENU_BUTTON_IDS,
         pressed_entry_id,
+        hovered_entry_id,
         fnt,
         csf,
         movie,
@@ -190,6 +203,7 @@ pub fn compose_single_player_page(
     viewport_w: u32,
     viewport_h: u32,
     pressed_entry_id: Option<&str>,
+    hovered_entry_id: Option<&str>,
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
@@ -199,6 +213,7 @@ pub fn compose_single_player_page(
         single_player_layout(viewport_w, viewport_h),
         &SINGLE_PLAYER_BUTTON_IDS,
         pressed_entry_id,
+        hovered_entry_id,
         fnt,
         csf,
         movie,
@@ -212,6 +227,7 @@ pub fn compose_skirmish_lobby_page(
     viewport_w: u32,
     viewport_h: u32,
     pressed_entry_id: Option<&str>,
+    hovered_entry_id: Option<&str>,
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     map_preview: Option<&RgbaImage>,
@@ -223,6 +239,7 @@ pub fn compose_skirmish_lobby_page(
         layout,
         &SKIRMISH_LOBBY_BUTTON_IDS,
         pressed_entry_id,
+        hovered_entry_id,
         fnt,
         csf,
         map_preview,

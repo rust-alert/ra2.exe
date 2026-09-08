@@ -25,7 +25,7 @@ use crate::{
     ui_compose, ui_decode, ui_hit, ui_layout,
     ui_movie::MenuMoviePlayer,
     ui_page::page_resources_from_slots,
-    ui_resolve,
+    ui_resolve, ui_slots,
 };
 
 /// 外壳持有的可导航应用状态。
@@ -51,7 +51,7 @@ pub struct AppShell {
     splash_skip: bool,
     /// 装载完成后待切到的目标页。
     pending_after_load: Option<OriginalScreen>,
-    /// 光标位置（菜单逻辑命中用）。
+    /// 光标位置（逻辑像素，与 `window_width` / `window_height` 同单位）。
     cursor: (f64, f64),
     /// 后台遭遇战装载（`LoadScreen` 期间轮询）。
     load_job: Option<LoadJob>,
@@ -73,6 +73,8 @@ pub struct AppShell {
     ui_decode_cache: Option<ui_decode::PageDecodeReport>,
     /// 主菜单当前按住的按钮入口 id（按下帧合成）。
     menu_pressed_entry: Option<&'static str>,
+    /// 主菜单当前悬停的按钮入口 id（悬停帧合成）。
+    menu_hovered_entry: Option<&'static str>,
     /// 菜单字体（`game.fnt`）。
     menu_font: Option<FntFile>,
     /// 菜单文案表（`ra2.csf` / `ra2md.csf`）。
@@ -81,6 +83,8 @@ pub struct AppShell {
     menu_movie: Option<MenuMoviePlayer>,
     /// 影片时钟（`tick` 用）。
     menu_movie_clock: Option<Instant>,
+    /// 闪屏 PCX 已上传（避免每帧重解）。
+    splash_uploaded: bool,
     /// 下一帧回读后落盘的截图短名（`OriginalScreen::as_str`）；F12 手动截图用。
     pending_screenshot: Option<&'static str>,
     /// 自动关键页截图去重（仅 `test-harness`）。
@@ -117,7 +121,7 @@ impl AppShell {
             status_path,
             test_scene,
             splash_started: None,
-            splash_min_secs: 2.0,
+            splash_min_secs: 3.0,
             splash_preload_done: false,
             splash_skip: false,
             pending_after_load: None,
@@ -132,10 +136,12 @@ impl AppShell {
             ui_probe: None,
             ui_decode_cache: None,
             menu_pressed_entry: None,
+            menu_hovered_entry: None,
             menu_font: None,
             menu_csf: None,
             menu_movie: None,
             menu_movie_clock: None,
+            splash_uploaded: false,
             pending_screenshot: None,
             #[cfg(feature = "test-harness")]
             auto_screenshots: crate::screenshot::AutoScreenshotTracker::default(),
@@ -156,7 +162,7 @@ impl AppShell {
             status_path: None,
             test_scene: None,
             splash_started: None,
-            splash_min_secs: 2.0,
+            splash_min_secs: 3.0,
             splash_preload_done: false,
             splash_skip: false,
             pending_after_load: None,
@@ -171,10 +177,12 @@ impl AppShell {
             ui_probe: None,
             ui_decode_cache: None,
             menu_pressed_entry: None,
+            menu_hovered_entry: None,
             menu_font: None,
             menu_csf: None,
             menu_movie: None,
             menu_movie_clock: None,
+            splash_uploaded: false,
             pending_screenshot: None,
             #[cfg(feature = "test-harness")]
             auto_screenshots: crate::screenshot::AutoScreenshotTracker::default(),
@@ -220,12 +228,46 @@ impl AppShell {
             self.set_screen(OriginalScreen::MainMenu);
         }
         else {
-            self.upload_splash_backdrop();
+            if !self.splash_uploaded {
+                self.upload_splash_backdrop();
+                self.splash_uploaded = true;
+            }
         }
     }
 
-    /// 闪屏占位画面（无臆造 SHP；黑底 UI 页）。
+    /// 闪屏画面：解码槽位中的 `title.pcx`（失败则黑底占位）。
     fn upload_splash_backdrop(&mut self) {
+        self.ensure_ui_probe();
+        let pcx_name = ui_slots::slots_for(OriginalScreen::Splash)
+            .and_then(|s| s.background_pcx)
+            .unwrap_or("title.pcx");
+        let decoded = self
+            .ui_probe
+            .as_ref()
+            .and_then(|p| p.source.as_ref())
+            .and_then(|src| match src.read(pcx_name) {
+                Ok(bytes) => match ra_assets::parse_pcx(&bytes) {
+                    Ok(img) => RgbaImage::from_raw(img.width, img.height, img.rgba),
+                    Err(e) => {
+                        tracing::warn!(name = pcx_name, "闪屏 PCX 解析失败 · {e}");
+                        None
+                    }
+                },
+                Err(e) => {
+                    tracing::warn!(name = pcx_name, "闪屏 PCX 不可读 · {e}");
+                    None
+                },
+            });
+        if let Some(page) = decoded {
+            tracing::info!(name = pcx_name, w = page.width(), h = page.height(), "闪屏 PCX 已上传");
+            if !self.banner.contains("title.pcx") {
+                self.banner = format!("{} · {pcx_name} {}×{}", self.banner, page.width(), page.height());
+                self.refresh_shell_title();
+            }
+            self.renderer.clear_preview();
+            self.renderer.set_ui_page(page);
+            return;
+        }
         let w = ui_layout::SHELL_BASE_W as u32;
         let h = ui_layout::SHELL_BASE_H as u32;
         let pixels = vec![0u8; (w as usize) * (h as usize) * 4];
@@ -455,6 +497,7 @@ impl AppShell {
             tracing::info!("页面 {} → {}", self.screen.as_str(), next.as_str());
             self.screen = next;
             self.menu_pressed_entry = None;
+            self.menu_hovered_entry = None;
             if !matches!(next, OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu) {
                 self.menu_movie = None;
                 self.menu_movie_clock = None;
@@ -563,6 +606,7 @@ impl AppShell {
                         self.window_width as u32,
                         self.window_height as u32,
                         self.menu_pressed_entry,
+                        self.menu_hovered_entry,
                         self.menu_font.as_ref(),
                         self.menu_csf.as_ref(),
                         movie,
@@ -572,6 +616,7 @@ impl AppShell {
                         self.window_width as u32,
                         self.window_height as u32,
                         self.menu_pressed_entry,
+                        self.menu_hovered_entry,
                         self.menu_font.as_ref(),
                         self.menu_csf.as_ref(),
                         movie,
@@ -589,6 +634,7 @@ impl AppShell {
                             self.window_width as u32,
                             self.window_height as u32,
                             self.menu_pressed_entry,
+                            self.menu_hovered_entry,
                             self.menu_font.as_ref(),
                             self.menu_csf.as_ref(),
                             self.lobby_preview.as_ref(),
@@ -617,6 +663,28 @@ impl AppShell {
 
     fn load_allow_retry(&self) -> bool {
         self.load_job.is_none()
+    }
+
+    /// 当前光标下的可点按钮入口（逻辑窗口坐标）。
+    fn menu_entry_under_cursor(&self) -> Option<&'static str> {
+        let idx = ui_hit::hover_index(
+            self.screen,
+            &self.lobby_maps,
+            self.selected_map.as_deref(),
+            self.cursor,
+            self.window_width,
+            self.window_height,
+            self.load_allow_retry(),
+        )?;
+        match self.screen {
+            OriginalScreen::MainMenu => ui_layout::MAIN_MENU_BUTTON_IDS.get(idx).copied(),
+            OriginalScreen::SinglePlayerMenu => ui_layout::SINGLE_PLAYER_BUTTON_IDS.get(idx).copied(),
+            OriginalScreen::SkirmishLobby => {
+                let map_n = self.lobby_maps.len().min(ui_layout::LOBBY_MAP_ROW_MAX as usize);
+                idx.checked_sub(map_n).and_then(|i| ui_layout::SKIRMISH_LOBBY_BUTTON_IDS.get(i).copied())
+            }
+            _ => None,
+        }
     }
 
     fn apply_menu_action(&mut self, event_loop: &ActiveEventLoop, action: MenuAction) {
@@ -1037,6 +1105,16 @@ impl ApplicationHandler for AppShell {
                     self.refresh_menu_backdrop();
                 }
             }
+            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                if let Some(window) = self.window.as_ref() {
+                    let logical = window.inner_size().to_logical::<f64>(*scale_factor);
+                    self.window_width = logical.width.max(1.0);
+                    self.window_height = logical.height.max(1.0);
+                    if !matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results) {
+                        self.refresh_menu_backdrop();
+                    }
+                }
+            }
             WindowEvent::RedrawRequested => {
                 self.redraw();
                 return;
@@ -1071,7 +1149,20 @@ impl ApplicationHandler for AppShell {
             | OriginalScreen::Options
             | OriginalScreen::LoadScreen => match &event {
                 WindowEvent::CursorMoved { position, .. } => {
-                    self.cursor = (position.x, position.y);
+                    // 与 window_width/height 同用逻辑像素，避免 HiDPI 下物理光标打偏命中框。
+                    let scale = self.window.as_ref().map(|w| w.scale_factor()).unwrap_or(1.0);
+                    let logical = position.to_logical::<f64>(scale);
+                    self.cursor = (logical.x, logical.y);
+                    if matches!(
+                        self.screen,
+                        OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::SkirmishLobby
+                    ) {
+                        let next = self.menu_entry_under_cursor();
+                        if next != self.menu_hovered_entry {
+                            self.menu_hovered_entry = next;
+                            self.refresh_menu_backdrop();
+                        }
+                    }
                 }
                 WindowEvent::MouseInput { state, button: winit::event::MouseButton::Left, .. } => match state {
                     ElementState::Pressed => {
@@ -1082,43 +1173,7 @@ impl ApplicationHandler for AppShell {
                             self.screen,
                             OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::SkirmishLobby
                         ) {
-                            let next = match self.screen {
-                                OriginalScreen::MainMenu => ui_hit::hover_index(
-                                    self.screen,
-                                    &self.lobby_maps,
-                                    self.selected_map.as_deref(),
-                                    self.cursor,
-                                    self.window_width,
-                                    self.window_height,
-                                    self.load_allow_retry(),
-                                )
-                                .and_then(|i| ui_layout::MAIN_MENU_BUTTON_IDS.get(i).copied()),
-                                OriginalScreen::SinglePlayerMenu => ui_hit::hover_index(
-                                    self.screen,
-                                    &self.lobby_maps,
-                                    self.selected_map.as_deref(),
-                                    self.cursor,
-                                    self.window_width,
-                                    self.window_height,
-                                    self.load_allow_retry(),
-                                )
-                                .and_then(|i| ui_layout::SINGLE_PLAYER_BUTTON_IDS.get(i).copied()),
-                                OriginalScreen::SkirmishLobby => {
-                                    let map_n = self.lobby_maps.len().min(ui_layout::LOBBY_MAP_ROW_MAX as usize);
-                                    ui_hit::hover_index(
-                                        self.screen,
-                                        &self.lobby_maps,
-                                        self.selected_map.as_deref(),
-                                        self.cursor,
-                                        self.window_width,
-                                        self.window_height,
-                                        self.load_allow_retry(),
-                                    )
-                                    .and_then(|i| i.checked_sub(map_n))
-                                    .and_then(|i| ui_layout::SKIRMISH_LOBBY_BUTTON_IDS.get(i).copied())
-                                }
-                                _ => None,
-                            };
+                            let next = self.menu_entry_under_cursor();
                             if next != self.menu_pressed_entry {
                                 self.menu_pressed_entry = next;
                                 self.refresh_menu_backdrop();

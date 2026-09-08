@@ -37,6 +37,8 @@ pub struct PageDecodeReport {
     pub panels: Vec<DecodedUiSprite>,
     /// `(entry_id, 常态图)`；仅成功项。
     pub button_normals: Vec<(&'static str, DecodedUiSprite)>,
+    /// `(entry_id, 悬停图)`；仅成功项（缺省时合成回退常态）。
+    pub button_hovers: Vec<(&'static str, DecodedUiSprite)>,
     /// `(entry_id, 按下图)`；仅成功项（缺省时合成回退常态）。
     pub button_presseds: Vec<(&'static str, DecodedUiSprite)>,
     /// 失败说明。
@@ -46,7 +48,11 @@ pub struct PageDecodeReport {
 impl PageDecodeReport {
     /// 标题栏 / 日志短注。
     pub fn banner_note(&self) -> String {
-        let ok = usize::from(self.background.is_some()) + self.panels.len() + self.button_normals.len() + self.button_presseds.len();
+        let ok = usize::from(self.background.is_some())
+            + self.panels.len()
+            + self.button_normals.len()
+            + self.button_hovers.len()
+            + self.button_presseds.len();
         if self.errors.is_empty() {
             format!("UI 解码 ok · {ok} 张")
         }
@@ -155,6 +161,7 @@ pub fn decode_page_chrome(source: &GameAssetSource, page: &UiPageResources) -> P
     }
 
     let mut button_normals = Vec::new();
+    let mut button_hovers = Vec::new();
     let mut button_presseds = Vec::new();
     for btn in &page.buttons {
         let asset = if btn.enabled {
@@ -178,6 +185,14 @@ pub fn decode_page_chrome(source: &GameAssetSource, page: &UiPageResources) -> P
         if !btn.enabled {
             continue;
         }
+        if let Some(hover) = btn.hover.as_ref() {
+            if btn.normal.as_ref() != Some(hover) {
+                match decode_asset_ref(source, hover) {
+                    Ok(img) => button_hovers.push((btn.entry_id, img)),
+                    Err(e) => errors.push(format!("button[{}] hover · {e}", btn.entry_id)),
+                }
+            }
+        }
         let Some(pressed) = btn.pressed.as_ref()
         else {
             continue;
@@ -192,5 +207,5 @@ pub fn decode_page_chrome(source: &GameAssetSource, page: &UiPageResources) -> P
         }
     }
 
-    PageDecodeReport { background, panels, button_normals, button_presseds, errors }
+    PageDecodeReport { background, panels, button_normals, button_hovers, button_presseds, errors }
 }
