@@ -110,7 +110,7 @@ const MAIN_MENU_BUTTONS: &[UiButtonSlot] = &[
 const SINGLE_PLAYER_BUTTONS: &[UiButtonSlot] = &[
     UiButtonSlot {
         entry_id: "campaign",
-        action: MenuAction::Back,
+        action: MenuAction::Noop,
         enabled: false,
         hit: (0.28, 0.30, 0.72, 0.38),
         normal_shp: None,
@@ -130,7 +130,7 @@ const SINGLE_PLAYER_BUTTONS: &[UiButtonSlot] = &[
     },
     UiButtonSlot {
         entry_id: "training",
-        action: MenuAction::Back,
+        action: MenuAction::Noop,
         enabled: false,
         hit: (0.28, 0.54, 0.72, 0.62),
         normal_shp: None,
@@ -319,6 +319,8 @@ mod tests {
         let page = slots_for(OriginalScreen::SinglePlayerMenu).unwrap();
         assert_eq!(page.buttons[0].entry_id, "campaign");
         assert!(!page.buttons[0].enabled);
+        assert!(matches!(page.buttons[0].action, MenuAction::Noop));
+        assert!(matches!(page.buttons[2].action, MenuAction::Noop));
         assert!(page.buttons.iter().any(|b| b.entry_id == "skirmish" && b.enabled));
     }
 
