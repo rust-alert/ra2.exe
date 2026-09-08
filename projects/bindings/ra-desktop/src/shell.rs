@@ -106,6 +106,8 @@ pub struct AppShell {
     audio_bag: Option<AudioIndex>,
     /// 是否已尝试装载 `audio.bag`（避免反复读盘）。
     audio_bag_tried: bool,
+    /// 选项页草稿（进入 Options 时创建，接受/取消后清空）。
+    options_state: Option<crate::options_dialog::OptionsDialogState>,
 }
 
 impl AppShell {
@@ -167,6 +169,7 @@ impl AppShell {
             menu_bgm_playing: false,
             audio_bag: None,
             audio_bag_tried: false,
+            options_state: None,
         }
     }
 
@@ -219,6 +222,7 @@ impl AppShell {
             menu_bgm_playing: false,
             audio_bag: None,
             audio_bag_tried: false,
+            options_state: None,
         }
     }
 
@@ -896,7 +900,7 @@ impl AppShell {
                 tracing::info!("网络入口未开放（Beta）");
                 self.set_screen(OriginalScreen::Network);
             }
-            MenuAction::OpenOptions => self.set_screen(OriginalScreen::Options),
+            MenuAction::OpenOptions => self.open_options_page(),
             MenuAction::Exit => event_loop.exit(),
             MenuAction::OpenSkirmish => {
                 self.ensure_lobby_maps();
@@ -904,6 +908,9 @@ impl AppShell {
             }
             MenuAction::Back => match self.screen {
                 OriginalScreen::SinglePlayerMenu | OriginalScreen::Network | OriginalScreen::Options => {
+                    if self.screen == OriginalScreen::Options {
+                        self.options_state = None;
+                    }
                     self.set_screen(OriginalScreen::MainMenu);
                 }
                 OriginalScreen::SkirmishLobby => self.set_screen(OriginalScreen::SinglePlayerMenu),
@@ -933,6 +940,13 @@ impl AppShell {
                 self.refresh_shell_title();
             }
             MenuAction::CycleDisplayMode => self.cycle_display_mode(),
+            MenuAction::OptionsAccept => self.apply_options_accept(),
+            MenuAction::OptionsCancel => {
+                self.options_state = None;
+                self.set_screen(OriginalScreen::MainMenu);
+                self.banner = "选项已取消".into();
+                self.refresh_shell_title();
+            }
             MenuAction::SelectMap(i) => {
                 if let Some(map) = self.lobby_maps.get(i) {
                     self.selected_map = Some(map.file_name.clone());
@@ -944,9 +958,55 @@ impl AppShell {
         }
     }
 
+    /// 进入选项页并快照当前显示档 / 音量草稿。
+    fn open_options_page(&mut self) {
+        let (music, sound) = self
+            .audio
+            .as_ref()
+            .map(|a| (a.music_volume(), a.sfx_volume()))
+            .unwrap_or((0.4, 0.7));
+        self.options_state = Some(crate::options_dialog::OptionsDialogState::from_shell(
+            self.display_mode,
+            music,
+            sound,
+        ));
+        self.set_screen(OriginalScreen::Options);
+    }
+
+    /// 接受选项草稿：音量立刻生效并落盘，分辨率变更则改窗。
+    fn apply_options_accept(&mut self) {
+        let Some(state) = self.options_state.take()
+        else {
+            self.set_screen(OriginalScreen::MainMenu);
+            return;
+        };
+        let music = state.music_volume_f32();
+        let sound = state.sound_volume_f32();
+        self.apply_audio_volumes(music, sound);
+        match ra_config::DesktopSettings::persist_audio_volumes(music, sound) {
+            Ok(()) => tracing::info!(music, sound, "已写入壳层音量"),
+            Err(e) => tracing::warn!(error = %e, "写入壳层音量失败"),
+        }
+        if state.display_mode != self.display_mode {
+            self.apply_display_mode(state.display_mode);
+        }
+        self.banner = "选项已保存".into();
+        self.set_screen(OriginalScreen::MainMenu);
+        self.refresh_shell_title();
+    }
+
     /// 循环离散分辨率：改窗口客户区、落盘配置、刷新 chrome。
     fn cycle_display_mode(&mut self) {
-        self.display_mode = self.display_mode.cycle_next();
+        let next = self.display_mode.cycle_next();
+        if let Some(state) = self.options_state.as_mut() {
+            state.display_mode = next;
+        }
+        self.apply_display_mode(next);
+    }
+
+    /// 应用指定 `DisplayMode`（改窗、落盘、刷新）。
+    fn apply_display_mode(&mut self, mode: DisplayMode) {
+        self.display_mode = mode;
         let (w, h) = self.display_mode.size();
         self.window_width = w as f64;
         self.window_height = h as f64;
