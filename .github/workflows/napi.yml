@@ -39,7 +39,7 @@ jobs:
         shell: bash
         run: |
           node -e "const p=require('./projects/platforms/native/red-alert2-${{ matrix.short }}/package.json'); const path=require('path'); const bin=path.join(path.dirname(require.resolve('./projects/platforms/native/red-alert2-${{ matrix.short }}/package.json')), p.main); const n=require(bin); console.log(n.version());"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: red-alert2-${{ matrix.short }}
           path: projects/platforms/native/red-alert2-${{ matrix.short }}/red-alert2.*.node
