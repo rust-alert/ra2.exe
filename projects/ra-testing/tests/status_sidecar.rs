@@ -20,6 +20,7 @@ queue=E1:12
 last_reject=QueueFull
 difficulty=Hard
 screen=results
+leave_armed=true
 ";
     let s = TestStatus::parse(text).unwrap();
     assert_eq!(s.tick, 12);
@@ -36,6 +37,7 @@ screen=results
     assert_eq!(s.last_reject, "QueueFull");
     assert_eq!(s.difficulty, "Hard");
     assert_eq!(s.screen, "results");
+    assert!(s.leave_armed);
     assert!(s.matches_expect("tick>=1"));
     assert!(s.matches_expect("funds>=1000"));
     assert!(s.matches_expect("queue!=none"));
@@ -45,6 +47,8 @@ screen=results
     assert!(!s.matches_expect("difficulty=Easy"));
     assert!(s.matches_expect("screen=results"));
     assert!(!s.matches_expect("screen=match"));
+    assert!(s.matches_expect("leave_armed=true"));
+    assert!(!s.matches_expect("leave_armed=false"));
 }
 
 #[test]

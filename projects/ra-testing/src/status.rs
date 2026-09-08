@@ -37,6 +37,8 @@ pub struct TestStatus {
     pub difficulty: String,
     /// 当前原版产品页短名（如 `match` / `results`），缺省为空。
     pub screen: String,
+    /// 暂停后是否已武装「再按 Esc 回大厅」。
+    pub leave_armed: bool,
 }
 
 impl TestStatus {
@@ -48,6 +50,7 @@ impl TestStatus {
         status.last_reject = "none".into();
         status.difficulty = "Normal".into();
         status.screen = String::new();
+        status.leave_armed = false;
         for raw in text.lines() {
             let line = raw.trim();
             if line.is_empty() {
@@ -111,6 +114,13 @@ impl TestStatus {
                 "last_reject" => status.last_reject = value.to_string(),
                 "difficulty" => status.difficulty = value.to_string(),
                 "screen" => status.screen = value.to_string(),
+                "leave_armed" => {
+                    status.leave_armed = match value {
+                        "true" | "1" => true,
+                        "false" | "0" => false,
+                        other => return Err(format!("无效 leave_armed: {other}")),
+                    };
+                }
                 _ => {}
             }
         }
@@ -123,7 +133,7 @@ impl TestStatus {
         Self::parse(&text)
     }
 
-    /// 解释计划里的粗略期望串（当前支持 `tick>=N` / `outcome!=none` / `paused=true|false` / `funds>=N` / `difficulty=Label` / `screen=Name`）。
+    /// 解释计划里的粗略期望串（当前支持 `tick>=N` / `outcome!=none` / `paused=true|false` / `funds>=N` / `difficulty=Label` / `screen=Name` / `leave_armed=true|false`）。
     pub fn matches_expect(&self, expect: &str) -> bool {
         let expect = expect.trim();
         if let Some(n) = expect.strip_prefix("tick>=") {
@@ -146,6 +156,12 @@ impl TestStatus {
         }
         if expect == "paused=false" {
             return !self.paused;
+        }
+        if expect == "leave_armed=true" {
+            return self.leave_armed;
+        }
+        if expect == "leave_armed=false" {
+            return !self.leave_armed;
         }
         if expect == "queue!=none" {
             return self.queue != "none" && !self.queue.is_empty();
