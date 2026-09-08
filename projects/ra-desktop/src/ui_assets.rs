@@ -1,7 +1,7 @@
 //! 主菜单阶段的原版资源探测：证明进入对局前即可 MixVfs → SHP → RGBA。
 //!
 //! **不是 Pre-Alpha 原版 UI。** 只验证安装挂载与常见 UI SHP / `ui.ini` 可读；
-//! 页面布局、字体、命中框仍由占位菜单负责。
+//! 页面绘制与字体仍待 UI pass；逻辑命中见 `ui_hit`。
 
 use ra_adaptor::detect_edition;
 use ra_assets::{IniDocument, Palette, ShpFile};
@@ -91,11 +91,11 @@ pub fn probe_menu_ui_assets() -> MenuUiProbe {
     };
     let note = match &mouse_frame {
         Some(img) => format!(
-            "UI 探测 ok · mouse.shp {}×{} · {} · 根mix {} · 嵌套 {} · 占位菜单仍非 Pre-Alpha",
+            "UI 探测 ok · mouse.shp {}×{} · {} · 根mix {} · 嵌套 {} · 原版 UI 未接线",
             img.width, img.height, ui_bit, mounted_root, mounted_nested
         ),
         None => format!(
-            "UI 探测：未读到 mouse.shp · {} · 根mix {} · 嵌套 {} · 占位菜单仍非 Pre-Alpha",
+            "UI 探测：未读到 mouse.shp · {} · 根mix {} · 嵌套 {} · 原版 UI 未接线",
             ui_bit, mounted_root, mounted_nested
         ),
     };
@@ -125,79 +125,7 @@ fn decode_named_shp_frame(source: &GameAssetSource, pal_name: &str, shp_name: &s
     RgbaImage::new(u32::from(frame.frame_width), u32::from(frame.frame_height), frame.to_rgba(&pal))
 }
 
-/// 将 `src` 贴到 `dst` 右上角。源像素 alpha 过低或近黑视为透明。
-pub fn stamp_top_right(dst: &mut RgbaImage, src: &RgbaImage, margin: u32) {
-    if src.width == 0 || src.height == 0 || dst.width == 0 || dst.height == 0 {
-        return;
-    }
-    let ox = dst.width.saturating_sub(src.width.saturating_add(margin));
-    let oy = margin.min(dst.height.saturating_sub(1));
-    stamp_at(dst, src, ox, oy);
-}
-
-/// 将 `src` 贴到 `dst` 左上角。
-pub fn stamp_top_left(dst: &mut RgbaImage, src: &RgbaImage, margin: u32) {
-    if src.width == 0 || src.height == 0 || dst.width == 0 || dst.height == 0 {
-        return;
-    }
-    stamp_at(dst, src, margin, margin);
-}
-
-/// 将 `src` 贴到 `dst` 右下角（不跳过近黑，适合地形预览）。
-pub fn stamp_bottom_right_opaque(dst: &mut RgbaImage, src: &RgbaImage, margin: u32) {
-    if src.width == 0 || src.height == 0 || dst.width == 0 || dst.height == 0 {
-        return;
-    }
-    let ox = dst.width.saturating_sub(src.width.saturating_add(margin));
-    let oy = dst.height.saturating_sub(src.height.saturating_add(margin));
-    for sy in 0..src.height {
-        let dy = oy.saturating_add(sy);
-        if dy >= dst.height {
-            break;
-        }
-        for sx in 0..src.width {
-            let dx = ox.saturating_add(sx);
-            if dx >= dst.width {
-                break;
-            }
-            let si = ((sy * src.width + sx) * 4) as usize;
-            let di = ((dy * dst.width + dx) * 4) as usize;
-            dst.pixels[di..di + 4].copy_from_slice(&src.pixels[si..si + 4]);
-        }
-    }
-}
-
-/// 右下角预览占位框（生成中）。`pulse` 0..=2 控制边框亮度。
-pub fn stamp_bottom_right_pending(dst: &mut RgbaImage, slot_w: u32, slot_h: u32, margin: u32, pulse: u8) {
-    if dst.width == 0 || dst.height == 0 || slot_w == 0 || slot_h == 0 {
-        return;
-    }
-    let w = slot_w.min(dst.width.saturating_sub(margin.saturating_mul(2)).max(1));
-    let h = slot_h.min(dst.height.saturating_sub(margin.saturating_mul(2)).max(1));
-    let ox = dst.width.saturating_sub(w.saturating_add(margin));
-    let oy = dst.height.saturating_sub(h.saturating_add(margin));
-    let fill = [28, 36, 52, 255];
-    let edge = match pulse % 3 {
-        0 => [90, 110, 150, 255],
-        1 => [120, 150, 200, 255],
-        _ => [160, 190, 230, 255],
-    };
-    for dy in 0..h {
-        for dx in 0..w {
-            let x = ox + dx;
-            let y = oy + dy;
-            if x >= dst.width || y >= dst.height {
-                continue;
-            }
-            let border = dx < 2 || dy < 2 || dx + 2 >= w || dy + 2 >= h;
-            let di = ((y * dst.width + x) * 4) as usize;
-            let c = if border { edge } else { fill };
-            dst.pixels[di..di + 4].copy_from_slice(&c);
-        }
-    }
-}
-
-/// 最近邻缩小到不超过 `max_w`×`max_h`（已更小则克隆）。
+/// 最近邻缩小到不超过 max_w×max_h（已更小则克隆）。
 pub fn downscale_to_fit(img: &RgbaImage, max_w: u32, max_h: u32) -> Option<RgbaImage> {
     if img.width == 0 || img.height == 0 || max_w == 0 || max_h == 0 {
         return None;
@@ -221,116 +149,14 @@ pub fn downscale_to_fit(img: &RgbaImage, max_w: u32, max_h: u32) -> Option<RgbaI
     RgbaImage::new(nw, nh, pixels)
 }
 
-/// 在归一化矩形内画水平进度条（底轨 + 填充）。`ratio` 钳到 0..1。
-pub fn stamp_norm_progress_bar(
-    dst: &mut RgbaImage,
-    x0: f32,
-    y0: f32,
-    x1: f32,
-    y1: f32,
-    ratio: f32,
-    track: [u8; 4],
-    fill: [u8; 4],
-) {
-    let w = dst.width.max(1) as f32;
-    let h = dst.height.max(1) as f32;
-    let px0 = (x0.clamp(0.0, 1.0) * w) as u32;
-    let py0 = (y0.clamp(0.0, 1.0) * h) as u32;
-    let px1 = (x1.clamp(0.0, 1.0) * w) as u32;
-    let py1 = (y1.clamp(0.0, 1.0) * h) as u32;
-    let bw = px1.saturating_sub(px0).max(1);
-    let bh = py1.saturating_sub(py0).max(1);
-    fill_rect_rgba(dst, px0, py0, bw, bh, track);
-    let fill_w = ((bw as f32) * ratio.clamp(0.0, 1.0)).round() as u32;
-    if fill_w > 0 {
-        fill_rect_rgba(dst, px0, py0, fill_w, bh, fill);
-    }
-}
-
-fn fill_rect_rgba(dst: &mut RgbaImage, x: u32, y: u32, w: u32, h: u32, rgba: [u8; 4]) {
-    let x1 = (x + w).min(dst.width);
-    let y1 = (y + h).min(dst.height);
-    for py in y..y1 {
-        for px in x..x1 {
-            let i = ((py * dst.width + px) * 4) as usize;
-            dst.pixels[i..i + 4].copy_from_slice(&rgba);
-        }
-    }
-}
-
-fn stamp_at(dst: &mut RgbaImage, src: &RgbaImage, ox: u32, oy: u32) {
-    for sy in 0..src.height {
-        let dy = oy.saturating_add(sy);
-        if dy >= dst.height {
-            break;
-        }
-        for sx in 0..src.width {
-            let dx = ox.saturating_add(sx);
-            if dx >= dst.width {
-                break;
-            }
-            let si = ((sy * src.width + sx) * 4) as usize;
-            let di = ((dy * dst.width + dx) * 4) as usize;
-            let a = src.pixels[si + 3];
-            let r = src.pixels[si];
-            let g = src.pixels[si + 1];
-            let b = src.pixels[si + 2];
-            if a < 8 || (r | g | b) < 8 {
-                continue;
-            }
-            dst.pixels[di..di + 4].copy_from_slice(&src.pixels[si..si + 4]);
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn stamp_skips_near_black() {
-        let mut dst = RgbaImage::new(4, 4, vec![10u8; 4 * 4 * 4]).unwrap();
-        let mut src_px = vec![0u8; 2 * 2 * 4];
-        // 一像素亮色
-        src_px[0..4].copy_from_slice(&[200, 100, 50, 255]);
-        let src = RgbaImage::new(2, 2, src_px).unwrap();
-        stamp_top_right(&mut dst, &src, 0);
-        // 右上角 (2,0) 应对上 src (0,0)
-        let di = ((0u32 * 4 + 2) * 4) as usize;
-        assert_eq!(&dst.pixels[di..di + 3], &[200, 100, 50]);
-    }
 
     #[test]
     fn downscale_halves_dimensions() {
         let src = RgbaImage::new(4, 2, vec![255u8; 4 * 2 * 4]).unwrap();
         let out = downscale_to_fit(&src, 2, 2).unwrap();
         assert_eq!((out.width, out.height), (2, 1));
-    }
-
-    #[test]
-    fn pending_slot_paints_corner() {
-        let mut dst = RgbaImage::new(64, 48, vec![0u8; 64 * 48 * 4]).unwrap();
-        stamp_bottom_right_pending(&mut dst, 20, 16, 0, 1);
-        let di = ((32u32 * 64 + 44) * 4) as usize; // inside bottom-right slot
-        assert_ne!(dst.pixels[di..di + 3], [0, 0, 0]);
-    }
-
-    #[test]
-    fn progress_bar_fills_left_portion() {
-        let mut dst = RgbaImage::new(100, 10, vec![0u8; 100 * 10 * 4]).unwrap();
-        stamp_norm_progress_bar(
-            &mut dst,
-            0.0,
-            0.0,
-            1.0,
-            1.0,
-            0.5,
-            [20, 20, 20, 255],
-            [200, 180, 40, 255],
-        );
-        let mid = ((5u32 * 100 + 25) * 4) as usize;
-        let right = ((5u32 * 100 + 75) * 4) as usize;
-        assert_eq!(&dst.pixels[mid..mid + 3], &[200, 180, 40]);
-        assert_eq!(&dst.pixels[right..right + 3], &[20, 20, 20]);
     }
 }
