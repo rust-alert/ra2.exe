@@ -2,6 +2,7 @@
 //!
 //! 按格式族分目录：`mix` / `ini` / `image` / `voxel` / `rules`。
 //! 对外仍扁平再导出，保持既有 `ra_assets::*` 路径。
+//! `image` 含 PAL / SHP / TMP / Bink 固定头。
 
 #![deny(missing_docs)]
 
@@ -12,6 +13,7 @@ pub mod rules;
 pub mod voxel;
 
 pub use image::{
+    bink::{BINK_FLAG_ALPHA, BINK_FLAG_GRAY, BinkHeader, BinkVersion, parse_bink_header},
     pal::{Palette, Rgba},
     shp::{ShpFile, ShpFrame, decode_rle_frame},
     tmp::{TILE_HEADER_SIZE, TmpFile, TmpTile, diamond_byte_count},
