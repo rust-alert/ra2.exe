@@ -11,4 +11,5 @@ mod reject;
 mod schedule;
 mod session;
 mod session_validate;
+mod skirmish_fingerprint;
 mod victory_structures;
