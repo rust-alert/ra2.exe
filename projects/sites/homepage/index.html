@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Red Alert 2 · ra2</title>
+        <style>
+            :root {
+                --bg: #0b1220;
+                --fg: #e8eefc;
+                --muted: #9aa8c7;
+                --accent: #c0392b;
+            }
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                min-height: 100vh;
+                font-family: "Segoe UI", "PingFang SC", sans-serif;
+                color: var(--fg);
+                background:
+                    radial-gradient(1200px 600px at 20% 0%, #1a2744 0%, transparent 60%),
+                    radial-gradient(900px 500px at 90% 20%, #3a1520 0%, transparent 55%),
+                    var(--bg);
+                display: grid;
+                place-items: center;
+                padding: 2rem;
+            }
+            main {
+                max-width: 40rem;
+                text-align: center;
+            }
+            h1 {
+                font-size: clamp(2rem, 6vw, 3.4rem);
+                letter-spacing: 0.04em;
+                margin: 0 0 0.75rem;
+            }
+            p {
+                color: var(--muted);
+                line-height: 1.6;
+                margin: 0 0 1.5rem;
+            }
+            code {
+                color: #f0c9c3;
+            }
+            #status {
+                font-size: 0.9rem;
+                color: var(--muted);
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <h1>RED ALERT 2</h1>
+            <p>
+                现代化重写入口包 <code>@game-gpt/red-alert2@0.0.0</code>。桌面用
+                <code>ra2 launch --path</code>，浏览器面走 Wasm。
+            </p>
+            <p id="status">正在加载 Wasm…</p>
+        </main>
+        <script type="module">
+            import { init, engineName, supportsWebgl2 } from "@game-gpt/red-alert2/wasm";
+            const status = document.getElementById("status");
+            try {
+                await init();
+                status.textContent = `engine=${engineName()} webgl2=${supportsWebgl2()}`;
+            } catch (err) {
+                status.textContent = `Wasm 加载失败：${err instanceof Error ? err.message : String(err)}`;
+            }
+        </script>
+    </body>
+</html>

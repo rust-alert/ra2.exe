@@ -1,0 +1,14 @@
+{
+    "name": "@game-gpt/red-alert2-playground",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "description": "Browser playground. Depends on published @game-gpt/red-alert2, not the workspace link.",
+    "scripts": {
+        "dev": "python -m http.server 4174",
+        "check": "node --input-type=module -e \"import('@game-gpt/red-alert2/wasm').then(m=>console.log('ok', Object.keys(m)))\""
+    },
+    "dependencies": {
+        "@game-gpt/red-alert2": "0.0.0"
+    }
+}

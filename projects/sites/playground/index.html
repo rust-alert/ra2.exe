@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>ra2 playground</title>
+        <style>
+            body {
+                margin: 0;
+                font-family: "Segoe UI", "PingFang SC", sans-serif;
+                background: #101820;
+                color: #e7eef8;
+                min-height: 100vh;
+                display: grid;
+                place-items: center;
+            }
+            #log {
+                width: min(40rem, 92vw);
+                padding: 1rem 1.25rem;
+                border: 1px solid #2a3b52;
+                background: #0c121a;
+                white-space: pre-wrap;
+            }
+        </style>
+    </head>
+    <body>
+        <pre id="log">boot…</pre>
+        <script type="module">
+            import { init, engineName, supportsWebgl2 } from "@game-gpt/red-alert2/wasm";
+            const log = document.getElementById("log");
+            const lines = [];
+            const say = (s) => {
+                lines.push(s);
+                log.textContent = lines.join("\n");
+            };
+            try {
+                say("init @game-gpt/red-alert2@0.0.0 /wasm …");
+                await init();
+                say(`engineName=${engineName()}`);
+                say(`supportsWebgl2=${supportsWebgl2()}`);
+                say("placeholder playground ready");
+            } catch (err) {
+                say(`ERROR ${err instanceof Error ? err.stack || err.message : String(err)}`);
+            }
+        </script>
+    </body>
+</html>
