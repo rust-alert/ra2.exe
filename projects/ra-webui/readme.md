@@ -48,7 +48,7 @@ Web 路径目标相同，仅 I/O 与表面创建不同； **仿真重心仍在 `
 |-------------------|-----------------------------------------------------------|
 | `start`           | `#[wasm_bindgen(start)]`：安装 `console_error_panic_hook` |
 | `engine_name`     | 恒返回 `"ra2"`                                            |
-| `supports_webgl2` | 恒返回 `true`，**不探测**浏览器                           |
+| `supports_webgl2` | 画布未接线前恒 `false`；**不是**浏览器探测 |
 
 没有创建 `<canvas>`，没有初始化 wgpu 实例，没有构造对局运行时。
 
@@ -111,7 +111,7 @@ crate 一同落地。
 
 1. 加载本包打出的 wasm。
 2. 调用 `engine_name()` 确认标识为 `"ra2"`。
-3. 读取 `supports_webgl2()`—— **仅作占位**，生产环境必须在 JS 侧真实检测 WebGL2/WebGPU。
+3. 读取 `supports_webgl2()`——画布未接线前为 `false`；生产环境仍须在 JS 侧真实检测 WebGL2/WebGPU，不能仅依赖本导出。
 
 `start` 的 panic hook 只改善 Rust panic 可读性，不替代页面自己的错误 UI。
 
