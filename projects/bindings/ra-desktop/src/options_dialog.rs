@@ -156,7 +156,7 @@ impl OptionsDialogState {
 
     /// 按壳层像素处理按下。
     pub fn on_press(&mut self, layout: &OptionsDialogLayout, x: i32, y: i32) -> Option<OptionsHit> {
-        let hit = layout.hit_at(x, y)?;
+        let hit = layout.hit_at(x, y, self.resolution_open)?;
         match hit {
             OptionsHit::Toggle(id) => match id {
                 OptionsCheckbox::Tooltips => self.tooltips = !self.tooltips,
@@ -321,8 +321,8 @@ impl OptionsDialogLayout {
         RectPx::new(self.resolution.x, self.resolution.y + self.resolution.h + index as i32 * 24, self.resolution.w, 24)
     }
 
-    /// 壳层像素命中。
-    pub fn hit_at(self, x: i32, y: i32) -> Option<OptionsHit> {
+    /// 壳层像素命中。`resolution_open` 为真时才命中下拉行。
+    pub fn hit_at(self, x: i32, y: i32, resolution_open: bool) -> Option<OptionsHit> {
         for (i, id) in OPTIONS_RAIL_IDS.iter().enumerate() {
             if self.rail[i].contains(x, y) {
                 return Some(match *id {
@@ -332,11 +332,11 @@ impl OptionsDialogLayout {
                 });
             }
         }
-        // 下拉展开时优先点选行。
-        // 行命中由调用方结合 `resolution_open` 判断；此处若点在行上仍返回行。
-        for i in 0..DisplayMode::ALL.len() {
-            if self.resolution_row(i).contains(x, y) {
-                return Some(OptionsHit::ResolutionRow(i));
+        if resolution_open {
+            for i in 0..DisplayMode::ALL.len() {
+                if self.resolution_row(i).contains(x, y) {
+                    return Some(OptionsHit::ResolutionRow(i));
+                }
             }
         }
         if self.resolution.contains(x, y) {
@@ -411,6 +411,7 @@ mod tests {
     fn resolution_row_selects_mode() {
         let layout = OptionsDialogLayout::new();
         let mut state = OptionsDialogState::from_shell(DisplayMode::W640H480, 0.5, 0.5);
+        state.resolution_open = true;
         let row = layout.resolution_row(2);
         state.on_press(&layout, row.x + 4, row.y + 4);
         assert_eq!(state.display_mode, DisplayMode::W1024H768);
