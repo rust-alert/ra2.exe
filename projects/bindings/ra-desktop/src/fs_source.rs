@@ -80,6 +80,16 @@ impl GameAssetSource {
                 skipped += 1;
                 continue;
             };
+            // 中文零售盘常见 theme.mix = 5 字节 "CLASS" 占位；跳过以免污染挂载表。
+            if data.len() < 64 {
+                tracing::info!(
+                    mix = %spec.name,
+                    bytes = data.len(),
+                    "跳过过小的 MIX（常见于中文盘主题占位）"
+                );
+                skipped += 1;
+                continue;
+            }
             match self.vfs.mount_bytes_with_meta(spec.name.clone(), data, spec.priority, None, Some(spec.layer_id.clone())) {
                 Ok(()) => mounted += 1,
                 Err(_) => skipped += 1,

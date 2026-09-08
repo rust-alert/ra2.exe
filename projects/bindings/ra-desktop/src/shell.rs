@@ -2,7 +2,7 @@
 
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
-use ra_assets::{AudioIndex, CsfFile, FntFile, IniDocument, PcmAudio, decode_audio_bytes, decode_wav_pcm};
+use ra_assets::{AudioIndex, CsfFile, FntFile, IniDocument, PcmAudio, decode_audio_bytes};
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{AssetSource, DisplayMode, RaError, RaResult};
 use winit::{
@@ -668,7 +668,10 @@ impl AppShell {
             self.menu_hovered_entry = None;
             if !matches!(
                 next,
-                OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::Options
+                OriginalScreen::MainMenu
+                    | OriginalScreen::SinglePlayerMenu
+                    | OriginalScreen::Options
+                    | OriginalScreen::ExitConfirm
             ) {
                 self.menu_movie = None;
                 self.menu_movie_clock = None;
@@ -774,7 +777,11 @@ impl AppShell {
         self.ensure_menu_text_assets();
         if matches!(
             self.screen,
-            OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::Options | OriginalScreen::SkirmishLobby
+            OriginalScreen::MainMenu
+                | OriginalScreen::SinglePlayerMenu
+                | OriginalScreen::Options
+                | OriginalScreen::ExitConfirm
+                | OriginalScreen::SkirmishLobby
         ) {
             if self.screen == OriginalScreen::SkirmishLobby {
                 self.ensure_lobby_maps();
@@ -818,6 +825,16 @@ impl AppShell {
                             movie,
                         )
                     }),
+                    OriginalScreen::ExitConfirm => ui_compose::compose_exit_confirm_page(
+                        decoded,
+                        self.window_width as u32,
+                        self.window_height as u32,
+                        self.menu_pressed_entry,
+                        self.menu_hovered_entry,
+                        self.menu_font.as_ref(),
+                        self.menu_csf.as_ref(),
+                        movie,
+                    ),
                     OriginalScreen::SkirmishLobby => {
                         let selected = self.selected_map.as_deref();
                         let map_names: Vec<(String, bool)> = self
@@ -983,15 +1000,25 @@ impl AppShell {
             .collect()
     }
 
-    /// 按词干尝试 `{stem}.wav` / `{stem}.aud`。
+    /// 按词干尝试 `{stem}.wav` / `{stem}.aud`；本安装 Theme 占位时回退 `intro.aud`。
     fn decode_theme_track(&self, stem: &str) -> Option<PcmAudio> {
+        let mut names: Vec<String> = Vec::new();
         for ext in ["wav", "aud"] {
-            let name = format!("{stem}.{ext}");
-            let Some(bytes) = self.read_asset_bytes(&name)
+            names.push(format!("{stem}.{ext}"));
+        }
+        // 证据：`local.mix` 含 `intro.aud`（菜单曲）；`Grinder.wav` 随 Theme 占位不可读。
+        for fallback in ["intro.aud", "INTRO.AUD", "Intro.aud"] {
+            if !names.iter().any(|n| n.eq_ignore_ascii_case(fallback)) {
+                names.push(fallback.into());
+            }
+        }
+        for name in &names {
+            let Some(bytes) = self.read_asset_bytes(name)
             else {
                 continue;
             };
-            match decode_audio_bytes(&bytes, Some(ext)) {
+            let ext = name.rsplit_once('.').map(|(_, e)| e);
+            match decode_audio_bytes(&bytes, ext) {
                 Ok(pcm) => {
                     tracing::info!(
                         %name,
@@ -1002,17 +1029,29 @@ impl AppShell {
                     return Some(pcm);
                 }
                 Err(e) => {
-                    if ext == "wav" {
-                        if let Ok(pcm) = decode_wav_pcm(&bytes) {
-                            tracing::info!(%name, "已加载菜单 BGM（wav 回退）");
-                            return Some(pcm);
-                        }
-                    }
                     tracing::warn!(%name, error = %e, "主题曲解码失败");
                 }
             }
         }
         None
+    }
+
+    /// 主题曲缺失诊断（仅本安装；不跨目录）。
+    fn warn_theme_unavailable(&self, stem: &str) {
+        let theme_note = match self
+            .read_asset_bytes("theme.mix")
+            .or_else(|| self.read_asset_bytes("Theme.mix"))
+        {
+            Some(bytes) if bytes.as_slice() == b"CLASS" || bytes.len() < 64 => {
+                format!(
+                    "theme.mix 为占位（{} 字节）。已尝试 intro.aud 仍失败",
+                    bytes.len()
+                )
+            }
+            Some(bytes) => format!("theme.mix 可读（{} 字节）但未解出 {stem}.* / intro.aud", bytes.len()),
+            None => "无 theme.mix，且 intro.aud 未解出".into(),
+        };
+        tracing::warn!(%stem, %theme_note, "菜单主题曲不可用，BGM 静音");
     }
 
     /// 惰性装载菜单 BGM / 点击采样。
@@ -1027,10 +1066,7 @@ impl AppShell {
             if let Some(pcm) = self.decode_theme_track(&stem) {
                 self.menu_bgm = Some(pcm);
             } else {
-                tracing::warn!(
-                    %stem,
-                    "菜单主题曲不可读（检查 theme.mix / {stem}.wav）。壳层将静音运行 BGM"
-                );
+                self.warn_theme_unavailable(&stem);
             }
         }
         if self.menu_click.is_none() {
@@ -1059,6 +1095,7 @@ impl AppShell {
             OriginalScreen::MainMenu
                 | OriginalScreen::SinglePlayerMenu
                 | OriginalScreen::Options
+                | OriginalScreen::ExitConfirm
                 | OriginalScreen::SkirmishLobby
                 | OriginalScreen::Network
         );
@@ -1100,6 +1137,7 @@ impl AppShell {
             OriginalScreen::MainMenu => ui_layout::MAIN_MENU_BUTTON_IDS.get(idx).copied(),
             OriginalScreen::SinglePlayerMenu => ui_layout::SINGLE_PLAYER_BUTTON_IDS.get(idx).copied(),
             OriginalScreen::Options => ui_layout::OPTIONS_BUTTON_IDS.get(idx).copied(),
+            OriginalScreen::ExitConfirm => ui_layout::EXIT_CONFIRM_BUTTON_IDS.get(idx).copied(),
             OriginalScreen::SkirmishLobby => {
                 let map_n = self.lobby_maps.len().min(ui_layout::LOBBY_MAP_ROW_MAX as usize);
                 idx.checked_sub(map_n).and_then(|i| ui_layout::SKIRMISH_LOBBY_BUTTON_IDS.get(i).copied())
@@ -1116,13 +1154,20 @@ impl AppShell {
                 self.set_screen(OriginalScreen::Network);
             }
             MenuAction::OpenOptions => self.open_options_page(),
-            MenuAction::Exit => event_loop.exit(),
+            MenuAction::Exit => {
+                self.banner = "确认退出？".into();
+                self.set_screen(OriginalScreen::ExitConfirm);
+            }
+            MenuAction::ConfirmExit => {
+                tracing::info!("用户确认退出");
+                event_loop.exit();
+            }
             MenuAction::OpenSkirmish => {
                 self.ensure_lobby_maps();
                 self.set_screen(OriginalScreen::SkirmishLobby);
             }
             MenuAction::Back => match self.screen {
-                OriginalScreen::SinglePlayerMenu | OriginalScreen::Network | OriginalScreen::Options => {
+                OriginalScreen::SinglePlayerMenu | OriginalScreen::Network | OriginalScreen::Options | OriginalScreen::ExitConfirm => {
                     if self.screen == OriginalScreen::Options {
                         self.discard_options_draft();
                     }
@@ -1262,7 +1307,7 @@ impl AppShell {
                 format!("ra2 · 闪屏 · {} · Esc/Enter/点击跳过（预处理完成后进主菜单）· F12 截图", self.banner)
             }
             OriginalScreen::MainMenu => {
-                format!("ra2 · 主菜单 · {} · Enter 单人 · N 网络 · O 选项 · Esc 退出 · F12 截图", self.banner)
+                format!("ra2 · 主菜单 · {} · Enter 单人 · N 网络 · O 选项 · Esc 确认退出 · F12 截图", self.banner)
             }
             OriginalScreen::SinglePlayerMenu => "ra2 · 单人游戏 · Enter/S 遭遇战 · Esc 返回 · F12 截图".into(),
             OriginalScreen::SkirmishLobby => {
@@ -1291,6 +1336,9 @@ impl AppShell {
                     "ra2 · 选项 · {} · 视频循环分辨率 · Esc 返回 · F12 截图",
                     self.banner
                 )
+            }
+            OriginalScreen::ExitConfirm => {
+                format!("ra2 · 确认退出 · {} · Enter 退出 · Esc 取消 · F12 截图", self.banner)
             }
             OriginalScreen::Match | OriginalScreen::Results => unreachable!(),
         };
@@ -1442,7 +1490,10 @@ impl AppShell {
                     self.set_screen(OriginalScreen::Network);
                 }
                 PhysicalKey::Code(KeyCode::KeyO) => self.set_screen(OriginalScreen::Options),
-                PhysicalKey::Code(KeyCode::Escape) => event_loop.exit(),
+                PhysicalKey::Code(KeyCode::Escape) => {
+                    self.banner = "确认退出？".into();
+                    self.set_screen(OriginalScreen::ExitConfirm);
+                }
                 _ => {}
             },
             OriginalScreen::SinglePlayerMenu => match key {
@@ -1477,9 +1528,19 @@ impl AppShell {
             },
             OriginalScreen::Network | OriginalScreen::Options => {
                 if matches!(key, PhysicalKey::Code(KeyCode::Escape)) {
+                    if self.screen == OriginalScreen::Options {
+                        self.discard_options_draft();
+                    }
                     self.set_screen(OriginalScreen::MainMenu);
                 }
             }
+            OriginalScreen::ExitConfirm => match key {
+                PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) => {
+                    self.apply_menu_action(event_loop, MenuAction::ConfirmExit);
+                }
+                PhysicalKey::Code(KeyCode::Escape) => self.set_screen(OriginalScreen::MainMenu),
+                _ => {}
+            },
             OriginalScreen::LoadScreen => match key {
                 PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) => {
                     if self.load_job.is_some() {
@@ -1524,7 +1585,10 @@ impl AppShell {
             if self.screen == OriginalScreen::LoadScreen {
                 self.poll_load_job();
             }
-            if matches!(self.screen, OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu) {
+            if matches!(
+                self.screen,
+                OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::Options | OriginalScreen::ExitConfirm
+            ) {
                 let dt = self.menu_movie_clock.replace(Instant::now()).map(|t0| t0.elapsed().as_secs_f64()).unwrap_or(0.0);
                 let advanced = self.menu_movie.as_mut().is_some_and(|m| m.tick(dt.min(0.25)));
                 if advanced {
@@ -1613,7 +1677,30 @@ impl ApplicationHandler for AppShell {
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         match &event {
             WindowEvent::CloseRequested => {
-                event_loop.exit();
+                // 前置壳层页先进入退出确认；已在确认页或对局中则直接退出。
+                if self.screen == OriginalScreen::ExitConfirm
+                    || matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results | OriginalScreen::Splash)
+                {
+                    event_loop.exit();
+                }
+                else if matches!(
+                    self.screen,
+                    OriginalScreen::MainMenu
+                        | OriginalScreen::SinglePlayerMenu
+                        | OriginalScreen::Options
+                        | OriginalScreen::SkirmishLobby
+                        | OriginalScreen::Network
+                        | OriginalScreen::LoadScreen
+                ) {
+                    if self.screen == OriginalScreen::Options {
+                        self.discard_options_draft();
+                    }
+                    self.banner = "确认退出？".into();
+                    self.set_screen(OriginalScreen::ExitConfirm);
+                }
+                else {
+                    event_loop.exit();
+                }
                 return;
             }
             WindowEvent::Resized(size) => {
@@ -1666,6 +1753,7 @@ impl ApplicationHandler for AppShell {
             | OriginalScreen::SkirmishLobby
             | OriginalScreen::Network
             | OriginalScreen::Options
+            | OriginalScreen::ExitConfirm
             | OriginalScreen::LoadScreen => match &event {
                 WindowEvent::CursorMoved { position, .. } => {
                     // 与 window_width/height 同用逻辑像素，避免 HiDPI 下物理光标打偏命中框。
@@ -1679,6 +1767,7 @@ impl ApplicationHandler for AppShell {
                         OriginalScreen::MainMenu
                             | OriginalScreen::SinglePlayerMenu
                             | OriginalScreen::Options
+                            | OriginalScreen::ExitConfirm
                             | OriginalScreen::SkirmishLobby
                     ) {
                         let next = self.menu_entry_under_cursor();
@@ -1701,6 +1790,7 @@ impl ApplicationHandler for AppShell {
                             OriginalScreen::MainMenu
                                 | OriginalScreen::SinglePlayerMenu
                                 | OriginalScreen::Options
+                                | OriginalScreen::ExitConfirm
                                 | OriginalScreen::SkirmishLobby
                         ) {
                             let next = self.menu_entry_under_cursor();
