@@ -228,6 +228,10 @@ impl crate::state::MatchState {
         };
 
         for (command_index, scheduled) in cmds.iter().enumerate() {
+            if !self.seen_command_ids.insert(scheduled.id.0) {
+                self.reject(command_index, CommandRejectReason::DuplicateCommand);
+                continue;
+            }
             match scheduled.body.clone() {
                 GameCommand::MoveTo { entity, x, y } => {
                     let Some(entity_index) = self.entity_index(entity) else {
