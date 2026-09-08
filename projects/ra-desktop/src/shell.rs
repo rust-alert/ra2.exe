@@ -755,16 +755,18 @@ impl ApplicationHandler for AppShell {
         );
         if let Err(e) = self.renderer.attach_window(window.clone()) {
             tracing::error!("wgpu 附着失败: {e}");
+            self.banner = format!("GPU 附着失败 · {e}");
+            // 无 GPU 表面则禁止空转主循环；窗口也不再保留。
+            event_loop.exit();
+            return;
         }
-        else {
-            tracing::info!(
-                "gpu={} preview={} zoom={:.2} screen={}",
-                self.renderer.backend_name(),
-                if self.renderer.has_preview() { "yes" } else { "no" },
-                self.renderer.camera().zoom,
-                self.screen.as_str()
-            );
-        }
+        tracing::info!(
+            "gpu={} preview={} zoom={:.2} screen={}",
+            self.renderer.backend_name(),
+            if self.renderer.has_preview() { "yes" } else { "no" },
+            self.renderer.camera().zoom,
+            self.screen.as_str()
+        );
         self.window = Some(window);
         self.refresh_menu_backdrop();
         self.refresh_shell_title();

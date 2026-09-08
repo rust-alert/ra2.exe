@@ -49,7 +49,12 @@ impl LoadJob {
                     }
                 };
                 let boot = boot_from_install_with_progress(request, report);
-                report(1.0, "完成");
+                if boot.is_ready() {
+                    report(1.0, "完成");
+                }
+                else {
+                    report(1.0, "装载失败");
+                }
                 let _ = tx.send(boot);
             })
             .expect("spawn load thread");
@@ -88,7 +93,7 @@ impl LoadJob {
                 };
                 if let Ok(mut slot) = progress_worker.lock() {
                     slot.ratio = 1.0;
-                    slot.stage = "完成".into();
+                    slot.stage = if boot.is_ready() { "完成".into() } else { "装载失败".into() };
                 }
                 let _ = tx.send(boot);
             })
