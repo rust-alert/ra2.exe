@@ -149,6 +149,7 @@ pub fn pre_alpha_acceptance_capture_names() -> &'static [&'static str] {
         "skirmish_lobby_alt",
         "load_screen",
         "load_screen_failed",
+        "load_screen_failed_retry_hover",
         "options",
         "network",
         "match",
