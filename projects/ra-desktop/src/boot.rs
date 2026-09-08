@@ -52,8 +52,9 @@ fn load_boot_map(
     preferred_map: Option<&str>,
 ) -> Result<MapInfo, String> {
     let loaded = find_boot_map(edition, source, preferred_map)?;
-    let theater_mounted =
-        mount_theater_mixes(loaded.map.theater, &mut |mix| matches!(source.vfs.mount_nested(mix), Ok(true)));
+    let theater_mounted = mount_theater_mixes(loaded.map.theater, &mut |mix| {
+        matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(n) if n > 0)
+    });
     *note = format!("{note} · {} · 剧院mix {}", loaded.note, theater_mounted);
     Ok(loaded.map)
 }
@@ -89,7 +90,9 @@ pub fn preview_install_boot_map(map_name: &str) -> Option<(String, RgbaImage)> {
     let _ = source.mount_root_plan(&manifest.composition.root_mount_plan);
     let _ = source.mount_nested_names(manifest.chain.nested_mix_files);
     let loaded = find_boot_map_named(manifest.chain.edition, &source, map_name)?;
-    let _ = mount_theater_mixes(loaded.map.theater, &mut |mix| matches!(source.vfs.mount_nested(mix), Ok(true)));
+    let _ = mount_theater_mixes(loaded.map.theater, &mut |mix| {
+        matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(n) if n > 0)
+    });
     let rules = load_rules_chain(&source, &manifest.chain).ok()?;
     let (note, image, _, _) = load_map_terrain_preview(&source, &loaded.map, &manifest.chain, &rules)?;
     Some((format!("{} · {}", loaded.note, note), image))
