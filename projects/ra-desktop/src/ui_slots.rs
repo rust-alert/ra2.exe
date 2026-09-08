@@ -1,8 +1,9 @@
 //! 原版产品页的逻辑 UI 资源槽（按页面组织，不依赖 `ui.ini` 当素材目录）。
 //!
-//! 槽位先对齐入口页面的入口 id 与命中框；具体 SHP/PAL 文件名可后填。
+//! 第一阶段对照锁定 **RA2 原版**（非默认 YR）。槽位先对齐入口 id 与命中框；
+//! 具体 SHP/PAL 文件名须有安装内证据后再填，禁止臆造。
 //! **空文件名 ≠ 已交付原版 UI。** 页面级资源索引见 [`crate::ui_page`]；
-//! 逻辑命中见 [`crate::ui_hit`]。
+//! 可读性探测见 [`crate::ui_resolve`]；逻辑命中见 [`crate::ui_hit`]。
 
 use crate::{
     menu_action::MenuAction,
