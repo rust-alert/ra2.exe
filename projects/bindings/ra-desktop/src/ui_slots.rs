@@ -87,9 +87,8 @@ impl UiPageSlots {
 /// 零售主菜单按钮动画（安装内 `neutral.mix` 证据）。
 const SDBTNANM_SHP: &str = "sdbtnanm.shp";
 const SDBTNANM_PAL: &str = "sdbtnanm.pal";
-/// 常态 / 按下帧；主菜单不启用悬停换帧。
+/// 常态 / 按下帧。主菜单悬停只更新底栏提示，不换 SHP 帧（零售同款）。
 const SDBTNANM_FRAME_NORMAL: u16 = 2;
-const SDBTNANM_FRAME_HOVER: u16 = 3;
 const SDBTNANM_FRAME_PRESSED: u16 = 4;
 
 const MAIN_MENU_PANELS: &[UiPanelSlot] = &[
@@ -110,8 +109,8 @@ const fn main_menu_button(entry_id: &'static str, action: MenuAction, enabled: b
         anim_shp: Some(SDBTNANM_SHP),
         anim_pal: Some(SDBTNANM_PAL),
         normal_frame: Some(SDBTNANM_FRAME_NORMAL),
-        // 主菜单悬停用稳态帧 3（非闪烁动画）。
-        hover_frame: Some(SDBTNANM_FRAME_HOVER),
+        // 悬停不换帧；按下用帧 4。
+        hover_frame: None,
         pressed_frame: Some(SDBTNANM_FRAME_PRESSED),
         disabled_frame: if enabled { None } else { Some(SDBTNANM_FRAME_NORMAL) },
     }
