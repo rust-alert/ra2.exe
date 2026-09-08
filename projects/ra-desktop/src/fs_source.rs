@@ -265,7 +265,7 @@ mod tests {
                 Some("expansion.plain.01".into()),
             )
             .unwrap();
-        assert_eq!(src.mount_nested_names(&["cache.mix"]), 2);
+        assert_eq!(src.mount_nested_names(&["cache.mix"]), (2, 0));
 
         let hit = src.resolve("leaf.bin").unwrap();
         assert_eq!(hit.bytes, b"EXP-LEAF");

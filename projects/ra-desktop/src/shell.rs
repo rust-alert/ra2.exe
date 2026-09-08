@@ -22,6 +22,7 @@ use crate::{
     screenshot::AutoScreenshotTracker,
     skirmish_setup::SkirmishBootRequest,
     ui_assets::{MenuUiProbe, probe_menu_ui_assets},
+    ui_decode,
     ui_hit,
     ui_page::page_resources_from_slots,
     ui_resolve,
@@ -281,7 +282,7 @@ impl AppShell {
         self.refresh_ui_resolve_note();
     }
 
-    /// 对当前页已声明资源名做可读性探测（不绘制）。
+    /// 对当前页已声明资源名做可读性探测，并尝试解码 chrome（不绘制）。
     fn refresh_ui_resolve_note(&mut self) {
         let Some(probe) = self.ui_probe.as_ref() else {
             return;
@@ -301,14 +302,32 @@ impl AppShell {
             "{}",
             report.banner_note()
         );
-        if report.named == 0 {
-            // 保留安装探测 note；仅追加零引用提醒
-            if !self.banner.contains("槽位未填") {
-                self.banner = format!("{} · {}", self.banner, report.banner_note());
+        let mut banner = if report.named == 0 {
+            if probe.note.contains("槽位未填") {
+                probe.note.clone()
+            } else {
+                format!("{} · {}", probe.note, report.banner_note())
             }
         } else {
-            self.banner = format!("{} · {}", probe.note, report.banner_note());
+            format!("{} · {}", probe.note, report.banner_note())
+        };
+
+        if report.named > 0 && report.missing.is_empty() {
+            let decoded = ui_decode::decode_page_chrome(source, &page);
+            tracing::info!(
+                screen = self.screen.as_str(),
+                errors = decoded.errors.len(),
+                chrome_ready = decoded.chrome_ready_for_enabled_buttons(&page),
+                "{}",
+                decoded.banner_note()
+            );
+            for err in &decoded.errors {
+                tracing::warn!(screen = self.screen.as_str(), "UI 解码失败 · {err}");
+            }
+            banner = format!("{banner} · {}", decoded.banner_note());
         }
+
+        self.banner = banner;
     }
 
     fn set_screen(&mut self, next: OriginalScreen) {
