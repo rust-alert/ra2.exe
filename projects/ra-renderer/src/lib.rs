@@ -14,7 +14,6 @@
 
 mod camera;
 mod capture;
-mod chrome;
 mod frame;
 mod gpu;
 mod markers;
@@ -33,15 +32,12 @@ use ra_types::{GameEdition, RaResult};
 use winit::window::Window;
 
 use crate::camera::Camera;
-use crate::chrome::ChromeGpu;
 use crate::gpu::GpuContext;
 use crate::markers::MarkerGpu;
 use crate::sprite::SpriteGpu;
 
 /// 2D 视口相机：平移与缩放，供外部读取或调整视角。
 pub use crate::camera::Camera as ViewCamera;
-/// 屏上归一化色块（占位 HUD）。
-pub use crate::chrome::ScreenChromeQuad;
 /// 帧构建器（投影 → `RenderWorld`）。
 pub use crate::frame::FrameBuilder;
 /// 渲染阶段图。
@@ -72,9 +68,6 @@ pub struct Renderer {
     preview: Option<RgbaImage>,
     sprite: Option<SpriteGpu>,
     markers: Option<MarkerGpu>,
-    chrome: Option<ChromeGpu>,
-    /// 本帧屏上色块（归一化坐标）；空则跳过 UI 叠加。
-    screen_chrome: Vec<ScreenChromeQuad>,
     /// 下一帧 `submit_frame` 结束后做表面回读。
     capture_pending: bool,
     /// 最近一次成功截图（RGBA）。
@@ -100,8 +93,6 @@ impl Renderer {
             preview: None,
             sprite: None,
             markers: None,
-            chrome: None,
-            screen_chrome: Vec::new(),
             capture_pending: false,
             last_capture: None,
             camera: Camera { center_x: 0.0, center_y: 0.0, zoom: 1.0 },
@@ -113,16 +104,6 @@ impl Renderer {
         }
     }
 
-    /// 设置本帧屏上色块（占位 HUD / 结算条）。传空切片清空。
-    ///
-    /// **不是原版 HUD。** 仅叠固定几何；正式 UI 另接 SHP/字体管线。
-    pub fn set_screen_chrome(&mut self, quads: &[ScreenChromeQuad]) {
-        self.screen_chrome.clear();
-        self.screen_chrome.extend_from_slice(quads);
-        if !self.screen_chrome.is_empty() && !self.passes.passes.contains(&RenderPassKind::Ui) {
-            self.passes.passes.push(RenderPassKind::Ui);
-        }
-    }
 
     /// 请求在下一帧提交后回读表面（用于关键页验收截图）。
     pub fn request_capture(&mut self) {
@@ -136,8 +117,7 @@ impl Renderer {
 
     /// 设置启动预览图（窗口附着后上传）。
     ///
-    /// 适用于地图缩略图等**内容预览**。前置菜单请勿把整页色块/合成图长期当作唯一 UI
-    /// 表示；页面资源索引见桌面 `ui_page`，独立 UI pass 落地前此路径仅为过渡。
+    /// 适用于地图缩略图等**内容预览**，不是原版菜单/HUD 通道。
     pub fn set_preview(&mut self, image: RgbaImage) {
         self.set_map_preview(image);
     }
@@ -154,15 +134,21 @@ impl Renderer {
             if self.markers.is_none() {
                 self.markers = Some(MarkerGpu::create(&gpu.device, gpu.config.format));
             }
-            if self.chrome.is_none() {
-                self.chrome = Some(ChromeGpu::create(&gpu.device, gpu.config.format));
-            }
             self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width, image.height);
         }
         else {
             self.camera_ready = false;
         }
         self.preview = Some(image);
+    }
+
+    /// 清空预览底图（CPU 缓存与 GPU sprite）。
+    ///
+    /// 前置菜单未接原版 UI 时用于诚实空屏，避免残留过期缩略图。
+    pub fn clear_preview(&mut self) {
+        self.preview = None;
+        self.sprite = None;
+        self.camera_ready = false;
     }
 
     /// 窗口就绪后绑定表面。可重复调用（忽略已绑定）。
@@ -176,7 +162,6 @@ impl Renderer {
             self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width, image.height);
         }
         self.markers = Some(MarkerGpu::create(&gpu.device, gpu.config.format));
-        self.chrome = Some(ChromeGpu::create(&gpu.device, gpu.config.format));
         self.gpu = Some(gpu);
         Ok(())
     }
@@ -296,14 +281,6 @@ impl Renderer {
                 markers.clear();
             }
         }
-        if let Some(chrome) = self.chrome.as_mut() {
-            if self.screen_chrome.is_empty() {
-                chrome.clear();
-            }
-            else {
-                chrome.write_quads(&gpu.queue, &self.screen_chrome);
-            }
-        }
 
         let submit_start = std::time::Instant::now();
         let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("ra.frame") });
@@ -326,9 +303,6 @@ impl Renderer {
             }
             if let Some(markers) = self.markers.as_ref() {
                 markers.draw(&mut pass);
-            }
-            if let Some(chrome) = self.chrome.as_ref() {
-                chrome.draw(&mut pass);
             }
         }
         gpu.queue.submit(std::iter::once(encoder.finish()));
