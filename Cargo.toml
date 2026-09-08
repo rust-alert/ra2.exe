@@ -52,7 +52,7 @@ toml_edit = "0.25"
 napi = { version = "3", default-features = true, features = ["napi4"] }
 napi-derive = "3"
 # 标准音频解码（WAV/PCM 等）；Westwood 专有 AUD/BAG 另接。
-symphonia = { version = "0.5", default-features = false, features = ["wav", "pcm"] }
+symphonia = { version = "0.6", default-features = false, features = ["wav", "pcm"] }
 # 仅设备播放；PCM 解码已由 `ra-assets` + Symphonia 完成，勿再拉 rodio 内置 demux。
 rodio = { version = "0.22", default-features = false, features = ["playback"] }
 
