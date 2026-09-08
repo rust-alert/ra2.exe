@@ -10,6 +10,9 @@ fn duel_plan_has_harness_args_and_status_waits() {
     assert_eq!(plan.name, "standard-duel");
     assert!(plan.args.iter().any(|a| a.contains("test-scene=duel")));
     assert!(plan.actions.iter().any(|a| matches!(a, ra_testing::GuiAction::WaitStatus { .. })));
+    assert!(plan.actions.iter().any(|a| {
+        matches!(a, ra_testing::GuiAction::WaitStatus { expect, .. } if expect == "screen=results")
+    }));
 }
 
 #[test]
@@ -20,6 +23,8 @@ fn pre_alpha_acceptance_names_include_lobby_and_results_variants() {
     assert!(names.contains(&"match_paused"));
     assert!(names.contains(&"load_screen_failed"));
     assert!(names.contains(&"load_screen_failed_retry_hover"));
+    assert!(names.contains(&"options_back_hover"));
+    assert!(names.contains(&"network_back_hover"));
 }
 
 #[test]
