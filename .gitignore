@@ -18,6 +18,9 @@ node_modules/
 dist/
 *.node
 
+# wasm-pack 产物（CI / 本地 `build:wasm` 生成，不入库）
+projects/platforms/wasm/**/pkg/
+
 # 运行时日志目录（`ra-logger` 写入 logs/rust-ra2.log）
 logs/
 *.txt

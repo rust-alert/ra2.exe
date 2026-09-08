@@ -1,8 +1,20 @@
-/** Loader face for `ra-wasm` artifacts. Full wasm-bindgen pkg lands under `pkg/` later. */
-export function engineName(): string {
-    return 'ra2';
+/** Browser face over `ra-wasm`（`pkg/` 由 `scripts/build/wasm.mjs` 生成）。 */
+
+import initWasm, { engine_name, supports_webgl2 } from '../pkg/ra_wasm.js';
+
+export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
+
+/** 加载 `.wasm`（页面入口先 `await init()`）。 */
+export async function init(moduleOrPath?: InitInput): Promise<void> {
+    await initWasm(moduleOrPath);
 }
 
+/** 引擎显示名（须先 `init`）。 */
+export function engineName(): string {
+    return engine_name();
+}
+
+/** WebGL2 呈现路径是否已接线（须先 `init`）。 */
 export function supportsWebgl2(): boolean {
-    return false;
+    return supports_webgl2();
 }
