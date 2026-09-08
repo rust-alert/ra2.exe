@@ -135,7 +135,11 @@ flowchart TB
 ## 源码布局
 
 ```
-src/main.rs       入口、boot、App 事件循环、输入
+src/main.rs       入口
+src/shell.rs      页面壳与事件循环
+src/ui_page.rs    原版页面资源索引（未解码；visuals_ready 前不算交付）
+src/ui_slots.rs   入口 id 与命中框槽位
+src/menu_view.rs  色块占位绘制（非 Pre-Alpha 原版 UI）
 src/config.rs     委托 ra-config 加载桌面设置
 src/fs_source.rs  GameAssetSource
 examples/
