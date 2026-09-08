@@ -15,7 +15,7 @@ path = "src/lib.rs"
 [dependencies]
 napi = { workspace = true }
 napi-derive = { workspace = true }
-ra-desktop = { path = "../../hosts/ra-desktop" }
+ra-desktop = { path = "../ra-desktop" }
 ra-config = { workspace = true }
 
 [build-dependencies]

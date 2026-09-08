@@ -1,6 +1,6 @@
-//! `ra-desktop`：原生 GUI 壳库面，由 `@game-gpt/red-alert2`（N-API）拉起。
+//! 原生窗口、输入与事件循环实现。
 //!
-//! 产品入口是 npm CLI `ra2 launch --path`，本 crate **不再**产出独立二进制。
+//! 只给 `ra-napi` 用。对外产品入口是 npm 包 `@game-gpt/red-alert2`，不是本 crate。
 
 #![allow(missing_docs)]
 

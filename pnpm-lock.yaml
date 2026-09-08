@@ -13,12 +13,12 @@ importers:
         version: 2.5.12
       '@game-gpt/red-alert2':
         specifier: workspace:*
-        version: link:projects/packages/red-alert2
+        version: link:projects/hosts/red-alert2
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
 
-  projects/packages/red-alert2:
+  projects/hosts/red-alert2:
     optionalDependencies:
       '@game-gpt/red-alert2-darwin-arm64':
         specifier: workspace:*
@@ -29,6 +29,9 @@ importers:
       '@game-gpt/red-alert2-linux-x64':
         specifier: workspace:*
         version: link:../../platforms/native/red-alert2-linux-x64
+      '@game-gpt/red-alert2-unknown-wasm32':
+        specifier: workspace:*
+        version: link:../../platforms/wasm/red-alert2-unknown-wasm32
       '@game-gpt/red-alert2-win32-x64':
         specifier: workspace:*
         version: link:../../platforms/native/red-alert2-win32-x64
@@ -47,6 +50,12 @@ importers:
   projects/platforms/native/red-alert2-linux-x64: {}
 
   projects/platforms/native/red-alert2-win32-x64: {}
+
+  projects/platforms/wasm/red-alert2-unknown-wasm32:
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
 
 packages:
 

@@ -3,11 +3,10 @@ resolver = "2"
 members = [
     "projects/engine/*",
     "projects/adapters/*",
-    "projects/hosts/*",
     "projects/bindings/*",
     "projects/tooling/*",
 ]
-default-members = ["projects/hosts/ra-desktop"]
+default-members = ["projects/bindings/ra-desktop"]
 
 [workspace.package]
 version = "0.1.0"

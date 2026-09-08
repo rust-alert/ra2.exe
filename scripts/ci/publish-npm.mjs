@@ -12,11 +12,12 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 const packages = [
-    'projects/packages/red-alert2',
+    'projects/hosts/red-alert2',
     'projects/platforms/native/red-alert2-win32-x64',
     'projects/platforms/native/red-alert2-linux-x64',
     'projects/platforms/native/red-alert2-darwin-arm64',
     'projects/platforms/native/red-alert2-darwin-x64',
+    'projects/platforms/wasm/red-alert2-unknown-wasm32',
 ];
 
 if (!process.env.NPM_TOKEN && !process.env.NODE_AUTH_TOKEN) {

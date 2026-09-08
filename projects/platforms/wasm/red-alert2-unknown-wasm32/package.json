@@ -1,0 +1,31 @@
+{
+    "name": "@game-gpt/red-alert2-unknown-wasm32",
+    "version": "0.1.0",
+    "type": "module",
+    "description": "Wasm artifact produced from ra-wasm. Consumed via @game-gpt/red-alert2.",
+    "license": "Apache-2.0",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        }
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "pkg"
+    ],
+    "scripts": {
+        "build": "tsc -p tsconfig.json"
+    },
+    "devDependencies": {
+        "typescript": "^5.8.3"
+    },
+    "keywords": [
+        "red-alert-2",
+        "wasm",
+        "webgl2"
+    ]
+}
