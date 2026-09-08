@@ -229,9 +229,23 @@ impl BinkVideoDecoder {
         Ok(&self.cur)
     }
 
+    /// BIKi/BIKk（version ≥ `'h'`）：码流色度平面 1/2 写入时对调为 V/U。
+    fn dest_plane(&self, bitstream_plane: usize) -> usize {
+        if bitstream_plane == 0 {
+            0
+        } else if matches!(self.version, BinkVersion::BikI | BinkVersion::BikK) {
+            bitstream_plane ^ 3
+        } else {
+            bitstream_plane
+        }
+    }
+
     /// 解码一个色度/亮度平面。
-    fn decode_plane(&mut self, r: &mut BitReader<'_>, plane_idx: usize) -> Result<(), BinkVideoError> {
-        let is_chroma = plane_idx != 0;
+    ///
+    /// `bitstream_plane` 决定尺寸与块布局；写入目标经 [`Self::dest_plane`] 映射。
+    fn decode_plane(&mut self, r: &mut BitReader<'_>, bitstream_plane: usize) -> Result<(), BinkVideoError> {
+        let is_chroma = bitstream_plane != 0;
+        let plane_idx = self.dest_plane(bitstream_plane);
         let shift = if is_chroma { 1u32 } else { 0 };
         let width = self.width >> shift;
         let height = self.height >> shift;
@@ -268,7 +282,8 @@ impl BinkVideoDecoder {
         read_patterns(r, &mut self.bundles, &mut self.bundle_data, vlc, BinkSrc::Pattern as usize)?;
         read_motion_values(r, &mut self.bundles, &mut self.bundle_data, vlc, BinkSrc::XOff as usize)?;
         read_motion_values(r, &mut self.bundles, &mut self.bundle_data, vlc, BinkSrc::YOff as usize)?;
-        read_dcs(r, &mut self.bundles, &mut self.bundle_data, BinkSrc::IntraDc as usize, DC_START_BITS, true)?;
+        // Intra DC：无符号 11-bit；Inter DC：有符号。写反会导致整行 bundle 错位。
+        read_dcs(r, &mut self.bundles, &mut self.bundle_data, BinkSrc::IntraDc as usize, DC_START_BITS, false)?;
         read_dcs(r, &mut self.bundles, &mut self.bundle_data, BinkSrc::InterDc as usize, DC_START_BITS, true)?;
         read_runs(r, &mut self.bundles, &mut self.bundle_data, vlc, BinkSrc::Run as usize)?;
         Ok(())
