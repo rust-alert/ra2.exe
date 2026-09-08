@@ -2,7 +2,7 @@
 
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
-use ra_assets::{CsfFile, FntFile, PcmAudio, decode_wav_pcm};
+use ra_assets::{AudioIndex, CsfFile, FntFile, PcmAudio, decode_wav_pcm};
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{AssetSource, DisplayMode, RaError, RaResult};
 use winit::{
@@ -737,27 +737,59 @@ impl AppShell {
         }
         if self.menu_click.is_none() {
             let mut loaded = None;
-            for name in ["guimainbuttonsound.wav", "button.wav", "click.wav"] {
-                let bytes = self
-                    .ui_probe
-                    .as_ref()
-                    .and_then(|p| p.source.as_ref())
-                    .and_then(|s| s.read(name).ok());
-                let Some(bytes) = bytes
-                else {
-                    continue;
-                };
-                match decode_wav_pcm(&bytes) {
-                    Ok(pcm) => {
-                        tracing::info!(%name, "已加载菜单点击音效");
-                        loaded = Some(pcm);
-                        break;
+            // 优先 audio.bag（主按钮音效常在此）。
+            let idx_bytes = self
+                .ui_probe
+                .as_ref()
+                .and_then(|p| p.source.as_ref())
+                .and_then(|s| s.read("audio.idx").ok());
+            let bag_bytes = self
+                .ui_probe
+                .as_ref()
+                .and_then(|p| p.source.as_ref())
+                .and_then(|s| s.read("audio.bag").ok());
+            if let (Some(idx), Some(bag)) = (idx_bytes, bag_bytes) {
+                if let Some(index) = AudioIndex::parse(&idx, bag) {
+                    for name in ["GUIMainButtonSound", "GUIMAINBUTTONSO", "BUTTON"] {
+                        if let Some(pcm) = index.decode(name) {
+                            tracing::info!(%name, frames = pcm.samples.len(), "已从 audio.bag 加载点击音效");
+                            loaded = Some(pcm);
+                            break;
+                        }
                     }
-                    Err(e) => tracing::debug!(%name, error = %e, "点击音候选解码失败"),
+                    if loaded.is_none() {
+                        tracing::debug!(
+                            entries = index.len(),
+                            "audio.bag 已解析但未命中主按钮音效名"
+                        );
+                    }
+                } else {
+                    tracing::warn!("audio.idx 解析失败");
+                }
+            }
+            if loaded.is_none() {
+                for name in ["guimainbuttonsound.wav", "button.wav", "click.wav"] {
+                    let bytes = self
+                        .ui_probe
+                        .as_ref()
+                        .and_then(|p| p.source.as_ref())
+                        .and_then(|s| s.read(name).ok());
+                    let Some(bytes) = bytes
+                    else {
+                        continue;
+                    };
+                    match decode_wav_pcm(&bytes) {
+                        Ok(pcm) => {
+                            tracing::info!(%name, "已加载菜单点击 WAV");
+                            loaded = Some(pcm);
+                            break;
+                        }
+                        Err(e) => tracing::debug!(%name, error = %e, "点击音 WAV 解码失败"),
+                    }
                 }
             }
             self.menu_click = Some(loaded.unwrap_or_else(|| {
-                tracing::info!("使用合成点击音效占位（待 audio.bag）");
+                tracing::info!("使用合成点击音效占位");
                 crate::audio::synthetic_ui_click()
             }));
         }

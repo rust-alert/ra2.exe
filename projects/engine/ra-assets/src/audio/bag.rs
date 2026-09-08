@@ -115,10 +115,25 @@ impl AudioIndex {
         self.entries.is_empty()
     }
 
-    /// 按名查找（大小写不敏感）。
+    /// 按名查找（大小写不敏感；过长名按 idx 字段宽度截断再试）。
     pub fn get(&self, name: &str) -> Option<&AudioBagEntry> {
         let key = name.to_ascii_uppercase();
-        self.entries.iter().find(|e| e.name == key)
+        if let Some(e) = self.entries.iter().find(|e| e.name == key) {
+            return Some(e);
+        }
+        // idx 名槽 16 字节，常含结尾 0，有效最长约 15。
+        let trunc15: String = key.chars().take(15).collect();
+        if trunc15 != key {
+            if let Some(e) = self.entries.iter().find(|e| e.name == trunc15) {
+                return Some(e);
+            }
+        }
+        let trunc16: String = key.chars().take(16).collect();
+        if trunc16 != key && trunc16 != trunc15 {
+            self.entries.iter().find(|e| e.name == trunc16)
+        } else {
+            None
+        }
     }
 
     /// 解码指定条目为 PCM16。
