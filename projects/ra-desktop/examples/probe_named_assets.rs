@@ -20,7 +20,7 @@ fn mount_install(root: &Path, edition: Option<GameEdition>) -> RaResult<MixVfs> 
         let _ = vfs.mount_bytes(name.clone(), data);
     }
     for name in manifest.chain.nested_mix_files {
-        let _ = vfs.mount_nested(name);
+        let _ = vfs.mount_nested_all_from_parents(name);
     }
     Ok(vfs)
 }
