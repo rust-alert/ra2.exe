@@ -1,6 +1,6 @@
 //! `MixVfs` 优先级覆盖语义。
 
-use ra_assets::{MixArchive, MixVfs};
+use ra_assets::{MixArchive, MixVfs, mix_hash};
 
 fn old_mix(id: i32, body: &[u8]) -> Vec<u8> {
     let mut data = Vec::new();
@@ -13,10 +13,14 @@ fn old_mix(id: i32, body: &[u8]) -> Vec<u8> {
     data
 }
 
+/// 外层 MIX：内含一个名为 `cache.mix` 的嵌套档案字节。
+fn outer_with_nested_cache(nested_body: &[u8]) -> Vec<u8> {
+    let nested = old_mix(mix_hash("leaf.bin"), nested_body);
+    let cache_id = mix_hash("cache.mix");
+    old_mix(cache_id, &nested)
+}
+
 fn rules_id() -> i32 {
-    // 与 `mix_hash("rules.ini")` 一致：由档案按名查找验证覆盖即可。
-    // 这里构造两个同 id 的条目，分别表示 base / expand 内容。
-    use ra_assets::mix_hash;
     mix_hash("rules.ini")
 }
 
@@ -56,4 +60,41 @@ fn missing_in_high_falls_back_to_low() {
 #[test]
 fn parse_helper_roundtrip() {
     let _ = MixArchive::parse(old_mix(1, b"AAAA")).unwrap();
+}
+
+#[test]
+fn nested_inherits_parent_priority_and_layer() {
+    let mut vfs = MixVfs::new();
+    vfs.mount_bytes_with_meta(
+        "expand01.mix",
+        outer_with_nested_cache(b"FROM-EXPAND"),
+        101,
+        None,
+        Some("expansion.plain.01".into()),
+    )
+    .unwrap();
+    assert_eq!(vfs.mount_nested_all_from_parents("cache.mix").unwrap(), 1);
+
+    let hit = vfs.resolve_hit("leaf.bin").unwrap();
+    assert_eq!(hit.bytes, b"FROM-EXPAND");
+    assert_eq!(hit.archive_name, "cache.mix");
+    assert_eq!(hit.parent, Some("expand01.mix"));
+    assert_eq!(hit.layer_id, Some("expansion.plain.01"));
+    assert_eq!(hit.priority, 101);
+}
+
+#[test]
+fn nested_from_all_parents_keeps_file_level_overlay() {
+    let mut vfs = MixVfs::new();
+    vfs.mount_bytes_with_priority("base.mix", outer_with_nested_cache(b"BASE-LEAF"), 0)
+        .unwrap();
+    vfs.mount_bytes_with_priority("expand01.mix", outer_with_nested_cache(b"EXP-LEAF"), 101)
+        .unwrap();
+
+    assert_eq!(vfs.mount_nested_all_from_parents("cache.mix").unwrap(), 2);
+    assert_eq!(vfs.read("leaf.bin").unwrap(), b"EXP-LEAF");
+
+    let hit = vfs.resolve_hit("leaf.bin").unwrap();
+    assert_eq!(hit.parent, Some("expand01.mix"));
+    assert_eq!(hit.priority, 101);
 }

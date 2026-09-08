@@ -21,7 +21,7 @@ pub use mix::{
     archive::{MixArchive, MixEntry},
     crypto::blowfish_decrypt_ecb,
     hash::{crc32, mix_hash, westwood_pad},
-    vfs::MixVfs,
+    vfs::{MixResolveHit, MixVfs},
 };
 pub use rules::{
     color_schemes::ColorSchemes,
