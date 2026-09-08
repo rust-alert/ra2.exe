@@ -103,7 +103,7 @@ impl MatchController {
     /// 应用新的装载结果（重开）。
     pub fn apply_boot(&mut self, boot: BootResult, renderer: &mut Renderer) {
         if let Some(preview) = boot.preview {
-            renderer.set_preview(preview);
+            renderer.set_map_preview(preview);
         }
         renderer.clear_match_visuals();
         self.engine = boot.engine;
