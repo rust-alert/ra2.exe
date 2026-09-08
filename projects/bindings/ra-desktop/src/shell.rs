@@ -98,6 +98,8 @@ pub struct AppShell {
     audio: Option<crate::audio::ShellAudio>,
     /// 主菜单 BGM PCM（`theme.ini` `[INTRO]` → `{Sound}.wav`）。
     menu_bgm: Option<PcmAudio>,
+    /// 是否已尝试装载菜单 BGM（失败后不再每帧重试）。
+    menu_bgm_tried: bool,
     /// 菜单点击音效 PCM（`GUIMainButtonSound` → `sound.ini` → `audio.bag`）。
     menu_click: Option<PcmAudio>,
     /// 当前是否已在播壳层 BGM。
@@ -169,6 +171,7 @@ impl AppShell {
             skirmish: SkirmishBootRequest::default_lobby(),
             audio: crate::audio::ShellAudio::try_open(),
             menu_bgm: None,
+            menu_bgm_tried: false,
             menu_click: None,
             menu_bgm_playing: false,
             audio_bag: None,
@@ -224,6 +227,7 @@ impl AppShell {
             skirmish: SkirmishBootRequest::default_lobby(),
             audio: crate::audio::ShellAudio::try_open(),
             menu_bgm: None,
+            menu_bgm_tried: false,
             menu_click: None,
             menu_bgm_playing: false,
             audio_bag: None,
@@ -340,19 +344,24 @@ impl AppShell {
         if self.splash_started.is_none() {
             self.splash_started = Some(Instant::now());
         }
+        // 先保证标题图在屏，再做菜单资源预热（预热不得切换页面、不得清空 UI 页）。
+        if !self.splash_uploaded || !self.renderer.has_ui_page() {
+            self.upload_splash_backdrop();
+            self.splash_uploaded = true;
+        }
         if !self.splash_preload_done {
             self.ensure_ui_probe();
             self.ensure_menu_text_assets();
             self.ensure_menu_audio_assets();
-            // 预热主菜单 chrome（不切入主菜单、不推进影片）。
-            let prev = self.screen;
-            self.screen = OriginalScreen::MainMenu;
-            self.refresh_ui_resolve_note();
-            self.screen = prev;
-            self.menu_movie = None;
-            self.menu_movie_clock = None;
+            // 预热主菜单 chrome：不切入 MainMenu，避免合成/清屏打穿闪屏。
+            self.warm_main_menu_chrome();
             self.splash_preload_done = true;
-            self.banner = "闪屏 · 预处理完成".into();
+            if !self.banner.contains("title.pcx") && !self.banner.contains("闪屏缺图") {
+                self.banner = format!("{} · 预处理完成", self.banner);
+            }
+            else if self.banner.contains("title.pcx") && !self.banner.contains("预处理完成") {
+                self.banner = format!("{} · 预处理完成", self.banner);
+            }
             self.refresh_shell_title();
         }
         let elapsed = self.splash_started.map(|t| t.elapsed().as_secs_f64()).unwrap_or(0.0);
@@ -361,25 +370,48 @@ impl AppShell {
             tracing::info!(elapsed, min = self.splash_min_secs, skip = self.splash_skip, "闪屏结束 → 主菜单");
             self.set_screen(OriginalScreen::MainMenu);
         }
+    }
+
+    /// 在闪屏状态下预热主菜单资源缓存（不改 `screen`、不上传菜单合成页）。
+    fn warm_main_menu_chrome(&mut self) {
+        let Some(probe) = self.ui_probe.as_ref()
         else {
-            if !self.splash_uploaded {
-                self.upload_splash_backdrop();
-                self.splash_uploaded = true;
-            }
+            return;
+        };
+        let Some(source) = probe.source.as_ref()
+        else {
+            return;
+        };
+        let Some(page) = page_resources_from_slots(OriginalScreen::MainMenu)
+        else {
+            return;
+        };
+        let report = ui_resolve::resolve_page(source, &page);
+        let only_movie_gaps = report.missing.iter().all(|m| m.to_ascii_lowercase().ends_with(".bik"));
+        if report.named > 0 && only_movie_gaps {
+            let decoded = ui_decode::decode_page_chrome(source, &page);
+            tracing::info!(
+                errors = decoded.errors.len(),
+                chrome_ready = decoded.chrome_ready_for_enabled_buttons(&page),
+                "闪屏预热主菜单 chrome · {}",
+                decoded.banner_note()
+            );
+            self.ui_decode_cache = Some(decoded);
         }
     }
 
-    /// 闪屏画面：解码槽位中的 `title.pcx`（失败则黑底占位）。
+    /// 闪屏画面：解码槽位中的 `title.pcx`（失败则黑底占位并写明原因）。
     fn upload_splash_backdrop(&mut self) {
         self.ensure_ui_probe();
         let pcx_name = ui_slots::slots_for(OriginalScreen::Splash)
             .and_then(|s| s.background_pcx)
             .unwrap_or("title.pcx");
-        let decoded = self
-            .ui_probe
-            .as_ref()
-            .and_then(|p| p.source.as_ref())
-            .and_then(|src| match src.read(pcx_name) {
+        let decoded = match self.ui_probe.as_ref().and_then(|p| p.source.as_ref()) {
+            None => {
+                tracing::warn!(name = pcx_name, "闪屏 PCX 跳过 · 安装资源源未挂载（检查 ra2_dir / edition）");
+                None
+            }
+            Some(src) => match src.read(pcx_name) {
                 Ok(bytes) => match ra_assets::parse_pcx(&bytes) {
                     Ok(img) => RgbaImage::from_raw(img.width, img.height, img.rgba),
                     Err(e) => {
@@ -390,17 +422,22 @@ impl AppShell {
                 Err(e) => {
                     tracing::warn!(name = pcx_name, "闪屏 PCX 不可读 · {e}");
                     None
-                },
-            });
+                }
+            },
+        };
         if let Some(page) = decoded {
             tracing::info!(name = pcx_name, w = page.width(), h = page.height(), "闪屏 PCX 已上传");
-            if !self.banner.contains("title.pcx") {
+            if !self.banner.contains(pcx_name) {
                 self.banner = format!("{} · {pcx_name} {}×{}", self.banner, page.width(), page.height());
                 self.refresh_shell_title();
             }
             self.renderer.clear_preview();
             self.renderer.set_ui_page(page);
             return;
+        }
+        if !self.banner.contains("闪屏缺图") {
+            self.banner = format!("{} · 闪屏缺图 {pcx_name}", self.banner);
+            self.refresh_shell_title();
         }
         let w = ui_layout::SHELL_BASE_W as u32;
         let h = ui_layout::SHELL_BASE_H as u32;
@@ -729,7 +766,7 @@ impl AppShell {
         }
         // 闪屏是独立产品页：禁止走菜单合成路径，更不能 clear 掉已上传的 title.pcx。
         if self.screen == OriginalScreen::Splash {
-            if !self.splash_uploaded {
+            if !self.splash_uploaded || !self.renderer.has_ui_page() {
                 self.upload_splash_backdrop();
                 self.splash_uploaded = true;
             }
@@ -982,11 +1019,12 @@ impl AppShell {
 
     /// 惰性装载菜单 BGM / 点击采样。
     fn ensure_menu_audio_assets(&mut self) {
-        if self.menu_bgm.is_some() && self.menu_click.is_some() {
+        if (self.menu_bgm.is_some() || self.menu_bgm_tried) && self.menu_click.is_some() {
             return;
         }
         self.ensure_ui_probe();
-        if self.menu_bgm.is_none() {
+        if self.menu_bgm.is_none() && !self.menu_bgm_tried {
+            self.menu_bgm_tried = true;
             let stem = self.menu_theme_sound_stem();
             if let Some(pcm) = self.decode_theme_track(&stem) {
                 self.menu_bgm = Some(pcm);
@@ -1534,7 +1572,9 @@ impl ApplicationHandler for AppShell {
                         .with_title("ra2")
                         .with_inner_size(winit::dpi::LogicalSize::new(self.window_width, self.window_height))
                         // 客户区尺寸由 `DisplayMode` 离散档决定，禁止自由拉伸窗口。
-                        .with_resizable(false),
+                        .with_resizable(false)
+                        // GPU / 闪屏首帧完成前保持隐藏，避免 Windows 默认纯白客户区闪一下。
+                        .with_visible(false),
                 )
                 .expect("创建窗口失败"),
         );
@@ -1552,15 +1592,20 @@ impl ApplicationHandler for AppShell {
             self.renderer.camera().zoom,
             self.screen.as_str()
         );
-        self.window = Some(window);
+        self.window = Some(window.clone());
         if self.screen == OriginalScreen::Splash {
             self.splash_started = Some(Instant::now());
             self.upload_splash_backdrop();
+            self.splash_uploaded = true;
         }
         else {
             self.refresh_menu_backdrop();
         }
         self.refresh_shell_title();
+        // 先提交一帧（闪屏或菜单），再显示窗口，消除启动纯白闪屏。
+        self.renderer.draw_frame(None);
+        window.set_visible(true);
+        window.request_redraw();
         #[cfg(feature = "test-harness")]
         if self.auto_screenshots.should_capture(self.screen) {
             self.queue_screenshot(self.screen.as_str());
