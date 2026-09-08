@@ -1,16 +1,19 @@
 //! 格式解析：字节进、结构出。不碰 `std::fs`。
 //!
-//! 按格式族分目录：`mix` / `ini` / `image` / `voxel` / `rules`。
+//! 按格式族分目录：`mix` / `ini` / `image` / `voxel` / `rules` / `audio`。
 //! 对外仍扁平再导出，保持既有 `ra_assets::*` 路径。
 //! `image` 含 PAL / SHP / TMP / Bink 容器与视频解码骨架。
 
 #![deny(missing_docs)]
 
+pub mod audio;
 pub mod image;
 pub mod ini;
 pub mod mix;
 pub mod rules;
 pub mod voxel;
+
+pub use audio::{PcmAudio, WavError, decode_audio_bytes, decode_wav_pcm};
 
 pub use image::{
     bink::{
