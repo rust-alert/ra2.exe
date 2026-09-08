@@ -356,10 +356,7 @@ impl AppShell {
             // 预热主菜单 chrome：不切入 MainMenu，避免合成/清屏打穿闪屏。
             self.warm_main_menu_chrome();
             self.splash_preload_done = true;
-            if !self.banner.contains("title.pcx") && !self.banner.contains("闪屏缺图") {
-                self.banner = format!("{} · 预处理完成", self.banner);
-            }
-            else if self.banner.contains("title.pcx") && !self.banner.contains("预处理完成") {
+            if !self.banner.contains("预处理完成") {
                 self.banner = format!("{} · 预处理完成", self.banner);
             }
             self.refresh_shell_title();
@@ -720,7 +717,8 @@ impl AppShell {
     fn ensure_menu_text_assets(&mut self) {
         let font_bytes = self.ui_probe.as_ref().and_then(|p| p.source.as_ref()).and_then(|s| s.read("game.fnt").ok());
         let csf_bytes = self.ui_probe.as_ref().and_then(|p| p.source.as_ref()).and_then(|s| {
-            for name in ["ra2.csf", "ra2md.csf"] {
+            // 资料片优先 `ra2md.csf`，再回退原版 `ra2.csf`。
+            for name in ["ra2md.csf", "ra2.csf"] {
                 if let Ok(bytes) = s.read(name) {
                     return Some((name, bytes));
                 }
