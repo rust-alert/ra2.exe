@@ -4,7 +4,8 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "Wasm / WebGL2 绑定；产物进 @game-gpt/red-alert2-unknown-wasm32"
+description = "Wasm / WebGL2 绑定；由 packages/red-alert2-wasm 消费"
+
 publish = false
 
 [lib]
