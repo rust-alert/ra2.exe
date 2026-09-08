@@ -65,4 +65,4 @@ cargo test -p ra-config
 
 ## 许可证
 
-本 crate 采用 **MPL-2.0**。
+本 crate 采用 **Apache-2.0**。

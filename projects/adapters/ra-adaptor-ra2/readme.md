@@ -160,4 +160,4 @@ cargo run -p ra-desktop --example probe_boot -- "C:/path/to/ra2"
 
 ## 许可
 
-MPL-2.0。表里是文件名，不是资源内容；原版 MIX 不得进入本仓库 git 历史。
+Apache-2.0。表里是文件名，不是资源内容；原版 MIX 不得进入本仓库 git 历史。

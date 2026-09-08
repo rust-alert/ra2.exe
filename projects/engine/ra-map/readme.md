@@ -189,4 +189,4 @@ cargo build -p ra-map
 
 ## 许可
 
-MPL-2.0。
+Apache-2.0。

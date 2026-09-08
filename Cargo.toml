@@ -12,7 +12,7 @@ default-members = ["projects/desktop/ra-desktop"]
 version = "0.1.0"
 edition = "2024"
 authors = ["Aster <192607617@qq.com>"]
-license = "MPL-2.0"
+license = "Apache-2.0"
 
 [workspace.dependencies]
 ra-types = { path = "projects/engine/ra-types" }

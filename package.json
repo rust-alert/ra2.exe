@@ -11,7 +11,7 @@
         "lint:fix": "biome check --write .",
         "fmt": "biome format --write . && cargo fmt --all",
         "fmt:check": "biome format . && cargo fmt --all -- --check",
-        "pack:npm": "node scripts/ci/publish-npm.mjs pack"
+        "publish:npm": "node scripts/ci/publish-npm.mjs"
     },
     "devDependencies": {
         "@biomejs/biome": "2.5.12",

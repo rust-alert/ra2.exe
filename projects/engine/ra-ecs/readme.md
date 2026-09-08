@@ -169,4 +169,4 @@ cargo check --workspace
 
 ## 许可证
 
-本 crate 采用 **MPL-2.0**，与 monorepo 内其它成员一致。使用、修改与再分发时请遵守 MPL-2.0 对源文件与衍生作品的条款。
+本 crate 采用 **Apache-2.0**，与 monorepo 内其它成员一致。

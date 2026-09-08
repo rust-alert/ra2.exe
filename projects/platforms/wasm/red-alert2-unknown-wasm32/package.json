@@ -3,7 +3,7 @@
     "version": "0.1.0",
     "type": "module",
     "description": "Wasm artifact for Red Alert 2 (WebGL2 path). Consumed by browser builds.",
-    "license": "MPL-2.0",
+    "license": "Apache-2.0",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
