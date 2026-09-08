@@ -678,16 +678,19 @@ impl AppShell {
                         self.menu_csf.as_ref(),
                         movie,
                     ),
-                    OriginalScreen::Options => ui_compose::compose_options_page(
-                        decoded,
-                        self.window_width as u32,
-                        self.window_height as u32,
-                        self.menu_pressed_entry,
-                        self.menu_hovered_entry,
-                        self.menu_font.as_ref(),
-                        self.menu_csf.as_ref(),
-                        movie,
-                    ),
+                    OriginalScreen::Options => self.options_state.as_ref().and_then(|state| {
+                        ui_compose::compose_options_page(
+                            decoded,
+                            state,
+                            self.window_width as u32,
+                            self.window_height as u32,
+                            self.menu_pressed_entry,
+                            self.menu_hovered_entry,
+                            self.menu_font.as_ref(),
+                            self.menu_csf.as_ref(),
+                            movie,
+                        )
+                    }),
                     OriginalScreen::SkirmishLobby => {
                         let selected = self.selected_map.as_deref();
                         let map_names: Vec<(String, bool)> = self

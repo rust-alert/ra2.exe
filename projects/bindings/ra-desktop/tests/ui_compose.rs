@@ -120,7 +120,12 @@ fn compose_options_uses_main_menu_id() {
         button_presseds: vec![("main_menu", pressed)],
         errors: Vec::new(),
     };
-    let page = compose_options_page(&decoded, 800, 600, Some("main_menu"), None, None, None, None).unwrap();
+    let state = ra_desktop::options_dialog::OptionsDialogState::from_shell(
+        ra_types::DisplayMode::W800H600,
+        0.4,
+        0.7,
+    );
+    let page = compose_options_page(&decoded, &state, 800, 600, Some("main_menu"), None, None, None, None).unwrap();
     let layout = options_layout(800, 600);
     let cell = layout.buttons[2];
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
