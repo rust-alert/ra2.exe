@@ -51,6 +51,16 @@ pub fn skirmish_lobby_csf_label(entry_id: &str) -> Option<&'static str> {
     }
 }
 
+/// 选项页入口 → CSF 标签。
+pub fn options_csf_label(entry_id: &str) -> Option<&'static str> {
+    match entry_id {
+        "audio" => Some("GUI:Sound"),
+        "video" => Some("GUI:Video"),
+        "back" => Some("GUI:Back"),
+        _ => None,
+    }
+}
+
 /// 解析文案：CSF 命中优先，否则回退 `entry_id`。
 pub fn resolve_caption<'a>(csf: Option<&'a CsfFile>, entry_id: &str, csf_key: Option<&str>) -> String {
     if let (Some(csf), Some(key)) = (csf, csf_key) {
