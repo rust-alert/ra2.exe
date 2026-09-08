@@ -779,7 +779,7 @@ impl MatchController {
         }
         if let (Some(path), Some(session)) = (self.status_path.as_ref(), self.session.as_ref()) {
             #[cfg(feature = "test-harness")]
-            crate::test_boot::write_status(path, session, &self.local.selected);
+            crate::test_boot::write_status(path, session, &self.local.selected, screen_label);
             #[cfg(not(feature = "test-harness"))]
             let _ = (path, session);
         }
