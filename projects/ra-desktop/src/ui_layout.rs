@@ -18,6 +18,9 @@ pub const BUTTON_CELL_W: i32 = 156;
 /// 按钮格高。
 pub const BUTTON_CELL_H: i32 = 42;
 
+/// 主菜单按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
+pub const MAIN_MENU_BUTTON_IDS: [&str; 4] = ["single_player", "network", "options", "exit"];
+
 /// 轴对齐矩形（像素）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RectPx {
@@ -35,6 +38,11 @@ impl RectPx {
     /// 构造。
     pub const fn new(x: i32, y: i32, w: i32, h: i32) -> Self {
         Self { x, y, w, h }
+    }
+
+    /// 是否包含点（像素，半开区间右下）。
+    pub fn contains(self, px: i32, py: i32) -> bool {
+        px >= self.x && py >= self.y && px < self.x + self.w && py < self.y + self.h
     }
 }
 
@@ -55,8 +63,14 @@ pub struct MainMenuLayout {
     pub panel_bottom: RectPx,
     /// 底部装饰条。
     pub lower_strip: RectPx,
-    /// 第一个可点按钮格（单人）。
-    pub first_button: RectPx,
+    /// 四个主菜单按钮格（单人 / 网络 / 选项 / 退出）。
+    pub buttons: [RectPx; 4],
+}
+
+fn button_cell(panel_x: i32, tile_y: i32, row: i32) -> RectPx {
+    let x = panel_x + (RIGHT_PANEL_W - BUTTON_CELL_W);
+    let y = tile_y + row * BUTTON_CELL_H;
+    RectPx::new(x, y, BUTTON_CELL_W, BUTTON_CELL_H)
 }
 
 /// 按视口计算主菜单布局（内容落在 800×600 基准上；视口更大时由渲染相机居中）。
@@ -65,25 +79,31 @@ pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
     let panel_x = SHELL_BASE_W - RIGHT_PANEL_W;
     let panel_top = RectPx::new(panel_x, 0, RIGHT_PANEL_W, RIGHT_PANEL_TOP_H);
     let tile = RectPx::new(panel_x, RIGHT_PANEL_TOP_H, RIGHT_PANEL_W, RIGHT_PANEL_TILE_H);
-    // 剩余高度够放底盖时，中间用平铺填满。
-    let bottom_h = 55;
+    // 底盖高度按零售 `sdbtm` 画布 65 近似。
+    let bottom_h = 65;
     let remaining = (SHELL_BASE_H - RIGHT_PANEL_TOP_H - bottom_h).max(0);
     let tile_count = (remaining / RIGHT_PANEL_TILE_H).clamp(0, 9);
     let bottom_y = tile.y + tile_count * RIGHT_PANEL_TILE_H;
     let panel_bottom = RectPx::new(panel_x, bottom_y, RIGHT_PANEL_W, SHELL_BASE_H - bottom_y);
-    let lower_strip = RectPx::new(0, SHELL_BASE_H - 46, panel_x, 46);
-    let btn_x = panel_x + (RIGHT_PANEL_W - BUTTON_CELL_W);
-    // 约等于零售首钮纵位（DLU 换算后的像素邻域）。
-    let first_button = RectPx::new(btn_x, 210, BUTTON_CELL_W, BUTTON_CELL_H);
+    // `lwscrnl` 画布高 32；贴在内容区底边。
+    let lower_strip = RectPx::new(0, SHELL_BASE_H - 32, panel_x, 32);
+    // 按钮落在平铺列上：从顶盖下第一格起连续四格。
+    let buttons = [
+        button_cell(panel_x, tile.y, 0),
+        button_cell(panel_x, tile.y, 1),
+        button_cell(panel_x, tile.y, 2),
+        button_cell(panel_x, tile.y, 3),
+    ];
     MainMenuLayout {
         canvas,
-        background: canvas,
+        // 父背景与影片区同左上；`mnscrnl` 约 632×568，不铺满 800 宽。
+        background: RectPx::new(0, 0, 632, 568),
         panel_top,
         panel_tile: tile,
         panel_tile_count: tile_count,
         panel_bottom,
         lower_strip,
-        first_button,
+        buttons,
     }
 }
 
@@ -97,6 +117,9 @@ mod tests {
         assert_eq!(layout.canvas.w, 800);
         assert_eq!(layout.panel_top.x + layout.panel_top.w, 800);
         assert!(layout.panel_tile_count > 0);
-        assert_eq!(layout.first_button.w, BUTTON_CELL_W);
+        assert_eq!(layout.buttons[0].w, BUTTON_CELL_W);
+        assert_eq!(layout.buttons[0].y, RIGHT_PANEL_TOP_H);
+        assert_eq!(layout.buttons[3].y, RIGHT_PANEL_TOP_H + 3 * BUTTON_CELL_H);
+        assert_eq!(MAIN_MENU_BUTTON_IDS.len(), layout.buttons.len());
     }
 }
