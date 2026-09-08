@@ -134,11 +134,11 @@ flowchart LR
 
 | API                                          | 作用                                     |
 |----------------------------------------------|------------------------------------------|
-| `compose_boot_preview`                       | 地图 + tileset + TMP + 调色板 → 整幅地形 |
+| `compose_boot_preview`                       | 地图地形合成；失败为 `None`（不静默换砖） |
 | `compose_skirmish_preview`                   | 遭遇战布局预览（单位/建筑绘制统计）      |
 | `compose_terrain_rgba`                       | 底层地形 blit 列表                       |
 | `paint_map_structures` / `paint_map_mobiles` | 预放置实体精灵                           |
-| `load_fallback_theater_tile`                 | 无完整 cells 时的单砖回退                |
+| `load_fallback_theater_tile`                 | 显式单砖探测（不由 boot 预览自动调用）   |
 
 `iso_math` 提供等距格与屏幕像素换算（`TILE_WIDTH` / `TILE_HEIGHT` / `HEIGHT_STEP`），预览与将来相机共用同一套数学约定。
 

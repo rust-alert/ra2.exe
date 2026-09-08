@@ -87,11 +87,10 @@ sequenceDiagram
 
 地图候选由 `ra-map::BOOT_MAP_CANDIDATES` 决定（如 `mp01t4.map` 等）。首个能在 VFS 中解析成功的地图定剧院并触发剧院 MIX 挂载。
 
-预览合成优先级：
+预览合成：
 
-1. **`compose_boot_preview`**：若地图含有效 `IsoMapPack` 单元格，用剧院调色板、tileset 与 TMP 拼整幅 RGBA。
-2. 否则 **`load_fallback_theater_tile`**：单砖候选（tileset 槽位与 `clear01` 等）。
-3. 再否则 **`load_fallback_unit_sprite`**：`unittem.pal` + `mouse.shp` / `e1.shp` 等 SHP 首帧。
+1. **`compose_boot_preview`**：地图含有效地形单元格时拼整幅 RGBA；失败返回 `None`，**不**用单砖或单位 SHP 冒充。
+2. 显式探测可用 **`load_fallback_theater_tile`** / **`load_fallback_unit_sprite`**（须调用方主动选用，不进入 boot 成功路径）。
 
 规则由 `load_rules_chain` 读取 `rules.ini` / `art.ini` 并派生 `RulesDb`。成功则进入 `open_skirmish_session`；失败时仍可开窗，窗口标题与
 `boot_note` 会标明规则未就绪。
