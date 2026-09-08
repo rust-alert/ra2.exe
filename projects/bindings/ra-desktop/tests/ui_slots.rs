@@ -55,6 +55,14 @@ fn options_keeps_disabled_audio_video_slots() {
     assert!(!page.buttons[0].enabled);
     assert!(!page.buttons[1].enabled);
     assert!(page.buttons[2].enabled);
+    assert!(page.has_any_asset_name());
+    assert_eq!(page.background_shp, Some("mnscrnl.shp"));
+    assert_eq!(page.background_pal, Some("shell.pal"));
+    assert_eq!(page.movie_bik, Some("ra2ts_l.bik"));
+    assert_eq!(page.buttons[2].normal_frame, Some(2));
+    assert_eq!(page.buttons[2].pressed_frame, Some(4));
+    assert!(page.panels.iter().any(|p| p.shp == "sdtp.shp"));
+    assert_eq!(page.fonts, &["game.fnt"]);
 }
 
 #[test]

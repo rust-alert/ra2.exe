@@ -7,7 +7,7 @@ fn main_menu_and_single_player_are_declared_complete() {
     assert!(!pages.is_empty());
     for page in &pages {
         match page.screen {
-            OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu => {
+            OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::Options => {
                 assert!(page.declared_refs_complete(), "{} 应已声明背景与可点按钮资源名", page.screen.as_str());
                 assert!(page.buttons.iter().any(|b| b.enabled && b.normal.is_some()));
                 assert_eq!(page.fonts, vec!["game.fnt".to_string()]);
