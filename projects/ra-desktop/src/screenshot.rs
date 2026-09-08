@@ -266,6 +266,12 @@ pub fn dump_all_key_screens_to(dir: impl AsRef<Path>) -> RaResult<Vec<PathBuf>> 
     let main_hover = layout_for(OriginalScreen::MainMenu, w, h, Some(0), None).expect("menu hover");
     out.push(save_acceptance_png(dir, "main_menu_hover", &main_hover.image)?);
 
+    // 单人页：悬停遭遇战 / 返回。
+    let sp_skirmish = layout_for(OriginalScreen::SinglePlayerMenu, w, h, Some(1), None).expect("sp skirmish");
+    out.push(save_acceptance_png(dir, "single_player_skirmish_hover", &sp_skirmish.image)?);
+    let sp_back = layout_for(OriginalScreen::SinglePlayerMenu, w, h, Some(3), None).expect("sp back");
+    out.push(save_acceptance_png(dir, "single_player_back_hover", &sp_back.image)?);
+
     let maps = [
         BootMapCandidate {
             file_name: "mp03t4.map".into(),
@@ -393,6 +399,8 @@ mod tests {
         }
         assert!(dir.join("main_menu.png").exists());
         assert!(dir.join("main_menu_hover.png").exists());
+        assert!(dir.join("single_player_skirmish_hover.png").exists());
+        assert!(dir.join("single_player_back_hover.png").exists());
         assert!(dir.join("skirmish_lobby.png").exists());
         assert!(dir.join("skirmish_lobby_alt.png").exists());
         assert!(dir.join("match.png").exists());
