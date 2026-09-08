@@ -5,8 +5,10 @@ use ra_desktop::{menu_action::MenuAction, screen::OriginalScreen, ui_slots::*};
 fn main_menu_entries_match_expected_ids() {
     let page = slots_for(OriginalScreen::MainMenu).unwrap();
     let ids: Vec<_> = page.buttons.iter().map(|b| b.entry_id).collect();
-    assert_eq!(ids, ["single_player", "network", "options", "exit"]);
+    assert_eq!(ids, ["single_player", "ww_online", "network", "movies", "options", "exit"]);
     assert!(!page.buttons[1].enabled);
+    assert!(!page.buttons[2].enabled);
+    assert!(!page.buttons[3].enabled);
     assert!(page.has_any_asset_name());
     assert_eq!(page.background_shp, Some("mnscrnl.shp"));
     assert_eq!(page.background_pal, Some("shell.pal"));

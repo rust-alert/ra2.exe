@@ -164,7 +164,10 @@ fn compose_shell_menu_page(
         if let Some(fnt) = fnt {
             let key = captions.label(entry_id);
             let caption = resolve_caption(csf, entry_id, key);
-            let disabled = matches!(*entry_id, "network" | "campaign" | "training");
+            let disabled = matches!(
+                *entry_id,
+                "ww_online" | "network" | "movies" | "campaign" | "training"
+            );
             let color = if disabled { MENU_TEXT_DISABLED } else { MENU_TEXT_ENABLED };
             blit_caption_in_cell(&mut page, fnt, &caption, cell.x, cell.y, cell.w, cell.h, color);
         }

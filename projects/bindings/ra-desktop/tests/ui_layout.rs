@@ -26,18 +26,20 @@ fn main_menu_bottom_cover_is_remainder_not_fixed_65() {
 #[test]
 fn main_menu_exit_sits_on_bottom_cover() {
     let layout = main_menu_layout(800, 600);
-    assert_eq!(layout.buttons[0], RectPx::new(644, 199, 156, 42));
-    assert_eq!(layout.buttons[1], RectPx::new(644, 241, 156, 42));
-    assert_eq!(layout.buttons[2], RectPx::new(644, 283, 156, 42));
+    let expected_y = [199, 241, 283, 325, 367];
+    for (i, y) in expected_y.iter().enumerate() {
+        assert_eq!(layout.buttons[i], RectPx::new(644, *y, 156, 42));
+    }
     // Exit：底盖上沿一行 → y = 577 - 42 = 535。
-    assert_eq!(layout.buttons[3], RectPx::new(644, 535, 156, 42));
+    assert_eq!(layout.buttons[5], RectPx::new(644, 535, 156, 42));
 }
 
 #[test]
 fn skirmish_lobby_reuses_right_panel() {
     let layout = skirmish_lobby_layout(1024, 768);
-    assert_eq!(SKIRMISH_LOBBY_BUTTON_IDS.len(), layout.buttons.len());
+    assert_eq!(SKIRMISH_LOBBY_BUTTON_IDS.len(), 4);
     assert_eq!(layout.buttons[0].y, RIGHT_PANEL_TOP_H);
+    assert_eq!(layout.buttons[3].y, layout.panel_bottom.y - BUTTON_CELL_H);
     let row0 = skirmish_map_row_rect(&layout, 0);
     assert!(row0.w > 0);
     assert!(row0.y >= layout.movie.y);
