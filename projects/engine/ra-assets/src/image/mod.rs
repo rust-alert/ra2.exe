@@ -1,4 +1,4 @@
-//! 二维图像与调色板：PAL、SHP、TMP、Bink、FNT、CSF。
+//! 二维图像与调色板：PAL、SHP、TMP、Bink、FNT、CSF、PCX。
 
 pub mod bink;
 pub mod bink_bits;
@@ -14,5 +14,6 @@ pub mod bink_video;
 pub mod csf;
 pub mod fnt;
 pub mod pal;
+pub mod pcx;
 pub mod shp;
 pub mod tmp;
