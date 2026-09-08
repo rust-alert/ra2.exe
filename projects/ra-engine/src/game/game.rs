@@ -392,7 +392,8 @@ impl Game {
     /// 为所有非本地阵营下发本 tick 的 AI 命令（经 `push_command`）。
     ///
     /// `Easy`：奇数 tick 跳过生产与自动进攻，仅保留部署/建造节奏。
-    /// `Normal` / `Hard`：每 tick 完整下发。
+    /// `Normal`：每 4 个 tick 跳过一拍进攻/生产（略弱于 Hard）。
+    /// `Hard`：每 tick 完整下发，并追加一轮生产尝试。
     fn push_ai_commands(&mut self) {
         let local_house = self.world.players.iter().find(|p| p.id == self.world.local_player).map(|p| p.house.clone());
         let opponents: Vec<(ra_types::PlayerId, std::sync::Arc<str>)> = self
@@ -402,7 +403,8 @@ impl Game {
             .filter(|p| local_house.as_ref().map(|h| p.house.as_ref() != h.as_ref()).unwrap_or(true))
             .map(|p| (p.id, p.house.clone()))
             .collect();
-        let skip_offensive = self.difficulty.eq_ignore_ascii_case("Easy") && (self.world.tick % 2 == 1);
+        let skip_offensive = difficulty_skips_offensive(&self.difficulty, self.world.tick);
+        let hard_extra_produce = difficulty_extra_produce(&self.difficulty);
         for (player, house) in &opponents {
             let house = house.as_ref();
             let mut cmds = Vec::new();
@@ -415,6 +417,10 @@ impl Game {
                 cmds.extend(crate::gameplay::ai::produce_infantry_commands(&self.world, house, *player));
                 cmds.extend(crate::gameplay::ai::produce_vehicle_commands(&self.world, house, *player));
                 cmds.extend(crate::gameplay::ai::auto_attack_commands(&self.world, house));
+                if hard_extra_produce {
+                    cmds.extend(crate::gameplay::ai::produce_infantry_commands(&self.world, house, *player));
+                    cmds.extend(crate::gameplay::ai::produce_vehicle_commands(&self.world, house, *player));
+                }
             }
             for cmd in cmds {
                 self.world.push_player_command(*player, cmd);
@@ -724,8 +730,47 @@ fn derive_anim_state(e: &crate::WorldEntity) -> AnimState {
     AnimState::Idle
 }
 
+/// 按难度决定本 tick 是否跳过 AI 进攻/生产。
+fn difficulty_skips_offensive(difficulty: &str, tick: u64) -> bool {
+    if difficulty.eq_ignore_ascii_case("Easy") {
+        tick % 2 == 1
+    }
+    else if difficulty.eq_ignore_ascii_case("Hard") {
+        false
+    }
+    else {
+        tick % 4 == 3
+    }
+}
+
+/// Hard 是否追加一轮生产尝试。
+fn difficulty_extra_produce(difficulty: &str) -> bool {
+    difficulty.eq_ignore_ascii_case("Hard")
+}
+
 /// 冻结胜负：存活建筑或可作战移动单位均算作战力量。
 fn is_combat_force(e: &crate::WorldEntity) -> bool {
     !e.dead
         && matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure)
+}
+
+#[cfg(test)]
+mod difficulty_ai_tests {
+    use super::{difficulty_extra_produce, difficulty_skips_offensive};
+
+    #[test]
+    fn easy_skips_odd_ticks_hard_never_skips() {
+        assert!(difficulty_skips_offensive("Easy", 1));
+        assert!(!difficulty_skips_offensive("Easy", 2));
+        assert!(!difficulty_skips_offensive("Hard", 3));
+        assert!(difficulty_skips_offensive("Normal", 3));
+        assert!(!difficulty_skips_offensive("Normal", 0));
+    }
+
+    #[test]
+    fn only_hard_gets_extra_produce() {
+        assert!(difficulty_extra_produce("Hard"));
+        assert!(!difficulty_extra_produce("Easy"));
+        assert!(!difficulty_extra_produce("Normal"));
+    }
 }
