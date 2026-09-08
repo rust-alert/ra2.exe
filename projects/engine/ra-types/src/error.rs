@@ -11,6 +11,9 @@ pub enum RaError {
     /// 配置里的版本字符串无法识别。
     #[error("未知版本 `{0}`（请用 ra2 或 yr）")]
     UnknownEdition(String),
+    /// 配置里的显示分辨率档无法识别。
+    #[error("未知显示模式 `{0}`（支持 640x480 / 800x600 / 1024x768）")]
+    UnknownDisplayMode(String),
     /// 安装目录同时具备原版与 YR 特征且未显式指定版本。
     #[error("目录 `{0}` 同时有原版与 YR 特征；请在配置里写明 edition")]
     AmbiguousEdition(String),
