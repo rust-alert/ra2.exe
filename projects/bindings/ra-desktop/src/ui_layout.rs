@@ -90,6 +90,10 @@ pub struct MainMenuLayout {
     pub panel_bottom: RectPx,
     /// 底部装饰条。
     pub lower_strip: RectPx,
+    /// 右侧顶盖内页标题（如「主選單」）。
+    pub title: RectPx,
+    /// 左下角悬停提示行。
+    pub tooltip: RectPx,
     /// 六个主菜单按钮格；末项 Exit 贴底盖上沿。
     pub buttons: [RectPx; 6],
 }
@@ -137,6 +141,10 @@ pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
         button_cell(panel_x, tile.y + 4 * BUTTON_CELL_H),
         button_cell(panel_x, exit_y),
     ];
+    // 原版标题：兼容宽 163×18，侧栏内 inset，顶盖下 y=9。
+    let title = RectPx::new(panel_x + 3, 9, 163, 18);
+    // 原版提示：底边上方 1px，左 inset 10，宽 455、高 20。
+    let tooltip = RectPx::new(10, SHELL_BASE_H - 20 - 1, 455, 20);
     MainMenuLayout {
         canvas,
         // `mnscrnl` / 影片区：632×570，底边留给 `lwscrnl`。
@@ -147,6 +155,8 @@ pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
         panel_tile_count: tile_count,
         panel_bottom,
         lower_strip,
+        title,
+        tooltip,
         buttons,
     }
 }

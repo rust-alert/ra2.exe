@@ -24,6 +24,13 @@ fn main_menu_bottom_cover_is_remainder_not_fixed_65() {
 }
 
 #[test]
+fn main_menu_title_and_tooltip_rects() {
+    let layout = main_menu_layout(800, 600);
+    assert_eq!(layout.title, RectPx::new(635, 9, 163, 18));
+    assert_eq!(layout.tooltip, RectPx::new(10, 579, 455, 20));
+}
+
+#[test]
 fn main_menu_exit_sits_on_bottom_cover() {
     let layout = main_menu_layout(800, 600);
     let expected_y = [199, 241, 283, 325, 367];
