@@ -139,7 +139,8 @@ src/main.rs       入口
 src/shell.rs      页面壳与事件循环
 src/ui_page.rs    原版页面资源索引（未解码；visuals_ready 前不算交付）
 src/ui_slots.rs   入口 id 与命中框槽位
-src/menu_view.rs  色块占位绘制（非 Pre-Alpha 原版 UI）
+src/ui_hit.rs     逻辑命中（无绘制）
+src/menu_action.rs 菜单导航动作
 src/config.rs     委托 ra-config 加载桌面设置
 src/fs_source.rs  GameAssetSource
 examples/
@@ -168,23 +169,8 @@ hash / outcome 供自动化轮询。
 
 ## 关键页截图（验收用，不进 git）
 
-### 自动测试导出（推荐对照）
-
-```shell
-cargo test -p ra-desktop dump_key_ui_screenshots_for_acceptance -- --nocapture
-```
-
-会在包目录下 `projects/ra-desktop/screenshots/acceptance/`（或 `RA2_SCREENSHOT_DIR/acceptance/`）写出稳定文件名（覆盖）：
-
-- `main_menu.png` / `main_menu_hover.png` / `single_player_menu.png` / `single_player_skirmish_hover.png` / `single_player_back_hover.png` / `skirmish_lobby.png` / `skirmish_lobby_alt.png`
-- `load_screen.png`（装载中：重试禁用 + 阶段进度条） / `load_screen_failed.png`（失败停留：重试可点） / `load_screen_failed_retry_hover.png` / `options.png` / `options_back_hover.png` / `network.png` / `network_back_hover.png`
-- `match.png` / `match_paused.png` / `match_reject.png` / `results.png` / `results_lobby_hover.png`（合成底图 + 占位 HUD chrome）
-
-无窗口、无安装目录即可跑。色块占位 **不是** 原版 SHP；打开这些 PNG 可对照页面布局与可点区。
-
-也可用 `RA2_SCREENSHOT_DIR` 改根目录。
-
-### 运行中手动 / 自动回读
+色块占位菜单已拆除。验收图须在原版 SHP/字体接线后，用 GPU 画面对照；稳定文件名见
+`ra-testing::pre_alpha_acceptance_capture_names()`。
 
 运行中按 **F12** 将当前 GPU 画面写入 `screenshots/{screen}_{unix_ms}.png`。
 
@@ -195,7 +181,7 @@ set RA2_AUTO_SCREENSHOT=1
 cargo run -p ra-desktop
 ```
 
-`screenshots/` 已在 `.gitignore` 中，请勿把 PNG 提交进仓库。
+也可用 `RA2_SCREENSHOT_DIR` 改根目录。`screenshots/` 已在 `.gitignore` 中，请勿把 PNG 提交进仓库。
 
 ## 依赖关系
 

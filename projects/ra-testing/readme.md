@@ -148,14 +148,9 @@ sequenceDiagram
 
 截图基线须固定：窗口尺寸、GPU 后端、字体缩放、合成内容目录、测试时钟。变更任一条件应更新基线或只跑 headless。
 
-Pre-Alpha 入口页的 **CPU 占位验收图**（无窗口）由桌面测试写出，稳定文件名见
-`pre_alpha_acceptance_capture_names()`（计划骨架见 `pre_alpha_acceptance_capture_plan`）：
-
-```shell
-cargo test -p ra-desktop dump_key_ui_screenshots_for_acceptance -- --nocapture
-```
-
-输出在 `projects/ra-desktop/screenshots/acceptance/*.png`（已 gitignore）。
+Pre-Alpha 关键页截图基线名见 `pre_alpha_acceptance_capture_names()`（计划骨架见
+`pre_alpha_acceptance_capture_plan`）。仅真实屏幕名，不含 hover / 色块假图。
+原版 UI 接线后用 GPU `Capture` 对照；勿再导出色块菜单 PNG。
 
 ### 在 workspace 测试中依赖
 
