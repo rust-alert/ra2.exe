@@ -9,9 +9,52 @@ export type LaunchOptions = {
     edition?: string;
 };
 
+export type ExtractOptions = {
+    path: string;
+    out: string;
+    names: string[];
+    edition?: string;
+    palette?: string;
+    decodeShp?: boolean;
+};
+
+export type ExtractedFile = {
+    name: string;
+    path: string;
+    bytes: number;
+    origin: string;
+    shpFrames: number | null;
+};
+
+export type ExtractResult = {
+    written: ExtractedFile[];
+    missing: string[];
+    edition: string;
+    mountedRoot: number;
+    mountedNested: number;
+};
+
+export type UnpackOptions = {
+    path: string;
+    out: string;
+    edition?: string;
+};
+
+export type UnpackResult = {
+    filesWritten: number;
+    bytesWritten: number;
+    archives: number;
+    edition: string;
+    mountedRoot: number;
+    mountedNested: number;
+    outDir: string;
+};
+
 export type NativeBinding = {
     version(): string;
     launch(options: LaunchOptions): void;
+    extract(options: ExtractOptions): ExtractResult;
+    unpack(options: UnpackOptions): UnpackResult;
 };
 
 export type NativeBinaryIdentity = {
@@ -81,6 +124,14 @@ export function nativeBinaryIdentity(): NativeBinaryIdentity {
 
 export function launch(options: LaunchOptions): void {
     loadNative().launch(options);
+}
+
+export function extract(options: ExtractOptions): ExtractResult {
+    return loadNative().extract(options);
+}
+
+export function unpack(options: UnpackOptions): UnpackResult {
+    return loadNative().unpack(options);
 }
 
 export function version(): string {
