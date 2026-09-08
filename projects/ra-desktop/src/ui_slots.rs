@@ -59,6 +59,8 @@ pub struct UiPageSlots {
     pub background_pal: Option<&'static str>,
     /// 背景帧（缺省 0）。
     pub background_frame: u16,
+    /// 主菜单循环影片（如 `ra2ts_l.bik`）；可空。
+    pub movie_bik: Option<&'static str>,
     /// 侧板 / 装饰。
     pub panels: &'static [UiPanelSlot],
     /// 本页字体逻辑名。
@@ -71,6 +73,9 @@ impl UiPageSlots {
     /// 是否已为任一槽填了具体文件名（用于区分「模型」与「已接线资产」）。
     pub fn has_any_asset_name(&self) -> bool {
         if self.background_shp.is_some() || self.background_pal.is_some() || !self.panels.is_empty() {
+            return true;
+        }
+        if self.movie_bik.is_some() {
             return true;
         }
         if !self.fonts.is_empty() {
@@ -229,6 +234,8 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             background_shp: Some("mnscrnl.shp"),
             background_pal: Some("shell.pal"),
             background_frame: 0,
+            // 大布局默认 `ra2ts_l.bik`；640 窄布局后续切 `ra2ts_s.bik`。
+            movie_bik: Some("ra2ts_l.bik"),
             panels: MAIN_MENU_PANELS,
             fonts: MAIN_MENU_FONTS,
             buttons: MAIN_MENU_BUTTONS,
@@ -238,6 +245,7 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             background_shp: None,
             background_pal: None,
             background_frame: 0,
+            movie_bik: None,
             panels: &[],
             fonts: &[],
             buttons: SINGLE_PLAYER_BUTTONS,
@@ -247,6 +255,7 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             background_shp: None,
             background_pal: None,
             background_frame: 0,
+            movie_bik: None,
             panels: &[],
             fonts: &[],
             buttons: SKIRMISH_LOBBY_BUTTONS,
@@ -256,6 +265,7 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             background_shp: None,
             background_pal: None,
             background_frame: 0,
+            movie_bik: None,
             panels: &[],
             fonts: &[],
             buttons: LOAD_SCREEN_BUTTONS,
@@ -265,6 +275,7 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             background_shp: None,
             background_pal: None,
             background_frame: 0,
+            movie_bik: None,
             panels: &[],
             fonts: &[],
             buttons: OPTIONS_BUTTONS,
@@ -274,6 +285,7 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             background_shp: None,
             background_pal: None,
             background_frame: 0,
+            movie_bik: None,
             panels: &[],
             fonts: &[],
             buttons: NETWORK_BUTTONS,
@@ -295,6 +307,7 @@ mod tests {
         assert!(page.has_any_asset_name());
         assert_eq!(page.background_shp, Some("mnscrnl.shp"));
         assert_eq!(page.background_pal, Some("shell.pal"));
+        assert_eq!(page.movie_bik, Some("ra2ts_l.bik"));
         assert!(page.buttons[0].hover_frame.is_none());
         assert_eq!(page.buttons[0].normal_frame, Some(2));
         assert_eq!(page.buttons[0].pressed_frame, Some(4));

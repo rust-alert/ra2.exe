@@ -2,8 +2,9 @@
 
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
+use ra_assets::parse_bink_header;
 use ra_renderer::{Renderer, RgbaImage};
-use ra_types::{RaError, RaResult};
+use ra_types::{AssetSource, RaError, RaResult};
 use winit::{
     application::ApplicationHandler,
     event::{ElementState, WindowEvent},
@@ -317,7 +318,12 @@ impl AppShell {
             format!("{} · {}", probe.note, report.banner_note())
         };
 
-        if report.named > 0 && report.missing.is_empty() {
+        // 影片缺失不挡 chrome 解码；仅非 BIK 缺口才清空解码缓存。
+        let only_movie_gaps = report
+            .missing
+            .iter()
+            .all(|m| m.to_ascii_lowercase().ends_with(".bik"));
+        if report.named > 0 && only_movie_gaps {
             let decoded = ui_decode::decode_page_chrome(source, &page);
             tracing::info!(
                 screen = self.screen.as_str(),
@@ -334,6 +340,34 @@ impl AppShell {
         }
         else {
             self.ui_decode_cache = None;
+        }
+
+        if let Some(movie) = page.movie.as_ref() {
+            match source.read(&movie.name) {
+                Ok(bytes) => match parse_bink_header(&bytes) {
+                    Ok(hdr) => {
+                        tracing::info!(
+                            name = %movie.name,
+                            w = hdr.width,
+                            h = hdr.height,
+                            frames = hdr.num_frames,
+                            fps = hdr.fps(),
+                            "主菜单影片头已解析（尚未解码帧）"
+                        );
+                        banner = format!(
+                            "{banner} · {} {}×{} {}帧 @{:.0}fps",
+                            movie.name, hdr.width, hdr.height, hdr.num_frames, hdr.fps()
+                        );
+                    }
+                    Err(e) => {
+                        tracing::warn!(name = %movie.name, "影片头解析失败 · {e}");
+                        banner = format!("{banner} · {} 头失败", movie.name);
+                    }
+                },
+                Err(_) => {
+                    tracing::warn!(name = %movie.name, "影片不可读");
+                }
+            }
         }
 
         self.banner = banner;

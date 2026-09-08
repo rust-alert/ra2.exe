@@ -79,6 +79,9 @@ pub fn resolve_page(source: &impl AssetSource, page: &UiPageResources) -> PageRe
     if let Some(pal) = &page.background_palette {
         bump_name(source, pal, &mut named, &mut readable, &mut missing);
     }
+    if let Some(movie) = &page.movie {
+        bump_asset(source, movie, &mut named, &mut readable, &mut missing);
+    }
     for panel in &page.panels {
         bump_asset(source, panel, &mut named, &mut readable, &mut missing);
     }
@@ -149,6 +152,7 @@ mod tests {
             screen: OriginalScreen::MainMenu,
             background: Some(UiAssetRef::named("bg.shp")),
             background_palette: Some("bg.pal".into()),
+            movie: None,
             panels: Vec::new(),
             buttons: vec![UiButtonResources {
                 entry_id: "single_player",
