@@ -7,10 +7,10 @@ use crate::{MapInfo, Theater, theater::theater_mix_names};
 /// Alpha 单机优先尝试的遭遇图文件名（按序）。
 pub const BOOT_MAP_CANDIDATES: &[&str] = &["mp03t4.map", "mp01t4.map", "mp01t2.map", "mp02t4.map"];
 
-/// `find_first_boot_map` 的结果（尚未挂载剧院 MIX）。
+/// 成功解析的启动地图（尚未挂载剧院 MIX）。
 #[derive(Debug)]
 pub struct BootMapResult {
-    /// 解析得到的地图（失败时为空占位图）。
+    /// 解析得到的地图。
     pub map: MapInfo,
     /// 相对本步的注记片段（不含前缀分隔符）。
     pub note: String,
@@ -77,8 +77,9 @@ pub fn find_boot_map_named(edition: GameEdition, source: &dyn AssetSource, name:
 }
 
 /// 按候选顺序解析第一张可加载遭遇图（不挂载 MIX）。
-pub fn find_first_boot_map(edition: GameEdition, source: &dyn AssetSource) -> BootMapResult {
-    let mut fail_note = String::new();
+///
+/// 全部失败返回 `None`（不返回空占位图）。供探测 / 无指定地图的自动选图。
+pub fn find_first_boot_map(edition: GameEdition, source: &dyn AssetSource) -> Option<BootMapResult> {
     for name in BOOT_MAP_CANDIDATES {
         let Ok(bytes) = source.read(name)
         else {
@@ -88,30 +89,28 @@ pub fn find_first_boot_map(edition: GameEdition, source: &dyn AssetSource) -> Bo
             Ok(map) => {
                 let mut note = format!("map:{name} {}x{} {}", map.width, map.height, map.theater.as_str());
                 note.push_str(&map_content_note(&map));
-                return BootMapResult { map, note };
+                return Some(BootMapResult { map, note });
             }
-            Err(e) => {
-                if fail_note.is_empty() {
-                    fail_note = format!("map:{name} 解析失败（{e}）");
-                }
-                else {
-                    fail_note = format!("{fail_note} · map:{name} 解析失败（{e}）");
-                }
-            }
+            Err(_) => continue,
         }
     }
-    let note = if fail_note.is_empty() { "map:无".to_string() } else { format!("{fail_note} · map:无") };
-    BootMapResult { map: MapInfo::empty(edition, "boot"), note }
+    None
 }
 
-/// 优先按指定文件名装载，否则回退到 [`find_first_boot_map`]。
-pub fn find_boot_map(edition: GameEdition, source: &dyn AssetSource, preferred: Option<&str>) -> BootMapResult {
+/// 按请求装载启动地图。
+///
+/// - `preferred` 有值：必须命中该文件，失败**不**换候选、**不**返回空图。
+/// - `preferred` 为 `None`：按候选表自动选首张可解析图；全部失败返回错误。
+pub fn find_boot_map(
+    edition: GameEdition,
+    source: &dyn AssetSource,
+    preferred: Option<&str>,
+) -> Result<BootMapResult, String> {
     if let Some(name) = preferred {
-        if let Some(hit) = find_boot_map_named(edition, source, name) {
-            return hit;
-        }
+        return find_boot_map_named(edition, source, name)
+            .ok_or_else(|| format!("指定地图不可用: {name}（不换图）"));
     }
-    find_first_boot_map(edition, source)
+    find_first_boot_map(edition, source).ok_or_else(|| "无可用启动地图（候选均不可读或解析失败）".to_string())
 }
 
 fn map_content_note(map: &MapInfo) -> String {

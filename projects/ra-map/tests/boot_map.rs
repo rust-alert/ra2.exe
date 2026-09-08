@@ -9,19 +9,20 @@ impl AssetSource for EmptySource {
 }
 
 #[test]
-fn empty_source_yields_placeholder_map() {
-    let loaded = find_first_boot_map(GameEdition::Ra2, &EmptySource);
-    assert_eq!(loaded.map.name, "boot");
-    assert!(loaded.note.contains("map:无"));
-}
-
-#[test]
-fn list_parseable_on_empty_is_empty() {
+fn empty_source_yields_no_boot_map() {
+    assert!(find_first_boot_map(GameEdition::Ra2, &EmptySource).is_none());
     assert!(list_parseable_boot_maps(GameEdition::Ra2, &EmptySource).is_empty());
 }
 
 #[test]
-fn find_boot_map_preferred_falls_back_when_missing() {
-    let loaded = find_boot_map(GameEdition::Ra2, &EmptySource, Some("nope.map"));
-    assert_eq!(loaded.map.name, "boot");
+fn find_boot_map_preferred_errors_when_missing() {
+    let err = find_boot_map(GameEdition::Ra2, &EmptySource, Some("nope.map")).unwrap_err();
+    assert!(err.contains("nope.map"), "{err}");
+    assert!(err.contains("不换图"), "{err}");
+}
+
+#[test]
+fn find_boot_map_auto_errors_when_empty_source() {
+    let err = find_boot_map(GameEdition::Ra2, &EmptySource, None).unwrap_err();
+    assert!(err.contains("无可用启动地图"), "{err}");
 }
