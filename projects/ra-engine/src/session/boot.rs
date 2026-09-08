@@ -24,7 +24,7 @@ pub struct SkirmishOpenResult {
 
 /// 从已装载的 `RulesDb` 与地图打开一局遭遇战会话。
 ///
-/// `preferred_house` 若能在世界玩家表中匹配，则设为本地玩家。
+/// `preferred_house` 若给出，则必须在世界玩家表中匹配并设为本地玩家，否则返回错误（禁止静默 fallback）。
 pub fn open_skirmish_session(
     source: &dyn AssetSource,
     chain: &ResourceChain,
@@ -43,12 +43,14 @@ pub fn open_skirmish_session(
 
     let mut state = MatchState::new(chain.edition, rules, map);
     if let Some(house) = preferred_house {
-        if state.prefer_local_house(house) {
-            note = format!("{note} · local_house={house}");
+        if !state.prefer_local_house(house) {
+            let available: Vec<&str> = state.players.iter().map(|p| p.house.as_ref()).collect();
+            return Err(ra_types::RaError::Msg(format!(
+                "指定阵营不可用: {house}（地图玩家: {}）",
+                available.join(", ")
+            )));
         }
-        else {
-            note = format!("{note} · local_house=(fallback) want={house}");
-        }
+        note = format!("{note} · local_house={house}");
     }
     let land_sealed = seal_pass_grid_from_tmp(source, &state.map, &mut state.pass_grid);
     if land_sealed > 0 {
