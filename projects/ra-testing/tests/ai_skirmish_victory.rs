@@ -1,4 +1,7 @@
-//! AI 遭遇战后脚本攻击至胜负，并校验确定性。
+//! 局部胜负 / 确定性夹具：关 AI、改敌方建造场血量后脚本攻击。
+//!
+//! **证明范围**：命令路径可打到结算，以及同等干预下状态哈希一致。
+//! **不证明**：持续 AI 对抗、完整遭遇战、仅靠产品命令的无干预单局。
 
 use ra_engine::{GameCommand, MatchOutcome};
 use ra_testing::{ai_skirmish_open, alpha_skirmish_v1};
@@ -47,7 +50,7 @@ fn scripted_attack_after_ai_deploy_reaches_victory() {
 }
 
 #[test]
-fn equal_ai_skirmish_scripts_match_hash() {
+fn equal_scripted_interventions_match_hash() {
     let slice = alpha_skirmish_v1();
     let mut first = ai_skirmish_open();
     let mut second = ai_skirmish_open();
