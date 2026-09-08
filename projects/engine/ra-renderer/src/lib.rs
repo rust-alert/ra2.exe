@@ -218,10 +218,19 @@ impl Renderer {
         Ok(())
     }
 
-    /// 通知交换链表面尺寸变化（像素宽高）。
+    /// 通知交换链表面尺寸变化（像素宽高），并按当前活动底图重算 letterbox 相机。
     pub fn resize(&mut self, width: u32, height: u32) {
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.resize(width, height);
+        }
+        let (sw, sh) = self.gpu.as_ref().map(|g| (g.config.width, g.config.height)).unwrap_or((width.max(1), height.max(1)));
+        if let Some(ui) = self.ui_sprite.as_ref() {
+            let (iw, ih) = ui.size();
+            self.reset_camera_to_fit(sw, sh, iw, ih);
+        }
+        else if let Some(sprite) = self.sprite.as_ref() {
+            let (iw, ih) = sprite.size();
+            self.reset_camera_to_fit(sw, sh, iw, ih);
         }
     }
 
