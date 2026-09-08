@@ -10,4 +10,5 @@ mod pause;
 mod reject;
 mod schedule;
 mod session;
+mod session_validate;
 mod victory_structures;

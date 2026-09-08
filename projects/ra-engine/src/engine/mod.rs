@@ -115,8 +115,21 @@ impl Engine {
         }
     }
 
-    /// 校验会话规格（骨架：始终成功）。
-    pub fn validate_session_spec(&self, _spec: &SessionSpec) -> Result<(), SessionValidationError> {
+    /// 校验会话规格：标签长度上限，以及 `required_capabilities` 是否全部声明。
+    pub fn validate_session_spec(&self, spec: &SessionSpec) -> Result<(), SessionValidationError> {
+        const MAX_LABEL_CHARS: usize = 256;
+        if spec.label.chars().count() > MAX_LABEL_CHARS {
+            return Err(SessionValidationError {
+                message: format!("会话标签过长（最多 {MAX_LABEL_CHARS} 字符）"),
+            });
+        }
+        for cap in &spec.required_capabilities {
+            if !self.capabilities.contains(*cap) {
+                return Err(SessionValidationError {
+                    message: format!("引擎未声明能力: {cap:?}"),
+                });
+            }
+        }
         Ok(())
     }
 
