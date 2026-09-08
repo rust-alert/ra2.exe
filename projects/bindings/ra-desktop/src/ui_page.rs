@@ -177,6 +177,7 @@ pub fn catalog_pre_game_pages() -> Vec<UiPageResources> {
         OriginalScreen::SkirmishLobby,
         OriginalScreen::LoadScreen,
         OriginalScreen::Options,
+        OriginalScreen::ExitConfirm,
         OriginalScreen::Network,
     ]
     .into_iter()

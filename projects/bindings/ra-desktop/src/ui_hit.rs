@@ -8,8 +8,9 @@ use crate::{
     menu_action::MenuAction,
     screen::OriginalScreen,
     ui_layout::{
-        LOBBY_MAP_ROW_MAX, MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS,
-        main_menu_layout, options_layout, single_player_layout, skirmish_lobby_layout, skirmish_map_row_rect, window_to_shell_px,
+        EXIT_CONFIRM_BUTTON_IDS, LOBBY_MAP_ROW_MAX, MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS,
+        SKIRMISH_LOBBY_BUTTON_IDS, exit_confirm_layout, main_menu_layout, options_layout, single_player_layout,
+        skirmish_lobby_layout, skirmish_map_row_rect, window_to_shell_px,
     },
     ui_slots::slots_for,
 };
@@ -43,6 +44,7 @@ pub fn hits_for(screen: OriginalScreen, maps: &[BootMapCandidate], load_allow_re
         OriginalScreen::SinglePlayerMenu => hits_single_player(),
         OriginalScreen::SkirmishLobby => hits_skirmish_lobby(maps),
         OriginalScreen::Options => hits_options(),
+        OriginalScreen::ExitConfirm => hits_exit_confirm(),
         OriginalScreen::LoadScreen => hits_load_screen(load_allow_retry),
         OriginalScreen::Match | OriginalScreen::Results => Vec::new(),
         other => hits_from_slots(other),
@@ -71,6 +73,9 @@ pub fn hit_action(
     if screen == OriginalScreen::SkirmishLobby {
         return hit_skirmish_lobby_at(maps, cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
     }
+    if screen == OriginalScreen::ExitConfirm {
+        return hit_exit_confirm_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
+    }
     hit_at(&hits_for(screen, maps, load_allow_retry), cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action)
 }
 
@@ -96,6 +101,9 @@ pub fn hover_index(
     }
     if screen == OriginalScreen::SkirmishLobby {
         return hit_skirmish_lobby_at(maps, cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i);
+    }
+    if screen == OriginalScreen::ExitConfirm {
+        return hover_exit_confirm_at(cursor.0, cursor.1, win_w, win_h);
     }
     hit_at(&hits_for(screen, maps, load_allow_retry), cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i)
 }
@@ -312,6 +320,73 @@ fn hover_options_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Opt
     let layout = options_layout(0, 0);
     for (i, _) in OPTIONS_BUTTON_IDS.iter().enumerate() {
         if layout.buttons[i].contains(sx, sy) {
+            return Some(i);
+        }
+    }
+    None
+}
+
+fn hits_exit_confirm() -> Vec<MenuHit> {
+    let Some(page) = slots_for(OriginalScreen::ExitConfirm)
+    else {
+        return Vec::new();
+    };
+    let shell = main_menu_layout(0, 0);
+    let dlg = exit_confirm_layout(0, 0);
+    let bw = shell.canvas.w as f32;
+    let bh = shell.canvas.h as f32;
+    EXIT_CONFIRM_BUTTON_IDS
+        .iter()
+        .enumerate()
+        .filter_map(|(i, id)| {
+            let btn = page.buttons.iter().find(|b| b.entry_id == *id)?;
+            let cell = dlg.buttons[i];
+            Some(MenuHit {
+                entry_id: btn.entry_id,
+                action: btn.action,
+                x0: cell.x as f32 / bw,
+                y0: cell.y as f32 / bh,
+                x1: (cell.x + cell.w) as f32 / bw,
+                y1: (cell.y + cell.h) as f32 / bh,
+                enabled: btn.enabled,
+            })
+        })
+        .collect()
+}
+
+fn hit_exit_confirm_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
+    if win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
+    let dlg = exit_confirm_layout(0, 0);
+    let Some(page) = slots_for(OriginalScreen::ExitConfirm)
+    else {
+        return None;
+    };
+    for (i, id) in EXIT_CONFIRM_BUTTON_IDS.iter().enumerate() {
+        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
+        else {
+            continue;
+        };
+        if !btn.enabled {
+            continue;
+        }
+        if dlg.buttons[i].contains(sx, sy) {
+            return Some((i, btn.action));
+        }
+    }
+    None
+}
+
+fn hover_exit_confirm_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<usize> {
+    if win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
+    let dlg = exit_confirm_layout(0, 0);
+    for (i, _) in EXIT_CONFIRM_BUTTON_IDS.iter().enumerate() {
+        if dlg.buttons[i].contains(sx, sy) {
             return Some(i);
         }
     }

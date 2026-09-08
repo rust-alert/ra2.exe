@@ -38,6 +38,29 @@ fn main_menu_hit_options_and_exit_cells() {
 }
 
 #[test]
+fn exit_confirm_ok_and_cancel_cells() {
+    let cam = ra_desktop::ui_layout::shell_fit_camera(1024, 768);
+    let to_win = |sx: i32, sy: i32| {
+        let x = (sx as f32 - cam.center_x) * cam.zoom + 1024.0 * 0.5;
+        let y = (sy as f32 - cam.center_y) * cam.zoom + 768.0 * 0.5;
+        (x as f64, y as f64)
+    };
+    let dlg = ra_desktop::ui_layout::exit_confirm_layout(0, 0);
+    let ok = dlg.buttons[0];
+    let cancel = dlg.buttons[1];
+    let (ox, oy) = to_win(ok.x + ok.w / 2, ok.y + ok.h / 2);
+    let (cx, cy) = to_win(cancel.x + cancel.w / 2, cancel.y + cancel.h / 2);
+    assert_eq!(
+        hit_action(OriginalScreen::ExitConfirm, &[], None, (ox, oy), 1024.0, 768.0, false),
+        Some(MenuAction::ConfirmExit)
+    );
+    assert_eq!(
+        hit_action(OriginalScreen::ExitConfirm, &[], None, (cx, cy), 1024.0, 768.0, false),
+        Some(MenuAction::Back)
+    );
+}
+
+#[test]
 fn load_screen_disables_retry_while_loading() {
     let loading = hits_for(OriginalScreen::LoadScreen, &[], false);
     let retry = loading.iter().find(|h| h.entry_id == "retry").expect("retry");

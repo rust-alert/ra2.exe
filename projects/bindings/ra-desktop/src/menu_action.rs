@@ -9,8 +9,10 @@ pub enum MenuAction {
     OpenNetwork,
     /// 选项。
     OpenOptions,
-    /// 退出。
+    /// 打开退出确认页（尚未真正退出进程）。
     Exit,
+    /// 确认退出进程。
+    ConfirmExit,
     /// 进入遭遇战大厅。
     OpenSkirmish,
     /// 返回上一级。
