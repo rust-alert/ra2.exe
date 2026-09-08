@@ -214,6 +214,19 @@ impl AppShell {
         }
     }
 
+    /// 按配置应用壳层 BGM / 短音效音量（设备缺失时无操作）。
+    pub fn apply_audio_volumes(&mut self, music_volume: f32, sound_volume: f32) {
+        if let Some(audio) = self.audio.as_mut() {
+            audio.set_music_volume(music_volume);
+            audio.set_sfx_volume(sound_volume);
+            tracing::info!(
+                music_volume = audio.music_volume(),
+                sound_volume = audio.sfx_volume(),
+                "已应用壳层音量"
+            );
+        }
+    }
+
     /// 用户请求跳过闪屏；预处理完成后才进主菜单。
     fn request_splash_skip(&mut self) {
         if self.screen != OriginalScreen::Splash {
@@ -1425,7 +1438,7 @@ impl ApplicationHandler for AppShell {
 
 /// 解析启动参数并进入事件循环。
 pub fn run_shell() -> RaResult<()> {
-    let (mode, display_mode, status_path, test_scene) = resolve_launch()?;
+    let (mode, display_mode, music_volume, sound_volume, status_path, test_scene) = resolve_launch()?;
 
     let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Poll);
@@ -1443,6 +1456,7 @@ pub fn run_shell() -> RaResult<()> {
             AppShell::with_main_menu(display_mode)
         }
     };
+    app.apply_audio_volumes(music_volume, sound_volume);
 
     event_loop.run_app(&mut app).map_err(|e| RaError::Msg(e.to_string()))?;
     tracing::info!("事件循环结束");
@@ -1455,7 +1469,7 @@ enum LaunchMode {
     MainMenu,
 }
 
-fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, Option<PathBuf>, Option<String>)> {
+fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, Option<PathBuf>, Option<String>)> {
     #[cfg(feature = "test-harness")]
     {
         if let Some(scene) = crate::test_boot::requested_scene() {
@@ -1473,6 +1487,8 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, Option<PathBuf>, Optio
             return Ok((
                 LaunchMode::DirectMatch(BootResult { note: t.note, engine: Some(t.engine), session: Some(t.session), preview: t.preview }),
                 DisplayMode::DEFAULT,
+                0.4,
+                0.7,
                 status_path,
                 Some(scene),
             ));
@@ -1487,8 +1503,17 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, Option<PathBuf>, Optio
     let display_mode = settings.display_mode;
     tracing::info!(
         display_mode = display_mode.as_str(),
+        music_volume = settings.music_volume,
+        sound_volume = settings.sound_volume,
         ra2_dir = %settings.ra2_dir.display(),
-        "desktop display mode"
+        "desktop launch settings"
     );
-    Ok((LaunchMode::MainMenu, display_mode, None, None))
+    Ok((
+        LaunchMode::MainMenu,
+        display_mode,
+        settings.music_volume,
+        settings.sound_volume,
+        None,
+        None,
+    ))
 }
