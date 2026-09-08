@@ -54,6 +54,8 @@ pub struct MatchController {
     ctrl_down: bool,
     /// 建造放置模式。
     place_mode: Option<&'static str>,
+    /// 暂停后已武装「再按 Esc 回大厅」（避免误触离开）。
+    leave_armed: bool,
     /// 标题用版本短名。
     title_base: String,
     /// 测试状态旁路文件。
@@ -86,6 +88,7 @@ impl MatchController {
             shift_down: false,
             ctrl_down: false,
             place_mode: None,
+            leave_armed: false,
             title_base: format!("ra2 ({edition})"),
             status_path,
             test_scene,
@@ -109,6 +112,7 @@ impl MatchController {
         self.logged_outcome = None;
         self.logged_reject = None;
         self.place_mode = None;
+        self.leave_armed = false;
         self.last_pump = Instant::now();
         if let Some(game) = self.session.as_ref().and_then(|s| s.game()) {
             self.title_base = format!("ra2 ({})", game.world.edition.as_str());
@@ -333,19 +337,36 @@ impl MatchController {
                         tracing::info!("重开对局…");
                         MatchNav::Rematch
                     }
+                    PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter)
+                        if !accept_commands =>
+                    {
+                        tracing::info!("重开对局…");
+                        MatchNav::Rematch
+                    }
                     PhysicalKey::Code(KeyCode::Escape) if !accept_commands => MatchNav::ToMainMenu,
                     PhysicalKey::Code(KeyCode::Escape) if accept_commands => {
                         if self.place_mode.is_some() {
                             self.place_mode = None;
+                            self.leave_armed = false;
                             tracing::info!("建造模式 · 已关闭");
                             MatchNav::None
                         }
                         else if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
-                            // 对局中 Esc 先暂停；暂停后再 Esc 回大厅（空格仍可切换暂停）。
+                            // 对局中 Esc 先暂停；暂停后再 Esc 武装离开，再按一次确认回大厅。
+                            // 空格仍可切换暂停并解除武装。
                             if game.paused {
-                                MatchNav::ToMainMenu
+                                if self.leave_armed {
+                                    self.leave_armed = false;
+                                    MatchNav::ToMainMenu
+                                }
+                                else {
+                                    self.leave_armed = true;
+                                    tracing::info!("再按 Esc 确认返回大厅");
+                                    MatchNav::None
+                                }
                             }
                             else {
+                                self.leave_armed = false;
                                 game.toggle_pause();
                                 tracing::info!(
                                     "暂停 · {}",
@@ -437,6 +458,7 @@ impl MatchController {
                     PhysicalKey::Code(KeyCode::Space) => {
                         if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
                             game.toggle_pause();
+                            self.leave_armed = false;
                             if game.paused {
                                 tracing::info!("暂停 · {}", game.pause_reason.as_deref().unwrap_or("已暂停"));
                             }
@@ -662,7 +684,7 @@ impl MatchController {
                         })
                         .unwrap_or_default();
                     format!(
-                        "{} · [results] · t{} · {outcome}{stats} · 点重开/回大厅 · R重开 Esc大厅",
+                        "{} · [results] · t{} · {outcome}{stats} · 点重开/回大厅 · Enter/R重开 Esc大厅",
                         self.title_base, hud.tick
                     )
                 }
@@ -678,15 +700,42 @@ impl MatchController {
                         })
                         .unwrap_or_default();
                     format!(
-                        "{} · [{screen_label}] · t{} · 胜 {owner}{stats} · R重开 Esc大厅",
+                        "{} · [{screen_label}] · t{} · 胜 {owner}{stats} · Enter/R重开 Esc大厅",
                         self.title_base, hud.tick
                     )
                 }
                 else if hud.paused {
                     let reason = hud.pause_reason.as_deref().unwrap_or("已暂停");
+                    if self.leave_armed {
+                        format!(
+                            "{} · [{screen_label}] · t{} · 暂停 · {reason} · 再按 Esc 确认回大厅 · Space继续",
+                            self.title_base, hud.tick
+                        )
+                    }
+                    else {
+                        format!(
+                            "{} · [{screen_label}] · t{} · 暂停 · {reason} · Esc离开 Space继续",
+                            self.title_base, hud.tick
+                        )
+                    }
+                }
+                else if self.place_mode.is_some() {
+                    let nsel = self.local.selected.len();
+                    let sel = self.local.selected.first().copied();
+                    let sel_part = match (sel, nsel) {
+                        (Some(id), n) if n > 1 => format!("#{}+{}", id.0, n - 1),
+                        (Some(id), _) => format!("#{}", id.0),
+                        (None, _) => "#-".into(),
+                    };
+                    let diff = self
+                        .session
+                        .as_ref()
+                        .and_then(|s| s.game())
+                        .map(|g| g.difficulty.as_str())
+                        .unwrap_or("Normal");
                     format!(
-                        "{} · [{screen_label}] · t{} · 暂停 · {reason} · Esc大厅 Space继续",
-                        self.title_base, hud.tick
+                        "{} · [{screen_label}] · t{} · {econ} · {queue} · 建:{place} · {reject} · {sel_part} · diff={diff} · Esc取消建造 · z{:.2}",
+                        self.title_base, hud.tick, zoom
                     )
                 }
                 else {
