@@ -48,6 +48,15 @@ impl DisplayMode {
         (self.width(), self.height())
     }
 
+    /// 循环到下一档（选项「视频」用）：640 → 800 → 1024 → 640。
+    pub const fn cycle_next(self) -> Self {
+        match self {
+            Self::W640H480 => Self::W800H600,
+            Self::W800H600 => Self::W1024H768,
+            Self::W1024H768 => Self::W640H480,
+        }
+    }
+
     /// 配置 / 日志用稳定字符串（`640x480` 形式）。
     pub const fn as_str(self) -> &'static str {
         match self {
