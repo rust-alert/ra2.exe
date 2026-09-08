@@ -1,7 +1,10 @@
-//! 音频解码：标准容器走 Symphonia；专有格式另接。
+//! 音频解码：标准容器走 Symphonia；`audio.bag` 走专有索引。
 
+mod bag;
 mod decode;
+mod ima_adpcm;
 
+pub use bag::{AudioBagEntry, AudioIndex};
 pub use decode::{decode_audio_bytes, decode_wav_pcm};
 
 /// 解码后的交错 PCM16。
