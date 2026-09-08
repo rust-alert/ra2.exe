@@ -16,13 +16,15 @@ const MAX_STEP_INDEX: i32 = 88;
 const PREAMBLE_PER_CH: usize = 4;
 const GROUP_PER_CH: usize = 4;
 
-struct ImaState {
+/// 供 `.aud` 等多块 nibble 流复用的 IMA 状态。
+pub struct ImaState {
     predicted: i32,
     index: i32,
 }
 
 impl ImaState {
-    fn new() -> Self {
+    /// 零预测器、步长索引 0。
+    pub fn new() -> Self {
         Self {
             predicted: 0,
             index: 0,
@@ -60,8 +62,9 @@ impl ImaState {
 }
 
 /// 连续 nibble 流解码（Westwood `.aud` DEAF 块载荷，无块前导）。
-pub fn decode_nibble_stream(data: &[u8], out: &mut Vec<i16>) {
-    let mut state = ImaState::new();
+///
+/// 调用方应跨多个 DEAF 块复用同一 `state`（IMA 预测器不能每块清零）。
+pub fn decode_nibble_stream(data: &[u8], state: &mut ImaState, out: &mut Vec<i16>) {
     for &byte in data {
         out.push(state.decode_nibble(byte & 0x0F));
         out.push(state.decode_nibble((byte >> 4) & 0x0F));
