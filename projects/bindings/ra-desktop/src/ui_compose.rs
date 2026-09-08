@@ -8,13 +8,14 @@ use ra_renderer::RgbaImage;
 use crate::{
     ui_decode::{DecodedUiSprite, PageDecodeReport},
     ui_layout::{
-        LOBBY_MAP_ROW_MAX, MAIN_MENU_BUTTON_IDS, MainMenuLayout, OPTIONS_BUTTON_IDS, RectPx, SINGLE_PLAYER_BUTTON_IDS,
-        SKIRMISH_LOBBY_BUTTON_IDS, main_menu_layout, options_layout, single_player_layout, skirmish_lobby_layout,
-        skirmish_map_row_rect,
+        EXIT_CONFIRM_BUTTON_IDS, LOBBY_MAP_ROW_MAX, MAIN_MENU_BUTTON_IDS, MainMenuLayout, OPTIONS_BUTTON_IDS, RectPx,
+        SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, exit_confirm_layout, main_menu_layout, options_layout,
+        single_player_layout, skirmish_lobby_layout, skirmish_map_row_rect,
     },
     ui_text::{
-        MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, blit_caption_in_cell, blit_text_colored, main_menu_csf_label, main_menu_csf_tooltip,
-        options_csf_label, resolve_caption, resolve_csf_text, single_player_csf_label, skirmish_lobby_csf_label,
+        MENU_TEXT_ACCENT, MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, MENU_TEXT_SECTION, blit_caption_in_cell, blit_text_colored,
+        exit_confirm_csf_label, exit_confirm_prompt_csf_key, main_menu_csf_label, main_menu_csf_tooltip, options_csf_label,
+        options_dialog_csf_key, resolve_caption, resolve_csf_text, single_player_csf_label, skirmish_lobby_csf_label,
     },
 };
 
@@ -24,7 +25,6 @@ enum MenuCaptionKind {
     Main,
     SinglePlayer,
     SkirmishLobby,
-    Options,
 }
 
 impl MenuCaptionKind {
@@ -33,7 +33,6 @@ impl MenuCaptionKind {
             Self::Main => main_menu_csf_label(entry_id),
             Self::SinglePlayer => single_player_csf_label(entry_id),
             Self::SkirmishLobby => skirmish_lobby_csf_label(entry_id),
-            Self::Options => options_csf_label(entry_id),
         }
     }
 }
@@ -119,34 +118,39 @@ fn fill_rect(dst: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
 }
 
 fn draw_trackbar(dst: &mut RgbaImage, track: RectPx, pos: u8, max: u8) {
-    fill_rect(dst, track, [40, 40, 48, 255]);
+    fill_rect(dst, track, [64, 16, 16, 255]);
     let inner = RectPx::new(track.x + 2, track.y + 2, (track.w - 4).max(1), (track.h - 4).max(1));
-    fill_rect(dst, inner, [18, 18, 22, 255]);
+    fill_rect(dst, inner, [12, 12, 16, 255]);
     let max = max.max(1);
     let travel = (inner.w - 10).max(1);
     let thumb_x = inner.x + (i32::from(pos) * travel) / i32::from(max);
     let thumb = RectPx::new(thumb_x, inner.y - 1, 10, inner.h + 2);
-    fill_rect(dst, thumb, [220, 180, 40, 255]);
+    fill_rect(dst, thumb, [220, 40, 40, 255]);
 }
 
 fn draw_checkbox(dst: &mut RgbaImage, rect: RectPx, checked: bool) {
     let box_r = RectPx::new(rect.x, rect.y + 2, 16, 16);
-    fill_rect(dst, box_r, [40, 40, 48, 255]);
+    fill_rect(dst, box_r, [80, 16, 16, 255]);
     fill_rect(
         dst,
         RectPx::new(box_r.x + 2, box_r.y + 2, 12, 12),
-        [18, 18, 22, 255],
+        [12, 12, 16, 255],
     );
     if checked {
         fill_rect(
             dst,
             RectPx::new(box_r.x + 4, box_r.y + 4, 8, 8),
-            [220, 180, 40, 255],
+            [220, 40, 40, 255],
         );
     }
 }
 
-/// 在已合成的选项 chrome 上绘制左栏控件（滑条 / 勾选 / 分辨率）。
+fn draw_section_rule(dst: &mut RgbaImage, section: RectPx) {
+    let y = section.y + section.h + 2;
+    fill_rect(dst, RectPx::new(section.x, y, section.w, 2), [180, 24, 24, 255]);
+}
+
+/// 在选项页上绘制左栏控件（滑条 / 勾选 / 分辨率）与分区文案。
 pub fn paint_options_dialog_controls(
     page: &mut RgbaImage,
     layout: &crate::options_dialog::OptionsDialogLayout,
@@ -154,15 +158,77 @@ pub fn paint_options_dialog_controls(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
 ) {
-    fill_rect(page, layout.content, [12, 16, 28, 220]);
+    // 左板：深色底板（原版黑底 + 地图水印未接前用纯色占位）。
+    fill_rect(page, layout.content, [8, 10, 14, 255]);
+    fill_rect(
+        page,
+        RectPx::new(layout.content.x + 2, layout.content.y + 2, layout.content.w - 4, layout.content.h - 4),
+        [18, 22, 32, 255],
+    );
 
-    let label = |key: &str, fallback: &str| resolve_caption(csf, fallback, Some(key));
+    let label = |kind: &str, fallback: &str| resolve_caption(csf, fallback, options_dialog_csf_key(kind));
 
     if let Some(fnt) = fnt {
-        blit_text_colored(page, fnt, &label("GUI:Display", "display"), layout.sec_display.x, layout.sec_display.y, MENU_TEXT_ENABLED);
-        blit_text_colored(page, fnt, &label("GUI:Game", "game"), layout.sec_game.x, layout.sec_game.y, MENU_TEXT_ENABLED);
-        blit_text_colored(page, fnt, &label("GUI:Interface", "interface"), layout.sec_ui.x, layout.sec_ui.y, MENU_TEXT_ENABLED);
-        blit_text_colored(page, fnt, &label("GUI:Sound", "sound"), layout.sec_audio.x, layout.sec_audio.y, MENU_TEXT_ENABLED);
+        blit_text_colored(page, fnt, &label("display", "Display Options"), layout.sec_display.x, layout.sec_display.y, MENU_TEXT_SECTION);
+        draw_section_rule(page, layout.sec_display);
+        blit_text_colored(page, fnt, &label("detail", "Visual Details"), layout.track_detail.x, layout.track_detail.y - 16, MENU_TEXT_ACCENT);
+        blit_text_colored(
+            page,
+            fnt,
+            &label("resolution", "Set Game Resolution"),
+            layout.resolution.x,
+            layout.resolution.y - 16,
+            MENU_TEXT_ACCENT,
+        );
+        blit_text_colored(
+            page,
+            fnt,
+            &label("high", "High"),
+            layout.track_detail.x + layout.track_detail.w + 8,
+            layout.track_detail.y + 2,
+            MENU_TEXT_ACCENT,
+        );
+
+        blit_text_colored(page, fnt, &label("game", "Game Options"), layout.sec_game.x, layout.sec_game.y, MENU_TEXT_SECTION);
+        draw_section_rule(page, layout.sec_game);
+        blit_text_colored(
+            page,
+            fnt,
+            &label("difficulty", "Difficulty"),
+            layout.track_difficulty.x,
+            layout.track_difficulty.y - 16,
+            MENU_TEXT_ACCENT,
+        );
+        blit_text_colored(
+            page,
+            fnt,
+            &label("hard", "Hard"),
+            layout.track_difficulty.x + layout.track_difficulty.w + 8,
+            layout.track_difficulty.y + 2,
+            MENU_TEXT_ACCENT,
+        );
+
+        blit_text_colored(page, fnt, &label("ui", "UI Options"), layout.sec_ui.x, layout.sec_ui.y, MENU_TEXT_SECTION);
+        draw_section_rule(page, layout.sec_ui);
+        blit_text_colored(
+            page,
+            fnt,
+            &label("scroll", "Scroll Rate"),
+            layout.track_scroll.x,
+            layout.track_scroll.y - 16,
+            MENU_TEXT_ACCENT,
+        );
+        blit_text_colored(
+            page,
+            fnt,
+            &label("fastest", "Fastest"),
+            layout.track_scroll.x + layout.track_scroll.w + 8,
+            layout.track_scroll.y + 2,
+            MENU_TEXT_ACCENT,
+        );
+
+        blit_text_colored(page, fnt, &label("audio", "Audio Options"), layout.sec_audio.x, layout.sec_audio.y, MENU_TEXT_SECTION);
+        draw_section_rule(page, layout.sec_audio);
     }
 
     draw_trackbar(page, layout.track_detail, state.detail, crate::options_dialog::OptionsTrackbar::Detail.max());
@@ -182,40 +248,19 @@ pub fn paint_options_dialog_controls(
     draw_checkbox(page, layout.checks[2], state.show_damage);
     if let Some(fnt) = fnt {
         let tx = layout.checks[0].x + 22;
-        blit_text_colored(page, fnt, &label("GUI:Tooltips", "tooltips"), tx, layout.checks[0].y + 4, MENU_TEXT_ENABLED);
-        blit_text_colored(page, fnt, &label("GUI:Scanlines", "scanlines"), tx, layout.checks[1].y + 4, MENU_TEXT_ENABLED);
-        blit_text_colored(page, fnt, &label("GUI:ShowDamage", "damage"), tx, layout.checks[2].y + 4, MENU_TEXT_ENABLED);
-        blit_text_colored(
-            page,
-            fnt,
-            &label("GUI:Music", "music"),
-            layout.track_music.x,
-            layout.track_music.y - 16,
-            MENU_TEXT_ENABLED,
-        );
-        blit_text_colored(
-            page,
-            fnt,
-            &label("GUI:Sound", "sound"),
-            layout.track_sound.x,
-            layout.track_sound.y - 16,
-            MENU_TEXT_ENABLED,
-        );
-        blit_text_colored(
-            page,
-            fnt,
-            &label("GUI:Voice", "voice"),
-            layout.track_voice.x,
-            layout.track_voice.y - 16,
-            MENU_TEXT_ENABLED,
-        );
+        blit_text_colored(page, fnt, &label("tooltips", "Tooltips"), tx, layout.checks[0].y + 4, MENU_TEXT_ACCENT);
+        blit_text_colored(page, fnt, &label("scanlines", "Target Lines"), tx, layout.checks[1].y + 4, MENU_TEXT_ACCENT);
+        blit_text_colored(page, fnt, &label("damage", "See Hidden Objects"), tx, layout.checks[2].y + 4, MENU_TEXT_ACCENT);
+        blit_text_colored(page, fnt, &label("music", "Music Volume"), layout.track_music.x, layout.track_music.y - 16, MENU_TEXT_ACCENT);
+        blit_text_colored(page, fnt, &label("sound", "Sound Volume"), layout.track_sound.x, layout.track_sound.y - 16, MENU_TEXT_ACCENT);
+        blit_text_colored(page, fnt, &label("voice", "Voice Volume"), layout.track_voice.x, layout.track_voice.y - 16, MENU_TEXT_ACCENT);
     }
 
-    fill_rect(page, layout.resolution, [40, 40, 48, 255]);
+    fill_rect(page, layout.resolution, [120, 24, 24, 255]);
     fill_rect(
         page,
         RectPx::new(layout.resolution.x + 2, layout.resolution.y + 2, layout.resolution.w - 4, layout.resolution.h - 4),
-        [18, 18, 22, 255],
+        [8, 8, 12, 255],
     );
     if let Some(fnt) = fnt {
         blit_text_colored(
@@ -224,20 +269,20 @@ pub fn paint_options_dialog_controls(
             state.display_mode.as_str(),
             layout.resolution.x + 8,
             layout.resolution.y + 6,
-            MENU_TEXT_ENABLED,
+            MENU_TEXT_ACCENT,
         );
     }
     if state.resolution_open {
         for (i, mode) in ra_types::DisplayMode::ALL.iter().enumerate() {
             let row = layout.resolution_row(i);
             let bg = if *mode == state.display_mode {
-                [60, 50, 20, 255]
+                [90, 40, 20, 255]
             } else {
                 [28, 28, 34, 255]
             };
             fill_rect(page, row, bg);
             if let Some(fnt) = fnt {
-                blit_text_colored(page, fnt, mode.as_str(), row.x + 8, row.y + 4, MENU_TEXT_ENABLED);
+                blit_text_colored(page, fnt, mode.as_str(), row.x + 8, row.y + 4, MENU_TEXT_ACCENT);
             }
         }
     }
@@ -321,19 +366,9 @@ fn compose_shell_menu_page(
         }
     }
 
-    if matches!(captions, MenuCaptionKind::Main | MenuCaptionKind::Options) {
+    if captions == MenuCaptionKind::Main {
         if let Some(fnt) = fnt {
-            let title_key = match captions {
-                MenuCaptionKind::Main => Some("GUI:MainMenu"),
-                MenuCaptionKind::Options => Some("GUI:Options"),
-                _ => None,
-            };
-            let title_fallback = match captions {
-                MenuCaptionKind::Main => "main_menu",
-                MenuCaptionKind::Options => "options",
-                _ => "menu",
-            };
-            let title = resolve_caption(csf, title_fallback, title_key);
+            let title = resolve_caption(csf, "main_menu", Some("GUI:MainMenu"));
             blit_caption_in_cell(
                 &mut page,
                 fnt,
@@ -344,12 +379,10 @@ fn compose_shell_menu_page(
                 layout.title.h,
                 MENU_TEXT_ENABLED,
             );
-            if captions == MenuCaptionKind::Main {
-                if let Some(hovered) = hovered_entry_id {
-                    if let Some(key) = main_menu_csf_tooltip(hovered) {
-                        if let Some(text) = resolve_csf_text(csf, key) {
-                            blit_text_colored(&mut page, fnt, &text, layout.tooltip.x, layout.tooltip.y, MENU_TEXT_ENABLED);
-                        }
+            if let Some(hovered) = hovered_entry_id {
+                if let Some(key) = main_menu_csf_tooltip(hovered) {
+                    if let Some(text) = resolve_csf_text(csf, key) {
+                        blit_text_colored(&mut page, fnt, &text, layout.tooltip.x, layout.tooltip.y, MENU_TEXT_ENABLED);
                     }
                 }
             }
@@ -407,7 +440,7 @@ pub fn compose_single_player_page(
     )
 }
 
-/// 合成选项页 chrome，并叠画左栏草稿控件。
+/// 合成选项页：黑底 + 右栏侧板/按钮 + 左栏对话框控件（无主菜单影片）。
 pub fn compose_options_page(
     decoded: &PageDecodeReport,
     state: &crate::options_dialog::OptionsDialogState,
@@ -417,21 +450,153 @@ pub fn compose_options_page(
     hovered_entry_id: Option<&str>,
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
+    _movie: Option<&RgbaImage>,
+) -> Option<RgbaImage> {
+    let shell = options_layout(viewport_w, viewport_h);
+    let dlg = crate::options_dialog::OptionsDialogLayout::new();
+    let mut page = RgbaImage::from_raw(
+        shell.canvas.w as u32,
+        shell.canvas.h as u32,
+        vec![0u8; (shell.canvas.w as usize) * (shell.canvas.h as usize) * 4],
+    )?;
+    // 整页黑底，避免残留主菜单影片/大背景。
+    fill_rect(&mut page, shell.canvas, [0, 0, 0, 255]);
+
+    if let Some(top) = find_panel(decoded, "sdtp.shp") {
+        blit_stretched(&mut page, &top.image, shell.panel_top);
+    }
+    if let Some(tile) = find_panel(decoded, "sdbtnbkgd.shp") {
+        for i in 0..shell.panel_tile_count {
+            let r = RectPx::new(shell.panel_tile.x, shell.panel_tile.y + i * shell.panel_tile.h, shell.panel_tile.w, shell.panel_tile.h);
+            blit_stretched(&mut page, &tile.image, r);
+        }
+    }
+    if let Some(bottom) = find_panel(decoded, "sdbtm.shp") {
+        blit_stretched(&mut page, &bottom.image, shell.panel_bottom);
+    }
+    if let Some(lower) = find_panel(decoded, "lwscrnl.shp") {
+        blit_stretched(&mut page, &lower.image, shell.lower_strip);
+    }
+
+    for (i, entry_id) in OPTIONS_BUTTON_IDS.iter().enumerate() {
+        let Some(normal) = find_button_normal(decoded, entry_id)
+        else {
+            continue;
+        };
+        let sprite = if pressed_entry_id == Some(*entry_id) {
+            find_button_pressed(decoded, entry_id).unwrap_or(normal)
+        } else if hovered_entry_id == Some(*entry_id) {
+            find_button_hover(decoded, entry_id).unwrap_or(normal)
+        } else {
+            normal
+        };
+        let cell = shell.buttons[i];
+        blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
+        if let Some(fnt) = fnt {
+            let key = options_csf_label(entry_id);
+            let caption = resolve_caption(csf, entry_id, key);
+            blit_caption_in_cell(&mut page, fnt, &caption, cell.x, cell.y, cell.w, cell.h, MENU_TEXT_ENABLED);
+        }
+    }
+
+    if let Some(fnt) = fnt {
+        let title = resolve_caption(csf, "options", options_dialog_csf_key("title"));
+        blit_caption_in_cell(
+            &mut page,
+            fnt,
+            &title,
+            shell.title.x,
+            shell.title.y,
+            shell.title.w,
+            shell.title.h,
+            MENU_TEXT_SECTION,
+        );
+    }
+
+    paint_options_dialog_controls(&mut page, &dlg, state, fnt, csf);
+    Some(page)
+}
+
+/// 合成退出确认：主菜单壳 + 压暗罩 + 居中消息框（确定 / 取消）。
+pub fn compose_exit_confirm_page(
+    decoded: &PageDecodeReport,
+    viewport_w: u32,
+    viewport_h: u32,
+    pressed_entry_id: Option<&str>,
+    hovered_entry_id: Option<&str>,
+    fnt: Option<&FntFile>,
+    csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
 ) -> Option<RgbaImage> {
-    let mut page = compose_shell_menu_page(
-        decoded,
-        options_layout(viewport_w, viewport_h),
-        &OPTIONS_BUTTON_IDS,
-        pressed_entry_id,
-        hovered_entry_id,
-        fnt,
-        csf,
-        movie,
-        MenuCaptionKind::Options,
+    let shell = main_menu_layout(viewport_w, viewport_h);
+    let bg = decoded.background.as_ref()?;
+    let mut page = RgbaImage::from_raw(
+        shell.canvas.w as u32,
+        shell.canvas.h as u32,
+        vec![0u8; (shell.canvas.w as usize) * (shell.canvas.h as usize) * 4],
     )?;
-    let dlg = crate::options_dialog::OptionsDialogLayout::new();
-    paint_options_dialog_controls(&mut page, &dlg, state, fnt, csf);
+    blit_rgba(&mut page, &bg.image, shell.background.x, shell.background.y);
+    if let Some(frame) = movie {
+        blit_stretched(&mut page, frame, shell.movie);
+    }
+    if let Some(top) = find_panel(decoded, "sdtp.shp") {
+        blit_stretched(&mut page, &top.image, shell.panel_top);
+    }
+    if let Some(tile) = find_panel(decoded, "sdbtnbkgd.shp") {
+        for i in 0..shell.panel_tile_count {
+            let r = RectPx::new(shell.panel_tile.x, shell.panel_tile.y + i * shell.panel_tile.h, shell.panel_tile.w, shell.panel_tile.h);
+            blit_stretched(&mut page, &tile.image, r);
+        }
+    }
+    if let Some(bottom) = find_panel(decoded, "sdbtm.shp") {
+        blit_stretched(&mut page, &bottom.image, shell.panel_bottom);
+    }
+    if let Some(lower) = find_panel(decoded, "lwscrnl.shp") {
+        blit_stretched(&mut page, &lower.image, shell.lower_strip);
+    }
+
+    dim_rect(&mut page, shell.canvas, 160);
+
+    let dlg = exit_confirm_layout(viewport_w, viewport_h);
+    fill_rect(&mut page, dlg.dialog, [96, 24, 24, 255]);
+    fill_rect(
+        &mut page,
+        RectPx::new(dlg.dialog.x + 3, dlg.dialog.y + 3, dlg.dialog.w - 6, dlg.dialog.h - 6),
+        [16, 16, 20, 255],
+    );
+    if let Some(fnt) = fnt {
+        let prompt = resolve_caption(csf, "exit_confirm", Some(exit_confirm_prompt_csf_key()));
+        blit_caption_in_cell(
+            &mut page,
+            fnt,
+            &prompt,
+            dlg.prompt.x,
+            dlg.prompt.y,
+            dlg.prompt.w,
+            dlg.prompt.h,
+            MENU_TEXT_ENABLED,
+        );
+    }
+    for (i, entry_id) in EXIT_CONFIRM_BUTTON_IDS.iter().enumerate() {
+        let Some(normal) = find_button_normal(decoded, entry_id)
+        else {
+            continue;
+        };
+        let sprite = if pressed_entry_id == Some(*entry_id) {
+            find_button_pressed(decoded, entry_id).unwrap_or(normal)
+        } else if hovered_entry_id == Some(*entry_id) {
+            find_button_hover(decoded, entry_id).unwrap_or(normal)
+        } else {
+            normal
+        };
+        let cell = dlg.buttons[i];
+        blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
+        if let Some(fnt) = fnt {
+            let key = exit_confirm_csf_label(entry_id);
+            let caption = resolve_caption(csf, entry_id, key);
+            blit_caption_in_cell(&mut page, fnt, &caption, cell.x, cell.y, cell.w, cell.h, MENU_TEXT_ENABLED);
+        }
+    }
     Some(page)
 }
 
@@ -487,6 +652,6 @@ mod tests {
         let px = track.x + track.w - 8;
         let py = track.y + track.h / 2;
         let di = ((py as u32 * page.width() + px as u32) * 4) as usize;
-        assert_eq!(&page.as_raw()[di..di + 3], &[220, 180, 40]);
+        assert_eq!(&page.as_raw()[di..di + 3], &[220, 40, 40]);
     }
 }
