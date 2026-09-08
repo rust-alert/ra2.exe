@@ -98,6 +98,151 @@ fn blit_stretched(dst: &mut RgbaImage, src: &RgbaImage, rect: RectPx) {
     }
 }
 
+fn fill_rect(dst: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
+    if rect.w <= 0 || rect.h <= 0 {
+        return;
+    }
+    for row in 0..rect.h {
+        let dy = rect.y + row;
+        if dy < 0 || dy as u32 >= dst.height() {
+            continue;
+        }
+        for col in 0..rect.w {
+            let dx = rect.x + col;
+            if dx < 0 || dx as u32 >= dst.width() {
+                continue;
+            }
+            let di = ((dy as u32 * dst.width() + dx as u32) * 4) as usize;
+            dst.as_mut()[di..di + 4].copy_from_slice(&rgba);
+        }
+    }
+}
+
+fn draw_trackbar(dst: &mut RgbaImage, track: RectPx, pos: u8, max: u8) {
+    fill_rect(dst, track, [40, 40, 48, 255]);
+    let inner = RectPx::new(track.x + 2, track.y + 2, (track.w - 4).max(1), (track.h - 4).max(1));
+    fill_rect(dst, inner, [18, 18, 22, 255]);
+    let max = max.max(1);
+    let travel = (inner.w - 10).max(1);
+    let thumb_x = inner.x + (i32::from(pos) * travel) / i32::from(max);
+    let thumb = RectPx::new(thumb_x, inner.y - 1, 10, inner.h + 2);
+    fill_rect(dst, thumb, [220, 180, 40, 255]);
+}
+
+fn draw_checkbox(dst: &mut RgbaImage, rect: RectPx, checked: bool) {
+    let box_r = RectPx::new(rect.x, rect.y + 2, 16, 16);
+    fill_rect(dst, box_r, [40, 40, 48, 255]);
+    fill_rect(
+        dst,
+        RectPx::new(box_r.x + 2, box_r.y + 2, 12, 12),
+        [18, 18, 22, 255],
+    );
+    if checked {
+        fill_rect(
+            dst,
+            RectPx::new(box_r.x + 4, box_r.y + 4, 8, 8),
+            [220, 180, 40, 255],
+        );
+    }
+}
+
+/// 在已合成的选项 chrome 上绘制左栏控件（滑条 / 勾选 / 分辨率）。
+pub fn paint_options_dialog_controls(
+    page: &mut RgbaImage,
+    layout: &crate::options_dialog::OptionsDialogLayout,
+    state: &crate::options_dialog::OptionsDialogState,
+    fnt: Option<&FntFile>,
+    csf: Option<&CsfFile>,
+) {
+    fill_rect(page, layout.content, [12, 16, 28, 220]);
+
+    let label = |key: &str, fallback: &str| resolve_caption(csf, fallback, Some(key));
+
+    if let Some(fnt) = fnt {
+        blit_text_colored(page, fnt, &label("GUI:Display", "display"), layout.sec_display.x, layout.sec_display.y, MENU_TEXT_ENABLED);
+        blit_text_colored(page, fnt, &label("GUI:Game", "game"), layout.sec_game.x, layout.sec_game.y, MENU_TEXT_ENABLED);
+        blit_text_colored(page, fnt, &label("GUI:Interface", "interface"), layout.sec_ui.x, layout.sec_ui.y, MENU_TEXT_ENABLED);
+        blit_text_colored(page, fnt, &label("GUI:Sound", "sound"), layout.sec_audio.x, layout.sec_audio.y, MENU_TEXT_ENABLED);
+    }
+
+    draw_trackbar(page, layout.track_detail, state.detail, crate::options_dialog::OptionsTrackbar::Detail.max());
+    draw_trackbar(
+        page,
+        layout.track_difficulty,
+        state.difficulty,
+        crate::options_dialog::OptionsTrackbar::Difficulty.max(),
+    );
+    draw_trackbar(page, layout.track_scroll, state.scroll, crate::options_dialog::OptionsTrackbar::Scroll.max());
+    draw_trackbar(page, layout.track_music, state.music, crate::options_dialog::OptionsTrackbar::Music.max());
+    draw_trackbar(page, layout.track_sound, state.sound, crate::options_dialog::OptionsTrackbar::Sound.max());
+    draw_trackbar(page, layout.track_voice, state.voice, crate::options_dialog::OptionsTrackbar::Voice.max());
+
+    draw_checkbox(page, layout.checks[0], state.tooltips);
+    draw_checkbox(page, layout.checks[1], state.scanlines);
+    draw_checkbox(page, layout.checks[2], state.show_damage);
+    if let Some(fnt) = fnt {
+        let tx = layout.checks[0].x + 22;
+        blit_text_colored(page, fnt, &label("GUI:Tooltips", "tooltips"), tx, layout.checks[0].y + 4, MENU_TEXT_ENABLED);
+        blit_text_colored(page, fnt, &label("GUI:Scanlines", "scanlines"), tx, layout.checks[1].y + 4, MENU_TEXT_ENABLED);
+        blit_text_colored(page, fnt, &label("GUI:ShowDamage", "damage"), tx, layout.checks[2].y + 4, MENU_TEXT_ENABLED);
+        blit_text_colored(
+            page,
+            fnt,
+            &label("GUI:Music", "music"),
+            layout.track_music.x,
+            layout.track_music.y - 16,
+            MENU_TEXT_ENABLED,
+        );
+        blit_text_colored(
+            page,
+            fnt,
+            &label("GUI:Sound", "sound"),
+            layout.track_sound.x,
+            layout.track_sound.y - 16,
+            MENU_TEXT_ENABLED,
+        );
+        blit_text_colored(
+            page,
+            fnt,
+            &label("GUI:Voice", "voice"),
+            layout.track_voice.x,
+            layout.track_voice.y - 16,
+            MENU_TEXT_ENABLED,
+        );
+    }
+
+    fill_rect(page, layout.resolution, [40, 40, 48, 255]);
+    fill_rect(
+        page,
+        RectPx::new(layout.resolution.x + 2, layout.resolution.y + 2, layout.resolution.w - 4, layout.resolution.h - 4),
+        [18, 18, 22, 255],
+    );
+    if let Some(fnt) = fnt {
+        blit_text_colored(
+            page,
+            fnt,
+            state.display_mode.as_str(),
+            layout.resolution.x + 8,
+            layout.resolution.y + 6,
+            MENU_TEXT_ENABLED,
+        );
+    }
+    if state.resolution_open {
+        for (i, mode) in ra_types::DisplayMode::ALL.iter().enumerate() {
+            let row = layout.resolution_row(i);
+            let bg = if *mode == state.display_mode {
+                [60, 50, 20, 255]
+            } else {
+                [28, 28, 34, 255]
+            };
+            fill_rect(page, row, bg);
+            if let Some(fnt) = fnt {
+                blit_text_colored(page, fnt, mode.as_str(), row.x + 8, row.y + 4, MENU_TEXT_ENABLED);
+            }
+        }
+    }
+}
+
 fn find_panel<'a>(decoded: &'a PageDecodeReport, needle: &str) -> Option<&'a DecodedUiSprite> {
     decoded.panels.iter().find(|p| p.label.to_ascii_lowercase().starts_with(&needle.to_ascii_lowercase()))
 }
@@ -320,4 +465,24 @@ pub fn compose_skirmish_lobby_page(
         }
     }
     Some(page)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::options_dialog::{OptionsDialogLayout, OptionsDialogState};
+    use ra_types::DisplayMode;
+
+    #[test]
+    fn paint_options_draws_music_thumb() {
+        let mut page = RgbaImage::from_raw(800, 600, vec![0u8; 800 * 600 * 4]).unwrap();
+        let layout = OptionsDialogLayout::new();
+        let state = OptionsDialogState::from_shell(DisplayMode::W800H600, 1.0, 0.0);
+        paint_options_dialog_controls(&mut page, &layout, &state, None, None);
+        let track = layout.track_music;
+        let px = track.x + track.w - 8;
+        let py = track.y + track.h / 2;
+        let di = ((py as u32 * page.width() + px as u32) * 4) as usize;
+        assert_eq!(&page.as_raw()[di..di + 3], &[220, 180, 40]);
+    }
 }
