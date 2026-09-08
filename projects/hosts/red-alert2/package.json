@@ -1,6 +1,6 @@
 {
     "name": "@game-gpt/red-alert2",
-    "version": "0.1.0",
+    "version": "0.0.0",
     "description": "Red Alert 2 modern rewrite. Desktop CLI ra2 launch --path, Node API, and browser Wasm face.",
     "type": "module",
     "license": "Apache-2.0",
@@ -31,11 +31,11 @@
         "build": "tsc -p tsconfig.json"
     },
     "optionalDependencies": {
-        "@game-gpt/red-alert2-win32-x64": "workspace:*",
-        "@game-gpt/red-alert2-linux-x64": "workspace:*",
-        "@game-gpt/red-alert2-darwin-arm64": "workspace:*",
-        "@game-gpt/red-alert2-darwin-x64": "workspace:*",
-        "@game-gpt/red-alert2-unknown-wasm32": "workspace:*"
+        "@game-gpt/red-alert2-win32-x64": "0.0.0",
+        "@game-gpt/red-alert2-linux-x64": "0.0.0",
+        "@game-gpt/red-alert2-darwin-arm64": "0.0.0",
+        "@game-gpt/red-alert2-darwin-x64": "0.0.0",
+        "@game-gpt/red-alert2-unknown-wasm32": "0.0.0"
     },
     "devDependencies": {
         "@types/node": "^22.15.0",
