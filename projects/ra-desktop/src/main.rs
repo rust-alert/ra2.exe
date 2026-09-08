@@ -21,6 +21,7 @@ mod screenshot;
 mod shell;
 mod skirmish_setup;
 mod ui_assets;
+mod ui_page;
 mod ui_slots;
 #[cfg(feature = "test-harness")]
 mod test_boot;
