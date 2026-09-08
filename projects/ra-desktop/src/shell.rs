@@ -477,7 +477,12 @@ impl AppShell {
             return;
         }
         let title = match self.screen {
-            OriginalScreen::MainMenu => format!("ra2 · 主菜单 · {} · F12 截图", self.banner),
+            OriginalScreen::MainMenu => {
+                format!(
+                    "ra2 · 主菜单 · {} · Enter 单人 · N 网络 · O 选项 · Esc 退出 · F12 截图",
+                    self.banner
+                )
+            }
             OriginalScreen::SinglePlayerMenu => "ra2 · 单人游戏 · 遭遇战 Enter · Esc 返回 · F12 截图".into(),
             OriginalScreen::SkirmishLobby => {
                 let detail = self
