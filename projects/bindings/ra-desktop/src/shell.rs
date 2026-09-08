@@ -1026,7 +1026,6 @@ impl AppShell {
                 self.refresh_menu_backdrop();
                 self.refresh_shell_title();
             }
-            MenuAction::CycleDisplayMode => self.cycle_display_mode(),
             MenuAction::OptionsAccept => self.apply_options_accept(),
             MenuAction::OptionsCancel => {
                 self.discard_options_draft();
@@ -1097,15 +1096,6 @@ impl AppShell {
         self.banner = "选项已保存".into();
         self.set_screen(OriginalScreen::MainMenu);
         self.refresh_shell_title();
-    }
-
-    /// 循环离散分辨率：改窗口客户区、落盘配置、刷新 chrome。
-    fn cycle_display_mode(&mut self) {
-        let next = self.display_mode.cycle_next();
-        if let Some(state) = self.options_state.as_mut() {
-            state.display_mode = next;
-        }
-        self.apply_display_mode(next);
     }
 
     /// 应用指定 `DisplayMode`（改窗、落盘、刷新）。
