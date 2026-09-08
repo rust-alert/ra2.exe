@@ -343,6 +343,10 @@ impl MatchController {
                         tracing::info!("重开对局…");
                         MatchNav::Rematch
                     }
+                    PhysicalKey::Code(KeyCode::KeyL) if !accept_commands => {
+                        tracing::info!("结算 · 返回大厅");
+                        MatchNav::ToMainMenu
+                    }
                     PhysicalKey::Code(KeyCode::Escape) if !accept_commands => MatchNav::ToMainMenu,
                     PhysicalKey::Code(KeyCode::Escape) if accept_commands => {
                         if self.place_mode.is_some() {
@@ -509,6 +513,7 @@ impl MatchController {
             }
             if session.game().and_then(|g| g.outcome.as_ref()).is_some() {
                 session.phase = SessionPhase::Finished;
+                self.leave_armed = false;
                 self.note_outcome_once();
                 MatchNav::ToResults
             }
@@ -684,7 +689,7 @@ impl MatchController {
                         })
                         .unwrap_or_default();
                     format!(
-                        "{} · [results] · t{} · {outcome}{stats} · 点重开/回大厅 · Enter/R重开 Esc大厅",
+                        "{} · [results] · t{} · {outcome}{stats} · 点重开/回大厅 · Enter/R重开 L/Esc大厅",
                         self.title_base, hud.tick
                     )
                 }
@@ -700,7 +705,7 @@ impl MatchController {
                         })
                         .unwrap_or_default();
                     format!(
-                        "{} · [{screen_label}] · t{} · 胜 {owner}{stats} · Enter/R重开 Esc大厅",
+                        "{} · [{screen_label}] · t{} · 胜 {owner}{stats} · Enter/R重开 L/Esc大厅",
                         self.title_base, hud.tick
                     )
                 }
