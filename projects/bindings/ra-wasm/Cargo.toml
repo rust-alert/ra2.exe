@@ -5,7 +5,6 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 description = "Wasm / WebGL2 绑定；产出 `@game-gpt/red-alert2-unknown-wasm32`"
-
 publish = false
 
 [lib]
@@ -13,8 +12,12 @@ crate-type = ["cdylib", "rlib"]
 name = "ra_wasm"
 
 [dependencies]
-ra-types = { workspace = true }
-ra-engine = { workspace = true }
-ra-renderer = { workspace = true }
+# 0.0.0 占位：先保证 wasm-bindgen 产物可进 CI。引擎 / 渲染接线后再加回。
 wasm-bindgen = { workspace = true }
 console_error_panic_hook = { workspace = true }
+
+[package.metadata.wasm-pack.profile.dev]
+wasm-opt = false
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
