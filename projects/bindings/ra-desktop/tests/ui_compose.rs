@@ -102,7 +102,7 @@ fn compose_skirmish_lobby_uses_side_id() {
     };
     let page = compose_skirmish_lobby_page(&decoded, 800, 600, Some("side"), None, None, None, None, &[]).unwrap();
     let layout = skirmish_lobby_layout(800, 600);
-    let cell = layout.buttons[0];
+    let cell = layout.shell.buttons[0];
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[di..di + 4], &[0, 0, 200, 255]);
 }
