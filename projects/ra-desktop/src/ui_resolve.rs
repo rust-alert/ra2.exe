@@ -125,12 +125,22 @@ mod tests {
 
     #[test]
     fn empty_slots_report_zero_named() {
-        let page = page_resources_from_slots(OriginalScreen::MainMenu).unwrap();
+        let page = page_resources_from_slots(OriginalScreen::SinglePlayerMenu).unwrap();
         let src = MemSource(HashMap::new());
         let report = resolve_page(&src, &page);
         assert_eq!(report.named, 0);
         assert!(!report.all_named_readable());
         assert!(report.banner_note().contains("0"));
+    }
+
+    #[test]
+    fn main_menu_names_are_counted_even_when_missing() {
+        let page = page_resources_from_slots(OriginalScreen::MainMenu).unwrap();
+        let src = MemSource(HashMap::new());
+        let report = resolve_page(&src, &page);
+        assert!(report.named > 0);
+        assert!(!report.missing.is_empty());
+        assert!(!report.all_named_readable());
     }
 
     #[test]
