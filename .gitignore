@@ -16,6 +16,8 @@ Cargo.lock
 # Node
 node_modules/
 dist/
+*.node
+
 # 运行时日志目录（`ra-logger` 写入 logs/rust-ra2.log）
 logs/
 *.txt
