@@ -72,6 +72,7 @@ pub fn write_status(
     session: &Session,
     selected: &[ra_types::EntityId],
     screen: &str,
+    leave_armed: bool,
 ) {
     let game = session.expect_game();
     let snap = game.snapshot(selected);
@@ -92,7 +93,7 @@ pub fn write_status(
         snap.produce_queues.first().map(|q| format!("{}:{}", q.type_id, q.remaining_ticks)).unwrap_or_else(|| "none".into());
     let last_reject = snap.last_rejects.first().map(|r| format!("{:?}", r.reason)).unwrap_or_else(|| "none".into());
     let body = format!(
-        "tick={}\nhash={:#x}\noutcome={}\npaused={}\nselected={}\nentities={}\nfunds={}\npower_output={}\npower_drain={}\nlow_power={}\nqueue={}\nlast_reject={}\ndifficulty={}\nscreen={}\n",
+        "tick={}\nhash={:#x}\noutcome={}\npaused={}\nselected={}\nentities={}\nfunds={}\npower_output={}\npower_drain={}\nlow_power={}\nqueue={}\nlast_reject={}\ndifficulty={}\nscreen={}\nleave_armed={}\n",
         snap.tick,
         snap.state_hash,
         outcome,
@@ -106,7 +107,8 @@ pub fn write_status(
         queue,
         last_reject,
         game.difficulty,
-        screen
+        screen,
+        leave_armed
     );
     let _ = std::fs::write(path, body);
 }
