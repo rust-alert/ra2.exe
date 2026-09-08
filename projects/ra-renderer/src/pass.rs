@@ -1,4 +1,7 @@
-//! 渲染阶段图：地形 / 对象 / 特效 / UI / 小地图（R1 骨架）。
+//! 渲染阶段图：地形 / 对象 / 特效 / UI / 小地图（骨架）。
+//!
+//! `PassGraph` 目前只是阶段枚举列表，**尚未**接通真实 pass 录制或 GPU 提交图。
+//! 不能因类型存在就计作完整渲染管线完成。
 
 /// 一帧内的渲染阶段顺序（后续扩展为真实 pass 录制）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19,7 +22,7 @@ pub enum RenderPassKind {
     Minimap,
 }
 
-/// 阶段图：规定提交顺序，避免把所有绘制堆进单一 `Renderer` 方法。
+/// 阶段图骨架：规定期望提交顺序，当前不驱动真实 GPU pass。
 #[derive(Debug, Default)]
 pub struct PassGraph {
     /// 启用的阶段（默认含 Clear + Objects，与当前原型一致）。
