@@ -293,7 +293,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     warhead_keys.sort();
     warhead_keys.dedup();
     for key in warhead_keys {
-        let verses = rules.warheads.get(&key).map(|w| w.verses).unwrap_or([100; 11]);
+        let verses = rules.warheads.get(&key).map(|w| w.verses).unwrap_or_default();
         let id = alloc_warhead();
         defs.warheads.insert(WarheadDefinition { id, type_key: key, verses });
     }

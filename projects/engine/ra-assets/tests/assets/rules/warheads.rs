@@ -1,6 +1,7 @@
-//! 弹头 Verses 解析。
+//! 弹头 Verses 一次解码为 `WarheadVerses`。
 
 use ra_assets::*;
+use ra_types::WarheadVerses;
 
 #[test]
 fn parse_verses_percentages() {
@@ -13,6 +14,40 @@ fn parse_verses_percentages() {
     assert_eq!(ap.verses[5], 75);
     assert_eq!(armor_index("heavy"), 5);
     assert_eq!(armor_index("unknown"), 0);
+}
+
+#[test]
+fn missing_verses_defaults_all_full() {
+    let doc = IniDocument::parse(b"[AP]\n").unwrap();
+    let reg = WarheadRegistry::from_names(&doc, ["AP"]);
+    assert_eq!(reg.get("AP").unwrap().verses, WarheadVerses::all_full());
+}
+
+#[test]
+fn empty_verses_defaults_all_full() {
+    let doc = IniDocument::parse(b"[AP]\nVerses=\n").unwrap();
+    let reg = WarheadRegistry::from_names(&doc, ["AP"]);
+    assert_eq!(reg.get("AP").unwrap().verses, WarheadVerses::all_full());
+}
+
+#[test]
+fn illegal_token_keeps_slot_default() {
+    let doc = IniDocument::parse(b"[AP]\nVerses=100%,bogus,25%\n").unwrap();
+    let reg = WarheadRegistry::from_names(&doc, ["AP"]);
+    let ap = reg.get("AP").unwrap();
+    assert_eq!(ap.verses[0], 100);
+    assert_eq!(ap.verses[1], 100);
+    assert_eq!(ap.verses[2], 25);
+}
+
+#[test]
+fn short_list_pads_remaining_slots() {
+    let doc = IniDocument::parse(b"[AP]\nVerses=10%,20%\n").unwrap();
+    let reg = WarheadRegistry::from_names(&doc, ["AP"]);
+    let ap = reg.get("AP").unwrap();
+    assert_eq!(ap.verses[0], 10);
+    assert_eq!(ap.verses[1], 20);
+    assert_eq!(ap.verses[10], 100);
 }
 
 #[test]

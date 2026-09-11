@@ -152,7 +152,7 @@ fn build_runtime_definitions_binds_primary_weapon_and_warhead_ids() {
     assert_eq!(weapon.warhead_id, mtnk.warhead_id);
     let wh = defs.warheads.get_by_id(mtnk.warhead_id).expect("bound warhead");
     assert_eq!(wh.type_key, "SA");
-    assert_eq!(wh.verses, [100; 11]);
+    assert_eq!(*wh.verses, [100; 11]);
 }
 
 #[test]

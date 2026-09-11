@@ -23,6 +23,7 @@ mod techno;
 mod terrain_spawner;
 mod type_definition;
 mod warhead;
+mod warhead_verses;
 mod weapon;
 
 pub use animation::AnimationDefinitions;
@@ -44,4 +45,5 @@ pub use techno::{TechnoClass, TechnoDefinition, TechnoDefinitions};
 pub use terrain_spawner::{TerrainSpawnerDefinition, TerrainSpawnerDefinitions};
 pub use type_definition::TypeDefinitionId;
 pub use warhead::{WarheadDefinition, WarheadDefinitions};
+pub use warhead_verses::WarheadVerses;
 pub use weapon::{WeaponDefinition, WeaponDefinitions};

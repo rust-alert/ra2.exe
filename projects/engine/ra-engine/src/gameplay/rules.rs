@@ -10,5 +10,5 @@ pub(crate) fn verses_for(defs: &RuntimeDefinitions, warhead_id: WarheadId) -> [u
     if warhead_id == WarheadId(0) {
         return full_verses();
     }
-    defs.warheads.get_by_id(warhead_id).map(|w| w.verses).unwrap_or_else(full_verses)
+    defs.warheads.get_by_id(warhead_id).map(|w| *w.verses).unwrap_or_else(full_verses)
 }

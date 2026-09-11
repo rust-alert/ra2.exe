@@ -4,6 +4,8 @@ use std::collections::BTreeMap;
 
 use crate::id::WarheadId;
 
+use super::WarheadVerses;
+
 /// 单条弹头定义（对各护甲的伤害百分比）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WarheadDefinition {
@@ -11,8 +13,8 @@ pub struct WarheadDefinition {
     pub id: WarheadId,
     /// 外部弹头键。
     pub type_key: String,
-    /// 对应 [`ARMOR_ORDER`] 的百分比倍率。
-    pub verses: [u32; 11],
+    /// 对应 [`super::ARMOR_ORDER`] 的百分比倍率。
+    pub verses: WarheadVerses,
 }
 
 /// 弹头定义表。
