@@ -165,6 +165,12 @@ ini_name!(
 );
 
 ini_name!(
+    /// 美术 `Image=` 资源名（缺省常等于类型 id）；空 = 未写。
+    ImageName,
+    "art Image= name"
+);
+
+ini_name!(
     /// 超级武器类型名（`SuperWeapon=`）；空 = 未配置。
     SuperWeaponName,
     "super weapon type name"

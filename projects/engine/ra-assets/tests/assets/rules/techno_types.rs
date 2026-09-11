@@ -27,6 +27,13 @@ fn parse_vehicle_list() {
 }
 
 #[test]
+fn missing_image_defaults_to_type_id() {
+    let doc = IniDocument::parse(b"[VehicleTypes]\n0=MTNK\n[MTNK]\nStrength=100\n").unwrap();
+    let reg = TechnoTypeRegistry::from_rules(&doc);
+    assert_eq!(reg.get("MTNK").unwrap().image, "MTNK");
+}
+
+#[test]
 fn missing_armor_defaults_to_none() {
     let doc = IniDocument::parse(b"[VehicleTypes]\n0=MTNK\n[MTNK]\nStrength=100\n").unwrap();
     let reg = TechnoTypeRegistry::from_rules(&doc);

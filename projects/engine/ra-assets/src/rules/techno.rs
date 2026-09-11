@@ -6,8 +6,8 @@ use serde::Deserialize;
 
 use crate::ini::{FieldMergeOverrides, IniDocument, IniMergePolicy, LayeredIniView};
 use ra_types::{
-    BuildCat, Foundation, HouseAllowList, PrerequisiteList, ProductionCategory, ProjectileName, SuperWeaponName, TechnoName, WarheadName,
-    WeaponName, deserialize_optional_factory,
+    BuildCat, Foundation, HouseAllowList, ImageName, PrerequisiteList, ProductionCategory, ProjectileName, SuperWeaponName, TechnoName,
+    WarheadName, WeaponName, deserialize_optional_factory,
 };
 
 /// 步兵 / 载具 / 飞行器 / 建筑的共用类型字段。
@@ -31,8 +31,8 @@ pub struct TechnoType {
     pub tech_level: i32,
     /// `Owner` 所属阵营名单（装载期一次解码；空 = 不限）。
     pub owner: HouseAllowList,
-    /// `Image` 资源名（缺省等于 id）。
-    pub image: String,
+    /// `Image` 资源名（装载期一次解码；缺省等于类型 id）。
+    pub image: ImageName,
     /// `Category`（如 `Soldier` / `Dog`）；空表示未写。
     pub category: String,
     /// `Naval=yes`。
@@ -246,8 +246,8 @@ struct TechnoSectionFields {
     tech_level: Option<i32>,
     #[serde(rename = "Owner", default)]
     owner: HouseAllowList,
-    #[serde(rename = "Image")]
-    image: Option<String>,
+    #[serde(rename = "Image", default)]
+    image: ImageName,
     #[serde(rename = "Category")]
     category: Option<String>,
     #[serde(rename = "Naval")]
@@ -348,12 +348,11 @@ fn parse_techno(
     let techno_rof = fields.rof.unwrap_or(0);
     let primary_w = resolve_weapon(view, &primary, techno_rof);
     let secondary_w = resolve_weapon(view, &secondary, 0);
-    let image = fields
-        .image
-        .as_deref()
-        .unwrap_or(id)
-        .trim()
-        .to_ascii_uppercase();
+    let image = if fields.image.is_empty() {
+        ImageName::parse(id)
+    } else {
+        fields.image
+    };
     Some(TechnoType {
         id: id.to_string(),
         kind,
