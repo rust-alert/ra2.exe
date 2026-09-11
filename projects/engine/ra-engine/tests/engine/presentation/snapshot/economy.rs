@@ -2,7 +2,7 @@
 
 use crate::common::{test_engine, battle_from_rules};
 use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{CommandRejectReason, GameCommand, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, PlayerId};
@@ -24,6 +24,7 @@ fn snapshot_exposes_funds_power_queue_and_rejects() {
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "hud-snap");
     map.width = 12;

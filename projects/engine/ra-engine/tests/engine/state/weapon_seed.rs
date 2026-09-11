@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesSystem;
 use crate::common::battle_from_rules;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -23,6 +23,7 @@ fn seeds_attack_stats_from_primary_weapon() {
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&doc),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "weapon");
     map.width = 16;
@@ -62,6 +63,7 @@ fn weaponless_unit_keeps_zero_attack_damage() {
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&doc),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "civilian");
     map.width = 16;

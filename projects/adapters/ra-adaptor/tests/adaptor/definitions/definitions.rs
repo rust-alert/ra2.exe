@@ -2,7 +2,7 @@
 
 // 自 adapters/ra-adaptor/src/definitions.rs :: tests
 use ra_adaptor::{RulesSystem, definitions::*};
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_types::{BuiltinCapability, GameEdition};
 
 fn rules_from(text: &[u8]) -> RulesSystem {
@@ -21,6 +21,7 @@ fn rules_from_with_art(rules_text: &[u8], art_text: &[u8]) -> RulesSystem {
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::from_rules(&rules),
     }
 }
 

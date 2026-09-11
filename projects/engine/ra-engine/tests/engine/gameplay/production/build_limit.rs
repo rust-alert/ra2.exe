@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesSystem;
 use crate::common::battle_from_rules;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, CommandRejectReason, GameCommand};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, PlayerId};
@@ -22,6 +22,7 @@ fn limit_world() -> BattleState {
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "build-limit");
     map.width = 16;

@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesSystem;
 use crate::common::battle_from_rules;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::GameCommand;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
@@ -29,6 +29,7 @@ fn attack_structure_kills_and_frees_cell() {
         countries: CountryRegistry::default(),
         techno_types,
         warheads,
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "atk-bldg");
     map.width = 16;
@@ -95,6 +96,7 @@ fn structure_damage_cues_base_under_attack_once_per_suppress_window() {
         countries: CountryRegistry::default(),
         techno_types,
         warheads,
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "atk-base-eva");
     map.width = 16;

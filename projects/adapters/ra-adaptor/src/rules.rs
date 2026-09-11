@@ -1,6 +1,8 @@
 //! 按资源链装载 rules/art 与派生注册表。
 
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, TechnoTypeRegistry, WarheadRegistry, overlay_types_from_rules};
+use ra_assets::{
+    ColorSchemes, CountryRegistry, IniDocument, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry, overlay_types_from_rules,
+};
 use ra_types::{AssetSource, GameEdition, OverlayTypeRegistry, RaResult};
 
 use crate::ResourceChain;
@@ -24,6 +26,8 @@ pub struct RulesSystem {
     pub techno_types: TechnoTypeRegistry,
     /// 从 techno 主武器引用的弹头表。
     pub warheads: WarheadRegistry,
+    /// 从 `[SuperWeaponTypes]` 派生的超武类型表。
+    pub super_weapons: SuperWeaponTypeRegistry,
 }
 
 /// 用显式 `ResourceChain` 加载（适配组合装配后的入口）。
@@ -39,7 +43,18 @@ pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaRe
     let countries = CountryRegistry::from_rules(&rules);
     let techno_types = TechnoTypeRegistry::from_rules(&rules);
     let warheads = WarheadRegistry::from_names(&rules, techno_types.iter().map(|t| t.warhead.as_str()));
-    Ok(RulesSystem { edition: chain.edition, rules, art, overlay_types, color_schemes, countries, techno_types, warheads })
+    let super_weapons = SuperWeaponTypeRegistry::from_rules(&rules);
+    Ok(RulesSystem {
+        edition: chain.edition,
+        rules,
+        art,
+        overlay_types,
+        color_schemes,
+        countries,
+        techno_types,
+        warheads,
+        super_weapons,
+    })
 }
 /// 按互斥 `GameEdition` 取默认资源表再加载（兼容旧调用）。
 pub fn load_rules(source: &dyn AssetSource, edition: GameEdition) -> RaResult<RulesSystem> {

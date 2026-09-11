@@ -1,0 +1,129 @@
+//! 从 `[SuperWeaponTypes]` 解析超武类型注册表（节字段经 Serde 一次解码）。
+
+use std::collections::HashMap;
+
+use serde::Deserialize;
+
+use crate::ini::IniDocument;
+
+/// 超武类型（装载期资源侧记录）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SuperWeaponType {
+    /// 类型键（大写）。
+    pub id: String,
+    /// `UIName`。
+    pub ui_name: String,
+    /// `Type`（大写）。
+    pub kind: String,
+    /// `Action`（大写）。
+    pub action: String,
+    /// `RechargeTime`（分钟量级整型，缺省 0）。
+    pub recharge_time: i32,
+    /// `SidebarImage`。
+    pub sidebar_image: String,
+    /// `Weapon`（大写）；空表示未写。
+    pub weapon: String,
+}
+
+/// 保序的超武类型表。
+#[derive(Debug, Clone, Default)]
+pub struct SuperWeaponTypeRegistry {
+    items: Vec<SuperWeaponType>,
+    by_id: HashMap<String, usize>,
+}
+
+impl SuperWeaponTypeRegistry {
+    /// 扫描 `[SuperWeaponTypes]` 列表并解码各类型节。
+    pub fn from_rules(rules: &IniDocument) -> Self {
+        let mut items = Vec::new();
+        let mut by_id = HashMap::new();
+        let Some(list) = rules.section("SuperWeaponTypes")
+        else {
+            return Self { items, by_id };
+        };
+        for (_key, name) in list.pairs() {
+            let id = name.trim();
+            if id.is_empty() {
+                continue;
+            }
+            let id_up = id.to_ascii_uppercase();
+            if by_id.contains_key(&id_up) {
+                continue;
+            }
+            let Some(sw) = parse_super_weapon(rules, &id_up)
+            else {
+                continue;
+            };
+            let idx = items.len();
+            by_id.insert(id_up, idx);
+            items.push(sw);
+        }
+        Self { items, by_id }
+    }
+
+    /// 按 id 查找（大小写不敏感）。
+    pub fn get(&self, id: &str) -> Option<&SuperWeaponType> {
+        let idx = *self.by_id.get(&id.to_ascii_uppercase())?;
+        self.items.get(idx)
+    }
+
+    /// 列表顺序遍历。
+    pub fn iter(&self) -> impl Iterator<Item = &SuperWeaponType> {
+        self.items.iter()
+    }
+
+    /// 已解析类型数。
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    /// 是否为空表。
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct SuperWeaponSectionFields {
+    #[serde(rename = "UIName")]
+    ui_name: Option<String>,
+    #[serde(rename = "Type")]
+    kind: Option<String>,
+    #[serde(rename = "Action")]
+    action: Option<String>,
+    #[serde(rename = "RechargeTime")]
+    recharge_time: Option<i32>,
+    #[serde(rename = "SidebarImage")]
+    sidebar_image: Option<String>,
+    #[serde(rename = "Weapon")]
+    weapon: Option<String>,
+}
+
+fn parse_super_weapon(rules: &IniDocument, id: &str) -> Option<SuperWeaponType> {
+    let section = rules.section(id)?;
+    let fields: SuperWeaponSectionFields = section.deserialize().ok()?;
+    Some(SuperWeaponType {
+        id: id.to_string(),
+        ui_name: fields.ui_name.unwrap_or_default(),
+        kind: fields
+            .kind
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .to_ascii_uppercase(),
+        action: fields
+            .action
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .to_ascii_uppercase(),
+        recharge_time: fields.recharge_time.unwrap_or(0).max(0),
+        sidebar_image: fields.sidebar_image.unwrap_or_default(),
+        weapon: fields
+            .weapon
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .to_ascii_uppercase(),
+    })
+}

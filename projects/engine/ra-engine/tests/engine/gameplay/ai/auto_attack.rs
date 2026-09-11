@@ -2,7 +2,7 @@
 
 use crate::common::{test_engine, battle_from_rules};
 use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::Session;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
@@ -29,6 +29,7 @@ fn duel_session() -> Session {
         countries: CountryRegistry::default(),
         techno_types,
         warheads,
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "ai-duel");
     map.width = 16;
@@ -121,6 +122,7 @@ fn ambient_house_does_not_auto_attack() {
         countries: CountryRegistry::default(),
         techno_types,
         warheads,
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "ambient-ai");
     map.width = 16;
@@ -186,6 +188,7 @@ fn guard_mission_skips_ai_auto_attack() {
         countries: CountryRegistry::default(),
         techno_types,
         warheads,
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "guard-ai");
     map.width = 16;

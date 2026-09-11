@@ -2,7 +2,7 @@
 
 use crate::common::{test_engine, battle_from_rules};
 use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{PRODUCE_TICKS, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
@@ -29,6 +29,7 @@ fn ai_places_barracks_and_produces_infantry() {
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&doc),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "ai-barracks");
     map.width = 16;
@@ -114,6 +115,7 @@ fn ai_skips_dog_and_naval_when_picking_produce() {
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&doc),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "ai-filter");
     map.width = 20;

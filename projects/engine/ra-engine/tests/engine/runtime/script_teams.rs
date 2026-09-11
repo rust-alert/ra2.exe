@@ -2,7 +2,7 @@
 
 use crate::common::{test_engine, battle_from_rules};
 use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{Session, SessionBootKind};
 use ra_map::MapInfo;
 use ra_types::GameEdition;
@@ -22,6 +22,7 @@ fn rules_with_e1() -> RulesSystem {
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     }
 }
 
@@ -168,6 +169,7 @@ fn create_team_script_action_6_deploys_mcv() {
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
     // Script action=6 Deploy after Create Team spawns AMCV at waypoint 0.
     let text = b"\

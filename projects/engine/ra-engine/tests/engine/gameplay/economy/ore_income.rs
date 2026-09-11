@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesSystem;
 use crate::common::battle_from_rules;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, TechnoTypeRegistry, WarheadRegistry, overlay_types_from_rules};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry, overlay_types_from_rules};
 use ra_engine::{BattleState, ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo, OverlayCell};
 use ra_types::GameEdition;
@@ -24,6 +24,7 @@ fn mining_world() -> BattleState {
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "ore-income");
     map.width = 8;
@@ -123,6 +124,7 @@ fn idle_harvester_seeks_ore_then_returns_to_refinery() {
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "ore-seek");
     map.width = 8;

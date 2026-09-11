@@ -42,15 +42,18 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         }
     }
 
-    for sw_key in list_section_type_keys(&rules.rules, "SuperWeaponTypes") {
+    for sw in rules.super_weapons.iter() {
         let id = alloc();
-        let ui_name = ini_string(&rules.rules, &sw_key, "UIName").unwrap_or_default();
-        let kind = ini_string(&rules.rules, &sw_key, "Type").map(|s| s.to_ascii_uppercase()).unwrap_or_default();
-        let action = ini_string(&rules.rules, &sw_key, "Action").map(|s| s.to_ascii_uppercase()).unwrap_or_default();
-        let recharge_time = ini_i32(&rules.rules, &sw_key, "RechargeTime").unwrap_or(0).max(0);
-        let sidebar_image = ini_string(&rules.rules, &sw_key, "SidebarImage").unwrap_or_default();
-        let weapon = ini_string(&rules.rules, &sw_key, "Weapon").map(|s| s.to_ascii_uppercase()).unwrap_or_default();
-        defs.super_weapons.insert(SuperWeaponDefinition { id, type_key: sw_key, ui_name, kind, action, recharge_time, sidebar_image, weapon });
+        defs.super_weapons.insert(SuperWeaponDefinition {
+            id,
+            type_key: sw.id.clone(),
+            ui_name: sw.ui_name.clone(),
+            kind: sw.kind.clone(),
+            action: sw.action.clone(),
+            recharge_time: sw.recharge_time,
+            sidebar_image: sw.sidebar_image.clone(),
+            weapon: sw.weapon.clone(),
+        });
     }
     if !defs.super_weapons.is_empty() && !defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon) {
         defs.capabilities.builtins.push(BuiltinCapability::SuperWeapon);

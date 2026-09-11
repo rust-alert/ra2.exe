@@ -2,7 +2,7 @@
 use std::sync::Arc;
 
 use ra_adaptor::{ResourceChain, RulesSystem, build_runtime_definitions};
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::open_skirmish_session;
 use ra_map::MapInfo;
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
@@ -18,6 +18,7 @@ fn minimal_rules() -> RulesSystem {
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     }
 }
 

@@ -2,7 +2,7 @@
 
 use crate::common::{test_engine, battle_from_rules};
 use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{PRODUCE_TICKS, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
@@ -26,6 +26,7 @@ fn ai_places_power_near_yard() {
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&doc),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "ai-power");
     map.width = 24;

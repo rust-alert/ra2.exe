@@ -4,5 +4,6 @@ pub mod color_schemes;
 pub mod countries;
 pub mod house_remap;
 pub mod overlay;
+pub mod super_weapons;
 pub mod techno;
 pub mod warheads;

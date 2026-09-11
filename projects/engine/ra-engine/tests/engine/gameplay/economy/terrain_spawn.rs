@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesSystem;
 use crate::common::battle_from_rules;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry, overlay_types_from_rules};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry, overlay_types_from_rules};
 use ra_engine::BattleState;
 use ra_map::{MapInfo, TerrainObject};
 use ra_types::GameEdition;
@@ -31,6 +31,7 @@ AnimationProbability=1
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::default(),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "terrain-spawn");
     map.width = 8;

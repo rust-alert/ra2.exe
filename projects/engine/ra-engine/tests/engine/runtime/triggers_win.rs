@@ -2,7 +2,7 @@
 
 use crate::common::{test_engine, battle_from_rules};
 use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleOutcome, Session, SessionBootKind};
 use ra_map::MapInfo;
 use ra_types::GameEdition;
@@ -18,6 +18,7 @@ fn empty_rules() -> RulesSystem {
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     }
 }
 
@@ -871,6 +872,7 @@ TR2=1,5,0,TM1,0,0,0,0,A\n\
             countries: CountryRegistry::default(),
             techno_types: TechnoTypeRegistry::from_rules(&doc),
             warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
         }
     };
     let map = MapInfo::parse_ini(GameEdition::Ra2, "destroy-team.map", text).unwrap();
