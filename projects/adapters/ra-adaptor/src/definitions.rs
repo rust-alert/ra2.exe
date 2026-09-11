@@ -4,9 +4,9 @@
 
 use ra_assets::TechnoKind;
 use ra_types::{
-    BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, GameEdition, PowerProfile, PrerequisiteGroups,
-    ProductionCategory, ProductionProfile, RaResult, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition,
-    TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WarheadName, WeaponDefinition, WeaponId,
+    BuiltinCapability, DeployableDefinition, DeploymentPlacement, GameEdition, PowerProfile, PrerequisiteGroups, ProductionCategory,
+    ProductionProfile, RaResult, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition, TechnoClass,
+    TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WarheadName, WeaponDefinition, WeaponId,
 };
 use std::collections::HashMap;
 
@@ -194,7 +194,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         }
 
         // `Foundation` / `Height` 已在装载期由 rules + art（含 `Image=`）解到 `TechnoType`。
-        let foundation = Foundation::parse(&tt.foundation);
+        let foundation = tt.foundation.clone();
         let height = tt.height.unwrap_or(2).max(1);
         defs.structures.insert(StructureDefinition {
             id,

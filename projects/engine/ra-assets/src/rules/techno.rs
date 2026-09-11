@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
-use ra_types::{BuildCat, HouseAllowList, PrerequisiteList, SuperWeaponName, TechnoName, WarheadName, WeaponName};
+use ra_types::{BuildCat, Foundation, HouseAllowList, PrerequisiteList, SuperWeaponName, TechnoName, WarheadName, WeaponName};
 
 /// 步兵 / 载具 / 飞行器 / 建筑的共用类型字段。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -90,8 +90,8 @@ pub struct TechnoType {
     pub factory: String,
     /// `SuperWeapon` 名；空表示无。
     pub super_weapon: SuperWeaponName,
-    /// `Foundation` 原文（优先 art，否则 rules）；空表示未写。
-    pub foundation: String,
+    /// `Foundation`（优先 art，否则 rules；装载期一次解码）。
+    pub foundation: Foundation,
     /// `Height`（优先 art，否则 rules）；`None` 表示未写。
     pub height: Option<u16>,
 }
@@ -196,7 +196,7 @@ impl TechnoTypeRegistry {
                 continue;
             }
             if let Some(v) = art_geometry_string(art, &tt.id, "Foundation") {
-                tt.foundation = v;
+                tt.foundation = Foundation::parse(&v);
             }
             if let Some(v) = art_geometry_string(art, &tt.id, "Height") {
                 if let Ok(h) = v.parse::<i32>() {
@@ -280,8 +280,8 @@ struct TechnoSectionFields {
     factory: Option<String>,
     #[serde(rename = "SuperWeapon", default)]
     super_weapon: SuperWeaponName,
-    #[serde(rename = "Foundation")]
-    foundation: Option<String>,
+    #[serde(rename = "Foundation", default)]
+    foundation: Foundation,
     #[serde(rename = "Height")]
     height: Option<i32>,
 }
@@ -352,7 +352,7 @@ fn parse_techno(view: LayeredIniView<'_>, id: &str, kind: TechnoKind) -> Option<
         capturable: fields.capturable.unwrap_or(false),
         factory: fields.factory.unwrap_or_default(),
         super_weapon: fields.super_weapon,
-        foundation: fields.foundation.unwrap_or_default().trim().to_string(),
+        foundation: fields.foundation,
         height: fields.height.map(|h| h.max(1) as u16),
     })
 }

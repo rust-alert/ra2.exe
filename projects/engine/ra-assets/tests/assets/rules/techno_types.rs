@@ -146,14 +146,18 @@ fn apply_art_geometry_overrides_rules_and_follows_image() {
     )
     .unwrap();
     let mut reg = TechnoTypeRegistry::from_rules(&rules);
-    assert_eq!(reg.get("NAWEAP").unwrap().foundation, "2x2");
+    assert_eq!(
+        (reg.get("NAWEAP").unwrap().foundation.width, reg.get("NAWEAP").unwrap().foundation.height),
+        (2, 2)
+    );
     assert_eq!(reg.get("NAWEAP").unwrap().height, Some(3));
     reg.apply_art_geometry(&art);
     let a = reg.get("NAWEAP").unwrap();
-    assert_eq!(a.foundation, "5x3");
+    assert_eq!((a.foundation.width, a.foundation.height), (5, 3));
+    assert_eq!(a.foundation.raw, "5X3");
     assert_eq!(a.height, Some(6));
     let b = reg.get("NAWEAP2").unwrap();
-    assert_eq!(b.foundation, "5x3");
+    assert_eq!((b.foundation.width, b.foundation.height), (5, 3));
     assert_eq!(b.height, Some(6));
 }
 

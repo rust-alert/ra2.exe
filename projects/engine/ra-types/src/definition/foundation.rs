@@ -1,9 +1,14 @@
 //! 建筑 `Foundation=` 占地。
 
+use std::fmt;
+
+use serde::de::{self, Deserializer, Visitor};
+use serde::Deserialize;
+
 /// 建筑占地（逻辑格矩形）。
 ///
 /// 原版还有命名特例（如闸门），本结构先覆盖常见 `WxH` / `WxHName` 前缀；
-/// 无法解析时回退 `1x1`，并由 adaptor 保留原始字符串供诊断。
+/// 无法解析时回退 `1x1`，并保留原始字符串供诊断。
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[doc(hidden)]
 pub struct Foundation {
@@ -35,6 +40,53 @@ impl Foundation {
     /// 占地格数。
     pub fn cell_count(&self) -> u32 {
         u32::from(self.width).saturating_mul(u32::from(self.height))
+    }
+}
+
+impl<'de> Deserialize<'de> for Foundation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct FoundationVisitor;
+
+        impl<'de> Visitor<'de> for FoundationVisitor {
+            type Value = Foundation;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("Foundation= WxH string")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(Foundation::parse(v))
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(Foundation::parse(&v))
+            }
+
+            fn visit_none<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(Foundation::default())
+            }
+
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(Foundation::default())
+            }
+        }
+
+        deserializer.deserialize_any(FoundationVisitor)
     }
 }
 
