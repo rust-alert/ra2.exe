@@ -4,9 +4,9 @@
 
 use ra_assets::TechnoKind;
 use ra_types::{
-    ArmorKind, BuildCat, BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, PowerProfile, PrerequisiteGroups,
-    PrerequisiteToken, ProductionCategory, ProductionProfile, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition,
-    TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WeaponDefinition, WeaponId,
+    ArmorKind, BuildCat, BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, HouseAllowList, PowerProfile,
+    PrerequisiteGroups, PrerequisiteToken, ProductionCategory, ProductionProfile, RuntimeDefinitions, StolenTechKind, StructureDefinition,
+    SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WeaponDefinition, WeaponId,
 };
 use std::collections::HashMap;
 
@@ -90,7 +90,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             strength: tt.strength,
             armor: ArmorKind::parse(&tt.armor),
             speed: tt.speed,
-            owner: tt.owner.clone(),
+            owner: HouseAllowList::parse_owner(&tt.owner),
             tech_level: tt.tech_level,
             naval: tt.naval,
             agent: tt.agent,
@@ -107,8 +107,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             warhead_id: WarheadId(0),
             prerequisite: tt.prerequisite.iter().filter_map(|s| PrerequisiteToken::parse_raw(s)).collect(),
             prerequisite_override: tt.prerequisite_override.iter().filter_map(|s| PrerequisiteToken::parse_raw(s)).collect(),
-            required_houses: tt.required_houses.clone(),
-            forbidden_houses: tt.forbidden_houses.clone(),
+            required_houses: HouseAllowList::from_tokens(&tt.required_houses),
+            forbidden_houses: HouseAllowList::from_tokens(&tt.forbidden_houses),
             build_limit: tt.build_limit,
             build_time: tt.build_time,
             requires_stolen_allied_tech: tt.requires_stolen_allied_tech,
@@ -211,7 +211,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             build_cat,
             capturable,
             production,
-            owner: tt.owner.clone(),
+            owner: HouseAllowList::parse_owner(&tt.owner),
             foundation,
             height,
             super_weapon,

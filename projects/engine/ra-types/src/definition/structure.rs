@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::id::TypeId;
 
-use super::{ArmorKind, BuiltinCapability, Foundation, ProductionProfile};
+use super::{ArmorKind, BuiltinCapability, Foundation, HouseAllowList, ProductionProfile};
 
 /// 建造栏分类（INI `BuildCat=`）。
 ///
@@ -81,8 +81,8 @@ pub struct StructureDefinition {
     pub capturable: bool,
     /// 生产配置（若为工厂）。
     pub production: Option<ProductionProfile>,
-    /// Owner 串（空表示不限）。
-    pub owner: String,
+    /// `Owner=`：空名单 = 不限阵营。
+    pub owner: HouseAllowList,
     /// art / rules `Foundation=` 占地（原版主要在 art.ini）。
     pub foundation: Foundation,
     /// art / rules `Height`（缺省 2）：建筑选中框与 NW 血条竖向抬升。

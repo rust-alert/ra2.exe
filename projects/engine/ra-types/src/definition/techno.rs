@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::id::{TypeId, WarheadId, WeaponId};
 
-use super::{ArmorKind, PrerequisiteToken, ProductionCategory};
+use super::{ArmorKind, HouseAllowList, PrerequisiteToken, ProductionCategory};
 
 /// Techno 大类（与内容列表节对应）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -48,8 +48,8 @@ pub struct TechnoDefinition {
     pub armor: ArmorKind,
     /// 速度。
     pub speed: u32,
-    /// Owner 串。
-    pub owner: String,
+    /// `Owner=`：空名单 = 不限阵营。
+    pub owner: HouseAllowList,
     /// `TechLevel`；`< 0` 表示不可建造。
     pub tech_level: i32,
     /// `Naval=yes`。
@@ -82,10 +82,10 @@ pub struct TechnoDefinition {
     pub prerequisite: Vec<PrerequisiteToken>,
     /// `PrerequisiteOverride`：拥有任一即可绕过普通 Prerequisite。
     pub prerequisite_override: Vec<PrerequisiteToken>,
-    /// `RequiredHouses`：非空时 house 必须命中其一。
-    pub required_houses: Vec<String>,
-    /// `ForbiddenHouses`：命中任一则不可造。
-    pub forbidden_houses: Vec<String>,
+    /// `RequiredHouses=`：空名单 = 不限制；非空则 house 须命中其一。
+    pub required_houses: HouseAllowList,
+    /// `ForbiddenHouses=`：命中任一则不可造；空名单 = 不禁止。
+    pub forbidden_houses: HouseAllowList,
     /// `BuildLimit`；`0` 表示不限。
     pub build_limit: i32,
     /// INI `BuildTime`（原版分钟档语义的整数）；`0` 表示缺省，生产侧回退默认 tick。

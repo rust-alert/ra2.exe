@@ -88,11 +88,6 @@ pub fn build_limit_reached(world: &BattleState, house: &str, techno: &TechnoDefi
 }
 
 #[doc(hidden)]
-pub fn house_list_allows(list: &[String], house: &str) -> bool {
-    list.iter().any(|h| h.eq_ignore_ascii_case(house))
-}
-
-#[doc(hidden)]
 pub fn owns_any(living: &HashSet<String>, types: impl IntoIterator<Item = impl AsRef<str>>) -> bool {
     types.into_iter().any(|t| living.contains(&t.as_ref().to_ascii_uppercase()))
 }
@@ -133,10 +128,10 @@ pub fn is_type_eligible(defs: &RuntimeDefinitions, player: TechTreePlayer<'_>, l
     if !owner_allows(&techno.owner, player.house) {
         return false;
     }
-    if !techno.required_houses.is_empty() && !house_list_allows(&techno.required_houses, player.house) {
+    if !techno.required_houses.required_allows(player.house) {
         return false;
     }
-    if !techno.forbidden_houses.is_empty() && house_list_allows(&techno.forbidden_houses, player.house) {
+    if techno.forbidden_houses.forbids(player.house) {
         return false;
     }
     if techno.requires_stolen_allied_tech && !player.stolen_allied_tech {

@@ -90,13 +90,9 @@ pub(crate) fn deploy_into_type<'a>(defs: &'a RuntimeDefinitions, source_type: &s
     defs.deployables.get(source_type).map(|d| d.target_key.as_str())
 }
 
-/// Owner 串是否允许该阵营使用（空 Owner = 不限）。
-pub(crate) fn owner_allows(owner_field: &str, house: &str) -> bool {
-    let owner_field = owner_field.trim();
-    if owner_field.is_empty() {
-        return true;
-    }
-    owner_field.split(|c| c == ',' || c == ';' || c == '|').map(str::trim).any(|p| p.eq_ignore_ascii_case(house))
+/// `Owner=` 名单是否允许该阵营使用（空名单 = 不限）。
+pub(crate) fn owner_allows(owner: &ra_types::HouseAllowList, house: &str) -> bool {
+    owner.owner_allows(house)
 }
 
 /// 为遭遇战开局席位挑选该 house 可用的 MCV 类型键。
