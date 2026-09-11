@@ -7,13 +7,14 @@ use serde::de::{self, MapAccess, Visitor};
 use super::IniDeError;
 use super::scalar::ScalarDeserializer;
 use crate::ini::document::IniSection;
+use crate::ini::merge::LayeredSectionView;
 
 pub(super) struct SectionMapAccess<'a> {
-    /// 比较键 → 最后一次出现的原文值。
+    /// 比较键 → 有效原文值。
     values: HashMap<String, &'a str>,
-    /// 比较键 → 最后一次出现的原始键拼写（供 `serde(rename)` 对齐）。
+    /// 比较键 → 原始键拼写（供 `serde(rename)` 对齐）。
     key_raw: HashMap<String, &'a str>,
-    /// 仍待消费的比较键（首次出现顺序）。
+    /// 仍待消费的比较键（策略决定的顺序）。
     keys: Vec<String>,
     index: usize,
 }
@@ -34,6 +35,41 @@ impl<'a> SectionMapAccess<'a> {
             values,
             key_raw,
             keys: order,
+            index: 0,
+        }
+    }
+
+    /// 从层叠节构造：键序与有效值由 [`LayeredSectionView`] 策略决定。
+    pub(super) fn from_layered(section: &'a LayeredSectionView<'a>) -> Self {
+        let mut values: HashMap<String, &'a str> = HashMap::new();
+        let mut key_raw: HashMap<String, &'a str> = HashMap::new();
+        let mut order: Vec<String> = Vec::new();
+        for raw_key in section.keys() {
+            let cmp = raw_key.to_ascii_uppercase();
+            if values.contains_key(&cmp) {
+                continue;
+            }
+            let Some(v) = section.get(raw_key)
+            else {
+                continue;
+            };
+            order.push(cmp.clone());
+            values.insert(cmp.clone(), v.raw);
+            key_raw.insert(cmp, raw_key);
+        }
+        Self {
+            values,
+            key_raw,
+            keys: order,
+            index: 0,
+        }
+    }
+
+    pub(super) fn empty() -> Self {
+        Self {
+            values: HashMap::new(),
+            key_raw: HashMap::new(),
+            keys: Vec::new(),
             index: 0,
         }
     }

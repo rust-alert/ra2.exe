@@ -183,4 +183,12 @@ impl<'a> LayeredSectionView<'a> {
             }
         }
     }
+
+    /// 将本层叠节一次性反序列化为强类型。
+    pub fn deserialize<'de, T>(&'de self) -> Result<T, super::de::IniDeError>
+    where
+        T: serde::Deserialize<'de>,
+    {
+        super::de::from_layered_section(self)
+    }
 }

@@ -1,4 +1,4 @@
-//! `IniSection` → Serde 反序列化。
+//! `IniSection` / `LayeredSectionView` → Serde 反序列化。
 
 mod error;
 mod map;
@@ -9,19 +9,33 @@ pub use error::IniDeError;
 use serde::Deserialize;
 
 use super::document::IniSection;
+use super::merge::LayeredSectionView;
 use map::SectionMapAccess;
 
-/// 将节反序列化为强类型结构（字段名与 INI 键拼写一致，可用 `serde(rename)`；重复键取最后一次）。
+/// 将单节反序列化为强类型结构（字段名与 INI 键拼写一致，可用 `serde(rename)`；重复键取最后一次）。
 pub fn from_section<'de, T>(section: &'de IniSection) -> Result<T, IniDeError>
 where
     T: Deserialize<'de>,
 {
-    let mut de = SectionDeserializer { section };
+    let mut de = SectionDeserializer {
+        access: Some(SectionMapAccess::new(section)),
+    };
+    T::deserialize(&mut de)
+}
+
+/// 将层叠节的有效字段视图反序列化为强类型（不先物化为业务 `HashMap`）。
+pub fn from_layered_section<'de, T>(section: &'de LayeredSectionView<'de>) -> Result<T, IniDeError>
+where
+    T: Deserialize<'de>,
+{
+    let mut de = SectionDeserializer {
+        access: Some(SectionMapAccess::from_layered(section)),
+    };
     T::deserialize(&mut de)
 }
 
 struct SectionDeserializer<'a> {
-    section: &'a IniSection,
+    access: Option<SectionMapAccess<'a>>,
 }
 
 impl<'de> serde::Deserializer<'de> for &mut SectionDeserializer<'de> {
@@ -66,7 +80,8 @@ impl<'de> serde::Deserializer<'de> for &mut SectionDeserializer<'de> {
     where
         V: serde::de::Visitor<'de>,
     {
-        visitor.visit_map(SectionMapAccess::new(self.section))
+        let access = self.access.take().unwrap_or_else(SectionMapAccess::empty);
+        visitor.visit_map(access)
     }
 
     fn deserialize_struct<V>(
