@@ -63,7 +63,7 @@ pub use rules::{
     },
     globals::RulesGlobals,
     house_remap::{HOUSE_REMAP_COUNT, HOUSE_REMAP_FIRST, Hsv, build_hsv_remap_ramp, build_remap_ramp, hsv_to_rgb, owner_primary_color},
-    overlay::{harvestable_overlay_name, overlay_types_from_rules, tiberium_overlay_display_hsv, tiberium_type_for_overlay},
+    overlay::{harvestable_overlay_name, overlay_types_from_layered, overlay_types_from_rules, tiberium_overlay_display_hsv, tiberium_type_for_overlay},
     super_weapons::{SuperWeaponType, SuperWeaponTypeRegistry},
     techno::{TechnoKind, TechnoType, TechnoTypeRegistry},
     terrain_spawners::terrain_spawners_from_rules,

@@ -2,7 +2,7 @@
 
 use serde::Deserialize;
 
-use crate::ini::IniDocument;
+use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
 
 /// 装载期全局字段（缺省由 adaptor 填产品默认，不在此冒充「未写」）。
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -34,17 +34,24 @@ pub struct RulesGlobals {
 }
 
 impl RulesGlobals {
-    /// 从 rules 文档一次解码全局节字段。
+    /// 从单份 rules 文档解码（内部走层叠视图，仅一层）。
     pub fn from_rules(rules: &IniDocument) -> Self {
-        let general = rules
+        let policy = IniMergePolicy::last_wins();
+        let docs = std::slice::from_ref(rules);
+        Self::from_layered(LayeredIniView::new(docs, &policy))
+    }
+
+    /// 从层叠 rules 视图一次解码全局节字段。
+    pub fn from_layered(view: LayeredIniView<'_>) -> Self {
+        let general = view
             .section("General")
             .and_then(|s| s.deserialize::<GeneralSectionFields>().ok())
             .unwrap_or_default();
-        let dialog = rules
+        let dialog = view
             .section("MultiplayerDialogSettings")
             .and_then(|s| s.deserialize::<DialogSectionFields>().ok())
             .unwrap_or_default();
-        let audio = rules
+        let audio = view
             .section("AudioVisual")
             .and_then(|s| s.deserialize::<AudioVisualSectionFields>().ok())
             .unwrap_or_default();

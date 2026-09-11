@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use crate::ini::IniDocument;
+use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
 
 pub use ra_types::{ARMOR_ORDER, armor_index};
 
@@ -26,13 +26,20 @@ pub struct WarheadRegistry {
 impl WarheadRegistry {
     /// 解析指定弹头名列表（大小写不敏感节名）。
     pub fn from_names(rules: &IniDocument, names: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
+        let policy = IniMergePolicy::last_wins();
+        let docs = std::slice::from_ref(rules);
+        Self::from_names_layered(LayeredIniView::new(docs, &policy), names)
+    }
+
+    /// 从层叠 rules 视图解析指定弹头名列表。
+    pub fn from_names_layered(view: LayeredIniView<'_>, names: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
         let mut by_id = HashMap::new();
         for name in names {
             let id = name.as_ref().trim().to_ascii_uppercase();
             if id.is_empty() || by_id.contains_key(&id) {
                 continue;
             }
-            if let Some(wh) = parse_warhead(rules, &id) {
+            if let Some(wh) = parse_warhead(view, &id) {
                 by_id.insert(id, wh);
             }
         }
@@ -61,8 +68,8 @@ struct WarheadSectionFields {
     verses: Vec<String>,
 }
 
-fn parse_warhead(rules: &IniDocument, id: &str) -> Option<Warhead> {
-    let section = rules.section(id)?;
+fn parse_warhead(view: LayeredIniView<'_>, id: &str) -> Option<Warhead> {
+    let section = view.section(id)?;
     let fields: WarheadSectionFields = section.deserialize().ok()?;
     let mut verses = [100u32; 11];
     for (i, part) in fields.verses.iter().enumerate().take(11) {

@@ -126,3 +126,30 @@ fn apply_art_geometry_overrides_rules_and_follows_image() {
     assert_eq!(b.foundation, "5x3");
     assert_eq!(b.height, Some(6));
 }
+
+#[test]
+fn from_layered_merges_techno_fields_and_list() {
+    let base = IniDocument::parse(
+        b"[VehicleTypes]\n0=MTNK\n\
+[MTNK]\nStrength=300\nCost=700\nPrimary=90mm\n\
+[90mm]\nDamage=50\nROF=10\nRange=5\nWarhead=SA\n",
+    )
+    .unwrap();
+    let top = IniDocument::parse(
+        b"[VehicleTypes]\n1=HTNK\n\
+[MTNK]\nStrength=400\n\
+[HTNK]\nStrength=600\nCost=1400\n",
+    )
+    .unwrap();
+    let policy = IniMergePolicy {
+        default_entry: EntryMergePolicy::MergeSection,
+    };
+    let docs = [base, top];
+    let reg = TechnoTypeRegistry::from_layered(LayeredIniView::new(&docs, &policy));
+    assert_eq!(reg.len(), 2);
+    let m = reg.get("MTNK").unwrap();
+    assert_eq!(m.strength, 400);
+    assert_eq!(m.cost, 700);
+    assert_eq!(m.damage, 50);
+    assert_eq!(reg.get("HTNK").unwrap().strength, 600);
+}

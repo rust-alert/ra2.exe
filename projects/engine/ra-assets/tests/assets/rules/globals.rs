@@ -21,3 +21,16 @@ PrerequisitePower=GAPOWR,NAPOWR\nPrerequisiteFactory=GAWEAP\n\
     assert_eq!(g.prerequisite_power, vec!["GAPOWR".to_string(), "NAPOWR".to_string()]);
     assert_eq!(g.prerequisite_factory, vec!["GAWEAP".to_string()]);
 }
+
+#[test]
+fn from_layered_merges_general_override() {
+    let base = IniDocument::parse(b"[General]\nRepairStep=8\nRepairPercent=15\n").unwrap();
+    let top = IniDocument::parse(b"[General]\nRepairStep=16\n").unwrap();
+    let policy = IniMergePolicy {
+        default_entry: EntryMergePolicy::MergeSection,
+    };
+    let docs = [base, top];
+    let g = RulesGlobals::from_layered(LayeredIniView::new(&docs, &policy));
+    assert_eq!(g.repair_step, Some(16));
+    assert_eq!(g.repair_percent, Some(15));
+}
