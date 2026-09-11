@@ -18,3 +18,4 @@ ra-assets = { workspace = true }
 ra-adaptor-ra2 = { workspace = true }
 ra-adaptor-yuri = { workspace = true }
 ra-adaptor-phobos = { workspace = true }
+serde = { workspace = true }

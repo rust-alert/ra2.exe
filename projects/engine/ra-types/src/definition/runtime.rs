@@ -3,7 +3,7 @@
 use super::{
     AnimationDefinitions, CapabilitySet, ContentFingerprint, DeployableDefinitions, HouseDefinitions, HouseStolenTechMap, LocomotorDefinitions,
     PrerequisiteGroups, ProductionDefinitions, SoundDefinitions, StructureDefinitions, SuperWeaponDefinitions, TechnoDefinitions,
-    WarheadDefinitions, WeaponDefinitions,
+    TerrainSpawnerDefinitions, WarheadDefinitions, WeaponDefinitions,
 };
 
 /// 全体层共享的冻结运行时定义。
@@ -54,6 +54,8 @@ pub struct RuntimeDefinitions {
     pub repair_interval_ticks: u64,
     /// `[AudioVisual]` / `[General] SpeakDelay`（分钟）× 900 → 逻辑 tick；0 表示关闭。
     pub speak_delay_ticks: u32,
+    /// `SpawnsTiberium` 动画地形产矿表。
+    pub terrain_spawners: TerrainSpawnerDefinitions,
 }
 
 impl Default for RuntimeDefinitions {
@@ -79,6 +81,7 @@ impl Default for RuntimeDefinitions {
             repair_step: 8,
             repair_interval_ticks: 14,
             speak_delay_ticks: 0,
+            terrain_spawners: TerrainSpawnerDefinitions::default(),
         }
     }
 }

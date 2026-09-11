@@ -17,6 +17,7 @@ pub mod structure;
 mod super_weapon;
 mod tech_tree;
 mod techno;
+mod terrain_spawner;
 mod type_definition;
 mod warhead;
 mod weapon;
@@ -34,6 +35,7 @@ pub use structure::{BuildCat, HouseDefinitions, PowerProfile, StructureDefinitio
 pub use super_weapon::{SuperWeaponDefinition, SuperWeaponDefinitions};
 pub use tech_tree::{HouseStolenTechMap, PrerequisiteGroups, StolenTechKind};
 pub use techno::{TechnoClass, TechnoDefinition, TechnoDefinitions};
+pub use terrain_spawner::{TerrainSpawnerDefinition, TerrainSpawnerDefinitions};
 pub use type_definition::TypeDefinitionId;
 pub use warhead::{ARMOR_ORDER, WarheadDefinition, WarheadDefinitions, armor_index};
 pub use weapon::WeaponDefinitions;
