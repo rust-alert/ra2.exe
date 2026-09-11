@@ -25,7 +25,7 @@ pub use layers::{
     ResourceLayerKind, SIDEBAR_NESTED_INDEX_MAX, append_sidebar_nested_specs, compose_resource_layers, discover_expansions,
     is_expansion_mix_name, missing_base_mixes, parse_expansion_file_name,
 };
-pub use rules::{RulesSystem, load_rules, load_rules_chain, rules_system_from_ini_bytes};
+pub use rules::{RulesSystem, load_rules, load_rules_chain, rules_system_from_ini_bytes, rules_system_from_layered_ini_bytes};
 pub use rules_schema::techno_section_field_overrides;
 pub use stock_ui::{apply_edition_stock_ui, apply_stock_ui_for_chain};
 pub use ui_profile::{dialog_template_0x6b, dialog_template_0x102, shell_runtime_ui_profile};
