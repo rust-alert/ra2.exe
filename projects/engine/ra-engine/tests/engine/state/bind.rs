@@ -1,16 +1,15 @@
 //! 规则绑定到实体运行时字段。
 
-use crate::common::{map_with_size, rules_with_mtnk, battle_from_rules};
+use crate::common::{battle_from_defs, battle_from_rules, defs_with_mtnk, map_with_size};
 use ra_adaptor::RulesSystem;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::ATTACK_COOLDOWN_TICKS;
 use ra_map::{MapEntity, MapEntityKind};
-use ra_types::{GameEdition, TerrainSpawnerDefinitions};
-use ra_types::TechnoClass;
+use ra_types::{GameEdition, TechnoClass, TerrainSpawnerDefinitions};
 
 #[test]
 fn binds_strength_and_speed() {
-    let rules = rules_with_mtnk();
+    let defs = defs_with_mtnk();
     let mut map = map_with_size();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -24,7 +23,7 @@ fn binds_strength_and_speed() {
         mission: String::new(),
         tag: String::new(),
     });
-    let world = battle_from_rules(&rules, map);
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert_eq!(world.entity_count(), 1);
     let id = world.entity_id_at(0).expect("entity");
     let health = world.ecs_health(id).expect("health");
@@ -41,7 +40,7 @@ fn binds_strength_and_speed() {
 
 #[test]
 fn unbound_techno_gets_zero_combat_stats() {
-    let rules = rules_with_mtnk();
+    let defs = defs_with_mtnk();
     let mut map = map_with_size();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -55,7 +54,7 @@ fn unbound_techno_gets_zero_combat_stats() {
         mission: String::new(),
         tag: String::new(),
     });
-    let world = battle_from_rules(&rules, map);
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
     let id = world.entity_id_at(0).expect("entity");
     let combat = world.ecs_combat_view(id).expect("combat");
     assert_eq!(combat.attack_range, 0);

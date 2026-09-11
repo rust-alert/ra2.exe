@@ -1,13 +1,13 @@
 //! 绕静态障碍寻路。
 
-use crate::common::{map_with_size, rules_with_mtnk, battle_from_rules};
+use crate::common::{map_with_size, defs_with_mtnk, battle_from_defs};
 use ra_engine::GameCommand;
 use ra_map::{MapEntity, MapEntityKind, Waypoint};
-use ra_types::EntityId;
+use ra_types::{GameEdition, EntityId};
 
 #[test]
 fn bfs_detours_around_structure() {
-    let rules = rules_with_mtnk();
+    let defs = defs_with_mtnk();
     let mut map = map_with_size();
     map.waypoints.push(Waypoint { index: 0, x: 14, y: 10 });
     map.entities.push(MapEntity {
@@ -34,7 +34,7 @@ fn bfs_detours_around_structure() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = battle_from_rules(&rules, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);
     // 墙体属 Neutral，先入房主序会把本地玩家落在 Neutral；命令需切到美国人。
     assert!(world.prefer_local_house("Americans"));
     assert!(!world.pass_grid.is_passable(12, 10));

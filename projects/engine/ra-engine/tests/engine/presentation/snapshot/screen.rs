@@ -1,6 +1,6 @@
 //! 快照画面：对局中 / 结算。
 
-use crate::common::{rules_with_mtnk, test_engine, battle_from_rules};
+use crate::common::{defs_with_mtnk, test_engine, battle_from_defs};
 use ra_engine::{BattleOutcome, GameCommand, Session, SessionScreen};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
@@ -8,7 +8,7 @@ use ra_types::{EntityId, GameEdition};
 #[test]
 fn snapshot_screen_moves_to_results_on_victory() {
     let engine = test_engine();
-    let rules = rules_with_mtnk();
+    let defs = defs_with_mtnk();
     let mut map = MapInfo::empty(GameEdition::Ra2, "screen");
     map.width = 16;
     map.height = 16;
@@ -36,7 +36,7 @@ fn snapshot_screen_moves_to_results_on_victory() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut session = Session::from_state(battle_from_rules(&rules, map), "screen");
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "screen");
     assert_eq!(session.expect_battle().snapshot(&[]).screen, SessionScreen::InBattle);
     let attacker = session.expect_battle().world.entity_id_at(0).expect("entity");
     let target = session.expect_battle().world.entity_id_at(1).expect("entity");

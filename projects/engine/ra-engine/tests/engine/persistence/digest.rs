@@ -1,13 +1,13 @@
 //! 同命令流下状态摘要一致。
 
-use crate::common::{map_with_size, rules_with_mtnk, battle_from_rules};
+use crate::common::{map_with_size, defs_with_mtnk, battle_from_defs};
 use ra_engine::GameCommand;
 use ra_map::{MapEntity, MapEntityKind};
-use ra_types::EntityId;
+use ra_types::{GameEdition, EntityId};
 
 #[test]
 fn twin_worlds_same_command_stream_match_hash() {
-    let rules = rules_with_mtnk();
+    let defs = defs_with_mtnk();
     let mut map = map_with_size();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -34,7 +34,7 @@ fn twin_worlds_same_command_stream_match_hash() {
         tag: String::new(),
     });
     let mk = || {
-        let mut w = battle_from_rules(&rules, map.clone());
+        let mut w = battle_from_defs(GameEdition::Ra2, defs.clone(), map.clone());
         let a = w.entity_id_at(0).expect("entity");
         let b = w.entity_id_at(1).expect("entity");
         assert!(w.clear_ecs_movement(a));

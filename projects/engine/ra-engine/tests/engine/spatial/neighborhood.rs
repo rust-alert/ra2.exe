@@ -1,13 +1,13 @@
 //! 共享航点邻域排队。
 
-use crate::common::{map_with_size, rules_with_mtnk, battle_from_rules};
+use crate::common::{map_with_size, defs_with_mtnk, battle_from_defs};
 use ra_engine::GameCommand;
 use ra_map::{MapEntity, MapEntityKind, Waypoint};
-use ra_types::EntityId;
+use ra_types::{GameEdition, EntityId};
 
 #[test]
 fn shared_waypoint_queues_on_neighbor() {
-    let rules = rules_with_mtnk();
+    let defs = defs_with_mtnk();
     let mut map = map_with_size();
     map.waypoints.push(Waypoint { index: 0, x: 12, y: 10 });
     map.entities.push(MapEntity {
@@ -34,7 +34,7 @@ fn shared_waypoint_queues_on_neighbor() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = battle_from_rules(&rules, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);
     world.push_command(GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 10 });
     world.push_command(GameCommand::MoveTo { entity: EntityId(2), x: 12, y: 10 });
     for _ in 0..30 {
