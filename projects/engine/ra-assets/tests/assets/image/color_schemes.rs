@@ -31,6 +31,29 @@ fn from_layered_overrides_color_hsv() {
 }
 
 #[test]
+fn bind_houses_from_layered_enables_palette_without_document() {
+    let doc = IniDocument::parse(
+        b"[Colors]\nGold=41,240,230\nGrey=0,0,131\n\
+[Americans]\nColor=Gold\n\
+[Neutral]\nColor=Grey\n",
+    )
+    .unwrap();
+    let policy = IniMergePolicy::last_wins();
+    let docs = std::slice::from_ref(&doc);
+    let view = LayeredIniView::new(docs, &policy);
+    let mut schemes = ColorSchemes::from_layered(view);
+    schemes.bind_houses_from_layered(view, ["Americans", "Neutral"]);
+    assert_eq!(schemes.hsv_for_house_id("Americans"), Some(Hsv { h: 41, s: 240, v: 230 }));
+    assert_eq!(schemes.hsv_for_house_id("Neutral"), Some(Hsv { h: 0, s: 0, v: 131 }));
+    let mut base = Palette { colors: [Rgba::transparent(); 256] };
+    for i in 16..32 {
+        base.colors[i] = Rgba::rgb(200, 40, 40);
+    }
+    let out = schemes.palette_for_house_id(&base, "Neutral");
+    assert!(out.colors[16].r == out.colors[16].g && out.colors[16].g == out.colors[16].b);
+}
+
+#[test]
 fn palette_falls_back_without_hsv() {
     let doc = IniDocument::parse(b"[Colors]\nGrey=0,0,131\n[Neutral]\nColor=Grey\n").unwrap();
     let schemes = ColorSchemes::from_rules(&doc);

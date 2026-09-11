@@ -183,12 +183,12 @@ pub(crate) fn remap_owner_palette(
 ) -> Palette {
     let up = owner.to_ascii_uppercase();
     if matches!(up.as_str(), "NEUTRAL" | "SPECIAL" | "CIVILIAN") {
-        return rules.color_schemes.palette_for_house(&rules.rules, base, owner);
+        return rules.color_schemes.palette_for_house_id(base, owner);
     }
     if let Some(primary) = lobby_primaries.and_then(|m| m.get(&up)) {
         return base.with_house_remap(*primary);
     }
-    rules.color_schemes.palette_for_house(&rules.rules, base, owner)
+    rules.color_schemes.palette_for_house_id(base, owner)
 }
 
 /// 将会话里已有的移动单位（含航点播种 MCV）叠画到启动预览底图。

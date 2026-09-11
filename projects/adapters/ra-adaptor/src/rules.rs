@@ -52,8 +52,13 @@ pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaRe
     let globals = RulesGlobals::from_layered(rules_view);
     let overlay_types = overlay_types_from_layered(rules_view);
     let terrain_spawners = terrain_spawners_from_layered(rules_view);
-    let color_schemes = ColorSchemes::from_layered(rules_view);
+    let mut color_schemes = ColorSchemes::from_layered(rules_view);
     let countries = CountryRegistry::from_layered(rules_view);
+    {
+        let mut house_ids: Vec<&str> = countries.countries().iter().map(|c| c.id.as_str()).collect();
+        house_ids.extend(["Neutral", "Special", "Civilian"]);
+        color_schemes.bind_houses_from_layered(rules_view, house_ids);
+    }
     let techno_types = {
         let mut techno_types = TechnoTypeRegistry::from_layered(rules_view);
         techno_types.apply_art_geometry_layered(art_view);
