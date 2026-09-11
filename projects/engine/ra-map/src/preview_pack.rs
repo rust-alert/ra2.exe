@@ -1,7 +1,7 @@
 //! 地图 `[Preview]` / `[PreviewPack]`：大厅缩略图（LZO 分块 → 行优先 RGB24 → RGBA）。
 
 use image::RgbaImage;
-use ra_assets::IniDocument;
+use ra_assets::{IniDocument, numbered_section_concat};
 use ra_types::{RaError, RaResult};
 
 use crate::{base64, lzo};
@@ -71,7 +71,7 @@ pub fn decode_preview_from_ini(doc: &IniDocument) -> RaResult<Option<MapPreviewI
     else {
         return Err(RaError::Parse(format!("无效 [Preview] Size: {size_raw}")));
     };
-    let Some(pack) = doc.numbered_section_concat("PreviewPack")
+    let Some(pack) = numbered_section_concat(doc, "PreviewPack")
     else {
         return Ok(None);
     };
