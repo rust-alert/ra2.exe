@@ -121,6 +121,17 @@ impl crate::state::BattleState {
         let base_health = tt.strength.max(1);
         let max_health =
             if promoted { base_health.saturating_mul(5).saturating_div(4).max(base_health.saturating_add(1)) } else { base_health };
+        let weapon = self.definitions.weapons.get_by_id(tt.primary_id);
+        let attack_range = weapon
+            .map(|w| if w.range > 0 { w.range } else { tt.sight.max(1) })
+            .unwrap_or_else(|| if tt.range > 0 { tt.range } else { tt.sight.max(1) });
+        // 无 Primary / Damage=0 保持 0，禁止用 Strength 发明伤害。
+        let attack_damage = weapon.map(|w| w.damage).unwrap_or(tt.damage);
+        let attack_cooldown_max = weapon
+            .map(|w| if w.rof > 0 { w.rof } else { ATTACK_COOLDOWN_TICKS })
+            .unwrap_or_else(|| if tt.rof > 0 { tt.rof } else { ATTACK_COOLDOWN_TICKS });
+        let warhead_id = weapon.map(|w| w.warhead_id).unwrap_or(tt.warhead_id);
+        let attack_verses = verses_for(&self.definitions, warhead_id);
         let id = self.alloc_entity_id();
         let unit_index = self.spawn_from_bundle(EntitySpawnBundle {
             identity: Identity {
@@ -137,11 +148,10 @@ impl crate::state::BattleState {
             movement: MovementState { destination_x: None, destination_y: None, waypoints: Vec::new(), path: Vec::new(), move_accum: 0 },
             combat: CombatStats {
                 armor: tt.armor.clone(),
-                attack_range: if tt.range > 0 { tt.range } else { tt.sight.max(1) },
-                // 无 Primary / Damage=0 保持 0，禁止用 Strength 发明伤害。
-                attack_damage: tt.damage,
-                attack_cooldown_max: if tt.rof > 0 { tt.rof } else { ATTACK_COOLDOWN_TICKS },
-                attack_verses: verses_for(&self.definitions, tt.warhead_id),
+                attack_range,
+                attack_damage,
+                attack_cooldown_max,
+                attack_verses,
                 techno_class: Some(techno_class),
             },
             attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
