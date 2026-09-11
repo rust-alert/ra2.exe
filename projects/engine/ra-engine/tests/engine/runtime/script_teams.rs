@@ -1,29 +1,13 @@
 //! Create Team 动作可生成 TaskForce 单位。
 
-use crate::common::{test_engine, battle_from_rules};
-use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::{test_engine, battle_from_defs, defs_from_rules_ini};
 use ra_engine::{Session, SessionBootKind};
 use ra_map::MapInfo;
-use ra_types::{GameEdition, TerrainSpawnerDefinitions};
+use ra_types::GameEdition;
 
-fn rules_with_e1() -> RulesSystem {
-    let rules = IniDocument::parse(
-        b"[InfantryTypes]\n0=E1\n\
-[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n",
-    )
-    .unwrap();
-    RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    }
+fn defs_with_e1() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
+    defs_from_rules_ini(b"[InfantryTypes]\n0=E1\n\
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n",)
 }
 
 #[test]
@@ -41,7 +25,7 @@ fn create_team_action_spawns_task_force() {
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "team.map", text).unwrap();
     let engine = test_engine();
-    let mut session = Session::from_state(battle_from_rules(&rules_with_e1(), map), "team");
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs_with_e1(), map), "team");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
     session.tick(&engine.runtime());
     let snap = session.expect_battle().snapshot(&[]);
@@ -67,7 +51,7 @@ fn create_team_spawns_at_team_type_waypoint() {
     assert_eq!(map.scripting.team_types[0].waypoint, 2);
     assert_eq!(map.waypoints.iter().find(|w| w.index == 2).map(|w| (w.x, w.y)), Some((12, 8)));
     let engine = test_engine();
-    let mut session = Session::from_state(battle_from_rules(&rules_with_e1(), map), "team-wp");
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs_with_e1(), map), "team-wp");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
     session.tick(&engine.runtime());
     let snap = session.expect_battle().snapshot(&[]);
@@ -94,7 +78,7 @@ fn create_team_script_action_3_orders_move_to_waypoint() {
     let map = MapInfo::parse_ini(GameEdition::Ra2, "team-script.map", text).unwrap();
     assert_eq!(map.waypoints.iter().find(|w| w.index == 1).map(|w| (w.x, w.y)), Some((10, 10)));
     let engine = test_engine();
-    let mut session = Session::from_state(battle_from_rules(&rules_with_e1(), map), "team-script");
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs_with_e1(), map), "team-script");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
     session.tick(&engine.runtime());
     let ids: Vec<_> = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1").map(|u| u.id).collect();
@@ -136,7 +120,7 @@ fn create_team_script_action_1_orders_attack_near_waypoint() {
         tag: String::new(),
     });
     let engine = test_engine();
-    let mut session = Session::from_state(battle_from_rules(&rules_with_e1(), map), "team-atk");
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs_with_e1(), map), "team-atk");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
     session.expect_battle_mut().world.ensure_house("Americans");
     session.expect_battle_mut().world.ensure_house("Russians");
@@ -153,24 +137,12 @@ fn create_team_script_action_1_orders_attack_near_waypoint() {
 
 #[test]
 fn create_team_script_action_6_deploys_mcv() {
-    let rules = IniDocument::parse(
+    let defs = defs_from_rules_ini(
         b"[VehicleTypes]\n0=AMCV\n\
 [BuildingTypes]\n0=GACNST\n\
 [AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n",
-    )
-    .unwrap();
-    let rules = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+    );
     // Script action=6 Deploy after Create Team spawns AMCV at waypoint 0.
     let text = b"\
 [Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
@@ -187,7 +159,7 @@ fn create_team_script_action_6_deploys_mcv() {
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "team-deploy.map", text).unwrap();
     let engine = test_engine();
-    let mut session = Session::from_state(battle_from_rules(&rules, map), "team-deploy");
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs, map), "team-deploy");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
 
     session.tick(&engine.runtime());
@@ -224,7 +196,7 @@ fn create_team_script_action_8_jumps_then_moves() {
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "team-jump.map", text).unwrap();
     let engine = test_engine();
-    let mut session = Session::from_state(battle_from_rules(&rules_with_e1(), map), "team-jump");
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs_with_e1(), map), "team-jump");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
 
     session.tick(&engine.runtime()); // spawn + jump to step 1
@@ -254,7 +226,7 @@ fn create_team_script_action_7_clears_move_after_waypoint() {
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "team-guard.map", text).unwrap();
     let engine = test_engine();
-    let mut session = Session::from_state(battle_from_rules(&rules_with_e1(), map), "team-guard");
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs_with_e1(), map), "team-guard");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
 
     session.tick(&engine.runtime()); // spawn + enqueue MoveTo

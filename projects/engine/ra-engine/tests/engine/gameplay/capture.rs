@@ -1,14 +1,12 @@
 //! 工程师占领可俘建筑。
 
-use ra_adaptor::RulesSystem;
-use crate::common::battle_from_rules;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::{battle_from_defs, defs_from_rules_ini};
 use ra_engine::{BattleState, CommandRejectReason, GameCommand};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{GameEdition, TerrainSpawnerDefinitions};
+use ra_types::{GameEdition};
 
-fn capture_rules() -> RulesSystem {
-    let rules_text = b"[Countries]\n0=Americans\n1=Russians\n\
+fn capture_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
+        defs_from_rules_ini(b"[Countries]\n0=Americans\n1=Russians\n\
 [Americans]\nSide=GDI\nMultiplay=yes\n\
 [Russians]\nSide=Nod\nMultiplay=yes\n\
 [General]\nPrerequisiteTech=GATECH,NATECH\n\
@@ -19,19 +17,7 @@ fn capture_rules() -> RulesSystem {
 [GAPOWR]\nPower=200\nCapturable=yes\nOwner=Americans,Russians\nStrength=750\nSight=4\nCost=800\nTechLevel=1\n\
 [GATECH]\nCapturable=yes\nOwner=Americans,Russians,Neutral\nStrength=500\nSight=6\nCost=2000\nTechLevel=1\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans,Russians\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
-[CAOIL]\nCapturable=yes\nFoundation=2x2\nOwner=Americans,Russians,Neutral\nStrength=800\nSight=4\nCost=1500\nTechLevel=1\n";
-    let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
-    RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::from_rules(&rules),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    }
+[CAOIL]\nCapturable=yes\nFoundation=2x2\nOwner=Americans,Russians,Neutral\nStrength=800\nSight=4\nCost=1500\nTechLevel=1\n")
 }
 
 fn capture_world(engineer_x: u16, engineer_y: u16, building_type: &str, bx: u16, by: u16) -> BattleState {
@@ -39,7 +25,7 @@ fn capture_world(engineer_x: u16, engineer_y: u16, building_type: &str, bx: u16,
 }
 
 fn capture_world_owned(engineer_x: u16, engineer_y: u16, building_type: &str, bx: u16, by: u16, building_owner: &str) -> BattleState {
-    let rules_db = capture_rules();
+    let defs = capture_defs();
     let mut map = MapInfo::empty(GameEdition::Ra2, "engineer-capture");
     map.width = 16;
     map.height = 16;
@@ -81,7 +67,7 @@ fn capture_world_owned(engineer_x: u16, engineer_y: u16, building_type: &str, bx
             tag: String::new(),
         },
     ];
-    let mut world = battle_from_rules(&rules_db, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     world.set_all_players_funds(10_000);
     if let Some(p) = world.players.iter_mut().find(|p| p.house.as_ref() == "Russians") {
         p.power_output = 200;

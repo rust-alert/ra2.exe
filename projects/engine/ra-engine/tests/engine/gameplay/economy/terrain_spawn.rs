@@ -1,14 +1,13 @@
 //! 矿柱产矿状态机：中点触发后写入邻格可采 overlay。
 
-use ra_adaptor::RulesSystem;
-use crate::common::battle_from_rules;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry, overlay_types_from_rules, terrain_spawners_from_rules};
+use crate::common::{battle_from_defs, defs_from_rules_ini};
 use ra_engine::BattleState;
 use ra_map::{MapInfo, TerrainObject};
-use ra_types::GameEdition;
+use ra_types::{GameEdition, OverlayTypeRegistry};
 
 fn spawn_world() -> BattleState {
-    let rules_text = br#"
+    let defs = defs_from_rules_ini(
+        br#"
 [OverlayTypes]
 0=TIB01
 
@@ -20,24 +19,13 @@ SpawnsTiberium=yes
 IsAnimated=yes
 AnimationRate=1
 AnimationProbability=1
-"#;
-    let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
-    let rules_db = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: overlay_types_from_rules(&rules),
-        terrain_spawners: terrain_spawners_from_rules(&rules),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::default(),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+"#,
+    );
     let mut map = MapInfo::empty(GameEdition::Ra2, "terrain-spawn");
     map.width = 8;
     map.height = 8;
     map.terrain_objects = vec![TerrainObject { x: 4, y: 4, name: "TIBTRE01".into() }];
-    let mut world = battle_from_rules(&rules_db, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert_eq!(world.terrain_spawners.len(), 1);
     // 两帧：中点 = 1，Started 后下一帧即 SpawnDue。
     world.apply_ore_tree_frame_counts(&[(4, 4, 2)]);
@@ -117,7 +105,7 @@ fn seeds_from_map_terrain() {
 }
 
 fn ore_overlay_types() -> OverlayTypeRegistry {
-    let doc = IniDocument::parse(
+    defs_from_rules_ini(
         br#"
 [OverlayTypes]
 0=BRIDGE1
@@ -130,8 +118,8 @@ Land=Road
 Tiberium=yes
 "#,
     )
-    .expect("ini");
-    overlay_types_from_rules(&doc)
+        .overlays
+        .clone()
 }
 
 #[test]

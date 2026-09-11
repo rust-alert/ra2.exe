@@ -1,36 +1,20 @@
 //! AI 放置兵营并生产步兵。
 
-use crate::common::{test_engine, battle_from_rules};
-use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::{test_engine, battle_from_defs, defs_from_rules_ini};
 use ra_engine::{PRODUCE_TICKS, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{GameEdition, TerrainSpawnerDefinitions};
+use ra_types::{GameEdition};
 
 #[test]
 fn ai_places_barracks_and_produces_infantry() {
     let engine = test_engine();
-    let doc = IniDocument::parse(
-        b"[InfantryTypes]\n0=E2\n\
+    let defs = defs_from_rules_ini(b"[InfantryTypes]\n0=E2\n\
 [BuildingTypes]\n0=GACNST\n1=NACNST\n2=NAPOWR\n3=NAHAND\n\
 [E2]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nTechLevel=1\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nTechLevel=1\n\
 [NACNST]\nConstructionYard=yes\nOwner=Soviets\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nTechLevel=1\n\
 [NAPOWR]\nPower=200\nOwner=Soviets\nStrength=600\nSight=4\nCost=600\nArmor=wood\nTechLevel=1\n\
-[NAHAND]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Soviets\nStrength=500\nSight=5\nCost=500\nArmor=wood\nTechLevel=1\n",
-    )
-    .unwrap();
-    let rules = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&doc),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&doc),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+[NAHAND]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Soviets\nStrength=500\nSight=5\nCost=500\nArmor=wood\nTechLevel=1\n",);
     let mut map = MapInfo::empty(GameEdition::Ra2, "ai-barracks");
     map.width = 16;
     map.height = 16;
@@ -70,7 +54,7 @@ fn ai_places_barracks_and_produces_infantry() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = battle_from_rules(&rules, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds("Soviets", 10_000));
     let mut session = Session::from_state(world, "ai-barracks");
     session.expect_battle_mut().ai_enabled = true;
@@ -91,8 +75,7 @@ fn ai_places_barracks_and_produces_infantry() {
 fn ai_skips_dog_and_naval_when_picking_produce() {
     let engine = test_engine();
     // 字母序上 ADOG / DEST 会排在 E1 / MTNK 前面；过滤后应造陆地基础单位。
-    let doc = IniDocument::parse(
-        b"[InfantryTypes]\n0=ADOG\n1=E1\n\
+    let defs = defs_from_rules_ini(b"[InfantryTypes]\n0=ADOG\n1=E1\n\
 [VehicleTypes]\n0=DEST\n1=MTNK\n\
 [BuildingTypes]\n0=GACNST\n1=NACNST\n2=GAPOWR\n3=GAPILE\n4=GAWEAP\n\
 [ADOG]\nStrength=100\nSpeed=8\nSight=5\nCost=200\nArmor=none\nTechLevel=1\nCategory=Dog\nOwner=Americans,Alliance\n\
@@ -103,20 +86,7 @@ fn ai_skips_dog_and_naval_when_picking_produce() {
 [NACNST]\nConstructionYard=yes\nOwner=Soviets\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nTechLevel=1\n\
 [GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nArmor=wood\nTechLevel=1\n\
 [GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nArmor=wood\nTechLevel=1\n\
-[GAWEAP]\nPower=-30\nPowered=yes\nFactory=UnitType\nOwner=Americans\nStrength=1000\nSight=5\nCost=2000\nArmor=wood\nTechLevel=1\n",
-    )
-    .unwrap();
-    let rules = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&doc),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&doc),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+[GAWEAP]\nPower=-30\nPowered=yes\nFactory=UnitType\nOwner=Americans\nStrength=1000\nSight=5\nCost=2000\nArmor=wood\nTechLevel=1\n",);
     let mut map = MapInfo::empty(GameEdition::Ra2, "ai-filter");
     map.width = 20;
     map.height = 20;
@@ -181,7 +151,7 @@ fn ai_skips_dog_and_naval_when_picking_produce() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = battle_from_rules(&rules, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds("Americans", 20_000));
     assert!(world.prefer_local_house("Soviets"));
     let mut session = Session::from_state(world, "ai-filter");

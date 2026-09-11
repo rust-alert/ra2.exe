@@ -1,36 +1,20 @@
 //! AI 放置战车工厂并生产载具。
 
-use crate::common::{test_engine, battle_from_rules};
-use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::{test_engine, battle_from_defs, defs_from_rules_ini};
 use ra_engine::{PRODUCE_TICKS, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{GameEdition, TerrainSpawnerDefinitions};
+use ra_types::{GameEdition};
 
 #[test]
 fn ai_places_war_factory_and_produces_tank() {
     let engine = test_engine();
-    let doc = IniDocument::parse(
-        b"[VehicleTypes]\n0=HTNK\n\
+    let defs = defs_from_rules_ini(b"[VehicleTypes]\n0=HTNK\n\
 [BuildingTypes]\n0=GACNST\n1=NACNST\n2=NAPOWR\n3=NAWEAP\n\
 [HTNK]\nStrength=400\nSpeed=4\nSight=6\nCost=900\nArmor=heavy\nTechLevel=1\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nTechLevel=1\n\
 [NACNST]\nConstructionYard=yes\nOwner=Soviets\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nTechLevel=1\n\
 [NAPOWR]\nPower=200\nOwner=Soviets\nStrength=600\nSight=4\nCost=600\nArmor=wood\nTechLevel=1\n\
-[NAWEAP]\nPower=-30\nPowered=yes\nFactory=UnitType\nOwner=Soviets\nStrength=1000\nSight=5\nCost=2000\nArmor=wood\nTechLevel=1\n",
-    )
-    .unwrap();
-    let rules = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&doc),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&doc),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+[NAWEAP]\nPower=-30\nPowered=yes\nFactory=UnitType\nOwner=Soviets\nStrength=1000\nSight=5\nCost=2000\nArmor=wood\nTechLevel=1\n",);
     let mut map = MapInfo::empty(GameEdition::Ra2, "ai-weap");
     map.width = 16;
     map.height = 16;
@@ -70,7 +54,7 @@ fn ai_places_war_factory_and_produces_tank() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = battle_from_rules(&rules, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds("Soviets", 10_000));
     let mut session = Session::from_state(world, "ai-weap");
     session.expect_battle_mut().ai_enabled = true;

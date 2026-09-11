@@ -20,6 +20,5 @@ ra-ecs = { workspace = true }
 
 [dev-dependencies]
 ra-adaptor = { workspace = true }
-ra-assets = { workspace = true }
 ra-map = { workspace = true }
 ra-types = { workspace = true }

@@ -1,11 +1,9 @@
 //! 会话层部署 / 建造 / 生产命令。
 
-use crate::common::{test_engine, battle_from_rules};
-use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::{test_engine, battle_from_defs, defs_from_rules_ini};
 use ra_engine::{PRODUCE_TICKS, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{EntityId, GameEdition, TerrainSpawnerDefinitions};
+use ra_types::{EntityId, GameEdition};
 
 fn economy_session() -> Session {
     let rules_text = b"[VehicleTypes]\n0=AMCV\n\
@@ -16,18 +14,7 @@ fn economy_session() -> Session {
 [GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\n\
 [GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nTechLevel=1\n\
 [E1]\nOwner=Americans\nStrength=125\nSpeed=4\nSight=5\nCost=200\nTechLevel=1\n";
-    let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
-    let rules_db = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+    let defs = defs_from_rules_ini(rules_text);
     let mut map = MapInfo::empty(GameEdition::Ra2, "orders");
     map.width = 16;
     map.height = 16;
@@ -43,7 +30,7 @@ fn economy_session() -> Session {
         mission: String::new(),
         tag: String::new(),
     }];
-    let mut world = battle_from_rules(&rules_db, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds("Americans", 10_000));
     Session::from_state(world, "orders")
 }

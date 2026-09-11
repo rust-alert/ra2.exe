@@ -1,33 +1,17 @@
 //! AI 经 PlaceBuilding 放置电厂。
 
-use crate::common::{test_engine, battle_from_rules};
-use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::{test_engine, battle_from_defs, defs_from_rules_ini};
 use ra_engine::{PRODUCE_TICKS, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{GameEdition, TerrainSpawnerDefinitions};
+use ra_types::{GameEdition};
 
 #[test]
 fn ai_places_power_near_yard() {
     let engine = test_engine();
-    let doc = IniDocument::parse(
-        b"[BuildingTypes]\n0=GACNST\n1=NACNST\n2=NAPOWR\n\
+    let defs = defs_from_rules_ini(b"[BuildingTypes]\n0=GACNST\n1=NACNST\n2=NAPOWR\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nTechLevel=1\n\
 [NACNST]\nConstructionYard=yes\nOwner=Soviets\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nTechLevel=1\nFoundation=4x4\n\
-[NAPOWR]\nPower=200\nOwner=Soviets\nStrength=600\nSight=4\nCost=600\nArmor=wood\nTechLevel=1\nFoundation=2x2\n",
-    )
-    .unwrap();
-    let rules = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&doc),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&doc),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+[NAPOWR]\nPower=200\nOwner=Soviets\nStrength=600\nSight=4\nCost=600\nArmor=wood\nTechLevel=1\nFoundation=2x2\n",);
     let mut map = MapInfo::empty(GameEdition::Ra2, "ai-power");
     map.width = 24;
     map.height = 24;
@@ -55,7 +39,7 @@ fn ai_places_power_near_yard() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = battle_from_rules(&rules, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     // 模拟建造场已封满 4x4：旧 AI 只在半径 2 内查 1x1，会选到无法放下 2x2 的邻格。
     world.seal_structure_footprint(8, 8, 4, 4);
     assert!(world.set_house_funds("Soviets", 10_000));

@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use ra_adaptor::{RulesSystem, build_runtime_definitions, rules_system_from_ini_bytes, runtime_definitions_from_ini_bytes};
+use ra_adaptor::runtime_definitions_from_ini_bytes;
 use ra_engine::{BattleState, Engine, EngineConfig};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, RuntimeDefinitions};
@@ -14,17 +14,12 @@ pub fn test_engine() -> Engine {
     Engine::new(Arc::new(RuntimeDefinitions::default()), EngineConfig::default()).expect("默认引擎应可构造")
 }
 
-/// 测试边界：冻结定义播种世界（引擎侧不再经 `RulesSystem`）。
+/// 冻结定义播种世界（引擎侧只消费 `RuntimeDefinitions`）。
 pub fn battle_from_defs(edition: GameEdition, defs: Arc<RuntimeDefinitions>, map: MapInfo) -> BattleState {
     BattleState::new(edition, defs, map)
 }
 
-/// 兼容旧测例：装载期快照投影后再播种（新代码请用 [`battle_from_defs`]）。
-pub fn battle_from_rules(rules: &RulesSystem, map: MapInfo) -> BattleState {
-    battle_from_defs(rules.edition, Arc::new(build_runtime_definitions(rules)), map)
-}
-
-/// 内联 rules INI → 冻结定义（装载在 adaptor，引擎只拿 `RuntimeDefinitions`）。
+/// 内联 rules INI → 冻结定义（装载在 adaptor）。
 pub fn defs_from_rules_ini(rules_ini: &[u8]) -> Arc<RuntimeDefinitions> {
     Arc::new(
         runtime_definitions_from_ini_bytes(GameEdition::Ra2, rules_ini, None).expect("测试 rules INI 必须可投影"),
@@ -39,19 +34,6 @@ pub fn defs_with_mtnk() -> Arc<RuntimeDefinitions> {
 [90mm]\nDamage=100\nROF=8\nRange=6\nWarhead=SA\n\
 [SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
     )
-}
-
-/// 兼容旧测例：返回装载期快照（新代码请用 [`defs_with_mtnk`]）。
-pub fn rules_with_mtnk() -> RulesSystem {
-    rules_system_from_ini_bytes(
-        GameEdition::Ra2,
-        b"[VehicleTypes]\n0=MTNK\n\
-[MTNK]\nStrength=400\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\nPrimary=90mm\n\
-[90mm]\nDamage=100\nROF=8\nRange=6\nWarhead=SA\n\
-[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
-        None,
-    )
-    .expect("测试 rules INI 必须可装载")
 }
 
 /// 20×30 空图。

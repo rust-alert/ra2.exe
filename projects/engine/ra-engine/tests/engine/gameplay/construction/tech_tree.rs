@@ -1,13 +1,11 @@
 //! 科技树：Owner 隔离、Prerequisite 解锁链、侧栏 Eligible 隐藏。
 
-use ra_adaptor::RulesSystem;
-use crate::common::battle_from_rules;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::{battle_from_defs, defs_from_rules_ini};
 use ra_engine::{BattleState, CommandRejectReason, GameCommand, PRODUCE_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{GameEdition, PlayerId, TerrainSpawnerDefinitions};
+use ra_types::{GameEdition, PlayerId};
 
-fn tech_rules() -> RulesSystem {
+fn tech_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
     let rules_text = b"\
 [General]\n\
 PrerequisitePower=GAPOWR,NAPOWR\n\
@@ -26,18 +24,7 @@ PrerequisiteTech=GATECH,NATECH\n\
 [NAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nOwner=Russians\nStrength=900\nSight=4\nCost=2000\nTechLevel=1\nPrerequisite=POWER\n\
 [GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nTechLevel=1\nPrerequisite=POWER\n\
 [NAHAND]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Russians\nStrength=500\nSight=5\nCost=500\nTechLevel=1\nPrerequisite=POWER\n";
-    let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
-    RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    }
+    defs_from_rules_ini(rules_text)
 }
 
 fn allied_yard_world() -> BattleState {
@@ -56,7 +43,7 @@ fn allied_yard_world() -> BattleState {
         mission: String::new(),
         tag: String::new(),
     }];
-    let mut world = battle_from_rules(&tech_rules(), map);
+    let mut world = battle_from_defs(GameEdition::Ra2, tech_defs(), map);
     assert!(world.set_house_funds("Americans", 20_000));
     world
 }

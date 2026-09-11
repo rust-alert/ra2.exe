@@ -1,11 +1,9 @@
 //! 规则绑定到实体运行时字段。
 
-use crate::common::{battle_from_defs, battle_from_rules, defs_with_mtnk, map_with_size};
-use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::{battle_from_defs, defs_from_rules_ini, defs_with_mtnk, map_with_size};
 use ra_engine::ATTACK_COOLDOWN_TICKS;
 use ra_map::{MapEntity, MapEntityKind};
-use ra_types::{GameEdition, TechnoClass, TerrainSpawnerDefinitions};
+use ra_types::{GameEdition, TechnoClass};
 
 #[test]
 fn binds_strength_and_speed() {
@@ -67,22 +65,10 @@ fn unbound_techno_gets_zero_combat_stats() {
 
 #[test]
 fn seeds_structure_health_from_map_ratio() {
-    let doc = IniDocument::parse(
+    let defs = defs_from_rules_ini(
         b"[BuildingTypes]\n0=CAGAS01\n\
 [CAGAS01]\nStrength=1000\nSight=4\nCost=100\nArmor=wood\n",
-    )
-    .unwrap();
-    let rules = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&doc),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&doc),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+    );
     let mut map = map_with_size();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -96,7 +82,7 @@ fn seeds_structure_health_from_map_ratio() {
         mission: String::new(),
         tag: String::new(),
     });
-    let world = battle_from_rules(&rules, map);
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
     let id = world.entity_id_at(0).expect("entity");
     let health = world.ecs_health(id).expect("health");
     assert_eq!(health.1, 1000);

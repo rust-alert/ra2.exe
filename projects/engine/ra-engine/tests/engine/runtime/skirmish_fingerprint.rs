@@ -1,25 +1,13 @@
 //! 遭遇战开局指纹：规则字节必须真实可读，禁止空字节污染身份。
-use std::sync::Arc;
 
-use ra_adaptor::{ResourceChain, RulesSystem, build_runtime_definitions};
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::defs_from_rules_ini;
+use ra_adaptor::ResourceChain;
 use ra_engine::open_skirmish_session;
 use ra_map::MapInfo;
-use ra_types::{AssetSource, GameEdition, RaError, RaResult, TerrainSpawnerDefinitions};
+use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
-fn minimal_rules() -> RulesSystem {
-    let rules = IniDocument::parse(b"[BuildingTypes]\n0=GACNST\n[GACNST]\nConstructionYard=yes\nStrength=1000\n").expect("测试 INI 必须有效");
-    RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    }
+fn minimal_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
+    defs_from_rules_ini(b"[BuildingTypes]\n0=GACNST\n[GACNST]\nConstructionYard=yes\nStrength=1000\n")
 }
 
 fn tiny_map() -> MapInfo {
@@ -47,7 +35,7 @@ impl AssetSource for EmptyRulesSource {
 #[test]
 fn open_skirmish_rejects_missing_rules_for_fingerprint() {
     let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let err = open_skirmish_session(&MissingRulesSource, chain.edition, chain.rules_ini, Arc::new(build_runtime_definitions(&minimal_rules())), tiny_map(), "t".into(), (0, 0), None, &[], 0).unwrap_err();
+    let err = open_skirmish_session(&MissingRulesSource, chain.edition, chain.rules_ini, minimal_defs(), tiny_map(), "t".into(), (0, 0), None, &[], 0).unwrap_err();
     let msg = err.to_string();
     assert!(msg.contains(chain.rules_ini), "{msg}");
     assert!(msg.contains("指纹") || msg.contains("规则"), "{msg}");
@@ -56,7 +44,7 @@ fn open_skirmish_rejects_missing_rules_for_fingerprint() {
 #[test]
 fn open_skirmish_rejects_empty_rules_bytes_for_fingerprint() {
     let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let err = open_skirmish_session(&EmptyRulesSource, chain.edition, chain.rules_ini, Arc::new(build_runtime_definitions(&minimal_rules())), tiny_map(), "t".into(), (0, 0), None, &[], 0).unwrap_err();
+    let err = open_skirmish_session(&EmptyRulesSource, chain.edition, chain.rules_ini, minimal_defs(), tiny_map(), "t".into(), (0, 0), None, &[], 0).unwrap_err();
     let msg = err.to_string();
     assert!(msg.contains("空"), "{msg}");
 }

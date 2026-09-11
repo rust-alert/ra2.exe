@@ -1,32 +1,24 @@
 //! 闪电风暴 → Ion 光照档。
 
-use ra_adaptor::RulesSystem;
-use crate::common::battle_from_rules;
-use ra_assets::{ColorSchemes, CountryRegistry, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use std::sync::Arc;
+
+use crate::common::battle_from_defs;
 use ra_engine::{BattleState, start_lightning_storm};
 use ra_map::{LightingConfig, LightingProfile};
-use ra_types::{GameEdition, TerrainSpawnerDefinitions};
+use ra_types::{GameEdition, RuntimeDefinitions};
 
-fn empty_rules() -> RulesSystem {
-    RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::default(),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::default(),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    }
+fn empty_world_with_map(bytes: &[u8], name: &str) -> BattleState {
+    let mut map = ra_map::MapInfo::parse_ini(GameEdition::Ra2, name, bytes).expect("map");
+    map.lighting = LightingConfig { ambient: 1.0, ground: 0.0, level: 0.0, ..LightingConfig::identity() };
+    battle_from_defs(GameEdition::Ra2, Arc::new(RuntimeDefinitions::default()), map)
 }
 
 fn world_with_ion_map() -> BattleState {
-    let bytes = b"[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n[Lighting]\nAmbient=1.0\nGround=0.0\nLevel=0.0\n\
-IonAmbient=0.5\nIonRed=0.25\nIonGreen=0.25\nIonBlue=1.0\nIonGround=0.0\nIonLevel=0.0\n";
-    let mut map = ra_map::MapInfo::parse_ini(GameEdition::Ra2, "storm.map", bytes).expect("map");
-    map.lighting = LightingConfig { ambient: 1.0, ground: 0.0, level: 0.0, ..LightingConfig::identity() };
-    battle_from_rules(&empty_rules(), map)
+    empty_world_with_map(
+        b"[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n[Lighting]\nAmbient=1.0\nGround=0.0\nLevel=0.0\n\
+IonAmbient=0.5\nIonRed=0.25\nIonGreen=0.25\nIonBlue=1.0\nIonGround=0.0\nIonLevel=0.0\n",
+        "storm.map",
+    )
 }
 
 #[test]
@@ -56,27 +48,12 @@ fn scheduled_powers_phase_flips_ion_profile() {
 // 自 engine/ra-engine/src/gameplay/powers.rs :: tests
 use ra_engine::gameplay::powers::*;
 
-fn gameplay_powers_empty_rules() -> RulesSystem {
-    RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::default(),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::default(),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    }
-}
-
 fn world_with_ion_keys() -> BattleState {
-    let bytes = b"[Map]\nSize=0,0,10,10\nTheater=TEMPERATE\n[Lighting]\nAmbient=1.0\nGround=0.0\nLevel=0.0\n\
-IonAmbient=0.5\nIonRed=0.25\nIonGreen=0.25\nIonBlue=1.0\nIonGround=0.0\nIonLevel=0.0\n";
-    let mut map = ra_map::MapInfo::parse_ini(GameEdition::Ra2, "storm.map", bytes).expect("map");
-    // 无压暗便于断言。
-    map.lighting = LightingConfig { ambient: 1.0, ground: 0.0, level: 0.0, ..LightingConfig::identity() };
-    battle_from_rules(&gameplay_powers_empty_rules(), map)
+    empty_world_with_map(
+        b"[Map]\nSize=0,0,10,10\nTheater=TEMPERATE\n[Lighting]\nAmbient=1.0\nGround=0.0\nLevel=0.0\n\
+IonAmbient=0.5\nIonRed=0.25\nIonGreen=0.25\nIonBlue=1.0\nIonGround=0.0\nIonLevel=0.0\n",
+        "storm.map",
+    )
 }
 
 #[test]

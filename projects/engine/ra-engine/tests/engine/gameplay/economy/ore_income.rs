@@ -1,31 +1,19 @@
 //! 矿车采集矿格后邻接矿场卸货入账。
 
-use ra_adaptor::RulesSystem;
-use crate::common::battle_from_rules;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry, overlay_types_from_rules};
+use crate::common::{battle_from_defs, defs_from_rules_ini};
 use ra_engine::{BattleState, ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo, OverlayCell};
-use ra_types::{GameEdition, TerrainSpawnerDefinitions};
+use ra_types::GameEdition;
 
-fn mining_world() -> BattleState {
-    let rules_text = b"[BuildingTypes]\n0=GAREFN\n\
+const MINING_RULES: &[u8] = b"[BuildingTypes]\n0=GAREFN\n\
 [VehicleTypes]\n0=CMIN\n\
 [OverlayTypes]\n0=TIB01\n\
 [TIB01]\nTiberium=yes\n\
 [GAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nOwner=Americans\nStrength=900\nSight=4\nCost=2000\n\
 [CMIN]\nHarvester=yes\nOwner=Americans\nStrength=1000\nSpeed=4\nSight=4\nCost=1400\n";
-    let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
-    let rules_db = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: overlay_types_from_rules(&rules),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+
+fn mining_world() -> BattleState {
+    let defs = defs_from_rules_ini(MINING_RULES);
     let mut map = MapInfo::empty(GameEdition::Ra2, "ore-income");
     map.width = 8;
     map.height = 8;
@@ -56,7 +44,7 @@ fn mining_world() -> BattleState {
             tag: String::new(),
         },
     ];
-    let mut world = battle_from_rules(&rules_db, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds("Americans", 1_000));
     world
 }
@@ -108,24 +96,7 @@ fn dead_harvester_stops_ore_income() {
 
 #[test]
 fn idle_harvester_seeks_ore_then_returns_to_refinery() {
-    let rules_text = b"[BuildingTypes]\n0=GAREFN\n\
-[VehicleTypes]\n0=CMIN\n\
-[OverlayTypes]\n0=TIB01\n\
-[TIB01]\nTiberium=yes\n\
-[GAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nOwner=Americans\nStrength=900\nSight=4\nCost=2000\n\
-[CMIN]\nHarvester=yes\nOwner=Americans\nStrength=1000\nSpeed=4\nSight=4\nCost=1400\n";
-    let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
-    let rules_db = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: overlay_types_from_rules(&rules),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+    let defs = defs_from_rules_ini(MINING_RULES);
     let mut map = MapInfo::empty(GameEdition::Ra2, "ore-seek");
     map.width = 8;
     map.height = 8;
@@ -156,7 +127,7 @@ fn idle_harvester_seeks_ore_then_returns_to_refinery() {
             tag: String::new(),
         },
     ];
-    let mut world = battle_from_rules(&rules_db, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds("Americans", 1_000));
     let id = world.entity_id_at(1).expect("harvester");
 
