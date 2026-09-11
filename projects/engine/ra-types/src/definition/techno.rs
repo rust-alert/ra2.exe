@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::id::{TypeId, WarheadId, WeaponId};
 
-use super::{ArmorKind, ProductionCategory};
+use super::{ArmorKind, PrerequisiteToken, ProductionCategory};
 
 /// Techno 大类（与内容列表节对应）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -78,10 +78,10 @@ pub struct TechnoDefinition {
     pub warhead: String,
     /// 主武器弹头稳定 id；`WarheadId(0)` 表示未绑定。
     pub warhead_id: WarheadId,
-    /// `Prerequisite` 逗号分隔 token（类型键或通用组名）；空 = 无前置。
-    pub prerequisite: Vec<String>,
+    /// `Prerequisite`：装载期绑定后的 token 列表；空 = 无前置。
+    pub prerequisite: Vec<PrerequisiteToken>,
     /// `PrerequisiteOverride`：拥有任一即可绕过普通 Prerequisite。
-    pub prerequisite_override: Vec<String>,
+    pub prerequisite_override: Vec<PrerequisiteToken>,
     /// `RequiredHouses`：非空时 house 必须命中其一。
     pub required_houses: Vec<String>,
     /// `ForbiddenHouses`：命中任一则不可造。
@@ -115,6 +115,11 @@ impl TechnoDefinitions {
     /// 按键查找。
     pub fn get(&self, type_key: &str) -> Option<&TechnoDefinition> {
         self.by_key.get(&type_key.to_ascii_uppercase())
+    }
+
+    /// 按稳定 id 查找。
+    pub fn get_by_id(&self, id: TypeId) -> Option<&TechnoDefinition> {
+        self.by_key.values().find(|t| t.id == id)
     }
 
     /// 条目数。

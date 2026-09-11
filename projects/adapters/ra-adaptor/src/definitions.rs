@@ -5,9 +5,10 @@
 use ra_assets::TechnoKind;
 use ra_types::{
     ArmorKind, BuildCat, BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, PowerProfile, PrerequisiteGroups,
-    ProductionCategory, ProductionProfile, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition, TechnoClass,
-    TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WeaponDefinition, WeaponId,
+    PrerequisiteToken, ProductionCategory, ProductionProfile, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition,
+    TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WeaponDefinition, WeaponId,
 };
+use std::collections::HashMap;
 
 use crate::RulesSystem;
 
@@ -104,8 +105,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             primary_id: WeaponId(0),
             warhead: tt.warhead.to_ascii_uppercase(),
             warhead_id: WarheadId(0),
-            prerequisite: tt.prerequisite.clone(),
-            prerequisite_override: tt.prerequisite_override.clone(),
+            prerequisite: tt.prerequisite.iter().filter_map(|s| PrerequisiteToken::parse_raw(s)).collect(),
+            prerequisite_override: tt.prerequisite_override.iter().filter_map(|s| PrerequisiteToken::parse_raw(s)).collect(),
             required_houses: tt.required_houses.clone(),
             forbidden_houses: tt.forbidden_houses.clone(),
             build_limit: tt.build_limit,
@@ -231,6 +232,20 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     defs.deployables = Default::default();
     for d in fixed {
         defs.deployables.insert(d);
+    }
+
+    // 前置 token：UnboundType → TypeId（全部 techno 已入库后）。
+    let type_ids: HashMap<String, TypeId> = defs.techno.iter().map(|t| (t.type_key.clone(), t.id)).collect();
+    let resolve = |key: &str| type_ids.get(&key.to_ascii_uppercase()).copied();
+    for techno in defs.techno.iter_mut() {
+        techno.prerequisite = std::mem::take(&mut techno.prerequisite)
+            .into_iter()
+            .map(|t| t.bind_type_id(&resolve))
+            .collect();
+        techno.prerequisite_override = std::mem::take(&mut techno.prerequisite_override)
+            .into_iter()
+            .map(|t| t.bind_type_id(&resolve))
+            .collect();
     }
 
     defs.production.count = defs.structures.iter().filter(|s| s.production.is_some()).count() as u32;

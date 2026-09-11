@@ -155,7 +155,13 @@ fn build_runtime_definitions_projects_techno_fields_without_rescanning_section()
     );
     let defs = build_runtime_definitions(&rules);
     let fv = defs.techno.get("FV").expect("FV");
-    assert_eq!(fv.prerequisite, vec!["GAWEAP".to_string(), "POWER".to_string()]);
+    assert_eq!(
+        fv.prerequisite,
+        vec![
+            ra_types::PrerequisiteToken::UnboundType("GAWEAP".into()),
+            ra_types::PrerequisiteToken::Group(ra_types::PrerequisiteGroupKind::Power),
+        ]
+    );
     assert_eq!(fv.build_limit, 2);
     let deploy = defs.deployables.iter().find(|d| d.source_key == "FV").expect("deploy");
     assert_eq!(deploy.target_key, "GAPOWR");

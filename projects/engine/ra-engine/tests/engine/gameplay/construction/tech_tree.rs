@@ -136,7 +136,7 @@ fn losing_power_hides_power_gated_buildings_again() {
 use std::collections::HashSet;
 
 use ra_engine::gameplay::tech_tree::*;
-use ra_types::{PrerequisiteGroups, RuntimeDefinitions, TechnoClass, TechnoDefinition, TypeId};
+use ra_types::{PrerequisiteGroups, PrerequisiteToken, RuntimeDefinitions, TechnoClass, TechnoDefinition, TypeId};
 
 fn techno(key: &str, class: TechnoClass, owner: &str, tech_level: i32, prerequisite: &[&str], override_tokens: &[&str]) -> TechnoDefinition {
     TechnoDefinition {
@@ -162,8 +162,8 @@ fn techno(key: &str, class: TechnoClass, owner: &str, tech_level: i32, prerequis
         primary_id: ra_types::WeaponId(0),
         warhead: String::new(),
         warhead_id: ra_types::WarheadId(0),
-        prerequisite: prerequisite.iter().map(|s| (*s).to_string()).collect(),
-        prerequisite_override: override_tokens.iter().map(|s| (*s).to_string()).collect(),
+        prerequisite: prerequisite.iter().filter_map(|s| PrerequisiteToken::parse_raw(s)).collect(),
+        prerequisite_override: override_tokens.iter().filter_map(|s| PrerequisiteToken::parse_raw(s)).collect(),
         required_houses: Vec::new(),
         forbidden_houses: Vec::new(),
         build_limit: 0,

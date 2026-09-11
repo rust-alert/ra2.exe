@@ -23,10 +23,10 @@ pub use command::{CommandBody, CommandId, CommandKind, CommandTarget, ScheduledC
 pub use definition::{
     ARMOR_ORDER, AnimationDefinitions, ArmorKind, BuildCat, BuiltinCapability, CapabilitySet, ContentFingerprint, DeployableDefinition,
     DeployableDefinitions, DeploymentPlacement, Foundation, HouseDefinitions, HouseStolenTechMap, LocomotorDefinitions, OverlayTypeRegistry,
-    PowerProfile, PrerequisiteGroups, ProductionCategory, ProductionDefinitions, ProductionProfile, RuntimeDefinitions, SoundDefinitions,
-    StolenTechKind, StructureDefinition, StructureDefinitions, SuperWeaponDefinition, SuperWeaponDefinitions, TechnoClass, TechnoDefinition,
-    TechnoDefinitions, TerrainSpawnerDefinition, TerrainSpawnerDefinitions, TypeDefinitionId, WarheadDefinition, WarheadDefinitions,
-    WeaponDefinition, WeaponDefinitions, armor_index,
+    PowerProfile, PrerequisiteGroupKind, PrerequisiteGroups, PrerequisiteToken, ProductionCategory, ProductionDefinitions, ProductionProfile,
+    RuntimeDefinitions, SoundDefinitions, StolenTechKind, StructureDefinition, StructureDefinitions, SuperWeaponDefinition,
+    SuperWeaponDefinitions, TechnoClass, TechnoDefinition, TechnoDefinitions, TerrainSpawnerDefinition, TerrainSpawnerDefinitions,
+    TypeDefinitionId, WarheadDefinition, WarheadDefinitions, WeaponDefinition, WeaponDefinitions, armor_index,
 };
 pub use display_mode::DisplayMode;
 pub use edition::GameEdition;

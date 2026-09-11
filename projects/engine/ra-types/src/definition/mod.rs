@@ -37,7 +37,7 @@ pub use runtime::RuntimeDefinitions;
 pub use sound::SoundDefinitions;
 pub use structure::{BuildCat, HouseDefinitions, PowerProfile, StructureDefinition, StructureDefinitions};
 pub use super_weapon::{SuperWeaponDefinition, SuperWeaponDefinitions};
-pub use tech_tree::{HouseStolenTechMap, PrerequisiteGroups, StolenTechKind};
+pub use tech_tree::{HouseStolenTechMap, PrerequisiteGroupKind, PrerequisiteGroups, PrerequisiteToken, StolenTechKind};
 pub use techno::{TechnoClass, TechnoDefinition, TechnoDefinitions};
 pub use terrain_spawner::{TerrainSpawnerDefinition, TerrainSpawnerDefinitions};
 pub use type_definition::TypeDefinitionId;
