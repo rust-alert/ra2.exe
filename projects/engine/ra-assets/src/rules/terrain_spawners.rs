@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 use ra_types::{TerrainSpawnerDefinition, TerrainSpawnerDefinitions};
 
-use crate::ini::IniDocument;
+use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
 
 const PROBABILITY_DENOMINATOR: f32 = 1_000_000.0;
 
@@ -22,8 +22,19 @@ struct TerrainSpawnerSectionFields {
 
 /// 扫描全部节，收集 `SpawnsTiberium` + `IsAnimated` 的产矿地形。
 pub fn terrain_spawners_from_rules(rules: &IniDocument) -> TerrainSpawnerDefinitions {
+    let policy = IniMergePolicy::last_wins();
+    let docs = std::slice::from_ref(rules);
+    terrain_spawners_from_layered(LayeredIniView::new(docs, &policy))
+}
+
+/// 从层叠 rules 视图扫描产矿地形节。
+pub fn terrain_spawners_from_layered(view: LayeredIniView<'_>) -> TerrainSpawnerDefinitions {
     let mut out = TerrainSpawnerDefinitions::default();
-    for section in &rules.sections {
+    for name_key in view.section_keys() {
+        let Some(section) = view.section(name_key)
+        else {
+            continue;
+        };
         let Ok(fields) = section.deserialize::<TerrainSpawnerSectionFields>()
         else {
             continue;
@@ -36,7 +47,7 @@ pub fn terrain_spawners_from_rules(rules: &IniDocument) -> TerrainSpawnerDefinit
             .map(|v| (v.clamp(0.0, 1.0) * PROBABILITY_DENOMINATOR).round() as u32)
             .unwrap_or(0);
         let rate = fields.animation_rate.unwrap_or(1).max(1);
-        let type_key = section.name_raw.trim().to_ascii_uppercase();
+        let type_key = section.name_raw().trim().to_ascii_uppercase();
         if type_key.is_empty() {
             continue;
         }

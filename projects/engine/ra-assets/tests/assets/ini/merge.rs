@@ -94,3 +94,11 @@ fn layered_section_deserialize_honors_replace_section() {
     assert_eq!(g.repair_step, Some(16));
     assert_eq!(g.repair_percent, None);
 }
+
+#[test]
+fn section_keys_lists_unique_names_bottom_first() {
+    let layers = docs(&[b"[A]\nx=1\n[B]\ny=2\n", b"[B]\ny=3\n[C]\nz=4\n"]);
+    let policy = IniMergePolicy::last_wins();
+    let view = LayeredIniView::new(&layers, &policy);
+    assert_eq!(view.section_keys(), vec!["A", "B", "C"]);
+}

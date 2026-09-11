@@ -1,5 +1,7 @@
 //! 多层 `IniDocument` 的字段级有效值视图（无 edition 语义）。
 
+use std::collections::HashSet;
+
 use crate::ini::document::{IniDocument, IniSection};
 use crate::ini::value::IniValue;
 
@@ -82,6 +84,20 @@ impl<'a> LayeredIniView<'a> {
     /// 直接取有效字段值。
     pub fn get(&self, section: &str, key: &str) -> Option<IniValue<'a>> {
         self.section(section)?.get(key)
+    }
+
+    /// 各层出现过的节比较名（底层先出现者在前，顶层新节追加）。
+    pub fn section_keys(&self) -> Vec<&'a str> {
+        let mut out = Vec::new();
+        let mut seen = HashSet::new();
+        for doc in self.documents {
+            for sec in &doc.sections {
+                if seen.insert(sec.name_key.as_str()) {
+                    out.push(sec.name_key.as_str());
+                }
+            }
+        }
+        out
     }
 }
 
