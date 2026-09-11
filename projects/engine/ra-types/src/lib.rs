@@ -27,9 +27,8 @@ pub use definition::{
     ProductionCategory, ProductionDefinitions, ProductionProfile, ProjectileName, RuntimeDefinitions, SoundDefinitions, StolenTechKind,
     StructureDefinition, StructureDefinitions, SuperWeaponActionName, SuperWeaponDefinition, SuperWeaponDefinitions, SuperWeaponKindName,
     SuperWeaponName, TechnoCategory, TechnoClass, TechnoDefinition, TechnoDefinitions, TechnoName, TerrainSpawnerDefinition,
-    TerrainSpawnerDefinitions,
-    TypeDefinitionId, WarheadDefinition, WarheadDefinitions, WarheadName, WarheadVerses, WeaponDefinition, WeaponDefinitions, WeaponName,
-    armor_index, deserialize_optional_factory,
+    TerrainSpawnerDefinitions, TypeDefinitionId, UiName, WarheadDefinition, WarheadDefinitions, WarheadName, WarheadVerses, WeaponDefinition,
+    WeaponDefinitions, WeaponName, armor_index, deserialize_optional_factory,
 };
 pub use display_mode::DisplayMode;
 pub use edition::GameEdition;

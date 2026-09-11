@@ -38,7 +38,7 @@ pub use foundation::Foundation;
 pub use house_list::HouseAllowList;
 pub use locomotor::LocomotorDefinitions;
 pub use names::{
-    HouseName, ImageName, ProjectileName, SuperWeaponActionName, SuperWeaponKindName, SuperWeaponName, TechnoName, WarheadName,
+    HouseName, ImageName, ProjectileName, SuperWeaponActionName, SuperWeaponKindName, SuperWeaponName, TechnoName, UiName, WarheadName,
     WeaponName,
 };
 pub use overlay::OverlayTypeRegistry;

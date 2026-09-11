@@ -15,7 +15,7 @@ RechargeTime=10\nSidebarImage=SSWLSICON\nWeapon=LightningBolt\n\
     let reg = SuperWeaponTypeRegistry::from_rules(&doc);
     assert_eq!(reg.len(), 2);
     let ls = reg.get("lightningstorm").unwrap();
-    assert_eq!(ls.ui_name, "Name:LightningStorm");
+    assert_eq!(ls.ui_name, "NAME:LIGHTNINGSTORM");
     assert_eq!(ls.kind, "LIGHTNINGSTORM");
     assert_eq!(ls.action, "LIGHTNINGSTORM");
     assert_eq!(ls.recharge_time, 10);

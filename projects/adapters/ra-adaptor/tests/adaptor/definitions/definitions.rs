@@ -75,7 +75,7 @@ fn build_runtime_definitions_parses_super_weapon_types_and_building_link() {
     );
     let defs = build_runtime_definitions(&rules);
     let sw = defs.super_weapons.get("LightningStorm").expect("SW");
-    assert_eq!(sw.ui_name, "Name:LightningStorm");
+    assert_eq!(sw.ui_name, "NAME:LIGHTNINGSTORM");
     assert_eq!(sw.kind, "LIGHTNINGSTORM");
     assert_eq!(sw.action, "LIGHTNINGSTORM");
     assert_eq!(sw.recharge_time, 10);
