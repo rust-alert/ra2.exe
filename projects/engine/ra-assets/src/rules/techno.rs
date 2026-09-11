@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
-use ra_types::{WarheadName, WeaponName};
+use ra_types::{HouseAllowList, WarheadName, WeaponName};
 
 /// 步兵 / 载具 / 飞行器 / 建筑的共用类型字段。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,8 +26,8 @@ pub struct TechnoType {
     pub cost: u32,
     /// `TechLevel`；缺省为 -1。
     pub tech_level: i32,
-    /// `Owner` 所属阵营串。
-    pub owner: String,
+    /// `Owner` 所属阵营名单（装载期一次解码；空 = 不限）。
+    pub owner: HouseAllowList,
     /// `Image` 资源名（缺省等于 id）。
     pub image: String,
     /// `Category`（如 `Soldier` / `Dog`）；空表示未写。
@@ -54,10 +54,10 @@ pub struct TechnoType {
     pub prerequisite: Vec<String>,
     /// `PrerequisiteOverride` token（大写）。
     pub prerequisite_override: Vec<String>,
-    /// `RequiredHouses` token（大写）。
-    pub required_houses: Vec<String>,
-    /// `ForbiddenHouses` token（大写）。
-    pub forbidden_houses: Vec<String>,
+    /// `RequiredHouses`（装载期一次解码；空 = 不限制）。
+    pub required_houses: HouseAllowList,
+    /// `ForbiddenHouses`（装载期一次解码；空 = 不禁止）。
+    pub forbidden_houses: HouseAllowList,
     /// `BuildLimit`；`0` 表示不限。
     pub build_limit: i32,
     /// `BuildTime`；`0` 表示缺省。
@@ -222,8 +222,8 @@ struct TechnoSectionFields {
     cost: Option<u32>,
     #[serde(rename = "TechLevel")]
     tech_level: Option<i32>,
-    #[serde(rename = "Owner")]
-    owner: Option<String>,
+    #[serde(rename = "Owner", default)]
+    owner: HouseAllowList,
     #[serde(rename = "Image")]
     image: Option<String>,
     #[serde(rename = "Category")]
@@ -245,9 +245,9 @@ struct TechnoSectionFields {
     #[serde(rename = "PrerequisiteOverride", default)]
     prerequisite_override: Vec<String>,
     #[serde(rename = "RequiredHouses", default)]
-    required_houses: Vec<String>,
+    required_houses: HouseAllowList,
     #[serde(rename = "ForbiddenHouses", default)]
-    forbidden_houses: Vec<String>,
+    forbidden_houses: HouseAllowList,
     #[serde(rename = "BuildLimit")]
     build_limit: Option<i32>,
     #[serde(rename = "BuildTime")]
@@ -328,7 +328,7 @@ fn parse_techno(view: LayeredIniView<'_>, id: &str, kind: TechnoKind) -> Option<
         sight: fields.sight.unwrap_or(0),
         cost: fields.cost.unwrap_or(0),
         tech_level: fields.tech_level.unwrap_or(-1),
-        owner: fields.owner.unwrap_or_default(),
+        owner: fields.owner,
         image,
         category: fields.category.unwrap_or_default().trim().to_string(),
         naval: fields.naval.unwrap_or(false),
@@ -342,8 +342,8 @@ fn parse_techno(view: LayeredIniView<'_>, id: &str, kind: TechnoKind) -> Option<
         warhead,
         prerequisite: uppercase_tokens(fields.prerequisite),
         prerequisite_override: uppercase_tokens(fields.prerequisite_override),
-        required_houses: uppercase_tokens(fields.required_houses),
-        forbidden_houses: uppercase_tokens(fields.forbidden_houses),
+        required_houses: fields.required_houses,
+        forbidden_houses: fields.forbidden_houses,
         build_limit: fields.build_limit.unwrap_or(0).max(0),
         build_time: fields.build_time.unwrap_or(0).max(0) as u32,
         requires_stolen_allied_tech: fields.requires_stolen_allied_tech.unwrap_or(false),

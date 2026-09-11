@@ -145,3 +145,9 @@ ini_name!(
     WarheadName,
     "warhead section name"
 );
+
+ini_name!(
+    /// 房屋 / 阵营名（`Owner=` / `RequiredHouses=` / `ForbiddenHouses=` 等）；空 = 未配置。
+    HouseName,
+    "house / country name"
+);

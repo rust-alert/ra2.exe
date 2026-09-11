@@ -1,10 +1,17 @@
 //! 阵营 / 房屋允许名单（`Owner=` / `RequiredHouses=` / `ForbiddenHouses=`）。
 
-/// 装载期解析后的房屋名单；空名单语义由字段约定（见各字段文档）。
+use std::fmt;
+
+use serde::de::{self, Deserializer, SeqAccess, Visitor};
+use serde::Deserialize;
+
+use super::HouseName;
+
+/// 装载期一次解码后的房屋名单；空名单语义由字段约定（见各字段文档）。
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct HouseAllowList {
-    /// 大写房屋 id；空 = 本名单无约束项。
-    houses: Vec<String>,
+    /// 大写房屋名；空 = 本名单无约束项。
+    houses: Vec<HouseName>,
 }
 
 impl HouseAllowList {
@@ -13,14 +20,14 @@ impl HouseAllowList {
         Self { houses: Vec::new() }
     }
 
-    /// 由已归一化（大写、非空）房屋 id 构造。
-    pub fn from_houses(houses: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        let mut houses: Vec<String> = houses
+    /// 由房屋名构造（再排序去重）。
+    pub fn from_houses(houses: impl IntoIterator<Item = impl Into<HouseName>>) -> Self {
+        let mut houses: Vec<HouseName> = houses
             .into_iter()
-            .map(|h| h.into().trim().to_ascii_uppercase())
+            .map(Into::into)
             .filter(|h| !h.is_empty())
             .collect();
-        houses.sort_unstable();
+        houses.sort_unstable_by(|a, b| a.as_str().cmp(b.as_str()));
         houses.dedup();
         Self { houses }
     }
@@ -30,14 +37,9 @@ impl HouseAllowList {
         Self::parse_delimited(raw)
     }
 
-    /// 解析 `RequiredHouses=` / `ForbiddenHouses=` 逗号列表（已 trim 的 token 亦可直接传入拼接串）。
+    /// 解析 `RequiredHouses=` / `ForbiddenHouses=` 分隔列表。
     pub fn parse_csv(raw: &str) -> Self {
         Self::parse_delimited(raw)
-    }
-
-    /// 由已拆好的 token 列表构造（装载 registry 已大写拆分时用）。
-    pub fn from_tokens(tokens: &[String]) -> Self {
-        Self::from_houses(tokens.iter().cloned())
     }
 
     fn parse_delimited(raw: &str) -> Self {
@@ -62,9 +64,9 @@ impl HouseAllowList {
         self.houses.len()
     }
 
-    /// 迭代房屋 id。
-    pub fn iter(&self) -> impl Iterator<Item = &str> {
-        self.houses.iter().map(String::as_str)
+    /// 迭代房屋名。
+    pub fn iter(&self) -> impl Iterator<Item = &HouseName> {
+        self.houses.iter()
     }
 
     /// `Owner=` 语义：空名单 = 不限；否则 house 须命中其一。
@@ -89,7 +91,67 @@ impl HouseAllowList {
     }
 
     fn contains(&self, house: &str) -> bool {
-        let want = house.trim().to_ascii_uppercase();
+        let want = HouseName::parse(house);
         self.houses.iter().any(|h| h == &want)
+    }
+}
+
+impl<'de> Deserialize<'de> for HouseAllowList {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct ListVisitor;
+
+        impl<'de> Visitor<'de> for ListVisitor {
+            type Value = HouseAllowList;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("comma-separated house names")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(HouseAllowList::parse_delimited(v))
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(HouseAllowList::parse_delimited(&v))
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut houses = Vec::new();
+                while let Some(part) = seq.next_element::<HouseName>()? {
+                    if !part.is_empty() {
+                        houses.push(part);
+                    }
+                }
+                Ok(HouseAllowList::from_houses(houses))
+            }
+
+            fn visit_none<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(HouseAllowList::empty())
+            }
+
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(HouseAllowList::empty())
+            }
+        }
+
+        deserializer.deserialize_any(ListVisitor)
     }
 }

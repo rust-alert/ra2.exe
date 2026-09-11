@@ -22,8 +22,8 @@ pub use asset_source::AssetSource;
 pub use command::{CommandBody, CommandId, CommandKind, CommandTarget, ScheduledCommand};
 pub use definition::{
     ARMOR_ORDER, AnimationDefinitions, ArmorKind, BuildCat, BuiltinCapability, CapabilitySet, ContentFingerprint, DeployableDefinition,
-    DeployableDefinitions, DeploymentPlacement, Foundation, HouseAllowList, HouseDefinitions, HouseStolenTechMap, LocomotorDefinitions,
-    OverlayTypeRegistry, PowerProfile, PrerequisiteGroupKind, PrerequisiteGroups, PrerequisiteToken, ProductionCategory,
+    DeployableDefinitions, DeploymentPlacement, Foundation, HouseAllowList, HouseDefinitions, HouseName, HouseStolenTechMap,
+    LocomotorDefinitions, OverlayTypeRegistry, PowerProfile, PrerequisiteGroupKind, PrerequisiteGroups, PrerequisiteToken, ProductionCategory,
     ProductionDefinitions, ProductionProfile, RuntimeDefinitions, SoundDefinitions, StolenTechKind, StructureDefinition,
     StructureDefinitions, SuperWeaponDefinition, SuperWeaponDefinitions, TechnoClass, TechnoDefinition, TechnoDefinitions,
     TerrainSpawnerDefinition, TerrainSpawnerDefinitions, TypeDefinitionId, WarheadDefinition, WarheadDefinitions, WarheadName,

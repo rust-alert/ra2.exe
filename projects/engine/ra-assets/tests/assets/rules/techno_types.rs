@@ -93,8 +93,14 @@ Radar=yes\nRefinery=no\nSuperWeapon=Nuke\nPower=-50\n",
     let fv = reg.get("FV").unwrap();
     assert_eq!(fv.prerequisite, vec!["GAWEAP".to_string(), "POWER".to_string()]);
     assert_eq!(fv.prerequisite_override, vec!["GACNST".to_string()]);
-    assert_eq!(fv.required_houses, vec!["AMERICANS".to_string(), "ALLIANCE".to_string()]);
-    assert_eq!(fv.forbidden_houses, vec!["RUSSIANS".to_string()]);
+    assert_eq!(
+        fv.required_houses.iter().map(|h| h.as_str()).collect::<Vec<_>>(),
+        vec!["ALLIANCE", "AMERICANS"]
+    );
+    assert_eq!(
+        fv.forbidden_houses.iter().map(|h| h.as_str()).collect::<Vec<_>>(),
+        vec!["RUSSIANS"]
+    );
     assert_eq!(fv.build_limit, 1);
     assert_eq!(fv.build_time, 50);
     assert!(fv.requires_stolen_allied_tech);
@@ -167,4 +173,19 @@ fn from_layered_merges_techno_fields_and_list() {
     assert_eq!(m.cost, 700);
     assert_eq!(m.damage, 50);
     assert_eq!(reg.get("HTNK").unwrap().strength, 600);
+}
+
+#[test]
+fn owner_list_decodes_once_and_allows() {
+    let doc = IniDocument::parse(
+        b"[VehicleTypes]\n0=MTNK\n[MTNK]\nOwner=Americans,Alliance\nRequiredHouses=\nForbiddenHouses=Russians\n",
+    )
+    .unwrap();
+    let reg = TechnoTypeRegistry::from_rules(&doc);
+    let m = reg.get("MTNK").unwrap();
+    assert!(m.owner.owner_allows("americans"));
+    assert!(m.owner.owner_allows("Alliance"));
+    assert!(!m.owner.owner_allows("Russians"));
+    assert!(m.required_houses.is_empty());
+    assert!(m.forbidden_houses.forbids("russians"));
 }
