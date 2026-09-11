@@ -119,20 +119,27 @@ fn build_runtime_definitions_rules_foundation_fallback_without_art() {
 }
 
 #[test]
-fn build_runtime_definitions_binds_warhead_type_id() {
+fn build_runtime_definitions_binds_primary_weapon_and_warhead_ids() {
     let rules = rules_from(
         b"[VehicleTypes]\n0=MTNK\n\
 [MTNK]\nStrength=200\nCost=800\nArmor=heavy\nPrimary=90mm\n\
 [90mm]\nDamage=50\nROF=8\nRange=6\nWarhead=SA\n\
 [SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
     );
-    // 测试夹具需带上弹头 registry，否则 verses 回落默认但仍应分配稳定 id。
     let mut rules = rules;
     rules.warheads = WarheadRegistry::from_names(&rules.rules, rules.techno_types.iter().map(|t| t.warhead.as_str()));
     let defs = build_runtime_definitions(&rules);
     let mtnk = defs.techno.get("MTNK").expect("MTNK");
+    assert_eq!(mtnk.primary, "90MM");
+    assert_ne!(mtnk.primary_id, ra_types::WeaponId(0));
     assert_eq!(mtnk.warhead, "SA");
-    assert_ne!(mtnk.warhead_id, ra_types::TypeId(0));
+    assert_ne!(mtnk.warhead_id, ra_types::WarheadId(0));
+    let weapon = defs.weapons.get_by_id(mtnk.primary_id).expect("bound weapon");
+    assert_eq!(weapon.type_key, "90MM");
+    assert_eq!(weapon.damage, 50);
+    assert_eq!(weapon.range, 6);
+    assert_eq!(weapon.rof, 8);
+    assert_eq!(weapon.warhead_id, mtnk.warhead_id);
     let wh = defs.warheads.get_by_id(mtnk.warhead_id).expect("bound warhead");
     assert_eq!(wh.type_key, "SA");
     assert_eq!(wh.verses, [100; 11]);

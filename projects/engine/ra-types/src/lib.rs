@@ -26,7 +26,7 @@ pub use definition::{
     PowerProfile, PrerequisiteGroups, ProductionCategory, ProductionDefinitions, ProductionProfile, RuntimeDefinitions, SoundDefinitions,
     StolenTechKind, StructureDefinition, StructureDefinitions, SuperWeaponDefinition, SuperWeaponDefinitions, TechnoClass, TechnoDefinition,
     TechnoDefinitions, TerrainSpawnerDefinition, TerrainSpawnerDefinitions, TypeDefinitionId, WarheadDefinition, WarheadDefinitions,
-    WeaponDefinitions, armor_index,
+    WeaponDefinition, WeaponDefinitions, armor_index,
 };
 pub use display_mode::DisplayMode;
 pub use edition::GameEdition;

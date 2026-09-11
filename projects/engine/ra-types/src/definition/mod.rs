@@ -40,4 +40,4 @@ pub use techno::{TechnoClass, TechnoDefinition, TechnoDefinitions};
 pub use terrain_spawner::{TerrainSpawnerDefinition, TerrainSpawnerDefinitions};
 pub use type_definition::TypeDefinitionId;
 pub use warhead::{ARMOR_ORDER, WarheadDefinition, WarheadDefinitions, armor_index};
-pub use weapon::WeaponDefinitions;
+pub use weapon::{WeaponDefinition, WeaponDefinitions};
