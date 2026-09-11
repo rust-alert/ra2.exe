@@ -261,7 +261,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         });
     }
     for sw in rules.super_weapons.iter() {
-        let key = sw.weapon.trim().to_ascii_uppercase();
+        let key = sw.weapon.as_str().to_string();
         if key.is_empty() || defs.weapons.get(&key).is_some() {
             continue;
         }
@@ -272,7 +272,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             damage: sw.weapon_damage,
             range: sw.weapon_range,
             rof: sw.weapon_rof,
-            warhead: WarheadName::parse(&sw.weapon_warhead),
+            warhead: sw.weapon_warhead.clone(),
             warhead_id: WarheadId(0),
         });
     }
@@ -320,7 +320,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         sw.weapon_id = if sw.weapon.is_empty() {
             WeaponId(0)
         } else {
-            defs.weapons.get(&sw.weapon).map(|w| w.id).unwrap_or(WeaponId(0))
+            defs.weapons.get(sw.weapon.as_str()).map(|w| w.id).unwrap_or(WeaponId(0))
         };
     }
 
