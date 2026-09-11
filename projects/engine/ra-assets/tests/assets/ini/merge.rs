@@ -191,3 +191,22 @@ fn numbered_pack_replace_section_keeps_only_top_indexes() {
     let view = LayeredIniView::new(&layers, &policy);
     assert_eq!(view.numbered_pack_concat("IsoMapPack5").as_deref(), Some("XX"));
 }
+
+#[test]
+fn field_overrides_append_one_key_while_others_last_win() {
+    let layers = docs(&[
+        b"[MTNK]\nOwner=Americans\nCost=700\n",
+        b"[MTNK]\nOwner=Alliance\nCost=800\n",
+    ]);
+    let policy = IniMergePolicy {
+        default_entry: EntryMergePolicy::LastValue,
+    };
+    let mut overrides = FieldMergeOverrides::new();
+    overrides.set("Owner", EntryMergePolicy::AppendValues);
+    let view = LayeredIniView::new(&layers, &policy);
+    let sec = view.section_with_overrides("MTNK", Some(&overrides)).unwrap();
+    assert_eq!(sec.policy_for("Owner"), EntryMergePolicy::AppendValues);
+    assert_eq!(sec.policy_for("Cost"), EntryMergePolicy::LastValue);
+    assert_eq!(sec.effective_raw("Owner").unwrap().as_ref(), "Americans,Alliance");
+    assert_eq!(sec.get("Cost").unwrap().trimmed().raw, "800");
+}
