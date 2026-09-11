@@ -43,7 +43,7 @@ pub use image::{
     shp::{ShpFile, ShpFrame, decode_rle_frame, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated},
     tmp::{TILE_HEADER_SIZE, TmpFile, TmpTile, diamond_byte_count},
 };
-pub use ini::{IniDocument, IniEntry, IniSection, SourceId, SourceSpan};
+pub use ini::{IniDeError, IniDocument, IniEntry, IniSection, IniValue, SourceId, SourceSpan, from_section};
 pub use mix::{
     archive::{MixArchive, MixEntry},
     crypto::blowfish_decrypt_ecb,

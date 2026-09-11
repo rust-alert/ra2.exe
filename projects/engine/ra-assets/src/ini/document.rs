@@ -58,6 +58,14 @@ impl IniSection {
         let key = key.to_ascii_uppercase();
         self.entries.iter().rev().find(|e| e.key_key == key).map(|e| e.value_raw.as_str())
     }
+
+    /// 将本节一次性反序列化为强类型（字段名需与 INI 键拼写一致，可用 `serde(rename)`）。
+    pub fn deserialize<'de, T>(&'de self) -> Result<T, super::de::IniDeError>
+    where
+        T: serde::Deserialize<'de>,
+    {
+        super::de::from_section(self)
+    }
 }
 
 /// 完整 INI 文档。
