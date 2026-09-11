@@ -274,40 +274,6 @@ fn fill_terrain_spawners(defs: &mut RuntimeDefinitions, rules: &ra_assets::IniDo
 }
 
 #[doc(hidden)]
-pub fn parse_prerequisite_groups(doc: &ra_assets::IniDocument) -> PrerequisiteGroups {
-    let g = ra_assets::RulesGlobals::from_rules(doc);
-    PrerequisiteGroups {
-        power: g.prerequisite_power,
-        factory: g.prerequisite_factory,
-        barracks: g.prerequisite_barracks,
-        radar: g.prerequisite_radar,
-        tech: g.prerequisite_tech,
-        proc: g.prerequisite_proc,
-        proc_alternate: g.prerequisite_proc_alternate,
-    }
-}
-
-/// 读取列表节（如 `[SuperWeaponTypes]`）的类型键，保序、大写、去空。
-pub fn list_section_type_keys(doc: &ra_assets::IniDocument, section: &str) -> Vec<String> {
-    let Some(sec) = doc.section(section)
-    else {
-        return Vec::new();
-    };
-    let mut out = Vec::new();
-    for (_idx, value) in sec.pairs() {
-        let key = value.trim();
-        if key.is_empty() {
-            continue;
-        }
-        let upper = key.to_ascii_uppercase();
-        if !out.iter().any(|k: &String| k == &upper) {
-            out.push(upper);
-        }
-    }
-    out
-}
-
-#[doc(hidden)]
 pub fn parse_factory_category(raw: &str) -> ProductionCategory {
     match raw.trim().to_ascii_lowercase().as_str() {
         "infantrytype" | "infantry" => ProductionCategory::Infantry,
@@ -316,16 +282,6 @@ pub fn parse_factory_category(raw: &str) -> ProductionCategory {
         "buildingtype" | "building" => ProductionCategory::Building,
         _ => ProductionCategory::Vehicle,
     }
-}
-
-#[doc(hidden)]
-pub fn ini_string(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<String> {
-    doc.get(section, key).map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
-}
-
-#[doc(hidden)]
-pub fn ini_i32(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<i32> {
-    ini_string(doc, section, key)?.parse().ok()
 }
 
 /// 原版 `RepairRate`（分钟）→ 逻辑 tick：`ftol(rate * 900)`，至少 1。
@@ -343,23 +299,4 @@ pub fn speak_delay_minutes_to_ticks(minutes: f64) -> u32 {
         return 0;
     }
     (minutes * 900.0) as u32
-}
-
-#[doc(hidden)]
-pub fn ini_bool(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<bool> {
-    let v = ini_string(doc, section, key)?.to_ascii_lowercase();
-    match v.as_str() {
-        "yes" | "true" | "1" => Some(true),
-        "no" | "false" | "0" => Some(false),
-        _ => None,
-    }
-}
-
-/// 逗号 / 分号分隔 token，统一大写；空段丢弃。
-pub fn ini_csv_tokens(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Vec<String> {
-    let Some(raw) = ini_string(doc, section, key)
-    else {
-        return Vec::new();
-    };
-    raw.split(|c| c == ',' || c == ';').map(str::trim).filter(|s| !s.is_empty()).map(|s| s.to_ascii_uppercase()).collect()
 }
