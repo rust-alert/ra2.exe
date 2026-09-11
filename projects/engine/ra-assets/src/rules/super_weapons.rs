@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
-use ra_types::{ProjectileName, SuperWeaponActionName, SuperWeaponKindName, WarheadName, WeaponName};
+use ra_types::{ImageName, ProjectileName, SuperWeaponActionName, SuperWeaponKindName, WarheadName, WeaponName};
 
 /// 超武类型（装载期资源侧记录）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -20,8 +20,8 @@ pub struct SuperWeaponType {
     pub action: SuperWeaponActionName,
     /// `RechargeTime`（分钟量级整型，缺省 0）。
     pub recharge_time: i32,
-    /// `SidebarImage`。
-    pub sidebar_image: String,
+    /// `SidebarImage=`（装载期一次解码）；空表示未写。
+    pub sidebar_image: ImageName,
     /// `Weapon` 名；空表示未写。
     pub weapon: WeaponName,
     /// `Weapon=` 节 `Damage`；未写或节缺失为 0。
@@ -115,8 +115,8 @@ struct SuperWeaponSectionFields {
     action: SuperWeaponActionName,
     #[serde(rename = "RechargeTime")]
     recharge_time: Option<i32>,
-    #[serde(rename = "SidebarImage")]
-    sidebar_image: Option<String>,
+    #[serde(rename = "SidebarImage", default)]
+    sidebar_image: ImageName,
     #[serde(rename = "Weapon", default)]
     weapon: WeaponName,
 }
@@ -167,7 +167,7 @@ fn parse_super_weapon(view: LayeredIniView<'_>, id: &str) -> Option<SuperWeaponT
         kind: fields.kind,
         action: fields.action,
         recharge_time: fields.recharge_time.unwrap_or(0).max(0),
-        sidebar_image: fields.sidebar_image.unwrap_or_default(),
+        sidebar_image: fields.sidebar_image,
         weapon,
         weapon_damage,
         weapon_range,
