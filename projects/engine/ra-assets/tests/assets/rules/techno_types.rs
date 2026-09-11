@@ -77,6 +77,25 @@ fn parse_primary_weapon_damage_and_range() {
 }
 
 #[test]
+fn parse_secondary_weapon_once() {
+    let doc = IniDocument::parse(
+        b"[VehicleTypes]\n0=FV\n\
+[FV]\nPrimary=HoverMissile\nSecondary=Repair\n\
+[HoverMissile]\nDamage=50\nROF=40\nRange=6\nWarhead=SA\n\
+[Repair]\nDamage=0\nROF=20\nRange=3\nWarhead=SA\n",
+    )
+    .unwrap();
+    let reg = TechnoTypeRegistry::from_rules(&doc);
+    let fv = reg.get("FV").unwrap();
+    assert_eq!(fv.primary, "HOVERMISSILE");
+    assert_eq!(fv.secondary, "REPAIR");
+    assert_eq!(fv.secondary_damage, 0);
+    assert_eq!(fv.secondary_range, 3);
+    assert_eq!(fv.secondary_rof, 20);
+    assert_eq!(fv.secondary_warhead, "SA");
+}
+
+#[test]
 fn parse_build_gates_deploy_and_structure_flags() {
     let doc = IniDocument::parse(
         b"[VehicleTypes]\n0=FV\n\

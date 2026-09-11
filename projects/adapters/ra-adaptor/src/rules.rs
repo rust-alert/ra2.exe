@@ -55,7 +55,12 @@ fn build_rules_system(edition: GameEdition, rules: &IniDocument, art: &IniDocume
         techno_types.apply_art_geometry_layered(art_view);
         techno_types
     };
-    let warheads = WarheadRegistry::from_names_layered(rules_view, techno_types.iter().map(|t| t.warhead.as_str()));
+    let warheads = WarheadRegistry::from_names_layered(
+        rules_view,
+        techno_types
+            .iter()
+            .flat_map(|t| [t.warhead.as_str(), t.secondary_warhead.as_str()]),
+    );
     let super_weapons = SuperWeaponTypeRegistry::from_layered(rules_view);
     RulesSystem {
         edition,

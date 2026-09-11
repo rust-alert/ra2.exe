@@ -101,6 +101,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             sight: tt.sight,
             primary: tt.primary.clone(),
             primary_id: WeaponId(0),
+            secondary: tt.secondary.clone(),
+            secondary_id: WeaponId(0),
             warhead: tt.warhead.clone(),
             warhead_id: WarheadId(0),
             prerequisite: tt.prerequisite.clone().into_vec(),
@@ -243,22 +245,38 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
 
     defs.production.count = defs.structures.iter().filter(|s| s.production.is_some()).count() as u32;
 
-    // 武器表：按 techno `Primary` 与超武 `Weapon=` 去重投影，再绑弹头 id。
+    // 武器表：按 techno `Primary`/`Secondary` 与超武 `Weapon=` 去重投影，再绑弹头 id。
     for tt in rules.techno_types.iter() {
-        let key = tt.primary.as_str().to_string();
-        if key.is_empty() || defs.weapons.get(&key).is_some() {
-            continue;
+        for (key, damage, range, rof, warhead) in [
+            (
+                tt.primary.as_str().to_string(),
+                tt.damage,
+                tt.range,
+                tt.rof,
+                tt.warhead.clone(),
+            ),
+            (
+                tt.secondary.as_str().to_string(),
+                tt.secondary_damage,
+                tt.secondary_range,
+                tt.secondary_rof,
+                tt.secondary_warhead.clone(),
+            ),
+        ] {
+            if key.is_empty() || defs.weapons.get(&key).is_some() {
+                continue;
+            }
+            let id = alloc_weapon();
+            defs.weapons.insert(WeaponDefinition {
+                id,
+                type_key: key,
+                damage,
+                range,
+                rof,
+                warhead,
+                warhead_id: WarheadId(0),
+            });
         }
-        let id = alloc_weapon();
-        defs.weapons.insert(WeaponDefinition {
-            id,
-            type_key: key,
-            damage: tt.damage,
-            range: tt.range,
-            rof: tt.rof,
-            warhead: tt.warhead.clone(),
-            warhead_id: WarheadId(0),
-        });
     }
     for sw in rules.super_weapons.iter() {
         let key = sw.weapon.as_str().to_string();
@@ -282,6 +300,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         .iter()
         .map(|w| w.warhead.clone())
         .chain(defs.techno.iter().map(|t| t.warhead.clone()))
+        .chain(rules.techno_types.iter().map(|t| t.secondary_warhead.clone()))
         .filter(|w| !w.is_empty())
         .collect();
     warhead_keys.sort_by(|a, b| a.as_str().cmp(b.as_str()));
@@ -312,6 +331,11 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             WeaponId(0)
         } else {
             defs.weapons.get(techno.primary.as_str()).map(|w| w.id).unwrap_or(WeaponId(0))
+        };
+        techno.secondary_id = if techno.secondary.is_empty() {
+            WeaponId(0)
+        } else {
+            defs.weapons.get(techno.secondary.as_str()).map(|w| w.id).unwrap_or(WeaponId(0))
         };
         techno.warhead_id = if let Some(w) = defs.weapons.get_by_id(techno.primary_id) {
             w.warhead_id

@@ -14,7 +14,12 @@ fn rules_from_with_art(rules_text: &[u8], art_text: &[u8]) -> RulesSystem {
     let art = if art_text.is_empty() { IniDocument::default() } else { IniDocument::parse(art_text).expect("test art ini") };
     let mut techno_types = TechnoTypeRegistry::from_rules(&rules);
     techno_types.apply_art_geometry(&art);
-    let warheads = WarheadRegistry::from_names(&rules, techno_types.iter().map(|t| t.warhead.as_str()));
+    let warheads = WarheadRegistry::from_names(
+        &rules,
+        techno_types
+            .iter()
+            .flat_map(|t| [t.warhead.as_str(), t.secondary_warhead.as_str()]),
+    );
     RulesSystem {
         edition: GameEdition::Ra2,
         globals: RulesGlobals::from_rules(&rules),
@@ -155,6 +160,26 @@ fn build_runtime_definitions_binds_primary_weapon_and_warhead_ids() {
     assert_eq!(*wh.verses, [100; 11]);
     assert_eq!(wh.spread, 0);
     assert_eq!(wh.prone_damage, 100);
+}
+
+#[test]
+fn build_runtime_definitions_binds_secondary_weapon_id() {
+    let rules = rules_from(
+        b"[VehicleTypes]\n0=FV\n\
+[FV]\nPrimary=HoverMissile\nSecondary=Repair\n\
+[HoverMissile]\nDamage=50\nROF=40\nRange=6\nWarhead=SA\n\
+[Repair]\nDamage=0\nROF=20\nRange=3\nWarhead=SA\n\
+[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
+    );
+    let defs = build_runtime_definitions(&rules);
+    let fv = defs.techno.get("FV").expect("FV");
+    assert_eq!(fv.secondary, "REPAIR");
+    assert_ne!(fv.secondary_id, ra_types::WeaponId(0));
+    assert_ne!(fv.secondary_id, fv.primary_id);
+    let secondary = defs.weapons.get_by_id(fv.secondary_id).expect("secondary");
+    assert_eq!(secondary.type_key, "REPAIR");
+    assert_eq!(secondary.range, 3);
+    assert_eq!(secondary.rof, 20);
 }
 
 #[test]

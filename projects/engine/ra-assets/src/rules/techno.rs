@@ -53,6 +53,16 @@ pub struct TechnoType {
     pub rof: u32,
     /// 主武器弹头名（武器节 `Warhead`）；空表示未配置。
     pub warhead: WarheadName,
+    /// 副武器名（`Secondary`）；空表示未配置。
+    pub secondary: WeaponName,
+    /// 副武器伤害（来自武器节 `Damage`）；0 表示未配置。
+    pub secondary_damage: u32,
+    /// 副武器射程（来自武器节 `Range`，格）；0 表示未配置。
+    pub secondary_range: u32,
+    /// 副武器射速间隔（tick）；0 表示未配置。
+    pub secondary_rof: u32,
+    /// 副武器弹头名；空表示未配置。
+    pub secondary_warhead: WarheadName,
     /// `Prerequisite`（装载期一次解码）。
     pub prerequisite: PrerequisiteList,
     /// `PrerequisiteOverride`（装载期一次解码）。
@@ -246,6 +256,8 @@ struct TechnoSectionFields {
     harvester: Option<bool>,
     #[serde(rename = "Primary", default)]
     primary: WeaponName,
+    #[serde(rename = "Secondary", default)]
+    secondary: WeaponName,
     #[serde(rename = "ROF")]
     rof: Option<u32>,
     #[serde(rename = "Prerequisite", default)]
@@ -316,8 +328,10 @@ fn parse_techno(
     let section = view.section_with_overrides(id, overrides)?;
     let fields: TechnoSectionFields = section.deserialize().ok()?;
     let primary = fields.primary;
+    let secondary = fields.secondary;
     let techno_rof = fields.rof.unwrap_or(0);
-    let (damage, range, rof, warhead) = resolve_primary_weapon(view, &primary, techno_rof);
+    let (damage, range, rof, warhead) = resolve_weapon(view, &primary, techno_rof);
+    let (secondary_damage, secondary_range, secondary_rof, secondary_warhead) = resolve_weapon(view, &secondary, 0);
     let image = fields
         .image
         .as_deref()
@@ -345,6 +359,11 @@ fn parse_techno(
         range,
         rof,
         warhead,
+        secondary,
+        secondary_damage,
+        secondary_range,
+        secondary_rof,
+        secondary_warhead,
         prerequisite: fields.prerequisite,
         prerequisite_override: fields.prerequisite_override,
         required_houses: fields.required_houses,
@@ -390,20 +409,20 @@ fn art_geometry_string(art: LayeredIniView<'_>, type_key: &str, key: &str) -> Op
     }
 }
 
-/// 从 `Primary` 武器节读取伤害 / 射程 / ROF / 弹头；缺省时保留类型节 ROF。
-fn resolve_primary_weapon(view: LayeredIniView<'_>, primary: &WeaponName, techno_rof: u32) -> (u32, u32, u32, WarheadName) {
-    if primary.is_empty() {
-        return (0, 0, techno_rof, WarheadName::default());
+/// 从武器节读取伤害 / 射程 / ROF / 弹头；缺省时可用 `fallback_rof`（主武器可回退类型节 ROF）。
+fn resolve_weapon(view: LayeredIniView<'_>, weapon: &WeaponName, fallback_rof: u32) -> (u32, u32, u32, WarheadName) {
+    if weapon.is_empty() {
+        return (0, 0, fallback_rof, WarheadName::default());
     }
-    let Some(section) = view.section(primary.as_str())
+    let Some(section) = view.section(weapon.as_str())
     else {
-        return (0, 0, techno_rof, WarheadName::default());
+        return (0, 0, fallback_rof, WarheadName::default());
     };
     let Ok(w) = section.deserialize::<WeaponSectionFields>()
     else {
-        return (0, 0, techno_rof, WarheadName::default());
+        return (0, 0, fallback_rof, WarheadName::default());
     };
     let weapon_rof = w.rof.unwrap_or(0);
-    let rof = if weapon_rof > 0 { weapon_rof } else { techno_rof };
+    let rof = if weapon_rof > 0 { weapon_rof } else { fallback_rof };
     (w.damage.unwrap_or(0), w.range.unwrap_or(0), rof, w.warhead)
 }
