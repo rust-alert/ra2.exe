@@ -2,7 +2,7 @@
 
 use std::{sync::Arc, time::Instant};
 
-use ra_assets::{CsfFile, FntFile, tiberium_overlay_display_hsv};
+use ra_assets::{CsfFile, FntFile, tiberium_overlay_display_hsv_bound};
 use ra_engine::{HudSnapshot, terrain_spawner_frame_signature};
 use ra_layout::{
     BattleHudChromeMetrics, MapViewport, SIDEBAR_TAB_COUNT, cameo_visible_slot_count, rect_px_from_snapshot, solve_battle_hud_with_metrics,
@@ -170,7 +170,6 @@ impl BattleController {
             return false;
         };
         let overlay_types = rules.overlay_types.clone();
-        let rules_ini = rules.rules.clone();
         let color_schemes = rules.color_schemes.clone();
         let dirty = self.session.as_mut().and_then(|s| s.battle_mut()).map(|g| g.world.take_overlay_paint_dirty()).unwrap_or_default();
         if dirty.is_empty() {
@@ -183,7 +182,7 @@ impl BattleController {
         let harvestable: Vec<_> = map.overlays.iter().copied().filter(|c| overlay_types.is_harvestable(c.overlay_id)).collect();
         let tib_hsv = |id: u8| {
             let name = overlay_types.name(id)?;
-            tiberium_overlay_display_hsv(&rules_ini, &color_schemes, name)
+            tiberium_overlay_display_hsv_bound(&color_schemes, name)
         };
 
         if let Some(underlay) = self.preview_ore_underlay.as_ref() {

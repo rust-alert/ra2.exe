@@ -75,14 +75,25 @@ pub fn tiberium_overlay_display_hsv(rules: &IniDocument, colors: &ColorSchemes, 
 }
 
 /// 层叠 rules 下的矿石 / 宝石呈现 HSV。
+///
+/// 优先用装载期 `ColorSchemes::tiberium_display_hsv`；未绑定再读层叠文档。
 pub fn tiberium_overlay_display_hsv_layered(view: LayeredIniView<'_>, colors: &ColorSchemes, overlay_name: &str) -> Option<Hsv> {
     let tib_type = tiberium_type_for_overlay(overlay_name)?;
+    if let Some(hsv) = colors.tiberium_display_hsv(tib_type) {
+        return Some(hsv);
+    }
     let scheme = view.get(tib_type, "Color")?.trimmed().raw;
     let hsv = colors.get(scheme)?;
     if hsv == (Hsv { h: 0, s: 0, v: 0 }) {
         return Some(colors.get("Gold").unwrap_or(Hsv { h: 41, s: 240, v: 230 }));
     }
     Some(hsv)
+}
+
+/// 仅用装载期绑定表解析 overlay 呈现 HSV（运行时路径，不持有 `IniDocument`）。
+pub fn tiberium_overlay_display_hsv_bound(colors: &ColorSchemes, overlay_name: &str) -> Option<Hsv> {
+    let tib_type = tiberium_type_for_overlay(overlay_name)?;
+    colors.tiberium_display_hsv(tib_type)
 }
 
 /// `NoUseTileLandType=yes` 时按 `Land=` 得到通行覆盖；否则不改 TMP 封格。

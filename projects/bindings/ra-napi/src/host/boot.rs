@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use ra_adaptor::{ResourceChain, RulesSystem, build_runtime_definitions, detect_edition, load_rules_chain};
 use ra_assets::{
-    CountryRegistry, IniDocument, Palette, Rgba, find_battle_campaign, parse_battle_campaigns, parse_mpmodes, tiberium_overlay_display_hsv,
+    CountryRegistry, IniDocument, Palette, Rgba, find_battle_campaign, parse_battle_campaigns, parse_mpmodes, tiberium_overlay_display_hsv_bound,
 };
 use ra_engine::{Engine, Session, open_campaign_session, open_skirmish_session};
 use ra_map::{
@@ -135,7 +135,7 @@ fn load_map_terrain_preview(
         &|id| rules.overlay_types.is_harvestable(id),
         &|id| {
             let name = rules.overlay_types.name(id)?;
-            tiberium_overlay_display_hsv(&rules.rules, &rules.color_schemes, name)
+            tiberium_overlay_display_hsv_bound(&rules.color_schemes, name)
         },
         &|base, owner| remap_owner_palette(rules, lobby_primaries, base, owner),
     )?;
