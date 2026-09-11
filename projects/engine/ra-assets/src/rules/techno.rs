@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
+use crate::ini::{FieldMergeOverrides, IniDocument, IniMergePolicy, LayeredIniView};
 use ra_types::{
     BuildCat, Foundation, HouseAllowList, PrerequisiteList, ProductionCategory, SuperWeaponName, TechnoName, WarheadName, WeaponName,
     deserialize_optional_factory,
@@ -126,8 +126,13 @@ impl TechnoTypeRegistry {
         Self::from_layered(LayeredIniView::new(docs, &policy))
     }
 
-    /// 从层叠 rules 视图扫描列表节并解码各类型（字段按视图策略合并）。
+    /// 从层叠 rules 视图扫描列表节并解码各类型（字段按视图默认策略合并）。
     pub fn from_layered(view: LayeredIniView<'_>) -> Self {
+        Self::from_layered_with_overrides(view, None)
+    }
+
+    /// 从层叠 rules 视图扫描并解码；`overrides` 由 adaptor schema 声明列表等字段的合并策略。
+    pub fn from_layered_with_overrides(view: LayeredIniView<'_>, overrides: Option<&FieldMergeOverrides>) -> Self {
         let mut by_id = HashMap::new();
         for (section, kind) in [
             ("InfantryTypes", TechnoKind::Infantry),
@@ -152,7 +157,7 @@ impl TechnoTypeRegistry {
                 if by_id.contains_key(&id_up) {
                     continue;
                 }
-                if let Some(tt) = parse_techno(view, &id_up, kind) {
+                if let Some(tt) = parse_techno(view, &id_up, kind, overrides) {
                     by_id.insert(id_up, tt);
                 }
             }
@@ -302,8 +307,13 @@ struct WeaponSectionFields {
     warhead: WarheadName,
 }
 
-fn parse_techno(view: LayeredIniView<'_>, id: &str, kind: TechnoKind) -> Option<TechnoType> {
-    let section = view.section(id)?;
+fn parse_techno(
+    view: LayeredIniView<'_>,
+    id: &str,
+    kind: TechnoKind,
+    overrides: Option<&FieldMergeOverrides>,
+) -> Option<TechnoType> {
+    let section = view.section_with_overrides(id, overrides)?;
     let fields: TechnoSectionFields = section.deserialize().ok()?;
     let primary = fields.primary;
     let techno_rof = fields.rof.unwrap_or(0);

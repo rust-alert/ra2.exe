@@ -189,6 +189,23 @@ fn from_layered_merges_techno_fields_and_list() {
 }
 
 #[test]
+fn field_overrides_append_owner_while_cost_last_wins() {
+    let base = IniDocument::parse(b"[VehicleTypes]\n0=MTNK\n[MTNK]\nOwner=Americans\nCost=700\n").unwrap();
+    let top = IniDocument::parse(b"[MTNK]\nOwner=Alliance\nCost=800\n").unwrap();
+    let policy = IniMergePolicy {
+        default_entry: EntryMergePolicy::MergeSection,
+    };
+    let mut overrides = FieldMergeOverrides::new();
+    overrides.set("Owner", EntryMergePolicy::AppendValues);
+    let docs = [base, top];
+    let reg = TechnoTypeRegistry::from_layered_with_overrides(LayeredIniView::new(&docs, &policy), Some(&overrides));
+    let m = reg.get("MTNK").unwrap();
+    assert!(m.owner.owner_allows("Americans"));
+    assert!(m.owner.owner_allows("Alliance"));
+    assert_eq!(m.cost, 800);
+}
+
+#[test]
 fn owner_list_decodes_once_and_allows() {
     let doc = IniDocument::parse(
         b"[VehicleTypes]\n0=MTNK\n[MTNK]\nOwner=Americans,Alliance\nRequiredHouses=\nForbiddenHouses=Russians\n",
