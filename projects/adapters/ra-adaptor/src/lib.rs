@@ -8,6 +8,7 @@ mod compose;
 pub mod definitions;
 mod layers;
 mod rules;
+mod rules_schema;
 mod stock_ui;
 pub mod ui_profile;
 
@@ -25,6 +26,7 @@ pub use layers::{
     is_expansion_mix_name, missing_base_mixes, parse_expansion_file_name,
 };
 pub use rules::{RulesSystem, load_rules, load_rules_chain, rules_system_from_ini_bytes};
+pub use rules_schema::techno_section_field_overrides;
 pub use stock_ui::{apply_edition_stock_ui, apply_stock_ui_for_chain};
 pub use ui_profile::{dialog_template_0x6b, dialog_template_0x102, shell_runtime_ui_profile};
 

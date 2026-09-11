@@ -7,6 +7,7 @@ use ra_assets::{
 use ra_types::{AssetSource, GameEdition, OverlayTypeRegistry, RaResult, TerrainSpawnerDefinitions};
 
 use crate::ResourceChain;
+use crate::rules_schema::techno_section_field_overrides;
 
 /// 一局装载用的规则快照（装载期内容模型；不再长期持有 `IniDocument`）。
 #[derive(Debug, Clone)]
@@ -31,19 +32,12 @@ pub struct RulesSystem {
     pub super_weapons: SuperWeaponTypeRegistry,
 }
 
-/// 用显式 `ResourceChain` 加载（适配组合装配后的入口）。
-pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaResult<RulesSystem> {
-    let rules_bytes = source.read(chain.rules_ini)?;
-    let rules = IniDocument::parse(&rules_bytes)
-        .map_err(|e| ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.rules_ini, rules_bytes.len())))?;
-    let art_bytes = source.read(chain.art_ini)?;
-    let art =
-        IniDocument::parse(&art_bytes).map_err(|e| ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.art_ini, art_bytes.len())))?;
-
-    // 当前链仍是单份 rules/art；经 LayeredIniView 统一入口，便于后续叠 MP / mod 层。
+fn build_rules_system(edition: GameEdition, rules: &IniDocument, art: &IniDocument) -> RulesSystem {
+    // 当前链仍可能是单份 rules/art；经 LayeredIniView 统一入口，便于后续叠 MP / mod 层。
     let policy = IniMergePolicy::last_wins();
-    let rules_view = LayeredIniView::new(std::slice::from_ref(&rules), &policy);
-    let art_view = LayeredIniView::new(std::slice::from_ref(&art), &policy);
+    let rules_view = LayeredIniView::new(std::slice::from_ref(rules), &policy);
+    let art_view = LayeredIniView::new(std::slice::from_ref(art), &policy);
+    let techno_overrides = techno_section_field_overrides();
 
     let globals = RulesGlobals::from_layered(rules_view);
     let overlay_types = overlay_types_from_layered(rules_view);
@@ -57,14 +51,14 @@ pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaRe
         color_schemes.bind_tiberium_display_from_layered(rules_view);
     }
     let techno_types = {
-        let mut techno_types = TechnoTypeRegistry::from_layered(rules_view);
+        let mut techno_types = TechnoTypeRegistry::from_layered_with_overrides(rules_view, Some(&techno_overrides));
         techno_types.apply_art_geometry_layered(art_view);
         techno_types
     };
     let warheads = WarheadRegistry::from_names_layered(rules_view, techno_types.iter().map(|t| t.warhead.as_str()));
     let super_weapons = SuperWeaponTypeRegistry::from_layered(rules_view);
-    Ok(RulesSystem {
-        edition: chain.edition,
+    RulesSystem {
+        edition,
         globals,
         overlay_types,
         terrain_spawners,
@@ -73,7 +67,18 @@ pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaRe
         techno_types,
         warheads,
         super_weapons,
-    })
+    }
+}
+
+/// 用显式 `ResourceChain` 加载（适配组合装配后的入口）。
+pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaResult<RulesSystem> {
+    let rules_bytes = source.read(chain.rules_ini)?;
+    let rules = IniDocument::parse(&rules_bytes)
+        .map_err(|e| ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.rules_ini, rules_bytes.len())))?;
+    let art_bytes = source.read(chain.art_ini)?;
+    let art =
+        IniDocument::parse(&art_bytes).map_err(|e| ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.art_ini, art_bytes.len())))?;
+    Ok(build_rules_system(chain.edition, &rules, &art))
 }
 
 /// 按互斥 `GameEdition` 取默认资源表再加载（兼容旧调用）。
@@ -94,38 +99,5 @@ pub fn rules_system_from_ini_bytes(
         Some(bytes) => IniDocument::parse(bytes).map_err(|e| ra_types::RaError::Parse(format!("art.ini: {e}")))?,
         None => IniDocument::default(),
     };
-
-    let policy = IniMergePolicy::last_wins();
-    let rules_view = LayeredIniView::new(std::slice::from_ref(&rules), &policy);
-    let art_view = LayeredIniView::new(std::slice::from_ref(&art), &policy);
-
-    let globals = RulesGlobals::from_layered(rules_view);
-    let overlay_types = overlay_types_from_layered(rules_view);
-    let terrain_spawners = terrain_spawners_from_layered(rules_view);
-    let mut color_schemes = ColorSchemes::from_layered(rules_view);
-    let countries = CountryRegistry::from_layered(rules_view);
-    {
-        let mut house_ids: Vec<&str> = countries.countries().iter().map(|c| c.id.as_str()).collect();
-        house_ids.extend(["Neutral", "Special", "Civilian"]);
-        color_schemes.bind_houses_from_layered(rules_view, house_ids);
-        color_schemes.bind_tiberium_display_from_layered(rules_view);
-    }
-    let techno_types = {
-        let mut techno_types = TechnoTypeRegistry::from_layered(rules_view);
-        techno_types.apply_art_geometry_layered(art_view);
-        techno_types
-    };
-    let warheads = WarheadRegistry::from_names_layered(rules_view, techno_types.iter().map(|t| t.warhead.as_str()));
-    let super_weapons = SuperWeaponTypeRegistry::from_layered(rules_view);
-    Ok(RulesSystem {
-        edition,
-        globals,
-        overlay_types,
-        terrain_spawners,
-        color_schemes,
-        countries,
-        techno_types,
-        warheads,
-        super_weapons,
-    })
+    Ok(build_rules_system(edition, &rules, &art))
 }
