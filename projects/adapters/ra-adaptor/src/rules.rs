@@ -1,8 +1,8 @@
 //! 按资源链装载 rules/art 与派生注册表。
 
 use ra_assets::{
-    ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry,
-    overlay_types_from_rules, terrain_spawners_from_rules,
+    ColorSchemes, CountryRegistry, IniDocument, IniMergePolicy, LayeredIniView, RulesGlobals, SuperWeaponTypeRegistry, TechnoTypeRegistry,
+    WarheadRegistry, overlay_types_from_layered, terrain_spawners_from_layered,
 };
 use ra_types::{AssetSource, GameEdition, OverlayTypeRegistry, RaResult, TerrainSpawnerDefinitions};
 
@@ -43,18 +43,24 @@ pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaRe
     let art_bytes = source.read(chain.art_ini)?;
     let art =
         IniDocument::parse(&art_bytes).map_err(|e| ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.art_ini, art_bytes.len())))?;
-    let globals = RulesGlobals::from_rules(&rules);
-    let overlay_types = overlay_types_from_rules(&rules);
-    let terrain_spawners = terrain_spawners_from_rules(&rules);
+
+    // 当前链仍是单份 rules/art；经 LayeredIniView 统一入口，便于后续叠 MP / mod 层。
+    let policy = IniMergePolicy::last_wins();
+    let rules_view = LayeredIniView::new(std::slice::from_ref(&rules), &policy);
+    let art_view = LayeredIniView::new(std::slice::from_ref(&art), &policy);
+
+    let globals = RulesGlobals::from_layered(rules_view);
+    let overlay_types = overlay_types_from_layered(rules_view);
+    let terrain_spawners = terrain_spawners_from_layered(rules_view);
     let color_schemes = ColorSchemes::from_rules(&rules);
     let countries = CountryRegistry::from_rules(&rules);
     let techno_types = {
-        let mut techno_types = TechnoTypeRegistry::from_rules(&rules);
-        techno_types.apply_art_geometry(&art);
+        let mut techno_types = TechnoTypeRegistry::from_layered(rules_view);
+        techno_types.apply_art_geometry_layered(art_view);
         techno_types
     };
-    let warheads = WarheadRegistry::from_names(&rules, techno_types.iter().map(|t| t.warhead.as_str()));
-    let super_weapons = SuperWeaponTypeRegistry::from_rules(&rules);
+    let warheads = WarheadRegistry::from_names_layered(rules_view, techno_types.iter().map(|t| t.warhead.as_str()));
+    let super_weapons = SuperWeaponTypeRegistry::from_layered(rules_view);
     Ok(RulesSystem {
         edition: chain.edition,
         rules,
