@@ -287,12 +287,17 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     warhead_keys.sort_by(|a, b| a.as_str().cmp(b.as_str()));
     warhead_keys.dedup();
     for key in warhead_keys {
-        let verses = rules.warheads.get(key.as_str()).map(|w| w.verses).unwrap_or_default();
+        let loaded = rules.warheads.get(key.as_str());
+        let verses = loaded.map(|w| w.verses).unwrap_or_default();
+        let spread = loaded.map(|w| w.spread).unwrap_or(0);
+        let prone_damage = loaded.map(|w| w.prone_damage).unwrap_or(100);
         let id = alloc_warhead();
         defs.warheads.insert(WarheadDefinition {
             id,
             type_key: key.as_str().to_string(),
             verses,
+            spread,
+            prone_damage,
         });
     }
     for weapon in defs.weapons.iter_mut() {

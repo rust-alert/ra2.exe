@@ -62,3 +62,22 @@ fn from_names_layered_merges_verses_override() {
     assert_eq!(reg.get("AP").unwrap().verses[0], 10);
     assert_eq!(reg.get("AP").unwrap().verses[5], 10);
 }
+
+#[test]
+fn parse_spread_and_prone_damage_once() {
+    let doc = IniDocument::parse(b"[HE]\nSpread=2\nProneDamage=50\n").unwrap();
+    let reg = WarheadRegistry::from_names(&doc, ["HE"]);
+    let he = reg.get("HE").unwrap();
+    assert_eq!(he.spread, 2);
+    assert_eq!(he.prone_damage, 50);
+    assert_eq!(he.verses, WarheadVerses::all_full());
+}
+
+#[test]
+fn missing_spread_and_prone_use_defaults() {
+    let doc = IniDocument::parse(b"[AP]\n").unwrap();
+    let reg = WarheadRegistry::from_names(&doc, ["AP"]);
+    let ap = reg.get("AP").unwrap();
+    assert_eq!(ap.spread, 0);
+    assert_eq!(ap.prone_damage, 100);
+}
