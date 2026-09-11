@@ -1,6 +1,6 @@
 //! rules `[Countries]` / `[Sides]`：国家与势力表（INI 字段解释，供大厅 / 装载使用）。
 
-use crate::ini::IniDocument;
+use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView, LayeredSectionView};
 
 /// 一个国家（house）定义。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -90,12 +90,19 @@ pub struct CountryRegistry {
 impl CountryRegistry {
     /// 从 rules 文档解析；缺节则空表。
     pub fn from_rules(rules: &IniDocument) -> Self {
-        let mut countries = parse_countries(rules);
+        let policy = IniMergePolicy::last_wins();
+        let docs = std::slice::from_ref(rules);
+        Self::from_layered(LayeredIniView::new(docs, &policy))
+    }
+
+    /// 从层叠 rules 视图解析国家 / 势力表。
+    pub fn from_layered(view: LayeredIniView<'_>) -> Self {
+        let mut countries = parse_countries(view);
         for c in &mut countries {
-            c.special_ui_name = resolve_country_special_ui_name(rules, &c.id);
+            c.special_ui_name = resolve_country_special_ui_name_layered(view, &c.id);
         }
-        let sides = parse_sides(rules);
-        let side_chromes = parse_side_chromes(rules, &sides);
+        let sides = parse_sides(view);
+        let side_chromes = parse_side_chromes(view, &sides);
         Self { countries, sides, side_chromes }
     }
 
@@ -142,18 +149,22 @@ impl CountryRegistry {
 }
 
 #[doc(hidden)]
-pub fn parse_countries(rules: &IniDocument) -> Vec<CountryDef> {
-    let Some(list) = rules.section("Countries")
+pub fn parse_countries(view: LayeredIniView<'_>) -> Vec<CountryDef> {
+    let Some(list) = view.section("Countries")
     else {
         return Vec::new();
     };
     let mut indexed: Vec<(u32, String)> = Vec::new();
-    for (key, value) in list.pairs() {
+    for key in list.keys() {
         let Ok(n) = key.trim().parse::<u32>()
         else {
             continue;
         };
-        let id = value.trim();
+        let Some(value) = list.get(key)
+        else {
+            continue;
+        };
+        let id = value.trimmed().raw;
         if id.is_empty() {
             continue;
         }
@@ -167,17 +178,23 @@ pub fn parse_countries(rules: &IniDocument) -> Vec<CountryDef> {
         if !seen.insert(id_key) {
             continue;
         }
-        out.push(parse_country(rules, list_index, &id));
+        out.push(parse_country(view, list_index, &id));
     }
     out
 }
 
 #[doc(hidden)]
-pub fn parse_country(rules: &IniDocument, list_index: u32, id: &str) -> CountryDef {
-    let sec = rules.section(id);
-    let get = |key: &str| sec.and_then(|s| s.get(key)).unwrap_or("").trim().to_string();
-    let multiplay = sec.and_then(|s| s.get("Multiplay")).map(parse_ini_bool_loose).unwrap_or(false);
-    let multiplay_obsolete = sec.and_then(|s| s.get("MultiplayObsolete")).map(parse_ini_bool_loose).unwrap_or(false);
+pub fn parse_country(view: LayeredIniView<'_>, list_index: u32, id: &str) -> CountryDef {
+    let get = |key: &str| {
+        view.get(id, key)
+            .map(|v| v.trimmed().raw.to_string())
+            .unwrap_or_default()
+    };
+    let multiplay = view.get(id, "Multiplay").map(|v| parse_ini_bool_loose(v.trimmed().raw)).unwrap_or(false);
+    let multiplay_obsolete = view
+        .get(id, "MultiplayObsolete")
+        .map(|v| parse_ini_bool_loose(v.trimmed().raw))
+        .unwrap_or(false);
     CountryDef {
         id: id.to_string(),
         list_index,
@@ -200,33 +217,48 @@ pub fn parse_country(rules: &IniDocument, list_index: u32, id: &str) -> CountryD
 /// 扫描顺序：步兵 → 飞行器 → 载具 → 建筑（与常见「特色兵种」优先级一致；同国多条时取先命中）。
 /// 未命中返回空串：调用方不得回退到写死表，装载页不画特色名即可。
 pub fn resolve_country_special_ui_name(rules: &IniDocument, country_id: &str) -> String {
+    let policy = IniMergePolicy::last_wins();
+    let docs = std::slice::from_ref(rules);
+    resolve_country_special_ui_name_layered(LayeredIniView::new(docs, &policy), country_id)
+}
+
+fn resolve_country_special_ui_name_layered(view: LayeredIniView<'_>, country_id: &str) -> String {
     for list in ["InfantryTypes", "AircraftTypes", "VehicleTypes", "BuildingTypes"] {
-        let Some(sec) = rules.section(list)
+        let Some(sec) = view.section(list)
         else {
             continue;
         };
-        for (_key, type_id) in sec.pairs() {
-            let type_id = type_id.trim();
-            if type_id.is_empty() {
-                continue;
-            }
-            let Some(techno) = rules.section(type_id)
+        for key in sec.keys() {
+            let Some(type_val) = sec.get(key)
             else {
                 continue;
             };
-            if !required_houses_is_exactly(techno.get("RequiredHouses").unwrap_or(""), country_id) {
+            let type_id = type_val.trimmed().raw;
+            if type_id.is_empty() {
+                continue;
+            }
+            let Some(techno) = view.section(type_id)
+            else {
+                continue;
+            };
+            let required = techno.get("RequiredHouses").map(|v| v.raw).unwrap_or("");
+            if !required_houses_is_exactly(required, country_id) {
                 continue;
             }
             // 建筑特色常是「空指部挂空降」：优先超武 UIName，避免画出建筑名。
             if list == "BuildingTypes" {
-                if let Some(sw) = techno.get("SuperWeapon").map(str::trim).filter(|s| !s.is_empty()) {
-                    if let Some(sw_ui) = rules.section(sw).and_then(|s| s.get("UIName")).map(str::trim).filter(|s| !s.is_empty()) {
-                        return sw_ui.to_string();
+                if let Some(sw) = techno.get("SuperWeapon").map(|v| v.trimmed().raw).filter(|s| !s.is_empty()) {
+                    if let Some(sw_ui) = view
+                        .get(sw, "UIName")
+                        .map(|v| v.trimmed().raw.to_string())
+                        .filter(|s| !s.is_empty())
+                    {
+                        return sw_ui;
                     }
                 }
             }
-            if let Some(ui) = techno.get("UIName").map(str::trim).filter(|s| !s.is_empty()) {
-                return ui.to_string();
+            if let Some(ui) = techno.get("UIName").map(|v| v.trimmed().raw.to_string()).filter(|s| !s.is_empty()) {
+                return ui;
             }
         }
     }
@@ -240,34 +272,63 @@ pub fn required_houses_is_exactly(raw: &str, country_id: &str) -> bool {
 }
 
 #[doc(hidden)]
-pub fn parse_sides(rules: &IniDocument) -> Vec<SideGroup> {
-    let Some(sec) = rules.section("Sides")
+pub fn parse_sides(view: LayeredIniView<'_>) -> Vec<SideGroup> {
+    let Some(sec) = view.section("Sides")
     else {
         return Vec::new();
     };
     let mut out = Vec::new();
-    for (key, value) in sec.pairs() {
+    for key in sec.keys() {
         let id = key.trim();
         if id.is_empty() {
             continue;
         }
-        let countries: Vec<String> = value.split(',').map(str::trim).filter(|s| !s.is_empty()).map(str::to_string).collect();
+        let Some(value) = sec.get(key)
+        else {
+            continue;
+        };
+        let countries: Vec<String> = value
+            .raw
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .collect();
         out.push(SideGroup { id: id.to_string(), countries });
     }
     out
 }
 
 #[doc(hidden)]
-pub fn parse_side_chromes(rules: &IniDocument, sides: &[SideGroup]) -> Vec<SideChromeDef> {
+pub fn parse_side_chromes(view: LayeredIniView<'_>, sides: &[SideGroup]) -> Vec<SideChromeDef> {
     let mut out = Vec::with_capacity(sides.len());
     for group in sides {
-        let sec = rules.section(&group.id);
-        let mix_file_index = sec.and_then(|s| s.get("Sidebar.MixFileIndex")).and_then(|v| v.trim().parse::<u32>().ok()).filter(|n| *n >= 1);
-        let yuri_file_names = sec.and_then(|s| s.get("Sidebar.YuriFileNames")).map(parse_ini_bool_loose).unwrap_or(false);
-        let score_background =
-            sec.and_then(|s| s.get("MultiplayerScore.Background")).map(str::trim).filter(|s| !s.is_empty()).map(str::to_string);
-        let score_palette = sec.and_then(|s| s.get("MultiplayerScore.Palette")).map(str::trim).filter(|s| !s.is_empty()).map(str::to_string);
-        let eva_tag = sec.and_then(|s| s.get("EVA.Tag")).map(str::trim).filter(|s| !s.is_empty()).map(str::to_string);
+        let sec: Option<LayeredSectionView<'_>> = view.section(&group.id);
+        let mix_file_index = sec
+            .as_ref()
+            .and_then(|s| s.get("Sidebar.MixFileIndex"))
+            .and_then(|v| v.trimmed().raw.parse::<u32>().ok())
+            .filter(|n| *n >= 1);
+        let yuri_file_names = sec
+            .as_ref()
+            .and_then(|s| s.get("Sidebar.YuriFileNames"))
+            .map(|v| parse_ini_bool_loose(v.trimmed().raw))
+            .unwrap_or(false);
+        let score_background = sec
+            .as_ref()
+            .and_then(|s| s.get("MultiplayerScore.Background"))
+            .map(|v| v.trimmed().raw.to_string())
+            .filter(|s| !s.is_empty());
+        let score_palette = sec
+            .as_ref()
+            .and_then(|s| s.get("MultiplayerScore.Palette"))
+            .map(|v| v.trimmed().raw.to_string())
+            .filter(|s| !s.is_empty());
+        let eva_tag = sec
+            .as_ref()
+            .and_then(|s| s.get("EVA.Tag"))
+            .map(|v| v.trimmed().raw.to_string())
+            .filter(|s| !s.is_empty());
         out.push(SideChromeDef {
             id: group.id.clone(),
             mix_file_index,
