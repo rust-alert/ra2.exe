@@ -5,7 +5,6 @@
 
 use std::sync::Arc;
 
-use ra_assets::TechnoKind;
 use ra_types::{EntityId, TechnoClass};
 
 use crate::{
@@ -133,13 +132,13 @@ impl BattleSession {
 
         let has_construction_yard = self.world.house_has_living_yard(house.as_ref());
         let has_power_plant = self.world.house_has_living_power(house.as_ref());
-        let has_infantry_factory = self.world.find_factory(house.as_ref(), TechnoKind::Infantry).is_some();
-        let has_vehicle_factory = self.world.find_factory(house.as_ref(), TechnoKind::Vehicle).is_some();
-        let has_aircraft_factory = self.world.find_factory(house.as_ref(), TechnoKind::Aircraft).is_some();
+        let has_infantry_factory = self.world.find_factory(house.as_ref(), TechnoClass::Infantry).is_some();
+        let has_vehicle_factory = self.world.find_factory(house.as_ref(), TechnoClass::Vehicle).is_some();
+        let has_aircraft_factory = self.world.find_factory(house.as_ref(), TechnoClass::Aircraft).is_some();
         let has_radar = self.world.house_has_living_radar(house.as_ref());
-        let infantry_idle = self.world.find_idle_factory(house.as_ref(), TechnoKind::Infantry).is_some();
-        let vehicle_idle = self.world.find_idle_factory(house.as_ref(), TechnoKind::Vehicle).is_some();
-        let aircraft_idle = self.world.find_idle_factory(house.as_ref(), TechnoKind::Aircraft).is_some();
+        let infantry_idle = self.world.find_idle_factory(house.as_ref(), TechnoClass::Infantry).is_some();
+        let vehicle_idle = self.world.find_idle_factory(house.as_ref(), TechnoClass::Vehicle).is_some();
+        let aircraft_idle = self.world.find_idle_factory(house.as_ref(), TechnoClass::Aircraft).is_some();
         let living = living_structure_keys(&self.world, house.as_ref());
 
         let deploy = selected.iter().find_map(|&id| self.project_deploy_cap(id));
@@ -282,7 +281,7 @@ pub fn project_build_items(
     has_power: bool,
 ) -> Vec<CapabilityItem> {
     let ready = world.house_ready_building(player.house);
-    let yard_idle = world.find_idle_factory(player.house, ra_assets::TechnoKind::Building).is_some();
+    let yard_idle = world.find_idle_factory(player.house, TechnoClass::Building).is_some();
     let mut items: Vec<CapabilityItem> = world
         .definitions
         .structures

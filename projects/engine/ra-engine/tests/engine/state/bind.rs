@@ -2,10 +2,11 @@
 
 use crate::common::{map_with_size, rules_with_mtnk};
 use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoKind, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{ATTACK_COOLDOWN_TICKS, BattleState};
 use ra_map::{MapEntity, MapEntityKind};
 use ra_types::GameEdition;
+use ra_types::TechnoClass;
 
 #[test]
 fn binds_strength_and_speed() {
@@ -34,7 +35,7 @@ fn binds_strength_and_speed() {
     assert_eq!(combat.attack_range, 6);
     assert_eq!(combat.attack_damage, 100);
     assert_eq!(combat.attack_cooldown_max, ATTACK_COOLDOWN_TICKS);
-    assert_eq!(combat.techno_kind, Some(TechnoKind::Vehicle));
+    assert_eq!(combat.techno_class, Some(TechnoClass::Vehicle));
     assert_eq!(world.bound_techno_count(), 1);
 }
 
@@ -61,7 +62,7 @@ fn unbound_techno_gets_zero_combat_stats() {
     assert_eq!(combat.attack_damage, 0);
     assert_eq!(combat.attack_cooldown_max, 0);
     assert_eq!(combat.attack_verses, [0; 11]);
-    assert!(combat.techno_kind.is_none());
+    assert!(combat.techno_class.is_none());
     assert_eq!(world.bound_techno_count(), 0);
 }
 

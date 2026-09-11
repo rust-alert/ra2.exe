@@ -10,6 +10,6 @@ impl BattleState {
     pub fn bound_techno_count(&self) -> usize {
         use crate::state::components::CombatStats;
 
-        self.entities.iter().filter(|e| self.ecs_get::<CombatStats>(e.id).and_then(|s| s.techno_kind).is_some()).count()
+        self.entities.iter().filter(|e| self.ecs_get::<CombatStats>(e.id).and_then(|s| s.techno_class).is_some()).count()
     }
 }

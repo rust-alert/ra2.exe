@@ -35,5 +35,5 @@ pub use super_weapon::{SuperWeaponDefinition, SuperWeaponDefinitions};
 pub use tech_tree::{HouseStolenTechMap, PrerequisiteGroups, StolenTechKind};
 pub use techno::{TechnoClass, TechnoDefinition, TechnoDefinitions};
 pub use type_definition::TypeDefinitionId;
-pub use warhead::{WarheadDefinition, WarheadDefinitions};
+pub use warhead::{ARMOR_ORDER, WarheadDefinition, WarheadDefinitions, armor_index};
 pub use weapon::WeaponDefinitions;

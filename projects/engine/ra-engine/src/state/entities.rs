@@ -5,9 +5,9 @@
 
 use std::sync::Arc;
 
-use ra_assets::TechnoKind;
 use ra_map::MapEntityKind;
 use ra_types::EntityId;
+use ra_types::TechnoClass;
 
 /// 实体的 ECS → 投影缓存（字段与组件对应，非权威存储）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,7 +47,7 @@ pub(crate) struct WorldEntity {
     /// 弹头对各护甲的伤害百分比。
     pub attack_verses: [u32; 11],
     /// 对应 techno 种类。
-    pub techno_kind: Option<TechnoKind>,
+    pub techno_class: Option<TechnoClass>,
     /// 移动目标格。
     pub target_x: Option<u16>,
     /// 移动目标格。
@@ -97,7 +97,7 @@ impl WorldEntity {
             attack_damage: 0,
             attack_cooldown_max: 0,
             attack_verses: [0; 11],
-            techno_kind: None,
+            techno_class: None,
             target_x: None,
             target_y: None,
             path: Vec::new(),
