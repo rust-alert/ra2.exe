@@ -1,10 +1,15 @@
 //! 护甲种类（与弹头 `Verses` 11 项顺序对齐）。
 
+use std::fmt;
+
+use serde::de::{self, Deserializer, Visitor};
+use serde::Deserialize;
+
 /// 护甲名在 `Verses` 列表中的固定顺序（11 项）。
 pub const ARMOR_ORDER: [&str; 11] =
     ["none", "flak", "plate", "light", "medium", "heavy", "wood", "steel", "concrete", "special_1", "special_2"];
 
-/// 护甲种类；装载期由 `Armor=` 解析，执行侧只认此枚举。
+/// 护甲种类；装载期由 `Armor=` **一次**解码，执行侧只认此枚举。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 #[repr(u8)]
 pub enum ArmorKind {
@@ -34,7 +39,7 @@ pub enum ArmorKind {
 }
 
 impl ArmorKind {
-    /// 解析 INI `Armor=`；未知回落 [`Self::None`]。
+    /// 解析 INI `Armor=` 文本；未知回落 [`Self::None`]。
     pub fn parse(raw: &str) -> Self {
         match raw.trim().to_ascii_lowercase().as_str() {
             "flak" => Self::Flak,
@@ -59,6 +64,53 @@ impl ArmorKind {
     /// 稳定字面量（诊断 / 快照）。
     pub const fn as_str(self) -> &'static str {
         ARMOR_ORDER[self as u8 as usize]
+    }
+}
+
+impl<'de> Deserialize<'de> for ArmorKind {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct ArmorVisitor;
+
+        impl<'de> Visitor<'de> for ArmorVisitor {
+            type Value = ArmorKind;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("Armor= kind name")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(ArmorKind::parse(v))
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(ArmorKind::parse(&v))
+            }
+
+            fn visit_none<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(ArmorKind::None)
+            }
+
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(ArmorKind::None)
+            }
+        }
+
+        deserializer.deserialize_any(ArmorVisitor)
     }
 }
 

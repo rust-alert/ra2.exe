@@ -4,10 +4,10 @@
 
 use ra_assets::TechnoKind;
 use ra_types::{
-    ArmorKind, BuildCat, BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, GameEdition, HouseAllowList,
-    PowerProfile, PrerequisiteGroups, PrerequisiteToken, ProductionCategory, ProductionProfile, RaResult, RuntimeDefinitions,
-    StolenTechKind, StructureDefinition, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId,
-    WeaponDefinition, WeaponId,
+    BuildCat, BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, GameEdition, HouseAllowList, PowerProfile,
+    PrerequisiteGroups, PrerequisiteToken, ProductionCategory, ProductionProfile, RaResult, RuntimeDefinitions, StolenTechKind,
+    StructureDefinition, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WeaponDefinition,
+    WeaponId,
 };
 use std::collections::HashMap;
 
@@ -90,7 +90,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             class,
             cost: tt.cost as i32,
             strength: tt.strength,
-            armor: ArmorKind::parse(&tt.armor),
+            armor: tt.armor,
             speed: tt.speed,
             owner: HouseAllowList::parse_owner(&tt.owner),
             tech_level: tt.tech_level,
@@ -203,7 +203,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             power: PowerProfile { output, drain, requires_power: powered },
             cost: tt.cost as i32,
             strength: tt.strength.max(1),
-            armor: ArmorKind::parse(&tt.armor),
+            armor: tt.armor,
             construction_yard,
             refinery,
             radar,

@@ -15,6 +15,7 @@ fn parse_vehicle_list() {
     assert_eq!(reg.count_kind(TechnoKind::Vehicle), 2);
     let m = reg.get("mtnk").unwrap();
     assert_eq!(m.strength, 300);
+    assert_eq!(m.armor, ra_types::ArmorKind::Heavy);
     assert_eq!(m.speed, 6);
     assert_eq!(m.cost, 800);
     assert_eq!(m.image, "MTNK");
@@ -23,6 +24,20 @@ fn parse_vehicle_list() {
     assert_eq!(m.range, 0);
     assert!(m.primary.is_empty());
     assert_eq!(reg.get("htnk").unwrap().rof, 0);
+}
+
+#[test]
+fn missing_armor_defaults_to_none() {
+    let doc = IniDocument::parse(b"[VehicleTypes]\n0=MTNK\n[MTNK]\nStrength=100\n").unwrap();
+    let reg = TechnoTypeRegistry::from_rules(&doc);
+    assert_eq!(reg.get("MTNK").unwrap().armor, ra_types::ArmorKind::None);
+}
+
+#[test]
+fn unknown_armor_falls_back_to_none() {
+    let doc = IniDocument::parse(b"[VehicleTypes]\n0=MTNK\n[MTNK]\nArmor=not-a-kind\n").unwrap();
+    let reg = TechnoTypeRegistry::from_rules(&doc);
+    assert_eq!(reg.get("MTNK").unwrap().armor, ra_types::ArmorKind::None);
 }
 
 #[test]

@@ -15,8 +15,8 @@ pub struct TechnoType {
     pub kind: TechnoKind,
     /// `Strength` 生命值。
     pub strength: u32,
-    /// `Armor` 护甲名。
-    pub armor: String,
+    /// `Armor` 护甲种类（装载期一次解码）。
+    pub armor: ra_types::ArmorKind,
     /// `Speed` 移动速度。
     pub speed: u32,
     /// `Sight` 视野。
@@ -211,8 +211,8 @@ impl TechnoTypeRegistry {
 struct TechnoSectionFields {
     #[serde(rename = "Strength")]
     strength: Option<u32>,
-    #[serde(rename = "Armor")]
-    armor: Option<String>,
+    #[serde(rename = "Armor", default)]
+    armor: ra_types::ArmorKind,
     #[serde(rename = "Speed")]
     speed: Option<u32>,
     #[serde(rename = "Sight")]
@@ -327,7 +327,7 @@ fn parse_techno(view: LayeredIniView<'_>, id: &str, kind: TechnoKind) -> Option<
         id: id.to_string(),
         kind,
         strength: fields.strength.unwrap_or(1),
-        armor: fields.armor.unwrap_or_else(|| "none".into()),
+        armor: fields.armor,
         speed: fields.speed.unwrap_or(0),
         sight: fields.sight.unwrap_or(0),
         cost: fields.cost.unwrap_or(0),
