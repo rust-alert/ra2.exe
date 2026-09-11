@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
+use ra_types::{WarheadName, WeaponName};
 
 /// 步兵 / 载具 / 飞行器 / 建筑的共用类型字段。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,7 +41,7 @@ pub struct TechnoType {
     /// `Harvester=yes`（采矿车）。
     pub harvester: bool,
     /// 主武器名（`Primary`）；空表示未配置。
-    pub primary: String,
+    pub primary: WeaponName,
     /// 主武器伤害（来自武器节 `Damage`）；0 表示未配置。
     pub damage: u32,
     /// 主武器射程（来自武器节 `Range`，格）；0 表示未配置。
@@ -48,7 +49,7 @@ pub struct TechnoType {
     /// 射速间隔（tick）；优先武器节 `ROF`，否则类型节；0 表示未配置。
     pub rof: u32,
     /// 主武器弹头名（武器节 `Warhead`）；空表示未配置。
-    pub warhead: String,
+    pub warhead: WarheadName,
     /// `Prerequisite` token（大写）。
     pub prerequisite: Vec<String>,
     /// `PrerequisiteOverride` token（大写）。
@@ -235,8 +236,8 @@ struct TechnoSectionFields {
     engineer: Option<bool>,
     #[serde(rename = "Harvester")]
     harvester: Option<bool>,
-    #[serde(rename = "Primary")]
-    primary: Option<String>,
+    #[serde(rename = "Primary", default)]
+    primary: WeaponName,
     #[serde(rename = "ROF")]
     rof: Option<u32>,
     #[serde(rename = "Prerequisite", default)]
@@ -294,8 +295,8 @@ struct WeaponSectionFields {
     range: Option<u32>,
     #[serde(rename = "ROF")]
     rof: Option<u32>,
-    #[serde(rename = "Warhead")]
-    warhead: Option<String>,
+    #[serde(rename = "Warhead", default)]
+    warhead: WarheadName,
 }
 
 fn uppercase_tokens(items: Vec<String>) -> Vec<String> {
@@ -309,12 +310,7 @@ fn uppercase_tokens(items: Vec<String>) -> Vec<String> {
 fn parse_techno(view: LayeredIniView<'_>, id: &str, kind: TechnoKind) -> Option<TechnoType> {
     let section = view.section(id)?;
     let fields: TechnoSectionFields = section.deserialize().ok()?;
-    let primary = fields
-        .primary
-        .as_deref()
-        .unwrap_or("")
-        .trim()
-        .to_ascii_uppercase();
+    let primary = fields.primary;
     let techno_rof = fields.rof.unwrap_or(0);
     let (damage, range, rof, warhead) = resolve_primary_weapon(view, &primary, techno_rof);
     let image = fields
@@ -400,25 +396,19 @@ fn art_geometry_string(art: LayeredIniView<'_>, type_key: &str, key: &str) -> Op
 }
 
 /// 从 `Primary` 武器节读取伤害 / 射程 / ROF / 弹头；缺省时保留类型节 ROF。
-fn resolve_primary_weapon(view: LayeredIniView<'_>, primary: &str, techno_rof: u32) -> (u32, u32, u32, String) {
+fn resolve_primary_weapon(view: LayeredIniView<'_>, primary: &WeaponName, techno_rof: u32) -> (u32, u32, u32, WarheadName) {
     if primary.is_empty() {
-        return (0, 0, techno_rof, String::new());
+        return (0, 0, techno_rof, WarheadName::default());
     }
-    let Some(section) = view.section(primary)
+    let Some(section) = view.section(primary.as_str())
     else {
-        return (0, 0, techno_rof, String::new());
+        return (0, 0, techno_rof, WarheadName::default());
     };
     let Ok(w) = section.deserialize::<WeaponSectionFields>()
     else {
-        return (0, 0, techno_rof, String::new());
+        return (0, 0, techno_rof, WarheadName::default());
     };
     let weapon_rof = w.rof.unwrap_or(0);
     let rof = if weapon_rof > 0 { weapon_rof } else { techno_rof };
-    let warhead = w
-        .warhead
-        .as_deref()
-        .unwrap_or("")
-        .trim()
-        .to_ascii_uppercase();
-    (w.damage.unwrap_or(0), w.range.unwrap_or(0), rof, warhead)
+    (w.damage.unwrap_or(0), w.range.unwrap_or(0), rof, w.warhead)
 }

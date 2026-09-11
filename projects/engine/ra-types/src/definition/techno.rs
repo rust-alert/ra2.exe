@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::id::{TypeId, WarheadId, WeaponId};
 
-use super::{ArmorKind, HouseAllowList, PrerequisiteToken, ProductionCategory};
+use super::{ArmorKind, HouseAllowList, PrerequisiteToken, ProductionCategory, WarheadName, WeaponName};
 
 /// Techno 大类（与内容列表节对应）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -64,12 +64,12 @@ pub struct TechnoDefinition {
     pub category: String,
     /// 视野（格）；主武器 `Range=0` 时攻击射程回退用。
     pub sight: u32,
-    /// 主武器键（`Primary`）；空表示未配置。
-    pub primary: String,
+    /// 主武器名（`Primary`）；空表示未配置。
+    pub primary: WeaponName,
     /// 主武器稳定 id；`WeaponId(0)` 表示未绑定。
     pub primary_id: WeaponId,
-    /// 主武器弹头键；空表示未配置（装载诊断 / 兼容；执行侧优先 `warhead_id`）。
-    pub warhead: String,
+    /// 主武器弹头名；空表示未配置（装载诊断 / 兼容；执行侧优先 `warhead_id`）。
+    pub warhead: WarheadName,
     /// 主武器弹头稳定 id；`WarheadId(0)` 表示未绑定。
     pub warhead_id: WarheadId,
     /// `Prerequisite`：装载期绑定后的 token 列表；空 = 无前置。

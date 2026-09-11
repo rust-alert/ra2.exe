@@ -6,8 +6,8 @@ use ra_assets::TechnoKind;
 use ra_types::{
     BuildCat, BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, GameEdition, HouseAllowList, PowerProfile,
     PrerequisiteGroups, PrerequisiteToken, ProductionCategory, ProductionProfile, RaResult, RuntimeDefinitions, StolenTechKind,
-    StructureDefinition, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WeaponDefinition,
-    WeaponId,
+    StructureDefinition, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WarheadName,
+    WeaponDefinition, WeaponId,
 };
 use std::collections::HashMap;
 
@@ -102,7 +102,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             sight: tt.sight,
             primary: tt.primary.clone(),
             primary_id: WeaponId(0),
-            warhead: tt.warhead.to_ascii_uppercase(),
+            warhead: tt.warhead.clone(),
             warhead_id: WarheadId(0),
             prerequisite: tt.prerequisite.iter().filter_map(|s| PrerequisiteToken::parse_raw(s)).collect(),
             prerequisite_override: tt.prerequisite_override.iter().filter_map(|s| PrerequisiteToken::parse_raw(s)).collect(),
@@ -251,7 +251,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
 
     // 武器表：按 techno `Primary` 与超武 `Weapon=` 去重投影，再绑弹头 id。
     for tt in rules.techno_types.iter() {
-        let key = tt.primary.trim().to_ascii_uppercase();
+        let key = tt.primary.as_str().to_string();
         if key.is_empty() || defs.weapons.get(&key).is_some() {
             continue;
         }
@@ -262,7 +262,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             damage: tt.damage,
             range: tt.range,
             rof: tt.rof,
-            warhead: tt.warhead.to_ascii_uppercase(),
+            warhead: tt.warhead.clone(),
             warhead_id: WarheadId(0),
         });
     }
@@ -278,44 +278,48 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             damage: sw.weapon_damage,
             range: sw.weapon_range,
             rof: sw.weapon_rof,
-            warhead: sw.weapon_warhead.clone(),
+            warhead: WarheadName::parse(&sw.weapon_warhead),
             warhead_id: WarheadId(0),
         });
     }
 
-    let mut warhead_keys: Vec<String> = defs
+    let mut warhead_keys: Vec<WarheadName> = defs
         .weapons
         .iter()
         .map(|w| w.warhead.clone())
         .chain(defs.techno.iter().map(|t| t.warhead.clone()))
         .filter(|w| !w.is_empty())
         .collect();
-    warhead_keys.sort();
+    warhead_keys.sort_by(|a, b| a.as_str().cmp(b.as_str()));
     warhead_keys.dedup();
     for key in warhead_keys {
-        let verses = rules.warheads.get(&key).map(|w| w.verses).unwrap_or_default();
+        let verses = rules.warheads.get(key.as_str()).map(|w| w.verses).unwrap_or_default();
         let id = alloc_warhead();
-        defs.warheads.insert(WarheadDefinition { id, type_key: key, verses });
+        defs.warheads.insert(WarheadDefinition {
+            id,
+            type_key: key.as_str().to_string(),
+            verses,
+        });
     }
     for weapon in defs.weapons.iter_mut() {
         weapon.warhead_id = if weapon.warhead.is_empty() {
             WarheadId(0)
         } else {
-            defs.warheads.get(&weapon.warhead).map(|w| w.id).unwrap_or(WarheadId(0))
+            defs.warheads.get(weapon.warhead.as_str()).map(|w| w.id).unwrap_or(WarheadId(0))
         };
     }
     for techno in defs.techno.iter_mut() {
         techno.primary_id = if techno.primary.is_empty() {
             WeaponId(0)
         } else {
-            defs.weapons.get(&techno.primary).map(|w| w.id).unwrap_or(WeaponId(0))
+            defs.weapons.get(techno.primary.as_str()).map(|w| w.id).unwrap_or(WeaponId(0))
         };
         techno.warhead_id = if let Some(w) = defs.weapons.get_by_id(techno.primary_id) {
             w.warhead_id
         } else if techno.warhead.is_empty() {
             WarheadId(0)
         } else {
-            defs.warheads.get(&techno.warhead).map(|w| w.id).unwrap_or(WarheadId(0))
+            defs.warheads.get(techno.warhead.as_str()).map(|w| w.id).unwrap_or(WarheadId(0))
         };
     }
     for sw in defs.super_weapons.iter_mut() {
