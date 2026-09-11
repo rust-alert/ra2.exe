@@ -1,10 +1,9 @@
-//! 遭遇战 / 战役装载：规则 → `BattleState` → `BattleSession` → `Session`。
+//! 遭遇战 / 战役装载：冻结定义 → `BattleState` → `BattleSession` → `Session`。
 
 use std::sync::Arc;
 
-use ra_adaptor::{ResourceChain, RulesSystem, build_runtime_definitions};
 use ra_map::{MapEntityKind, MapInfo, apply_overlay_land_to_pass_grid, seal_pass_grid_from_tmp, skirmish_start_waypoint};
-use ra_types::{AssetSource, RaResult};
+use ra_types::{AssetSource, GameEdition, RaResult, RuntimeDefinitions};
 
 use crate::{
     engine::{Engine, EngineConfig},
@@ -25,17 +24,19 @@ pub struct SkirmishOpenResult {
     pub note: String,
 }
 
-/// 从已装载的 `RulesSystem` 与地图打开一局遭遇战会话。
+/// 从冻结定义与地图打开一局遭遇战会话。
 ///
 /// - `preferred_house` 若给出，则登记到玩家表并设为本地玩家；登记后仍匹配失败则报错（禁止静默改用其它阵营）。
 /// - `ensure_houses` 中的阵营一律登记进玩家表（遭遇战对手不一定出现在地图放置段）。
 /// - 每个 `ensure_houses[slot]` 在地图航点 `slot` 放置该 house 的开局 MCV；航点缺失或格子非法时失败。
 /// - 地图预放的机动单位（步兵 / 载具 / 飞行器）不进入仿真，仅保留建筑；避免无工厂时 AI 驱赶预放部队。
 /// - `match_seed` 混入对局指纹，供后续确定性 RNG 使用。
+/// - `rules_ini` 为资源链中规则文件逻辑路径，仅用于读取对局指纹字节。
 pub fn open_skirmish_session(
     source: &dyn AssetSource,
-    chain: &ResourceChain,
-    rules: &RulesSystem,
+    edition: GameEdition,
+    rules_ini: &str,
+    definitions: Arc<RuntimeDefinitions>,
     mut map: MapInfo,
     mut note: String,
     preview_origin: (i32, i32),
@@ -44,10 +45,9 @@ pub fn open_skirmish_session(
     match_seed: u64,
 ) -> RaResult<SkirmishOpenResult> {
     note = format!(
-        "{note} · rules#{} · overlay_types#{} · techno_types#{} · seed={:#x}",
-        rules.rules.sections.len(),
-        rules.overlay_types.len(),
-        rules.techno_types.len(),
+        "{note} · overlays#{} · techno#{} · seed={:#x}",
+        definitions.overlays.len(),
+        definitions.techno.len(),
         match_seed
     );
 
@@ -58,8 +58,9 @@ pub fn open_skirmish_session(
 
     open_session_common(
         source,
-        chain,
-        rules,
+        edition,
+        rules_ini,
+        definitions,
         map,
         note,
         preview_origin,
@@ -71,7 +72,7 @@ pub fn open_skirmish_session(
     )
 }
 
-/// 从已装载的 `RulesSystem` 与地图打开一局战役会话。
+/// 从冻结定义与地图打开一局战役会话。
 ///
 /// 与遭遇战的差异：
 /// - **保留**地图预放步兵 / 载具 / 飞行器（不剥机动）。
@@ -79,8 +80,9 @@ pub fn open_skirmish_session(
 /// - `BattleSession` 标记为 [`SessionBootKind::Campaign`]（胜负由触发器驱动，不用遭遇战 sole victor）。
 pub fn open_campaign_session(
     source: &dyn AssetSource,
-    chain: &ResourceChain,
-    rules: &RulesSystem,
+    edition: GameEdition,
+    rules_ini: &str,
+    definitions: Arc<RuntimeDefinitions>,
     map: MapInfo,
     mut note: String,
     preview_origin: (i32, i32),
@@ -89,18 +91,18 @@ pub fn open_campaign_session(
     match_seed: u64,
 ) -> RaResult<SkirmishOpenResult> {
     note = format!(
-        "{note} · campaign · rules#{} · overlay_types#{} · techno_types#{} · seed={:#x} · preplaced#{}",
-        rules.rules.sections.len(),
-        rules.overlay_types.len(),
-        rules.techno_types.len(),
+        "{note} · campaign · overlays#{} · techno#{} · seed={:#x} · preplaced#{}",
+        definitions.overlays.len(),
+        definitions.techno.len(),
         match_seed,
         map.entities.len()
     );
 
     open_session_common(
         source,
-        chain,
-        rules,
+        edition,
+        rules_ini,
+        definitions,
         map,
         note,
         preview_origin,
@@ -114,8 +116,9 @@ pub fn open_campaign_session(
 
 fn open_session_common(
     source: &dyn AssetSource,
-    chain: &ResourceChain,
-    rules: &RulesSystem,
+    edition: GameEdition,
+    rules_ini: &str,
+    definitions: Arc<RuntimeDefinitions>,
     map: MapInfo,
     mut note: String,
     preview_origin: (i32, i32),
@@ -125,7 +128,7 @@ fn open_session_common(
     boot_kind: SessionBootKind,
     seed_skirmish_mcv: bool,
 ) -> RaResult<SkirmishOpenResult> {
-    let mut state = BattleState::new(chain.edition, Arc::new(build_runtime_definitions(rules)), map);
+    let mut state = BattleState::new(edition, definitions, map);
     for house in ensure_houses {
         if !house.is_empty() {
             state.ensure_house(house);
@@ -173,13 +176,13 @@ fn open_session_common(
     );
 
     let rules_bytes = source
-        .read(chain.rules_ini)
-        .map_err(|e| ra_types::RaError::Msg(format!("无法读取规则文件 {} 以生成对局指纹: {e}", chain.rules_ini)))?;
+        .read(rules_ini)
+        .map_err(|e| ra_types::RaError::Msg(format!("无法读取规则文件 {rules_ini} 以生成对局指纹: {e}")))?;
     if rules_bytes.is_empty() {
-        return Err(ra_types::RaError::Msg(format!("规则文件 {} 为空，拒绝用空字节生成对局指纹", chain.rules_ini)));
+        return Err(ra_types::RaError::Msg(format!("规则文件 {rules_ini} 为空，拒绝用空字节生成对局指纹")));
     }
     let fingerprint = BattleSession::build_skirmish_fingerprint(
-        chain.edition.as_str(),
+        edition.as_str(),
         &state.map.name,
         &rules_bytes,
         state.map.width,
