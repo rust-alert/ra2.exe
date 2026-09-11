@@ -60,7 +60,7 @@ fn verses_scales_damage_against_armor() {
     let mut world = battle_from_rules(&rules, map);
     assert_eq!(world.ecs_combat_view(world.entity_id_at(0).expect("entity")).expect("combat").attack_damage, 100);
     assert_eq!(world.ecs_combat_view(world.entity_id_at(0).expect("entity")).expect("combat").attack_verses[5], 50);
-    assert_eq!(world.ecs_combat_view(world.entity_id_at(1).expect("entity")).expect("combat").armor, "heavy");
+    assert_eq!(world.ecs_combat_view(world.entity_id_at(1).expect("entity")).expect("combat").armor, ra_types::ArmorKind::Heavy);
     world.push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     world.advance_tick();
     // 100 * 50% = 50

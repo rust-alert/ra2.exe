@@ -14,7 +14,7 @@ fn sample(build_time: u32) -> TechnoDefinition {
         class: TechnoClass::Infantry,
         cost: 200,
         strength: 125,
-        armor: "none".into(),
+        armor: ra_types::ArmorKind::None,
         speed: 4,
         owner: "Americans".into(),
         tech_level: 1,

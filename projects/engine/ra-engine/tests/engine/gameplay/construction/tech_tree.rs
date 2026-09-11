@@ -145,7 +145,7 @@ fn techno(key: &str, class: TechnoClass, owner: &str, tech_level: i32, prerequis
         class,
         cost: 100,
         strength: 100,
-        armor: "none".into(),
+        armor: ra_types::ArmorKind::None,
         speed: 0,
         owner: owner.into(),
         tech_level,

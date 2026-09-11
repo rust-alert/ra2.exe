@@ -147,7 +147,7 @@ impl crate::state::BattleState {
             locomotor: Locomotor { speed: tt.speed },
             movement: MovementState { destination_x: None, destination_y: None, waypoints: Vec::new(), path: Vec::new(), move_accum: 0 },
             combat: CombatStats {
-                armor: tt.armor.clone(),
+                armor: tt.armor,
                 attack_range,
                 attack_damage,
                 attack_cooldown_max,

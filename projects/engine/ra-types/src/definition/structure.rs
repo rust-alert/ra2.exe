@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::id::TypeId;
 
-use super::{BuiltinCapability, Foundation, ProductionProfile};
+use super::{ArmorKind, BuiltinCapability, Foundation, ProductionProfile};
 
 /// 建造栏分类（INI `BuildCat=`）。
 ///
@@ -67,8 +67,8 @@ pub struct StructureDefinition {
     pub cost: i32,
     /// 生命上限。
     pub strength: u32,
-    /// 护甲名。
-    pub armor: String,
+    /// 护甲种类（装载期由 `Armor=` 绑定）。
+    pub armor: ArmorKind,
     /// 是否建造场。
     pub construction_yard: bool,
     /// 是否矿场。

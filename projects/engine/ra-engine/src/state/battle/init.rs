@@ -43,7 +43,7 @@ impl BattleState {
                 .map(|w| if w.rof > 0 { w.rof } else { ATTACK_COOLDOWN_TICKS })
                 .or_else(|| tt.map(|t| if t.rof > 0 { t.rof } else { ATTACK_COOLDOWN_TICKS }))
                 .unwrap_or(0);
-            let armor = tt.map(|t| t.armor.clone()).unwrap_or_else(|| "none".into());
+            let armor = tt.map(|t| t.armor).unwrap_or(ra_types::ArmorKind::None);
             let warhead_id = weapon.map(|w| w.warhead_id).or_else(|| tt.map(|t| t.warhead_id)).unwrap_or(ra_types::WarheadId(0));
             let attack_verses = if tt.is_some() {
                 verses_for(&definitions, warhead_id)
@@ -189,7 +189,7 @@ impl BattleState {
         }
         let max_health = tt.strength.max(1);
         let speed = tt.speed;
-        let armor = tt.armor.clone();
+        let armor = tt.armor;
         let weapon = self.definitions.weapons.get_by_id(tt.primary_id);
         let class = tt.class;
         let attack_range = weapon

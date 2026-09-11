@@ -28,7 +28,7 @@ impl BattleState {
             let attack = self.ecs_get::<AttackState>(id).copied();
             let anim = self.ecs_get::<AnimationState>(id).copied();
             let harvester = self.ecs_get::<HarvesterState>(id).copied();
-            let armor = self.ecs_get::<CombatStats>(id).map(|s| s.armor.clone()).unwrap_or_default();
+            let armor = self.ecs_get::<CombatStats>(id).map(|s| s.armor).unwrap_or_default();
             let attack_verses = self.ecs_get::<CombatStats>(id).map(|s| s.attack_verses).unwrap_or([0; 11]);
             let attack_range = self.ecs_get::<CombatStats>(id).map(|s| s.attack_range).unwrap_or(0);
             let attack_damage = self.ecs_get::<CombatStats>(id).map(|s| s.attack_damage).unwrap_or(0);
@@ -75,7 +75,7 @@ impl BattleState {
                 .wrapping_add(u64::from(ore_cargo) << 12)
                 .wrapping_add(u64::from(hit_flash) << 16)
                 .wrapping_add(attack_target.map(|tid| tid.0).unwrap_or(0) << 32);
-            for b in armor.as_bytes() {
+            for b in armor.as_str().as_bytes() {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
             }
             for v in attack_verses {

@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::id::{TypeId, WarheadId, WeaponId};
 
-use super::ProductionCategory;
+use super::{ArmorKind, ProductionCategory};
 
 /// Techno 大类（与内容列表节对应）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -44,8 +44,8 @@ pub struct TechnoDefinition {
     pub cost: i32,
     /// 生命。
     pub strength: u32,
-    /// 护甲。
-    pub armor: String,
+    /// 护甲种类（装载期由 `Armor=` 绑定）。
+    pub armor: ArmorKind,
     /// 速度。
     pub speed: u32,
     /// Owner 串。

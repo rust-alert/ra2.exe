@@ -132,7 +132,7 @@ impl BattleState {
     pub fn ecs_combat_view(&self, id: EntityId) -> Option<EcsCombatView> {
         let stats = self.ecs_get::<crate::state::components::CombatStats>(id)?;
         Some(EcsCombatView {
-            armor: stats.armor.clone(),
+            armor: stats.armor,
             attack_range: stats.attack_range,
             attack_damage: stats.attack_damage,
             attack_cooldown_max: stats.attack_cooldown_max,

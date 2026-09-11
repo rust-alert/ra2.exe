@@ -21,7 +21,7 @@ mod vga_expand;
 pub use asset_source::AssetSource;
 pub use command::{CommandBody, CommandId, CommandKind, CommandTarget, ScheduledCommand};
 pub use definition::{
-    ARMOR_ORDER, AnimationDefinitions, BuildCat, BuiltinCapability, CapabilitySet, ContentFingerprint, DeployableDefinition,
+    ARMOR_ORDER, AnimationDefinitions, ArmorKind, BuildCat, BuiltinCapability, CapabilitySet, ContentFingerprint, DeployableDefinition,
     DeployableDefinitions, DeploymentPlacement, Foundation, HouseDefinitions, HouseStolenTechMap, LocomotorDefinitions, OverlayTypeRegistry,
     PowerProfile, PrerequisiteGroups, ProductionCategory, ProductionDefinitions, ProductionProfile, RuntimeDefinitions, SoundDefinitions,
     StolenTechKind, StructureDefinition, StructureDefinitions, SuperWeaponDefinition, SuperWeaponDefinitions, TechnoClass, TechnoDefinition,

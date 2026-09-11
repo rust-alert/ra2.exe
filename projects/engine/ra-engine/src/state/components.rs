@@ -5,8 +5,7 @@
 use std::sync::Arc;
 
 use ra_map::MapEntityKind;
-use ra_types::EntityId;
-use ra_types::TechnoClass;
+use ra_types::{ArmorKind, EntityId, TechnoClass};
 
 /// 稳定身份与内容类型引用。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -87,8 +86,8 @@ pub struct MovementState {
 /// 武器与护甲的静态战斗参数（定义播种，对局中很少改）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CombatStats {
-    /// 护甲名。
-    pub armor: String,
+    /// 护甲种类。
+    pub armor: ArmorKind,
     /// 攻击射程。
     pub attack_range: u32,
     /// 单次基础伤害。

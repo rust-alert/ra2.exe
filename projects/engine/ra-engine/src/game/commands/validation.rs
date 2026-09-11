@@ -187,7 +187,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::CannotDeploy);
                         continue;
                     };
-                    let armor = self.definitions.techno.get(building_type).map(|t| t.armor.clone()).unwrap_or_else(|| "none".into());
+                    let armor = self.definitions.techno.get(building_type).map(|t| t.armor).unwrap_or(ra_types::ArmorKind::None);
                     let building_type = Arc::<str>::from(building_type);
                     let _ = self.with_identity_mut(dirty_id, |identity| {
                         identity.kind = MapEntityKind::Structure;
@@ -302,7 +302,7 @@ impl crate::state::BattleState {
                         continue;
                     }
                     let max_health = tt.strength.max(1);
-                    let armor = tt.armor.clone();
+                    let armor = tt.armor;
                     let _ = self.with_production_mut(yard_id, |queue| {
                         queue.ready = None;
                     });

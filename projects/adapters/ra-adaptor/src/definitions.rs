@@ -4,9 +4,9 @@
 
 use ra_assets::TechnoKind;
 use ra_types::{
-    BuildCat, BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, PowerProfile, PrerequisiteGroups, ProductionCategory,
-    ProductionProfile, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId,
-    WarheadDefinition, WarheadId, WeaponDefinition, WeaponId,
+    ArmorKind, BuildCat, BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, PowerProfile, PrerequisiteGroups,
+    ProductionCategory, ProductionProfile, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition, TechnoClass,
+    TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WeaponDefinition, WeaponId,
 };
 
 use crate::RulesSystem;
@@ -87,7 +87,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             class,
             cost: tt.cost as i32,
             strength: tt.strength,
-            armor: tt.armor.clone(),
+            armor: ArmorKind::parse(&tt.armor),
             speed: tt.speed,
             owner: tt.owner.clone(),
             tech_level: tt.tech_level,
@@ -203,7 +203,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             power: PowerProfile { output, drain, requires_power: powered },
             cost: tt.cost as i32,
             strength: tt.strength.max(1),
-            armor: tt.armor.clone(),
+            armor: ArmorKind::parse(&tt.armor),
             construction_yard,
             refinery,
             radar,

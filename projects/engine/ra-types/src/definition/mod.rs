@@ -5,6 +5,7 @@
 //! 禁止在引擎内按外部内容名（如 GAPOWR）做玩法分支。
 
 mod animation;
+mod armor;
 mod capability;
 mod deployable;
 mod fingerprint;
@@ -24,6 +25,7 @@ mod warhead;
 mod weapon;
 
 pub use animation::AnimationDefinitions;
+pub use armor::{ARMOR_ORDER, ArmorKind, armor_index};
 pub use capability::{BuiltinCapability, CapabilitySet};
 pub use deployable::{DeployableDefinition, DeployableDefinitions, DeploymentPlacement};
 pub use fingerprint::ContentFingerprint;
@@ -39,5 +41,5 @@ pub use tech_tree::{HouseStolenTechMap, PrerequisiteGroups, StolenTechKind};
 pub use techno::{TechnoClass, TechnoDefinition, TechnoDefinitions};
 pub use terrain_spawner::{TerrainSpawnerDefinition, TerrainSpawnerDefinitions};
 pub use type_definition::TypeDefinitionId;
-pub use warhead::{ARMOR_ORDER, WarheadDefinition, WarheadDefinitions, armor_index};
+pub use warhead::{WarheadDefinition, WarheadDefinitions};
 pub use weapon::{WeaponDefinition, WeaponDefinitions};
