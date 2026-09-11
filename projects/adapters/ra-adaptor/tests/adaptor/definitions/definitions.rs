@@ -75,8 +75,11 @@ fn build_runtime_definitions_parses_super_weapon_types_and_building_link() {
     assert_eq!(sw.recharge_time, 10);
     assert_eq!(sw.sidebar_image, "SSWLSICON");
     assert_eq!(defs.structures.get("GATECH").and_then(|s| s.super_weapon.as_deref()), Some("LIGHTNINGSTORM"));
+    let gatech = defs.structures.get("GATECH").expect("tech");
+    let sw_id = gatech.super_weapon_id.expect("bound SW id");
+    assert_eq!(defs.super_weapons.get_by_id(sw_id).map(|d| d.type_key.as_str()), Some("LIGHTNINGSTORM"));
     assert!(defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon));
-    assert!(defs.structures.get("GATECH").expect("tech").capabilities.contains(&BuiltinCapability::SuperWeapon));
+    assert!(gatech.capabilities.contains(&BuiltinCapability::SuperWeapon));
 }
 
 #[test]

@@ -181,6 +181,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         } else {
             Some(tt.super_weapon.clone())
         };
+        let super_weapon_id = super_weapon.as_ref().and_then(|k| defs.super_weapons.get(k).map(|sw| sw.id));
         if super_weapon.is_some() {
             capabilities.push(BuiltinCapability::SuperWeapon);
             if !defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon) {
@@ -213,6 +214,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             foundation,
             height,
             super_weapon,
+            super_weapon_id,
             capabilities,
         });
     }

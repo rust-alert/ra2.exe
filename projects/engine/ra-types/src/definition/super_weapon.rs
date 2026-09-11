@@ -42,6 +42,11 @@ impl SuperWeaponDefinitions {
         self.by_key.get(&type_key.to_ascii_uppercase())
     }
 
+    /// 按稳定 id 查找。
+    pub fn get_by_id(&self, id: TypeId) -> Option<&SuperWeaponDefinition> {
+        self.by_key.values().find(|d| d.id == id)
+    }
+
     /// 条目数。
     pub fn len(&self) -> usize {
         self.by_key.len()
