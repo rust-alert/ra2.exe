@@ -2,10 +2,10 @@
 
 use std::collections::BTreeMap;
 
-use crate::id::{WarheadId, WeaponId};
+use crate::id::{ProjectileId, WarheadId, WeaponId};
 
-use super::WarheadName;
 use super::ProjectileName;
+use super::WarheadName;
 
 /// 单条武器静态定义（由 techno `Primary` / 超武 `Weapon=` 等引用）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,6 +26,8 @@ pub struct WeaponDefinition {
     pub warhead_id: WarheadId,
     /// 抛射体名（`Projectile=`）；空表示未配置。
     pub projectile: ProjectileName,
+    /// 抛射体稳定 id；`ProjectileId(0)` 表示未绑定。
+    pub projectile_id: ProjectileId,
 }
 
 /// 武器定义表。
@@ -61,12 +63,12 @@ impl WeaponDefinitions {
     }
 
     /// 遍历。
-    pub fn iter(&self) -> impl Iterator<Item = &WeaponDefinition> {
+    pub fn iter(&self) -> impl Iterator<Item=&WeaponDefinition> {
         self.by_key.values()
     }
 
     /// 可变遍历（装载投影回填引用 id）。
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut WeaponDefinition> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item=&mut WeaponDefinition> {
         self.by_key.values_mut()
     }
 }

@@ -156,11 +156,28 @@ fn build_runtime_definitions_binds_primary_weapon_and_warhead_ids() {
     assert_eq!(weapon.rof, 8);
     assert_eq!(weapon.warhead_id, mtnk.warhead_id);
     assert!(weapon.projectile.is_empty());
+    assert_eq!(weapon.projectile_id, ra_types::ProjectileId(0));
     let wh = defs.warheads.get_by_id(mtnk.warhead_id).expect("bound warhead");
     assert_eq!(wh.type_key, "SA");
     assert_eq!(*wh.verses, [100; 11]);
     assert_eq!(wh.spread, 0);
     assert_eq!(wh.prone_damage, 100);
+}
+
+#[test]
+fn build_runtime_definitions_binds_projectile_id() {
+    let rules = rules_from(
+        b"[VehicleTypes]\n0=MTNK\n\
+[MTNK]\nStrength=200\nCost=800\nPrimary=90mm\n\
+[90mm]\nDamage=50\nROF=8\nRange=6\nWarhead=SA\nProjectile=Invisible\n\
+[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
+    );
+    let defs = build_runtime_definitions(&rules);
+    let weapon = defs.weapons.get("90MM").expect("weapon");
+    assert_eq!(weapon.projectile, "INVISIBLE");
+    assert_ne!(weapon.projectile_id, ra_types::ProjectileId(0));
+    let projectile = defs.projectiles.get_by_id(weapon.projectile_id).expect("projectile");
+    assert_eq!(projectile.type_key, "INVISIBLE");
 }
 
 #[test]

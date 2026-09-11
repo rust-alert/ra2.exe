@@ -16,6 +16,7 @@ mod locomotor;
 mod names;
 mod overlay;
 mod production;
+mod projectile;
 mod runtime;
 mod sound;
 pub mod structure;
@@ -43,6 +44,7 @@ pub use names::{
 };
 pub use overlay::OverlayTypeRegistry;
 pub use production::{ProductionCategory, ProductionDefinitions, ProductionProfile, deserialize_optional_factory};
+pub use projectile::{ProjectileDefinition, ProjectileDefinitions};
 pub use runtime::RuntimeDefinitions;
 pub use sound::SoundDefinitions;
 pub use structure::{BuildCat, HouseDefinitions, PowerProfile, StructureDefinition, StructureDefinitions};

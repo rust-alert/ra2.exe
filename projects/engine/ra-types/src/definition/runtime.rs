@@ -2,8 +2,8 @@
 
 use super::{
     AnimationDefinitions, CapabilitySet, ContentFingerprint, DeployableDefinitions, HouseDefinitions, HouseStolenTechMap, LocomotorDefinitions,
-    OverlayTypeRegistry, PrerequisiteGroups, ProductionDefinitions, SoundDefinitions, StructureDefinitions, SuperWeaponDefinitions,
-    TechnoDefinitions, TerrainSpawnerDefinitions, WarheadDefinitions, WeaponDefinitions,
+    OverlayTypeRegistry, PrerequisiteGroups, ProductionDefinitions, ProjectileDefinitions, SoundDefinitions, StructureDefinitions,
+    SuperWeaponDefinitions, TechnoDefinitions, TerrainSpawnerDefinitions, WarheadDefinitions, WeaponDefinitions,
 };
 
 /// 全体层共享的冻结运行时定义。
@@ -26,6 +26,8 @@ pub struct RuntimeDefinitions {
     pub weapons: WeaponDefinitions,
     /// 弹头。
     pub warheads: WarheadDefinitions,
+    /// 抛射体。
+    pub projectiles: ProjectileDefinitions,
     /// 移动器。
     pub locomotors: LocomotorDefinitions,
     /// 建筑。
@@ -69,6 +71,7 @@ impl Default for RuntimeDefinitions {
             techno: TechnoDefinitions::default(),
             weapons: WeaponDefinitions::default(),
             warheads: WarheadDefinitions::default(),
+            projectiles: ProjectileDefinitions::default(),
             locomotors: LocomotorDefinitions::default(),
             structures: StructureDefinitions::default(),
             deployables: DeployableDefinitions::default(),

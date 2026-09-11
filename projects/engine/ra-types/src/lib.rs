@@ -24,16 +24,16 @@ pub use definition::{
     ARMOR_ORDER, AnimationDefinitions, ArmorKind, BuildCat, BuiltinCapability, CapabilitySet, ContentFingerprint, DeployableDefinition,
     DeployableDefinitions, DeploymentPlacement, Foundation, HouseAllowList, HouseDefinitions, HouseName, HouseStolenTechMap, ImageName,
     LocomotorDefinitions, OverlayTypeRegistry, PowerProfile, PrerequisiteGroupKind, PrerequisiteGroups, PrerequisiteList, PrerequisiteToken,
-    ProductionCategory, ProductionDefinitions, ProductionProfile, ProjectileName, RuntimeDefinitions, SoundDefinitions, StolenTechKind,
-    StructureDefinition, StructureDefinitions, SuperWeaponActionName, SuperWeaponDefinition, SuperWeaponDefinitions, SuperWeaponKindName,
-    SuperWeaponName, TechnoCategory, TechnoClass, TechnoDefinition, TechnoDefinitions, TechnoName, TerrainSpawnerDefinition,
-    TerrainSpawnerDefinitions, TypeDefinitionId, UiName, WarheadDefinition, WarheadDefinitions, WarheadName, WarheadVerses, WeaponDefinition,
-    WeaponDefinitions, WeaponName, armor_index, deserialize_optional_factory,
+    ProductionCategory, ProductionDefinitions, ProductionProfile, ProjectileDefinition, ProjectileDefinitions, ProjectileName,
+    RuntimeDefinitions, SoundDefinitions, StolenTechKind, StructureDefinition, StructureDefinitions, SuperWeaponActionName,
+    SuperWeaponDefinition, SuperWeaponDefinitions, SuperWeaponKindName, SuperWeaponName, TechnoCategory, TechnoClass, TechnoDefinition,
+    TechnoDefinitions, TechnoName, TerrainSpawnerDefinition, TerrainSpawnerDefinitions, TypeDefinitionId, UiName, WarheadDefinition,
+    WarheadDefinitions, WarheadName, WarheadVerses, WeaponDefinition, WeaponDefinitions, WeaponName, armor_index, deserialize_optional_factory,
 };
 pub use display_mode::DisplayMode;
 pub use edition::GameEdition;
 pub use error::{RaError, RaResult};
-pub use id::{EntityId, HouseId, LocomotorId, PlayerId, SessionId, TypeId, WarheadId, WeaponId};
+pub use id::{EntityId, HouseId, LocomotorId, PlayerId, ProjectileId, SessionId, TypeId, WarheadId, WeaponId};
 pub use math::{Cell, Distance, Facing, Fixed, Fixed16, SubCell};
 pub use present_feel::{PresentFeel, PresentMode, PresentQuantize};
 pub use time::{DurationTicks, Tick, TickRate};

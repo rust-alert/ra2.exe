@@ -5,8 +5,8 @@
 use ra_assets::TechnoKind;
 use ra_types::{
     BuiltinCapability, DeployableDefinition, DeploymentPlacement, GameEdition, PowerProfile, PrerequisiteGroups, ProductionCategory,
-    ProductionProfile, RaResult, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition, TechnoClass,
-    TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WarheadName, WeaponDefinition, WeaponId,
+    ProductionProfile, ProjectileDefinition, ProjectileId, ProjectileName, RaResult, RuntimeDefinitions, StolenTechKind, StructureDefinition,
+    SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WarheadName, WeaponDefinition, WeaponId,
 };
 use std::collections::HashMap;
 
@@ -31,6 +31,12 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     let mut alloc_warhead = || {
         let id = WarheadId(next_warhead);
         next_warhead = next_warhead.saturating_add(1);
+        id
+    };
+    let mut next_projectile = 1u32;
+    let mut alloc_projectile = || {
+        let id = ProjectileId(next_projectile);
+        next_projectile = next_projectile.saturating_add(1);
         id
     };
 
@@ -245,7 +251,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
 
     defs.production.count = defs.structures.iter().filter(|s| s.production.is_some()).count() as u32;
 
-    // 武器表：按 techno `Primary`/`Secondary` 与超武 `Weapon=` 去重投影，再绑弹头 id。
+    // 武器表：按 techno `Primary`/`Secondary` 与超武 `Weapon=` 去重投影，再绑弹头 / 抛射体 id。
     for tt in rules.techno_types.iter() {
         for (key, damage, range, rof, warhead, projectile) in [
             (
@@ -278,6 +284,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
                 warhead,
                 warhead_id: WarheadId(0),
                 projectile,
+                projectile_id: ProjectileId(0),
             });
         }
     }
@@ -296,6 +303,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             warhead: sw.weapon_warhead.clone(),
             warhead_id: WarheadId(0),
             projectile: sw.weapon_projectile.clone(),
+            projectile_id: ProjectileId(0),
         });
     }
 
@@ -323,11 +331,38 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             prone_damage,
         });
     }
+
+    let mut projectile_keys: Vec<ProjectileName> = defs
+        .weapons
+        .iter()
+        .map(|w| w.projectile.clone())
+        .chain(rules.techno_types.iter().map(|t| t.projectile.clone()))
+        .chain(rules.techno_types.iter().map(|t| t.secondary_projectile.clone()))
+        .filter(|p| !p.is_empty())
+        .collect();
+    projectile_keys.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+    projectile_keys.dedup();
+    for key in projectile_keys {
+        let id = alloc_projectile();
+        defs.projectiles.insert(ProjectileDefinition {
+            id,
+            type_key: key.as_str().to_string(),
+        });
+    }
+
     for weapon in defs.weapons.iter_mut() {
         weapon.warhead_id = if weapon.warhead.is_empty() {
             WarheadId(0)
         } else {
             defs.warheads.get(weapon.warhead.as_str()).map(|w| w.id).unwrap_or(WarheadId(0))
+        };
+        weapon.projectile_id = if weapon.projectile.is_empty() {
+            ProjectileId(0)
+        } else {
+            defs.projectiles
+                .get(weapon.projectile.as_str())
+                .map(|p| p.id)
+                .unwrap_or(ProjectileId(0))
         };
     }
     for techno in defs.techno.iter_mut() {
