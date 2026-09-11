@@ -22,7 +22,7 @@ fn sample(build_time: u32) -> TechnoDefinition {
         agent: false,
         engineer: false,
         harvester: false,
-        category: String::new(),
+        category: ra_types::TechnoCategory::Unspecified,
         sight: 5,
         primary: ra_types::WeaponName::default(),
         primary_id: ra_types::WeaponId(0),

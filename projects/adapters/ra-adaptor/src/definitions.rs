@@ -97,7 +97,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             agent: tt.agent,
             engineer: tt.engineer,
             harvester: tt.harvester,
-            category: tt.category.clone(),
+            category: tt.category,
             sight: tt.sight,
             primary: tt.primary.clone(),
             primary_id: WeaponId(0),

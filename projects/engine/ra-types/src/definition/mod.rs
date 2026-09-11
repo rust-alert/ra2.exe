@@ -7,6 +7,7 @@
 mod animation;
 mod armor;
 mod capability;
+mod category;
 mod deployable;
 mod fingerprint;
 pub mod foundation;
@@ -30,6 +31,7 @@ mod weapon;
 pub use animation::AnimationDefinitions;
 pub use armor::{ARMOR_ORDER, ArmorKind, armor_index};
 pub use capability::{BuiltinCapability, CapabilitySet};
+pub use category::TechnoCategory;
 pub use deployable::{DeployableDefinition, DeployableDefinitions, DeploymentPlacement};
 pub use fingerprint::ContentFingerprint;
 pub use foundation::Foundation;

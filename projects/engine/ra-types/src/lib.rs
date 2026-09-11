@@ -26,7 +26,8 @@ pub use definition::{
     LocomotorDefinitions, OverlayTypeRegistry, PowerProfile, PrerequisiteGroupKind, PrerequisiteGroups, PrerequisiteList, PrerequisiteToken,
     ProductionCategory, ProductionDefinitions, ProductionProfile, ProjectileName, RuntimeDefinitions, SoundDefinitions, StolenTechKind,
     StructureDefinition, StructureDefinitions, SuperWeaponActionName, SuperWeaponDefinition, SuperWeaponDefinitions, SuperWeaponKindName,
-    SuperWeaponName, TechnoClass, TechnoDefinition, TechnoDefinitions, TechnoName, TerrainSpawnerDefinition, TerrainSpawnerDefinitions,
+    SuperWeaponName, TechnoCategory, TechnoClass, TechnoDefinition, TechnoDefinitions, TechnoName, TerrainSpawnerDefinition,
+    TerrainSpawnerDefinitions,
     TypeDefinitionId, WarheadDefinition, WarheadDefinitions, WarheadName, WarheadVerses, WeaponDefinition, WeaponDefinitions, WeaponName,
     armor_index, deserialize_optional_factory,
 };

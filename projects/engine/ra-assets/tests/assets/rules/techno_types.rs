@@ -58,7 +58,7 @@ fn parse_category_naval_and_tech_level() {
     .unwrap();
     let reg = TechnoTypeRegistry::from_rules(&doc);
     let dog = reg.get("ADOG").unwrap();
-    assert_eq!(dog.category, "Dog");
+    assert_eq!(dog.category, ra_types::TechnoCategory::Dog);
     assert_eq!(dog.tech_level, -1);
     assert!(!dog.naval);
     let dest = reg.get("DEST").unwrap();
