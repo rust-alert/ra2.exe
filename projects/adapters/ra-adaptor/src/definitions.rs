@@ -4,9 +4,10 @@
 
 use ra_assets::TechnoKind;
 use ra_types::{
-    BuiltinCapability, DeployableDefinition, DeploymentPlacement, GameEdition, PowerProfile, PrerequisiteGroups, ProductionCategory,
-    ProductionProfile, ProjectileDefinition, ProjectileId, ProjectileName, RaResult, RuntimeDefinitions, StolenTechKind, StructureDefinition,
-    SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WarheadName, WeaponDefinition, WeaponId,
+    BuiltinCapability, DeployableDefinition, DeploymentPlacement, GameEdition, HouseDefinition, HouseId, PowerProfile, PrerequisiteGroups,
+    ProductionCategory, ProductionProfile, ProjectileDefinition, ProjectileId, ProjectileName, RaResult, RuntimeDefinitions, StolenTechKind,
+    StructureDefinition, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WarheadName,
+    WeaponDefinition, WeaponId,
 };
 use std::collections::HashMap;
 
@@ -40,6 +41,13 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         id
     };
 
+    let mut next_house = 1u32;
+    let mut alloc_house = || {
+        let id = HouseId(next_house);
+        next_house = next_house.saturating_add(1);
+        id
+    };
+
     let g = &rules.globals;
     defs.prerequisite_groups = PrerequisiteGroups {
         power: g.prerequisite_power.clone(),
@@ -57,9 +65,18 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     defs.repair_interval_ticks = g.repair_rate_minutes.map(repair_rate_minutes_to_ticks).unwrap_or(14);
     defs.speak_delay_ticks = speak_delay_minutes_to_ticks(g.speak_delay_minutes.unwrap_or(0.0));
     for country in rules.countries.countries() {
-        if let Some(kind) = StolenTechKind::from_side(&country.side) {
+        let stolen_tech = StolenTechKind::from_side(&country.side);
+        if let Some(kind) = stolen_tech {
             defs.stolen_tech_by_house.insert(&country.id, kind);
         }
+        let id = alloc_house();
+        defs.houses.insert(HouseDefinition {
+            id,
+            type_key: country.id.to_ascii_uppercase(),
+            side: country.side.trim().to_ascii_uppercase(),
+            stolen_tech,
+            multiplay: country.visible_in_skirmish(),
+        });
     }
 
     for sw in rules.super_weapons.iter() {

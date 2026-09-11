@@ -26,7 +26,7 @@ fn rules_from_with_art(rules_text: &[u8], art_text: &[u8]) -> RulesSystem {
         overlay_types: OverlayTypeRegistry::default(),
         terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
+        countries: CountryRegistry::from_rules(&rules),
         techno_types,
         warheads,
         super_weapons: SuperWeaponTypeRegistry::from_rules(&rules),
@@ -225,4 +225,24 @@ fn build_runtime_definitions_projects_techno_fields_without_rescanning_section()
     assert!(power.construction_yard);
     assert!(power.capturable);
     assert!(power.production.is_some());
+}
+
+#[test]
+fn build_runtime_definitions_freezes_countries_into_house_table() {
+    let rules = rules_from(
+        b"[Countries]\n0=Americans\n1=Russians\n\
+[Americans]\nUIName=Name:Americans\nSide=GDI\nMultiplay=yes\n\
+[Russians]\nUIName=Name:Russians\nSide=Nod\nMultiplay=yes\nMultiplayObsolete=yes\n",
+    );
+    let defs = build_runtime_definitions(&rules);
+    assert_eq!(defs.houses.len(), 2);
+    let usa = defs.houses.get("Americans").expect("Americans");
+    assert_ne!(usa.id, ra_types::HouseId(0));
+    assert_eq!(usa.side, "GDI");
+    assert_eq!(usa.stolen_tech, Some(ra_types::StolenTechKind::Allied));
+    assert!(usa.multiplay);
+    let rus = defs.houses.get("Russians").expect("Russians");
+    assert_eq!(rus.stolen_tech, Some(ra_types::StolenTechKind::Soviet));
+    assert!(!rus.multiplay);
+    assert_eq!(defs.stolen_tech_by_house.get("Americans"), Some(ra_types::StolenTechKind::Allied));
 }
