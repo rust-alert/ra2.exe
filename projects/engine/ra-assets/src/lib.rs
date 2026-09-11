@@ -61,6 +61,7 @@ pub use rules::{
     countries::{
         CountryDef, CountryRegistry, SideChromeDef, SideGroup, fill_country_ui_gaps, fill_side_chrome_gaps, resolve_country_special_ui_name,
     },
+    globals::RulesGlobals,
     house_remap::{HOUSE_REMAP_COUNT, HOUSE_REMAP_FIRST, Hsv, build_hsv_remap_ramp, build_remap_ramp, hsv_to_rgb, owner_primary_color},
     overlay::{harvestable_overlay_name, overlay_types_from_rules, tiberium_overlay_display_hsv, tiberium_type_for_overlay},
     super_weapons::{SuperWeaponType, SuperWeaponTypeRegistry},

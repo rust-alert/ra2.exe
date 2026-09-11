@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesSystem;
 use crate::common::battle_from_rules;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -18,6 +18,7 @@ fn seeds_attack_stats_from_primary_weapon() {
         edition: GameEdition::Ra2,
         rules: doc.clone(),
         art: IniDocument::default(),
+        globals: RulesGlobals::from_rules(&doc),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
@@ -58,6 +59,7 @@ fn weaponless_unit_keeps_zero_attack_damage() {
         edition: GameEdition::Ra2,
         rules: doc.clone(),
         art: IniDocument::default(),
+        globals: RulesGlobals::from_rules(&doc),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),

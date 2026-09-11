@@ -21,21 +21,22 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         id
     };
 
-    defs.prerequisite_groups = parse_prerequisite_groups(&rules.rules);
-    defs.default_tech_level = ini_i32(&rules.rules, "MultiplayerDialogSettings", "TechLevel").unwrap_or(10).max(0);
-    // `[General]` 侧栏扳手：缺键回落原版库存默认。
-    defs.repair_percent = ini_i32(&rules.rules, "General", "RepairPercent").map(|v| v.max(0) as u32).unwrap_or(15);
-    defs.repair_step = ini_i32(&rules.rules, "General", "RepairStep").map(|v| v.max(1) as u32).unwrap_or(8);
-    defs.repair_interval_ticks = ini_string(&rules.rules, "General", "RepairRate")
-        .and_then(|raw| raw.parse::<f64>().ok())
-        .map(repair_rate_minutes_to_ticks)
-        .unwrap_or(14);
-    defs.speak_delay_ticks = {
-        let raw = ini_string(&rules.rules, "AudioVisual", "SpeakDelay")
-            .or_else(|| ini_string(&rules.rules, "General", "SpeakDelay"));
-        let minutes = raw.and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
-        speak_delay_minutes_to_ticks(minutes)
+    let g = &rules.globals;
+    defs.prerequisite_groups = PrerequisiteGroups {
+        power: g.prerequisite_power.clone(),
+        factory: g.prerequisite_factory.clone(),
+        barracks: g.prerequisite_barracks.clone(),
+        radar: g.prerequisite_radar.clone(),
+        tech: g.prerequisite_tech.clone(),
+        proc: g.prerequisite_proc.clone(),
+        proc_alternate: g.prerequisite_proc_alternate.clone(),
     };
+    defs.default_tech_level = g.multiplayer_tech_level.unwrap_or(10).max(0);
+    // `[General]` 侧栏扳手：缺键回落原版库存默认。
+    defs.repair_percent = g.repair_percent.map(|v| v.max(0) as u32).unwrap_or(15);
+    defs.repair_step = g.repair_step.map(|v| v.max(1) as u32).unwrap_or(8);
+    defs.repair_interval_ticks = g.repair_rate_minutes.map(repair_rate_minutes_to_ticks).unwrap_or(14);
+    defs.speak_delay_ticks = speak_delay_minutes_to_ticks(g.speak_delay_minutes.unwrap_or(0.0));
     for country in rules.countries.countries() {
         if let Some(kind) = StolenTechKind::from_side(&country.side) {
             defs.stolen_tech_by_house.insert(&country.id, kind);
@@ -274,14 +275,15 @@ fn fill_terrain_spawners(defs: &mut RuntimeDefinitions, rules: &ra_assets::IniDo
 
 #[doc(hidden)]
 pub fn parse_prerequisite_groups(doc: &ra_assets::IniDocument) -> PrerequisiteGroups {
+    let g = ra_assets::RulesGlobals::from_rules(doc);
     PrerequisiteGroups {
-        power: ini_csv_tokens(doc, "General", "PrerequisitePower"),
-        factory: ini_csv_tokens(doc, "General", "PrerequisiteFactory"),
-        barracks: ini_csv_tokens(doc, "General", "PrerequisiteBarracks"),
-        radar: ini_csv_tokens(doc, "General", "PrerequisiteRadar"),
-        tech: ini_csv_tokens(doc, "General", "PrerequisiteTech"),
-        proc: ini_csv_tokens(doc, "General", "PrerequisiteProc"),
-        proc_alternate: ini_csv_tokens(doc, "General", "PrerequisiteProcAlternate"),
+        power: g.prerequisite_power,
+        factory: g.prerequisite_factory,
+        barracks: g.prerequisite_barracks,
+        radar: g.prerequisite_radar,
+        tech: g.prerequisite_tech,
+        proc: g.prerequisite_proc,
+        proc_alternate: g.prerequisite_proc_alternate,
     }
 }
 

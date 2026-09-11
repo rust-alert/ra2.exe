@@ -2,7 +2,7 @@
 
 use crate::common::{test_engine, battle_from_rules};
 use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleOutcome, Session, SessionBootKind};
 use ra_map::MapInfo;
 use ra_types::GameEdition;
@@ -13,6 +13,7 @@ fn empty_rules() -> RulesSystem {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
         art: IniDocument::default(),
+        globals: RulesGlobals::from_rules(&rules),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
@@ -867,6 +868,7 @@ TR2=1,5,0,TM1,0,0,0,0,A\n\
             edition: GameEdition::Ra2,
             rules: doc.clone(),
             art: IniDocument::default(),
+            globals: RulesGlobals::from_rules(&doc),
             overlay_types: OverlayTypeRegistry::default(),
             color_schemes: ColorSchemes::default(),
             countries: CountryRegistry::default(),

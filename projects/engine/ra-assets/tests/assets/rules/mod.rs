@@ -1,6 +1,7 @@
 //! rules 域测试。
 
 mod countries;
+mod globals;
 mod overlay;
 mod overlay_types;
 mod super_weapons;

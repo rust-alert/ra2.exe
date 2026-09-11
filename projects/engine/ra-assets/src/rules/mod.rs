@@ -2,6 +2,7 @@
 
 pub mod color_schemes;
 pub mod countries;
+pub mod globals;
 pub mod house_remap;
 pub mod overlay;
 pub mod super_weapons;
