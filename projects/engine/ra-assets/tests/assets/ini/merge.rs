@@ -1,0 +1,57 @@
+//! 层叠 INI 合并视图。
+
+use ra_assets::*;
+
+fn docs(layers: &[&[u8]]) -> Vec<IniDocument> {
+    layers.iter().map(|b| IniDocument::parse(b).expect("ini")).collect()
+}
+
+#[test]
+fn last_value_prefers_top_layer() {
+    let layers = docs(&[b"[General]\nRepairStep=8\n", b"[General]\nRepairStep=16\n"]);
+    let policy = IniMergePolicy::last_wins();
+    let view = LayeredIniView::new(&layers, &policy);
+    let v = view.get("General", "RepairStep").unwrap();
+    assert_eq!(v.trimmed().raw, "16");
+    assert_eq!(v.section, "General");
+}
+
+#[test]
+fn first_value_keeps_bottom_layer() {
+    let layers = docs(&[b"[General]\nRepairStep=8\n", b"[General]\nRepairStep=16\n"]);
+    let policy = IniMergePolicy {
+        default_entry: EntryMergePolicy::FirstValue,
+    };
+    let view = LayeredIniView::new(&layers, &policy);
+    assert_eq!(view.get("General", "RepairStep").unwrap().trimmed().raw, "8");
+}
+
+#[test]
+fn merge_section_keeps_lower_keys_absent_on_top() {
+    let layers = docs(&[
+        b"[General]\nRepairStep=8\nRepairPercent=15\n",
+        b"[General]\nRepairStep=16\n",
+    ]);
+    let policy = IniMergePolicy {
+        default_entry: EntryMergePolicy::MergeSection,
+    };
+    let view = LayeredIniView::new(&layers, &policy);
+    let sec = view.section("General").unwrap();
+    assert_eq!(sec.get("RepairStep").unwrap().trimmed().raw, "16");
+    assert_eq!(sec.get("RepairPercent").unwrap().trimmed().raw, "15");
+}
+
+#[test]
+fn replace_section_drops_lower_only_keys() {
+    let layers = docs(&[
+        b"[General]\nRepairStep=8\nRepairPercent=15\n",
+        b"[General]\nRepairStep=16\n",
+    ]);
+    let policy = IniMergePolicy {
+        default_entry: EntryMergePolicy::ReplaceSection,
+    };
+    let view = LayeredIniView::new(&layers, &policy);
+    let sec = view.section("General").unwrap();
+    assert_eq!(sec.get("RepairStep").unwrap().trimmed().raw, "16");
+    assert!(sec.get("RepairPercent").is_none());
+}
