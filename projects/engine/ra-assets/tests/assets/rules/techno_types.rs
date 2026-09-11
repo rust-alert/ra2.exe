@@ -60,3 +60,44 @@ fn parse_primary_weapon_damage_and_range() {
     assert_eq!(m.rof, 20);
     assert_eq!(m.warhead, "AP");
 }
+
+#[test]
+fn parse_build_gates_deploy_and_structure_flags() {
+    let doc = IniDocument::parse(
+        b"[VehicleTypes]\n0=FV\n\
+[BuildingTypes]\n0=GAPOWR\n1=GACNST\n\
+[FV]\nStrength=200\nCost=600\nPrerequisite=GAWEAP,POWER\nPrerequisiteOverride=GACNST\n\
+RequiredHouses=Americans,Alliance\nForbiddenHouses=Russians\nBuildLimit=1\nBuildTime=50\n\
+RequiresStolenAlliedTech=yes\nDeploysInto=gapowr\nPixelSelectionBracketDelta=-5\n\
+[GAPOWR]\nStrength=600\nCost=600\nPower=200\nPowered=no\nBuildCat=Combat\nCapturable=yes\n\
+[GACNST]\nStrength=1000\nCost=2500\nConstructionYard=yes\nFactory=BuildingType\n\
+Radar=yes\nRefinery=no\nSuperWeapon=Nuke\nPower=-50\n",
+    )
+    .unwrap();
+    let reg = TechnoTypeRegistry::from_rules(&doc);
+    let fv = reg.get("FV").unwrap();
+    assert_eq!(fv.prerequisite, vec!["GAWEAP".to_string(), "POWER".to_string()]);
+    assert_eq!(fv.prerequisite_override, vec!["GACNST".to_string()]);
+    assert_eq!(fv.required_houses, vec!["AMERICANS".to_string(), "ALLIANCE".to_string()]);
+    assert_eq!(fv.forbidden_houses, vec!["RUSSIANS".to_string()]);
+    assert_eq!(fv.build_limit, 1);
+    assert_eq!(fv.build_time, 50);
+    assert!(fv.requires_stolen_allied_tech);
+    assert!(!fv.requires_stolen_soviet_tech);
+    assert_eq!(fv.pixel_selection_bracket_delta, -5);
+    assert_eq!(fv.deploys_into, "GAPOWR");
+
+    let power = reg.get("GAPOWR").unwrap();
+    assert_eq!(power.power, 200);
+    assert_eq!(power.powered, Some(false));
+    assert_eq!(power.build_cat, "Combat");
+    assert!(power.capturable);
+
+    let yard = reg.get("GACNST").unwrap();
+    assert!(yard.construction_yard);
+    assert!(!yard.refinery);
+    assert!(yard.radar);
+    assert_eq!(yard.factory, "BuildingType");
+    assert_eq!(yard.super_weapon, "NUKE");
+    assert_eq!(yard.power, -50);
+}

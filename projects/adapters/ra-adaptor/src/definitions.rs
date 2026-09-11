@@ -85,16 +85,16 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             range: tt.range,
             rof: tt.rof,
             warhead: tt.warhead.to_ascii_uppercase(),
-            prerequisite: ini_csv_tokens(&rules.rules, &key, "Prerequisite"),
-            prerequisite_override: ini_csv_tokens(&rules.rules, &key, "PrerequisiteOverride"),
-            required_houses: ini_csv_tokens(&rules.rules, &key, "RequiredHouses"),
-            forbidden_houses: ini_csv_tokens(&rules.rules, &key, "ForbiddenHouses"),
-            build_limit: ini_i32(&rules.rules, &key, "BuildLimit").unwrap_or(0).max(0),
-            build_time: ini_i32(&rules.rules, &key, "BuildTime").unwrap_or(0).max(0) as u32,
-            requires_stolen_allied_tech: ini_bool(&rules.rules, &key, "RequiresStolenAlliedTech").unwrap_or(false),
-            requires_stolen_soviet_tech: ini_bool(&rules.rules, &key, "RequiresStolenSovietTech").unwrap_or(false),
-            requires_stolen_third_tech: ini_bool(&rules.rules, &key, "RequiresStolenThirdTech").unwrap_or(false),
-            pixel_selection_bracket_delta: ini_i32(&rules.rules, &key, "PixelSelectionBracketDelta").unwrap_or(0),
+            prerequisite: tt.prerequisite.clone(),
+            prerequisite_override: tt.prerequisite_override.clone(),
+            required_houses: tt.required_houses.clone(),
+            forbidden_houses: tt.forbidden_houses.clone(),
+            build_limit: tt.build_limit,
+            build_time: tt.build_time,
+            requires_stolen_allied_tech: tt.requires_stolen_allied_tech,
+            requires_stolen_soviet_tech: tt.requires_stolen_soviet_tech,
+            requires_stolen_third_tech: tt.requires_stolen_third_tech,
+            pixel_selection_bracket_delta: tt.pixel_selection_bracket_delta,
         });
 
         if tt.harvester {
@@ -105,8 +105,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
 
         if tt.kind != TechnoKind::Building {
             // 部署关系可挂在载具上
-            if let Some(target) = ini_string(&rules.rules, &key, "DeploysInto") {
-                let target_key = target.to_ascii_uppercase();
+            if !tt.deploys_into.is_empty() {
+                let target_key = tt.deploys_into.clone();
                 let target_id = defs.techno.get(&target_key).map(|t| t.id).unwrap_or(TypeId(0));
                 defs.deployables.insert(DeployableDefinition {
                     source: id,
@@ -120,15 +120,19 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             continue;
         }
 
-        let power_raw = ini_i32(&rules.rules, &key, "Power").unwrap_or(0);
+        let power_raw = tt.power;
         let (output, drain) = if power_raw >= 0 { (power_raw, 0) } else { (0, -power_raw) };
-        let powered = ini_bool(&rules.rules, &key, "Powered").unwrap_or(drain > 0);
-        let construction_yard = ini_bool(&rules.rules, &key, "ConstructionYard").unwrap_or(false);
-        let refinery = ini_bool(&rules.rules, &key, "Refinery").unwrap_or(false);
-        let radar = ini_bool(&rules.rules, &key, "Radar").unwrap_or(false);
-        let build_cat = BuildCat::parse(&ini_string(&rules.rules, &key, "BuildCat").unwrap_or_default());
-        let capturable = ini_bool(&rules.rules, &key, "Capturable").unwrap_or(false);
-        let factory = ini_string(&rules.rules, &key, "Factory").map(|s| parse_factory_category(&s));
+        let powered = tt.powered.unwrap_or(drain > 0);
+        let construction_yard = tt.construction_yard;
+        let refinery = tt.refinery;
+        let radar = tt.radar;
+        let build_cat = BuildCat::parse(&tt.build_cat);
+        let capturable = tt.capturable;
+        let factory = if tt.factory.trim().is_empty() {
+            None
+        } else {
+            Some(parse_factory_category(&tt.factory))
+        };
         let production = factory.map(|category| ProductionProfile { category });
 
         let mut capabilities = vec![BuiltinCapability::Structure];
@@ -153,7 +157,11 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         if production.is_some() {
             capabilities.push(BuiltinCapability::Producer);
         }
-        let super_weapon = ini_string(&rules.rules, &key, "SuperWeapon").map(|s| s.to_ascii_uppercase());
+        let super_weapon = if tt.super_weapon.is_empty() {
+            None
+        } else {
+            Some(tt.super_weapon.clone())
+        };
         if super_weapon.is_some() {
             capabilities.push(BuiltinCapability::SuperWeapon);
             if !defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon) {

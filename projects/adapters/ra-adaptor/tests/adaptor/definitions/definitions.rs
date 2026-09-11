@@ -112,3 +112,24 @@ fn build_runtime_definitions_rules_foundation_fallback_without_art() {
     assert_eq!((s.foundation.width, s.foundation.height), (2, 2));
     assert_eq!(s.height, 4);
 }
+
+#[test]
+fn build_runtime_definitions_projects_techno_fields_without_rescanning_section() {
+    let rules = rules_from(
+        b"[VehicleTypes]\n0=FV\n\
+[BuildingTypes]\n0=GAPOWR\n\
+[FV]\nCost=600\nStrength=200\nPrerequisite=GAWEAP,POWER\nBuildLimit=2\nDeploysInto=GAPOWR\n\
+[GAPOWR]\nCost=600\nStrength=600\nPower=150\nConstructionYard=yes\nFactory=BuildingType\nCapturable=yes\n",
+    );
+    let defs = build_runtime_definitions(&rules);
+    let fv = defs.techno.get("FV").expect("FV");
+    assert_eq!(fv.prerequisite, vec!["GAWEAP".to_string(), "POWER".to_string()]);
+    assert_eq!(fv.build_limit, 2);
+    let deploy = defs.deployables.iter().find(|d| d.source_key == "FV").expect("deploy");
+    assert_eq!(deploy.target_key, "GAPOWR");
+    let power = defs.structures.get("GAPOWR").expect("GAPOWR");
+    assert_eq!(power.power.output, 150);
+    assert!(power.construction_yard);
+    assert!(power.capturable);
+    assert!(power.production.is_some());
+}
