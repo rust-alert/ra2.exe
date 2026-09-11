@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
-use ra_types::{HouseAllowList, PrerequisiteList, WarheadName, WeaponName};
+use ra_types::{HouseAllowList, PrerequisiteList, SuperWeaponName, TechnoName, WarheadName, WeaponName};
 
 /// 步兵 / 载具 / 飞行器 / 建筑的共用类型字段。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,8 +70,8 @@ pub struct TechnoType {
     pub requires_stolen_third_tech: bool,
     /// `PixelSelectionBracketDelta`。
     pub pixel_selection_bracket_delta: i32,
-    /// `DeploysInto` 目标类型键（大写）；空表示无。
-    pub deploys_into: String,
+    /// `DeploysInto` 目标类型名；空表示无。
+    pub deploys_into: TechnoName,
     /// `Power` 原始值（正产电、负耗电）。
     pub power: i32,
     /// `Powered`；缺省时由耗电推导。
@@ -88,8 +88,8 @@ pub struct TechnoType {
     pub capturable: bool,
     /// `Factory` 原文。
     pub factory: String,
-    /// `SuperWeapon` 键（大写）；空表示无。
-    pub super_weapon: String,
+    /// `SuperWeapon` 名；空表示无。
+    pub super_weapon: SuperWeaponName,
     /// `Foundation` 原文（优先 art，否则 rules）；空表示未写。
     pub foundation: String,
     /// `Height`（优先 art，否则 rules）；`None` 表示未写。
@@ -260,8 +260,8 @@ struct TechnoSectionFields {
     requires_stolen_third_tech: Option<bool>,
     #[serde(rename = "PixelSelectionBracketDelta")]
     pixel_selection_bracket_delta: Option<i32>,
-    #[serde(rename = "DeploysInto")]
-    deploys_into: Option<String>,
+    #[serde(rename = "DeploysInto", default)]
+    deploys_into: TechnoName,
     #[serde(rename = "Power")]
     power: Option<i32>,
     #[serde(rename = "Powered")]
@@ -278,8 +278,8 @@ struct TechnoSectionFields {
     capturable: Option<bool>,
     #[serde(rename = "Factory")]
     factory: Option<String>,
-    #[serde(rename = "SuperWeapon")]
-    super_weapon: Option<String>,
+    #[serde(rename = "SuperWeapon", default)]
+    super_weapon: SuperWeaponName,
     #[serde(rename = "Foundation")]
     foundation: Option<String>,
     #[serde(rename = "Height")]
@@ -342,12 +342,7 @@ fn parse_techno(view: LayeredIniView<'_>, id: &str, kind: TechnoKind) -> Option<
         requires_stolen_soviet_tech: fields.requires_stolen_soviet_tech.unwrap_or(false),
         requires_stolen_third_tech: fields.requires_stolen_third_tech.unwrap_or(false),
         pixel_selection_bracket_delta: fields.pixel_selection_bracket_delta.unwrap_or(0),
-        deploys_into: fields
-            .deploys_into
-            .as_deref()
-            .unwrap_or("")
-            .trim()
-            .to_ascii_uppercase(),
+        deploys_into: fields.deploys_into,
         power: fields.power.unwrap_or(0),
         powered: fields.powered,
         construction_yard: fields.construction_yard.unwrap_or(false),
@@ -356,12 +351,7 @@ fn parse_techno(view: LayeredIniView<'_>, id: &str, kind: TechnoKind) -> Option<
         build_cat: fields.build_cat.unwrap_or_default(),
         capturable: fields.capturable.unwrap_or(false),
         factory: fields.factory.unwrap_or_default(),
-        super_weapon: fields
-            .super_weapon
-            .as_deref()
-            .unwrap_or("")
-            .trim()
-            .to_ascii_uppercase(),
+        super_weapon: fields.super_weapon,
         foundation: fields.foundation.unwrap_or_default().trim().to_string(),
         height: fields.height.map(|h| h.max(1) as u16),
     })

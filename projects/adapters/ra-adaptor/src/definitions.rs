@@ -124,7 +124,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         if tt.kind != TechnoKind::Building {
             // 部署关系可挂在载具上
             if !tt.deploys_into.is_empty() {
-                let target_key = tt.deploys_into.clone();
+                let target_key = tt.deploys_into.as_str().to_string();
                 let target_id = defs.techno.get(&target_key).map(|t| t.id).unwrap_or(TypeId(0));
                 defs.deployables.insert(DeployableDefinition {
                     source: id,
@@ -180,7 +180,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         } else {
             Some(tt.super_weapon.clone())
         };
-        let super_weapon_id = super_weapon.as_ref().and_then(|k| defs.super_weapons.get(k).map(|sw| sw.id));
+        let super_weapon_id = super_weapon.as_ref().and_then(|k| defs.super_weapons.get(k.as_str()).map(|sw| sw.id));
         if super_weapon.is_some() {
             capabilities.push(BuiltinCapability::SuperWeapon);
             if !defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon) {

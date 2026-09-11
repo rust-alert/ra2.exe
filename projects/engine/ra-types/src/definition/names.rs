@@ -151,3 +151,15 @@ ini_name!(
     HouseName,
     "house / country name"
 );
+
+ini_name!(
+    /// Techno 类型名（`DeploysInto=` 等类型引用）；空 = 未配置。
+    TechnoName,
+    "techno type name"
+);
+
+ini_name!(
+    /// 超级武器类型名（`SuperWeapon=`）；空 = 未配置。
+    SuperWeaponName,
+    "super weapon type name"
+);

@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::id::TypeId;
 
-use super::{ArmorKind, BuiltinCapability, Foundation, HouseAllowList, ProductionProfile};
+use super::{ArmorKind, BuiltinCapability, Foundation, HouseAllowList, ProductionProfile, SuperWeaponName};
 
 /// 建造栏分类（INI `BuildCat=`）。
 ///
@@ -87,8 +87,8 @@ pub struct StructureDefinition {
     pub foundation: Foundation,
     /// art / rules `Height`（缺省 2）：建筑选中框与 NW 血条竖向抬升。
     pub height: u16,
-    /// INI `SuperWeapon=`：挂到该建筑的超级武器类型键（大写；无则 `None`）。
-    pub super_weapon: Option<String>,
+    /// INI `SuperWeapon=`：挂到该建筑的超级武器名（无则 `None`）。
+    pub super_weapon: Option<SuperWeaponName>,
     /// 挂接超武的稳定 id；装载期绑定，执行侧优先于此。
     pub super_weapon_id: Option<TypeId>,
     /// 定义期能力声明。

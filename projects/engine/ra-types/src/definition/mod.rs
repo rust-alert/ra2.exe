@@ -35,7 +35,7 @@ pub use fingerprint::ContentFingerprint;
 pub use foundation::Foundation;
 pub use house_list::HouseAllowList;
 pub use locomotor::LocomotorDefinitions;
-pub use names::{HouseName, WarheadName, WeaponName};
+pub use names::{HouseName, SuperWeaponName, TechnoName, WarheadName, WeaponName};
 pub use overlay::OverlayTypeRegistry;
 pub use production::{ProductionCategory, ProductionDefinitions, ProductionProfile};
 pub use runtime::RuntimeDefinitions;

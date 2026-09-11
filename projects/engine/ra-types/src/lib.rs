@@ -25,9 +25,10 @@ pub use definition::{
     DeployableDefinitions, DeploymentPlacement, Foundation, HouseAllowList, HouseDefinitions, HouseName, HouseStolenTechMap,
     LocomotorDefinitions, OverlayTypeRegistry, PowerProfile, PrerequisiteGroupKind, PrerequisiteGroups, PrerequisiteList,
     PrerequisiteToken, ProductionCategory, ProductionDefinitions, ProductionProfile, RuntimeDefinitions, SoundDefinitions,
-    StolenTechKind, StructureDefinition, StructureDefinitions, SuperWeaponDefinition, SuperWeaponDefinitions, TechnoClass,
-    TechnoDefinition, TechnoDefinitions, TerrainSpawnerDefinition, TerrainSpawnerDefinitions, TypeDefinitionId, WarheadDefinition,
-    WarheadDefinitions, WarheadName, WarheadVerses, WeaponDefinition, WeaponDefinitions, WeaponName, armor_index,
+    StolenTechKind, StructureDefinition, StructureDefinitions, SuperWeaponDefinition, SuperWeaponDefinitions, SuperWeaponName,
+    TechnoClass, TechnoDefinition, TechnoDefinitions, TechnoName, TerrainSpawnerDefinition, TerrainSpawnerDefinitions,
+    TypeDefinitionId, WarheadDefinition, WarheadDefinitions, WarheadName, WarheadVerses, WeaponDefinition, WeaponDefinitions,
+    WeaponName, armor_index,
 };
 pub use display_mode::DisplayMode;
 pub use edition::GameEdition;
