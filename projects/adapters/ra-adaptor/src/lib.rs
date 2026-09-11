@@ -17,14 +17,14 @@ use ra_types::{GameEdition, RaError, RaResult};
 
 pub use adaptor_api::{Adaptor, AdaptorError, DefinitionRequest, DetectionReport};
 pub use compose::{AdaptorStack, BaseGame, CapabilityReport, ExtensionId};
-pub use definitions::build_runtime_definitions;
+pub use definitions::{build_runtime_definitions, runtime_definitions_from_ini_bytes};
 pub use layers::{
     DetectedExpansion, ExpansionFamily, MountSpec, NestedMountSpec, NestedMountStrategy, PRIORITY_BASE_GAME, PRIORITY_EXPANSION_BASE,
     PRIORITY_MOD, PRIORITY_NESTED, PRIORITY_USER_OVERRIDE, ResourceComposition, ResourceDiagnostics, ResourceFile, ResourceLayer,
     ResourceLayerKind, SIDEBAR_NESTED_INDEX_MAX, append_sidebar_nested_specs, compose_resource_layers, discover_expansions,
     is_expansion_mix_name, missing_base_mixes, parse_expansion_file_name,
 };
-pub use rules::{RulesSystem, load_rules, load_rules_chain};
+pub use rules::{RulesSystem, load_rules, load_rules_chain, rules_system_from_ini_bytes};
 pub use stock_ui::{apply_edition_stock_ui, apply_stock_ui_for_chain};
 pub use ui_profile::{dialog_template_0x6b, dialog_template_0x102, shell_runtime_ui_profile};
 

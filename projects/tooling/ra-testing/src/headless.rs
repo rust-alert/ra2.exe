@@ -1,17 +1,22 @@
 //! 无窗口遭遇战夹具。
 
-use ra_adaptor::{RulesSystem, build_runtime_definitions};
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_adaptor::runtime_definitions_from_ini_bytes;
 use std::sync::Arc;
 
 use ra_engine::{BattleOutcome, BattleState, Engine, EngineConfig, GameCommand, RenderSnapshot, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{GameEdition, RuntimeDefinitions, TerrainSpawnerDefinitions};
+use ra_types::{GameEdition, RuntimeDefinitions};
 
 use crate::alpha_skirmish_v1;
 
-fn battle_from_rules(rules: &RulesSystem, map: MapInfo) -> BattleState {
-    BattleState::new(rules.edition, Arc::new(build_runtime_definitions(rules)), map)
+fn defs_from_rules_ini(rules_ini: &[u8]) -> Arc<RuntimeDefinitions> {
+    Arc::new(
+        runtime_definitions_from_ini_bytes(GameEdition::Ra2, rules_ini, None).expect("内置测试 INI 必须可投影"),
+    )
+}
+
+fn battle_from_defs(edition: GameEdition, defs: Arc<RuntimeDefinitions>, map: MapInfo) -> BattleState {
+    BattleState::new(edition, defs, map)
 }
 
 /// 无窗口测试用例。所有推进都经过 `Session::tick` + `EngineRuntime`，与产品路径一致。
@@ -102,24 +107,12 @@ impl HeadlessCase {
 /// 完整竖切的建筑、经济与开局 MCV 见 `alpha_skirmish_v1`。
 pub fn standard_duel() -> HeadlessCase {
     // 须声明 Primary / Warhead：无武器时 attack_damage=0，决斗永远打不死。
-    let rules_text = b"[VehicleTypes]\n0=MTNK\n\
+    let defs = defs_from_rules_ini(
+        b"[VehicleTypes]\n0=MTNK\n\
 [MTNK]\nStrength=200\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\nPrimary=90mm\n\
 [90mm]\nDamage=50\nROF=8\nRange=6\nWarhead=SA\n\
-[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n";
-    let rules = IniDocument::parse(rules_text).expect("内置测试 INI 必须有效");
-    let techno_types = TechnoTypeRegistry::from_rules(&rules);
-    let warheads = WarheadRegistry::from_names(&rules, techno_types.iter().map(|t| t.warhead.as_str()));
-    let rules_db = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types,
-        warheads,
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
+    );
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "testing-duel");
     map.width = 16;
@@ -150,29 +143,19 @@ pub fn standard_duel() -> HeadlessCase {
             tag: String::new(),
         },
     ];
-    let world = battle_from_rules(&rules_db, map);
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
     HeadlessCase::new(Session::from_state(world, "ra-testing standard duel"))
 }
 
 /// 单人 MCV 开局夹具：播种盟军 MCV 与冻结竖切初始资金，供部署/经济 headless 使用。
 pub fn mcv_deploy_open() -> HeadlessCase {
     let slice = alpha_skirmish_v1();
-    let rules_text = b"[VehicleTypes]\n0=AMCV\n\
+    let defs = defs_from_rules_ini(
+        b"[VehicleTypes]\n0=AMCV\n\
 [BuildingTypes]\n0=GACNST\n\
 [AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
-[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n";
-    let rules = IniDocument::parse(rules_text).expect("内置测试 INI 必须有效");
-    let rules_db = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n",
+    );
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "testing-mcv-deploy");
     map.width = 16;
@@ -189,7 +172,7 @@ pub fn mcv_deploy_open() -> HeadlessCase {
         mission: String::new(),
         tag: String::new(),
     }];
-    let mut world = battle_from_rules(&rules_db, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
     HeadlessCase::new(Session::from_state(world, "ra-testing mcv deploy open"))
 }
@@ -197,25 +180,15 @@ pub fn mcv_deploy_open() -> HeadlessCase {
 /// 已展开建造场的开局夹具，供放置建筑 / 经济 headless 使用。
 pub fn yard_open() -> HeadlessCase {
     let slice = alpha_skirmish_v1();
-    let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAPOWR\n2=GAREFN\n3=GAPILE\n\
+    let defs = defs_from_rules_ini(
+        b"[BuildingTypes]\n0=GACNST\n1=GAPOWR\n2=GAREFN\n3=GAPILE\n\
 [InfantryTypes]\n0=E1\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
 [GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\n\
 [GAREFN]\nRefinery=yes\nPower=-50\nPowered=yes\nOwner=Americans\nStrength=900\nSight=4\nCost=2000\nTechLevel=1\n\
 [GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nTechLevel=1\n\
-[E1]\nOwner=Americans\nStrength=125\nSpeed=4\nSight=5\nCost=200\nTechLevel=1\n";
-    let rules = IniDocument::parse(rules_text).expect("内置测试 INI 必须有效");
-    let rules_db = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+[E1]\nOwner=Americans\nStrength=125\nSpeed=4\nSight=5\nCost=200\nTechLevel=1\n",
+    );
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "testing-yard-open");
     map.width = 16;
@@ -232,7 +205,7 @@ pub fn yard_open() -> HeadlessCase {
         mission: String::new(),
         tag: String::new(),
     }];
-    let mut world = battle_from_rules(&rules_db, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
     HeadlessCase::new(Session::from_state(world, "ra-testing yard open"))
 }
@@ -240,7 +213,8 @@ pub fn yard_open() -> HeadlessCase {
 /// 双人 AI 遭遇战开局：本地盟军建造场 + 苏军 MCV，AI 经 `GameCommand` 展开基地。
 pub fn ai_skirmish_open() -> HeadlessCase {
     let slice = alpha_skirmish_v1();
-    let rules_text = b"[VehicleTypes]\n0=SMCV\n1=MTNK\n\
+    let defs = defs_from_rules_ini(
+        b"[VehicleTypes]\n0=SMCV\n1=MTNK\n\
 [BuildingTypes]\n0=GACNST\n1=NACNST\n2=NAPOWR\n3=NAHAND\n4=NAWEAP\n5=NAREFN\n\
 [InfantryTypes]\n0=E2\n\
 [SMCV]\nDeploysInto=NACNST\nOwner=Russians\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\nArmor=heavy\n\
@@ -253,21 +227,8 @@ pub fn ai_skirmish_open() -> HeadlessCase {
 [NAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nOwner=Russians\nStrength=900\nSight=4\nCost=2000\nArmor=wood\nTechLevel=1\n\
 [E2]\nOwner=Russians\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nTechLevel=1\n\
 [90mm]\nDamage=75\nROF=8\nRange=5\nWarhead=AP\n\
-[AP]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n";
-    let rules = IniDocument::parse(rules_text).expect("内置测试 INI 必须有效");
-    let techno_types = TechnoTypeRegistry::from_rules(&rules);
-    let warheads = WarheadRegistry::from_names(&rules, techno_types.iter().map(|t| t.warhead.as_str()));
-    let rules_db = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types,
-        warheads,
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+[AP]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
+    );
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "testing-ai-skirmish");
     map.width = 24;
@@ -310,7 +271,7 @@ pub fn ai_skirmish_open() -> HeadlessCase {
             tag: String::new(),
         },
     ];
-    let mut world = battle_from_rules(&rules_db, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
     assert!(world.set_house_funds(slice.ai_house, slice.starting_funds));
     let mut session = Session::from_state(world, "ra-testing ai skirmish open");

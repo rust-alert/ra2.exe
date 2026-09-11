@@ -4,45 +4,54 @@
 
 use std::sync::Arc;
 
-use ra_adaptor::{RulesSystem, build_runtime_definitions};
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_adaptor::{RulesSystem, build_runtime_definitions, rules_system_from_ini_bytes, runtime_definitions_from_ini_bytes};
 use ra_engine::{BattleState, Engine, EngineConfig};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{GameEdition, RuntimeDefinitions, TerrainSpawnerDefinitions};
+use ra_types::{GameEdition, RuntimeDefinitions};
 
 /// 测试用默认引擎（空定义骨架）。
 pub fn test_engine() -> Engine {
     Engine::new(Arc::new(RuntimeDefinitions::default()), EngineConfig::default()).expect("默认引擎应可构造")
 }
 
-/// 测试边界：规则快照投影为冻结定义后再播种世界。
-pub fn battle_from_rules(rules: &RulesSystem, map: MapInfo) -> BattleState {
-    BattleState::new(rules.edition, Arc::new(build_runtime_definitions(rules)), map)
+/// 测试边界：冻结定义播种世界（引擎侧不再经 `RulesSystem`）。
+pub fn battle_from_defs(edition: GameEdition, defs: Arc<RuntimeDefinitions>, map: MapInfo) -> BattleState {
+    BattleState::new(edition, defs, map)
 }
 
+/// 兼容旧测例：装载期快照投影后再播种（新代码请用 [`battle_from_defs`]）。
+pub fn battle_from_rules(rules: &RulesSystem, map: MapInfo) -> BattleState {
+    battle_from_defs(rules.edition, Arc::new(build_runtime_definitions(rules)), map)
+}
 
-/// 含 MTNK 坦克类型的最小规则库（Strength=400，带主武器）。
-pub fn rules_with_mtnk() -> RulesSystem {
-    let doc = IniDocument::parse(
+/// 内联 rules INI → 冻结定义（装载在 adaptor，引擎只拿 `RuntimeDefinitions`）。
+pub fn defs_from_rules_ini(rules_ini: &[u8]) -> Arc<RuntimeDefinitions> {
+    Arc::new(
+        runtime_definitions_from_ini_bytes(GameEdition::Ra2, rules_ini, None).expect("测试 rules INI 必须可投影"),
+    )
+}
+
+/// 含 MTNK 坦克类型的最小冻结定义（Strength=400，带主武器）。
+pub fn defs_with_mtnk() -> Arc<RuntimeDefinitions> {
+    defs_from_rules_ini(
         b"[VehicleTypes]\n0=MTNK\n\
 [MTNK]\nStrength=400\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\nPrimary=90mm\n\
 [90mm]\nDamage=100\nROF=8\nRange=6\nWarhead=SA\n\
 [SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
     )
-    .unwrap();
-    let techno_types = TechnoTypeRegistry::from_rules(&doc);
-    let warheads = WarheadRegistry::from_names(&doc, techno_types.iter().map(|t| t.warhead.as_str()));
-    RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&doc),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types,
-        warheads,
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    }
+}
+
+/// 兼容旧测例：返回装载期快照（新代码请用 [`defs_with_mtnk`]）。
+pub fn rules_with_mtnk() -> RulesSystem {
+    rules_system_from_ini_bytes(
+        GameEdition::Ra2,
+        b"[VehicleTypes]\n0=MTNK\n\
+[MTNK]\nStrength=400\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\nPrimary=90mm\n\
+[90mm]\nDamage=100\nROF=8\nRange=6\nWarhead=SA\n\
+[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
+        None,
+    )
+    .expect("测试 rules INI 必须可装载")
 }
 
 /// 20×30 空图。
@@ -55,24 +64,12 @@ pub fn map_with_size() -> MapInfo {
 
 /// 美俄各一辆 MTNK 的对决世界（Strength=200，带主武器，供身份 / 拒绝 / 互殴测例）。
 pub fn duel_mtnk_world() -> BattleState {
-    let rules_text = b"[VehicleTypes]\n0=MTNK\n\
+    let defs = defs_from_rules_ini(
+        b"[VehicleTypes]\n0=MTNK\n\
 [MTNK]\nStrength=200\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\nPrimary=90mm\n\
 [90mm]\nDamage=50\nROF=8\nRange=6\nWarhead=SA\n\
-[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n";
-    let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
-    let techno_types = TechnoTypeRegistry::from_rules(&rules);
-    let warheads = WarheadRegistry::from_names(&rules, techno_types.iter().map(|t| t.warhead.as_str()));
-    let rules_db = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types,
-        warheads,
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
+    );
     let mut map = MapInfo::empty(GameEdition::Ra2, "entity-id-duel");
     map.width = 16;
     map.height = 16;
@@ -102,5 +99,5 @@ pub fn duel_mtnk_world() -> BattleState {
             tag: String::new(),
         },
     ];
-    battle_from_rules(&rules_db, map)
+    battle_from_defs(GameEdition::Ra2, defs, map)
 }

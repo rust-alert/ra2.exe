@@ -4,13 +4,14 @@
 
 use ra_assets::TechnoKind;
 use ra_types::{
-    ArmorKind, BuildCat, BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, HouseAllowList, PowerProfile,
-    PrerequisiteGroups, PrerequisiteToken, ProductionCategory, ProductionProfile, RuntimeDefinitions, StolenTechKind, StructureDefinition,
-    SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WeaponDefinition, WeaponId,
+    ArmorKind, BuildCat, BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, GameEdition, HouseAllowList,
+    PowerProfile, PrerequisiteGroups, PrerequisiteToken, ProductionCategory, ProductionProfile, RaResult, RuntimeDefinitions,
+    StolenTechKind, StructureDefinition, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId,
+    WeaponDefinition, WeaponId,
 };
 use std::collections::HashMap;
 
-use crate::RulesSystem;
+use crate::{RulesSystem, rules_system_from_ini_bytes};
 
 /// 由已装载规则快照构建冻结运行时定义。
 pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
@@ -308,6 +309,16 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     defs.overlays = rules.overlay_types.clone();
 
     defs
+}
+
+/// 从内联 rules/art 字节直接投影冻结定义（测试 / 无资源树夹具）。
+pub fn runtime_definitions_from_ini_bytes(
+    edition: GameEdition,
+    rules_ini: &[u8],
+    art_ini: Option<&[u8]>,
+) -> RaResult<RuntimeDefinitions> {
+    let rules = rules_system_from_ini_bytes(edition, rules_ini, art_ini)?;
+    Ok(build_runtime_definitions(&rules))
 }
 
 #[doc(hidden)]
