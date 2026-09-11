@@ -119,6 +119,26 @@ fn build_runtime_definitions_rules_foundation_fallback_without_art() {
 }
 
 #[test]
+fn build_runtime_definitions_binds_warhead_type_id() {
+    let rules = rules_from(
+        b"[VehicleTypes]\n0=MTNK\n\
+[MTNK]\nStrength=200\nCost=800\nArmor=heavy\nPrimary=90mm\n\
+[90mm]\nDamage=50\nROF=8\nRange=6\nWarhead=SA\n\
+[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
+    );
+    // 测试夹具需带上弹头 registry，否则 verses 回落默认但仍应分配稳定 id。
+    let mut rules = rules;
+    rules.warheads = WarheadRegistry::from_names(&rules.rules, rules.techno_types.iter().map(|t| t.warhead.as_str()));
+    let defs = build_runtime_definitions(&rules);
+    let mtnk = defs.techno.get("MTNK").expect("MTNK");
+    assert_eq!(mtnk.warhead, "SA");
+    assert_ne!(mtnk.warhead_id, ra_types::TypeId(0));
+    let wh = defs.warheads.get_by_id(mtnk.warhead_id).expect("bound warhead");
+    assert_eq!(wh.type_key, "SA");
+    assert_eq!(wh.verses, [100; 11]);
+}
+
+#[test]
 fn build_runtime_definitions_projects_techno_fields_without_rescanning_section() {
     let rules = rules_from(
         b"[VehicleTypes]\n0=FV\n\

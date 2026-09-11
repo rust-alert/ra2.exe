@@ -141,7 +141,7 @@ impl crate::state::BattleState {
                 // 无 Primary / Damage=0 保持 0，禁止用 Strength 发明伤害。
                 attack_damage: tt.damage,
                 attack_cooldown_max: if tt.rof > 0 { tt.rof } else { ATTACK_COOLDOWN_TICKS },
-                attack_verses: verses_for(&self.definitions, &tt.warhead),
+                attack_verses: verses_for(&self.definitions, tt.warhead_id),
                 techno_class: Some(techno_class),
             },
             attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },

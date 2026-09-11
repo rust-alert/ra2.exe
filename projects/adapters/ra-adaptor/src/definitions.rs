@@ -89,6 +89,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             range: tt.range,
             rof: tt.rof,
             warhead: tt.warhead.to_ascii_uppercase(),
+            warhead_id: TypeId(0),
             prerequisite: tt.prerequisite.clone(),
             prerequisite_override: tt.prerequisite_override.clone(),
             required_houses: tt.required_houses.clone(),
@@ -225,6 +226,13 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         let verses = rules.warheads.get(&key).map(|w| w.verses).unwrap_or([100; 11]);
         let id = alloc();
         defs.warheads.insert(WarheadDefinition { id, type_key: key, verses });
+    }
+    for techno in defs.techno.iter_mut() {
+        techno.warhead_id = if techno.warhead.is_empty() {
+            TypeId(0)
+        } else {
+            defs.warheads.get(&techno.warhead).map(|w| w.id).unwrap_or(TypeId(0))
+        };
     }
 
     defs.terrain_spawners = rules.terrain_spawners.clone();

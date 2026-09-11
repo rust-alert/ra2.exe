@@ -42,6 +42,11 @@ impl WarheadDefinitions {
         self.by_key.get(&type_key.to_ascii_uppercase())
     }
 
+    /// 按稳定 id 查找。
+    pub fn get_by_id(&self, id: TypeId) -> Option<&WarheadDefinition> {
+        self.by_key.values().find(|w| w.id == id)
+    }
+
     /// 条目数。
     pub fn len(&self) -> usize {
         self.by_key.len()

@@ -28,6 +28,7 @@ fn sample(build_time: u32) -> TechnoDefinition {
         range: 0,
         rof: 0,
         warhead: String::new(),
+        warhead_id: TypeId(0),
         prerequisite: Vec::new(),
         prerequisite_override: Vec::new(),
         required_houses: Vec::new(),

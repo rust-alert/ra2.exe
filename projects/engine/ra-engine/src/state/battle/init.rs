@@ -37,7 +37,7 @@ impl BattleState {
             let attack_damage = tt.map(|t| t.damage).unwrap_or(0);
             let attack_cooldown_max = tt.map(|t| if t.rof > 0 { t.rof } else { ATTACK_COOLDOWN_TICKS }).unwrap_or(0);
             let armor = tt.map(|t| t.armor.clone()).unwrap_or_else(|| "none".into());
-            let attack_verses = tt.map(|t| verses_for(&definitions, &t.warhead)).unwrap_or([0; 11]);
+            let attack_verses = tt.map(|t| verses_for(&definitions, t.warhead_id)).unwrap_or([0; 11]);
             let techno_class = tt.map(|t| t.class);
             let id = EntityId(next_entity_id);
             next_entity_id = next_entity_id.saturating_add(1);
@@ -178,13 +178,13 @@ impl BattleState {
         let max_health = tt.strength.max(1);
         let speed = tt.speed;
         let armor = tt.armor.clone();
-        let warhead = tt.warhead.clone();
+        let warhead_id = tt.warhead_id;
         let class = tt.class;
         let attack_range = if tt.range > 0 { tt.range } else { tt.sight.max(1) };
         // 无 Primary / Damage=0 保持 0，禁止用 Strength 发明伤害。
         let attack_damage = tt.damage;
         let attack_cooldown_max = if tt.rof > 0 { tt.rof } else { ATTACK_COOLDOWN_TICKS };
-        let attack_verses = verses_for(&self.definitions, &warhead);
+        let attack_verses = verses_for(&self.definitions, warhead_id);
         let id = self.alloc_entity_id();
         let kind = match class {
             TechnoClass::Infantry => MapEntityKind::Infantry,

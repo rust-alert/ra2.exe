@@ -70,8 +70,10 @@ pub struct TechnoDefinition {
     pub range: u32,
     /// 射速间隔（tick）；0 表示未配置。
     pub rof: u32,
-    /// 主武器弹头键；空表示未配置。
+    /// 主武器弹头键；空表示未配置（装载诊断 / 兼容；执行侧优先 `warhead_id`）。
     pub warhead: String,
+    /// 主武器弹头稳定 id；`TypeId(0)` 表示未绑定。
+    pub warhead_id: TypeId,
     /// `Prerequisite` 逗号分隔 token（类型键或通用组名）；空 = 无前置。
     pub prerequisite: Vec<String>,
     /// `PrerequisiteOverride`：拥有任一即可绕过普通 Prerequisite。
@@ -124,5 +126,10 @@ impl TechnoDefinitions {
     /// 遍历。
     pub fn iter(&self) -> impl Iterator<Item = &TechnoDefinition> {
         self.by_key.values()
+    }
+
+    /// 可变遍历（装载投影回填引用 id）。
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut TechnoDefinition> {
+        self.by_key.values_mut()
     }
 }

@@ -161,6 +161,7 @@ fn techno(key: &str, class: TechnoClass, owner: &str, tech_level: i32, prerequis
         range: 0,
         rof: 0,
         warhead: String::new(),
+        warhead_id: TypeId(0),
         prerequisite: prerequisite.iter().map(|s| (*s).to_string()).collect(),
         prerequisite_override: override_tokens.iter().map(|s| (*s).to_string()).collect(),
         required_houses: Vec::new(),
