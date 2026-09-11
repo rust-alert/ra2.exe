@@ -5,8 +5,8 @@
 use ra_assets::TechnoKind;
 use ra_types::{
     BuildCat, BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, GameEdition, PowerProfile, PrerequisiteGroups,
-    PrerequisiteToken, ProductionCategory, ProductionProfile, RaResult, RuntimeDefinitions, StolenTechKind, StructureDefinition,
-    SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WarheadName, WeaponDefinition, WeaponId,
+    ProductionCategory, ProductionProfile, RaResult, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition,
+    TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WarheadName, WeaponDefinition, WeaponId,
 };
 use std::collections::HashMap;
 
@@ -103,8 +103,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             primary_id: WeaponId(0),
             warhead: tt.warhead.clone(),
             warhead_id: WarheadId(0),
-            prerequisite: tt.prerequisite.iter().filter_map(|s| PrerequisiteToken::parse_raw(s)).collect(),
-            prerequisite_override: tt.prerequisite_override.iter().filter_map(|s| PrerequisiteToken::parse_raw(s)).collect(),
+            prerequisite: tt.prerequisite.clone().into_vec(),
+            prerequisite_override: tt.prerequisite_override.clone().into_vec(),
             required_houses: tt.required_houses.clone(),
             forbidden_houses: tt.forbidden_houses.clone(),
             build_limit: tt.build_limit,

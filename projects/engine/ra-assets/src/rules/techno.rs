@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
-use ra_types::{HouseAllowList, WarheadName, WeaponName};
+use ra_types::{HouseAllowList, PrerequisiteList, WarheadName, WeaponName};
 
 /// 步兵 / 载具 / 飞行器 / 建筑的共用类型字段。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -50,10 +50,10 @@ pub struct TechnoType {
     pub rof: u32,
     /// 主武器弹头名（武器节 `Warhead`）；空表示未配置。
     pub warhead: WarheadName,
-    /// `Prerequisite` token（大写）。
-    pub prerequisite: Vec<String>,
-    /// `PrerequisiteOverride` token（大写）。
-    pub prerequisite_override: Vec<String>,
+    /// `Prerequisite`（装载期一次解码）。
+    pub prerequisite: PrerequisiteList,
+    /// `PrerequisiteOverride`（装载期一次解码）。
+    pub prerequisite_override: PrerequisiteList,
     /// `RequiredHouses`（装载期一次解码；空 = 不限制）。
     pub required_houses: HouseAllowList,
     /// `ForbiddenHouses`（装载期一次解码；空 = 不禁止）。
@@ -241,9 +241,9 @@ struct TechnoSectionFields {
     #[serde(rename = "ROF")]
     rof: Option<u32>,
     #[serde(rename = "Prerequisite", default)]
-    prerequisite: Vec<String>,
+    prerequisite: PrerequisiteList,
     #[serde(rename = "PrerequisiteOverride", default)]
-    prerequisite_override: Vec<String>,
+    prerequisite_override: PrerequisiteList,
     #[serde(rename = "RequiredHouses", default)]
     required_houses: HouseAllowList,
     #[serde(rename = "ForbiddenHouses", default)]
@@ -299,14 +299,6 @@ struct WeaponSectionFields {
     warhead: WarheadName,
 }
 
-fn uppercase_tokens(items: Vec<String>) -> Vec<String> {
-    items
-        .into_iter()
-        .map(|s| s.trim().to_ascii_uppercase())
-        .filter(|s| !s.is_empty())
-        .collect()
-}
-
 fn parse_techno(view: LayeredIniView<'_>, id: &str, kind: TechnoKind) -> Option<TechnoType> {
     let section = view.section(id)?;
     let fields: TechnoSectionFields = section.deserialize().ok()?;
@@ -340,8 +332,8 @@ fn parse_techno(view: LayeredIniView<'_>, id: &str, kind: TechnoKind) -> Option<
         range,
         rof,
         warhead,
-        prerequisite: uppercase_tokens(fields.prerequisite),
-        prerequisite_override: uppercase_tokens(fields.prerequisite_override),
+        prerequisite: fields.prerequisite,
+        prerequisite_override: fields.prerequisite_override,
         required_houses: fields.required_houses,
         forbidden_houses: fields.forbidden_houses,
         build_limit: fields.build_limit.unwrap_or(0).max(0),

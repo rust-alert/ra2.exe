@@ -1,6 +1,10 @@
 //! 科技树相关冻结定义（前置组、偷取科技与默认科技上限）。
 
 use std::collections::BTreeMap;
+use std::fmt;
+
+use serde::de::{self, Deserializer, SeqAccess, Visitor};
+use serde::Deserialize;
 
 use crate::id::TypeId;
 
@@ -89,6 +93,155 @@ impl PrerequisiteToken {
             Self::UnboundType(key) => resolve(&key).map(Self::Type).unwrap_or(Self::UnboundType(key)),
             other => other,
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for PrerequisiteToken {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct TokenVisitor;
+
+        impl<'de> Visitor<'de> for TokenVisitor {
+            type Value = PrerequisiteToken;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("prerequisite token")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                PrerequisiteToken::parse_raw(v).ok_or_else(|| E::custom("empty prerequisite token"))
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                PrerequisiteToken::parse_raw(&v).ok_or_else(|| E::custom("empty prerequisite token"))
+            }
+        }
+
+        deserializer.deserialize_any(TokenVisitor)
+    }
+}
+
+/// `Prerequisite=` / `PrerequisiteOverride=` 列表（装载期一次解码）。
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PrerequisiteList {
+    tokens: Vec<PrerequisiteToken>,
+}
+
+impl PrerequisiteList {
+    /// 空列表。
+    pub fn empty() -> Self {
+        Self { tokens: Vec::new() }
+    }
+
+    /// 由 token 构造。
+    pub fn from_tokens(tokens: impl IntoIterator<Item = PrerequisiteToken>) -> Self {
+        Self {
+            tokens: tokens.into_iter().collect(),
+        }
+    }
+
+    /// 是否为空。
+    pub fn is_empty(&self) -> bool {
+        self.tokens.is_empty()
+    }
+
+    /// 长度。
+    pub fn len(&self) -> usize {
+        self.tokens.len()
+    }
+
+    /// 迭代。
+    pub fn iter(&self) -> impl Iterator<Item = &PrerequisiteToken> {
+        self.tokens.iter()
+    }
+
+    /// 取出内部列表（投影 / 绑定用）。
+    pub fn into_vec(self) -> Vec<PrerequisiteToken> {
+        self.tokens
+    }
+
+    /// 绑定类型引用后返回新列表。
+    pub fn bind_type_ids(self, resolve: &impl Fn(&str) -> Option<TypeId>) -> Self {
+        Self {
+            tokens: self.tokens.into_iter().map(|t| t.bind_type_id(resolve)).collect(),
+        }
+    }
+}
+
+impl From<PrerequisiteList> for Vec<PrerequisiteToken> {
+    fn from(value: PrerequisiteList) -> Self {
+        value.tokens
+    }
+}
+
+impl<'de> Deserialize<'de> for PrerequisiteList {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct ListVisitor;
+
+        impl<'de> Visitor<'de> for ListVisitor {
+            type Value = PrerequisiteList;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("comma-separated prerequisite tokens")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(PrerequisiteList::from_tokens(
+                    v.split(|c| c == ',' || c == ';' || c == '|')
+                        .filter_map(PrerequisiteToken::parse_raw),
+                ))
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                self.visit_str(&v)
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut tokens = Vec::new();
+                while let Some(part) = seq.next_element::<String>()? {
+                    if let Some(token) = PrerequisiteToken::parse_raw(&part) {
+                        tokens.push(token);
+                    }
+                }
+                Ok(PrerequisiteList::from_tokens(tokens))
+            }
+
+            fn visit_none<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(PrerequisiteList::empty())
+            }
+
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(PrerequisiteList::empty())
+            }
+        }
+
+        deserializer.deserialize_any(ListVisitor)
     }
 }
 

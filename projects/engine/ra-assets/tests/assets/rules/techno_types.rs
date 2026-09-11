@@ -91,8 +91,17 @@ Radar=yes\nRefinery=no\nSuperWeapon=Nuke\nPower=-50\n",
     .unwrap();
     let reg = TechnoTypeRegistry::from_rules(&doc);
     let fv = reg.get("FV").unwrap();
-    assert_eq!(fv.prerequisite, vec!["GAWEAP".to_string(), "POWER".to_string()]);
-    assert_eq!(fv.prerequisite_override, vec!["GACNST".to_string()]);
+    assert_eq!(
+        fv.prerequisite.iter().cloned().collect::<Vec<_>>(),
+        vec![
+            ra_types::PrerequisiteToken::UnboundType("GAWEAP".into()),
+            ra_types::PrerequisiteToken::Group(ra_types::PrerequisiteGroupKind::Power),
+        ]
+    );
+    assert_eq!(
+        fv.prerequisite_override.iter().cloned().collect::<Vec<_>>(),
+        vec![ra_types::PrerequisiteToken::UnboundType("GACNST".into())]
+    );
     assert_eq!(
         fv.required_houses.iter().map(|h| h.as_str()).collect::<Vec<_>>(),
         vec!["ALLIANCE", "AMERICANS"]
