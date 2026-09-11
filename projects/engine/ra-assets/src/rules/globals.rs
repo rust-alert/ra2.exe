@@ -3,6 +3,7 @@
 use serde::Deserialize;
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
+use ra_types::TechnoName;
 
 /// 装载期全局字段（缺省由 adaptor 填产品默认，不在此冒充「未写」）。
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -17,20 +18,20 @@ pub struct RulesGlobals {
     pub repair_rate_minutes: Option<f64>,
     /// `[AudioVisual] SpeakDelay`，否则 `[General] SpeakDelay`（分钟）。
     pub speak_delay_minutes: Option<f64>,
-    /// `[General] PrerequisitePower` token（大写）。
-    pub prerequisite_power: Vec<String>,
+    /// `[General] PrerequisitePower`（装载期一次解码为大写类型名）。
+    pub prerequisite_power: Vec<TechnoName>,
     /// `[General] PrerequisiteFactory`。
-    pub prerequisite_factory: Vec<String>,
+    pub prerequisite_factory: Vec<TechnoName>,
     /// `[General] PrerequisiteBarracks`。
-    pub prerequisite_barracks: Vec<String>,
+    pub prerequisite_barracks: Vec<TechnoName>,
     /// `[General] PrerequisiteRadar`。
-    pub prerequisite_radar: Vec<String>,
+    pub prerequisite_radar: Vec<TechnoName>,
     /// `[General] PrerequisiteTech`。
-    pub prerequisite_tech: Vec<String>,
+    pub prerequisite_tech: Vec<TechnoName>,
     /// `[General] PrerequisiteProc`。
-    pub prerequisite_proc: Vec<String>,
+    pub prerequisite_proc: Vec<TechnoName>,
     /// `[General] PrerequisiteProcAlternate`。
-    pub prerequisite_proc_alternate: Vec<String>,
+    pub prerequisite_proc_alternate: Vec<TechnoName>,
 }
 
 impl RulesGlobals {
@@ -62,13 +63,13 @@ impl RulesGlobals {
             repair_step: general.repair_step,
             repair_rate_minutes: general.repair_rate,
             speak_delay_minutes,
-            prerequisite_power: uppercase_tokens(general.prerequisite_power),
-            prerequisite_factory: uppercase_tokens(general.prerequisite_factory),
-            prerequisite_barracks: uppercase_tokens(general.prerequisite_barracks),
-            prerequisite_radar: uppercase_tokens(general.prerequisite_radar),
-            prerequisite_tech: uppercase_tokens(general.prerequisite_tech),
-            prerequisite_proc: uppercase_tokens(general.prerequisite_proc),
-            prerequisite_proc_alternate: uppercase_tokens(general.prerequisite_proc_alternate),
+            prerequisite_power: filter_techno_names(general.prerequisite_power),
+            prerequisite_factory: filter_techno_names(general.prerequisite_factory),
+            prerequisite_barracks: filter_techno_names(general.prerequisite_barracks),
+            prerequisite_radar: filter_techno_names(general.prerequisite_radar),
+            prerequisite_tech: filter_techno_names(general.prerequisite_tech),
+            prerequisite_proc: filter_techno_names(general.prerequisite_proc),
+            prerequisite_proc_alternate: filter_techno_names(general.prerequisite_proc_alternate),
         }
     }
 }
@@ -84,19 +85,19 @@ struct GeneralSectionFields {
     #[serde(rename = "SpeakDelay")]
     speak_delay: Option<f64>,
     #[serde(rename = "PrerequisitePower", default)]
-    prerequisite_power: Vec<String>,
+    prerequisite_power: Vec<TechnoName>,
     #[serde(rename = "PrerequisiteFactory", default)]
-    prerequisite_factory: Vec<String>,
+    prerequisite_factory: Vec<TechnoName>,
     #[serde(rename = "PrerequisiteBarracks", default)]
-    prerequisite_barracks: Vec<String>,
+    prerequisite_barracks: Vec<TechnoName>,
     #[serde(rename = "PrerequisiteRadar", default)]
-    prerequisite_radar: Vec<String>,
+    prerequisite_radar: Vec<TechnoName>,
     #[serde(rename = "PrerequisiteTech", default)]
-    prerequisite_tech: Vec<String>,
+    prerequisite_tech: Vec<TechnoName>,
     #[serde(rename = "PrerequisiteProc", default)]
-    prerequisite_proc: Vec<String>,
+    prerequisite_proc: Vec<TechnoName>,
     #[serde(rename = "PrerequisiteProcAlternate", default)]
-    prerequisite_proc_alternate: Vec<String>,
+    prerequisite_proc_alternate: Vec<TechnoName>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -111,10 +112,6 @@ struct AudioVisualSectionFields {
     speak_delay: Option<f64>,
 }
 
-fn uppercase_tokens(items: Vec<String>) -> Vec<String> {
-    items
-        .into_iter()
-        .map(|s| s.trim().to_ascii_uppercase())
-        .filter(|s| !s.is_empty())
-        .collect()
+fn filter_techno_names(items: Vec<TechnoName>) -> Vec<TechnoName> {
+    items.into_iter().filter(|n| !n.is_empty()).collect()
 }
