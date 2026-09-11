@@ -1,7 +1,7 @@
 //! 矿车采集矿格后邻接矿场卸货入账。
 
 use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, TechnoTypeRegistry, WarheadRegistry, overlay_types_from_rules};
 use ra_engine::{BattleState, ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo, OverlayCell};
 use ra_types::GameEdition;
@@ -18,7 +18,7 @@ fn mining_world() -> BattleState {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
         art: IniDocument::default(),
-        overlay_types: OverlayTypeRegistry::from_rules(&rules),
+        overlay_types: overlay_types_from_rules(&rules),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
@@ -117,7 +117,7 @@ fn idle_harvester_seeks_ore_then_returns_to_refinery() {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
         art: IniDocument::default(),
-        overlay_types: OverlayTypeRegistry::from_rules(&rules),
+        overlay_types: overlay_types_from_rules(&rules),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),

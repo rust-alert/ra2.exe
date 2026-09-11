@@ -216,6 +216,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     }
 
     fill_terrain_spawners(&mut defs, &rules.rules);
+    defs.overlays = rules.overlay_types.clone();
 
     defs
 }

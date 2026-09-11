@@ -77,7 +77,7 @@ impl BattleState {
             edition,
             tick: 0,
             map,
-            overlay_types: rules.overlay_types.clone(),
+            overlay_types: definitions.overlays.clone(),
             pass_grid,
             entities: Vec::with_capacity(seed_bundles.len()),
             players,

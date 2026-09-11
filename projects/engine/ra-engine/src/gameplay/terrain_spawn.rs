@@ -4,7 +4,7 @@
 //! 中点触发邻格产矿并回到 Idle。呈现只读 [`TerrainSpawnerState::render_frame`]。
 
 use ra_map::{MapInfo, OverlayCell, TerrainObject};
-use ra_types::TerrainSpawnerDefinitions;
+use ra_types::{OverlayTypeRegistry, TerrainSpawnerDefinitions};
 
 /// 概率分母（与零售 `random % 1_000_000` 对齐）。
 pub const PROBABILITY_DENOMINATOR: u32 = 1_000_000;
@@ -195,7 +195,7 @@ pub fn terrain_spawner_frame_signature(spawners: &[TerrainSpawnerState]) -> u64 
 /// 成功时返回被写入的格子坐标，供呈现层脏刷新。
 pub fn place_spawned_ore(
     overlays: &mut Vec<OverlayCell>,
-    overlay_types: &ra_assets::OverlayTypeRegistry,
+    overlay_types: &OverlayTypeRegistry,
     ox: u16,
     oy: u16,
     pass_in_bounds: impl Fn(u16, u16) -> bool,
@@ -225,7 +225,7 @@ pub fn place_spawned_ore(
 }
 
 #[doc(hidden)]
-pub fn first_harvestable_id(reg: &ra_assets::OverlayTypeRegistry) -> Option<u8> {
+pub fn first_harvestable_id(reg: &OverlayTypeRegistry) -> Option<u8> {
     for id in 0..reg.len().min(256) {
         let id = id as u8;
         if reg.is_harvestable(id) {

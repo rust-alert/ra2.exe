@@ -10,6 +10,7 @@ mod deployable;
 mod fingerprint;
 pub mod foundation;
 mod locomotor;
+mod overlay;
 mod production;
 mod runtime;
 mod sound;
@@ -28,6 +29,7 @@ pub use deployable::{DeployableDefinition, DeployableDefinitions, DeploymentPlac
 pub use fingerprint::ContentFingerprint;
 pub use foundation::Foundation;
 pub use locomotor::LocomotorDefinitions;
+pub use overlay::OverlayTypeRegistry;
 pub use production::{ProductionCategory, ProductionDefinitions, ProductionProfile};
 pub use runtime::RuntimeDefinitions;
 pub use sound::SoundDefinitions;

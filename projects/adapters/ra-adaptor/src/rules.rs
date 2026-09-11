@@ -1,7 +1,7 @@
 //! 按资源链装载 rules/art 与派生注册表。
 
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_types::{AssetSource, GameEdition, RaResult};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, TechnoTypeRegistry, WarheadRegistry, overlay_types_from_rules};
+use ra_types::{AssetSource, GameEdition, OverlayTypeRegistry, RaResult};
 
 use crate::ResourceChain;
 
@@ -34,7 +34,7 @@ pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaRe
     let art_bytes = source.read(chain.art_ini)?;
     let art =
         IniDocument::parse(&art_bytes).map_err(|e| ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.art_ini, art_bytes.len())))?;
-    let overlay_types = OverlayTypeRegistry::from_rules(&rules);
+    let overlay_types = overlay_types_from_rules(&rules);
     let color_schemes = ColorSchemes::from_rules(&rules);
     let countries = CountryRegistry::from_rules(&rules);
     let techno_types = TechnoTypeRegistry::from_rules(&rules);

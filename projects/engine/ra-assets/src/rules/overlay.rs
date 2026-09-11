@@ -1,67 +1,34 @@
 //! 从 `rules.ini` 的 `[OverlayTypes]` 建立 id → 名称表，并标记可采矿格。
 
+use ra_types::OverlayTypeRegistry;
+
 use crate::{
     ini::IniDocument,
     rules::{color_schemes::ColorSchemes, house_remap::Hsv},
 };
 
-/// Overlay 类型注册表。
+/// 解析 `[OverlayTypes]`：按节内条目顺序赋 id `0..n`，忽略键的数字字面量。
 ///
-/// 内部 id 按 `[OverlayTypes]` **声明顺序**（值序列）编号，不按数字键留空洞。
-/// 零售 `rules.ini` 常缺 `0=` / `40=` 等键；若按键号建表，矿/宝石会错位到桥/墙。
-#[derive(Debug, Clone, Default)]
-#[doc(hidden)]
-pub struct OverlayTypeRegistry {
-    /// `overlay_id` → 类型名（大写）；下标即 OverlayPack 字节。
-    names: Vec<String>,
-    /// 与 `names` 对齐：该 id 是否可采（矿/宝石）。
-    harvestable: Vec<bool>,
-}
-
-impl OverlayTypeRegistry {
-    /// 解析 `[OverlayTypes]`：按节内条目顺序赋 id `0..n`，忽略键的数字字面量。
-    ///
-    /// 可采判定优先读类型节 `Tiberium=yes` / `SpawnsTiberium=yes` / `Land=`，
-    /// 再回退类型名前缀 `TIB*` / `GEM*`。
-    pub fn from_rules(rules: &IniDocument) -> Self {
-        let Some(section) = rules.section("OverlayTypes")
-        else {
-            return Self::default();
-        };
-        let mut names = Vec::new();
-        let mut harvestable = Vec::new();
-        for (_key, value) in section.pairs() {
-            let name = value.trim();
-            if name.is_empty() {
-                continue;
-            }
-            let name_up = name.to_ascii_uppercase();
-            let can_harvest = overlay_type_is_harvestable(rules, &name_up);
-            names.push(name_up);
-            harvestable.push(can_harvest);
+/// 可采判定优先读类型节 `Tiberium=yes` / `SpawnsTiberium=yes` / `Land=`，
+/// 再回退类型名前缀 `TIB*` / `GEM*`。
+pub fn overlay_types_from_rules(rules: &IniDocument) -> OverlayTypeRegistry {
+    let Some(section) = rules.section("OverlayTypes")
+    else {
+        return OverlayTypeRegistry::default();
+    };
+    let mut names = Vec::new();
+    let mut harvestable = Vec::new();
+    for (_key, value) in section.pairs() {
+        let name = value.trim();
+        if name.is_empty() {
+            continue;
         }
-        Self { names, harvestable }
+        let name_up = name.to_ascii_uppercase();
+        let can_harvest = overlay_type_is_harvestable(rules, &name_up);
+        names.push(name_up);
+        harvestable.push(can_harvest);
     }
-
-    /// 已登记的类型数量。
-    pub fn len(&self) -> usize {
-        self.names.len()
-    }
-
-    /// 是否没有任何类型。
-    pub fn is_empty(&self) -> bool {
-        self.names.is_empty()
-    }
-
-    /// 按 overlay id 取类型名。
-    pub fn name(&self, id: u8) -> Option<&str> {
-        self.names.get(usize::from(id)).map(String::as_str)
-    }
-
-    /// 该 overlay id 是否可采矿/宝石。
-    pub fn is_harvestable(&self, id: u8) -> bool {
-        self.harvestable.get(usize::from(id)).copied().unwrap_or(false)
-    }
+    OverlayTypeRegistry::from_entries(names, harvestable)
 }
 
 /// 类型名是否像矿/宝石（无规则节时的回退）。
