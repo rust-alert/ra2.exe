@@ -12,6 +12,8 @@ fn rules_from(text: &[u8]) -> RulesSystem {
 fn rules_from_with_art(rules_text: &[u8], art_text: &[u8]) -> RulesSystem {
     let rules = IniDocument::parse(rules_text).expect("test rules ini");
     let art = if art_text.is_empty() { IniDocument::default() } else { IniDocument::parse(art_text).expect("test art ini") };
+    let mut techno_types = TechnoTypeRegistry::from_rules(&rules);
+    techno_types.apply_art_geometry(&art);
     RulesSystem {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
@@ -20,7 +22,7 @@ fn rules_from_with_art(rules_text: &[u8], art_text: &[u8]) -> RulesSystem {
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
+        techno_types,
         warheads: WarheadRegistry::default(),
         super_weapons: SuperWeaponTypeRegistry::from_rules(&rules),
     }

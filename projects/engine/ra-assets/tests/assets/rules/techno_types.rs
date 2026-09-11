@@ -101,3 +101,28 @@ Radar=yes\nRefinery=no\nSuperWeapon=Nuke\nPower=-50\n",
     assert_eq!(yard.super_weapon, "NUKE");
     assert_eq!(yard.power, -50);
 }
+
+#[test]
+fn apply_art_geometry_overrides_rules_and_follows_image() {
+    let rules = IniDocument::parse(
+        b"[BuildingTypes]\n0=NAWEAP\n1=NAWEAP2\n\
+[NAWEAP]\nStrength=1000\nFoundation=2x2\nHeight=3\n\
+[NAWEAP2]\nStrength=1000\n",
+    )
+    .unwrap();
+    let art = IniDocument::parse(
+        b"[NAWEAP]\nFoundation=5x3\nHeight=6\n\
+[NAWEAP2]\nImage=NAWEAP\n",
+    )
+    .unwrap();
+    let mut reg = TechnoTypeRegistry::from_rules(&rules);
+    assert_eq!(reg.get("NAWEAP").unwrap().foundation, "2x2");
+    assert_eq!(reg.get("NAWEAP").unwrap().height, Some(3));
+    reg.apply_art_geometry(&art);
+    let a = reg.get("NAWEAP").unwrap();
+    assert_eq!(a.foundation, "5x3");
+    assert_eq!(a.height, Some(6));
+    let b = reg.get("NAWEAP2").unwrap();
+    assert_eq!(b.foundation, "5x3");
+    assert_eq!(b.height, Some(6));
+}

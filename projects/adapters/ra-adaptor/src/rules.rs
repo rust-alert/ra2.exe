@@ -45,7 +45,11 @@ pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaRe
     let overlay_types = overlay_types_from_rules(&rules);
     let color_schemes = ColorSchemes::from_rules(&rules);
     let countries = CountryRegistry::from_rules(&rules);
-    let techno_types = TechnoTypeRegistry::from_rules(&rules);
+    let techno_types = {
+        let mut techno_types = TechnoTypeRegistry::from_rules(&rules);
+        techno_types.apply_art_geometry(&art);
+        techno_types
+    };
     let warheads = WarheadRegistry::from_names(&rules, techno_types.iter().map(|t| t.warhead.as_str()));
     let super_weapons = SuperWeaponTypeRegistry::from_rules(&rules);
     Ok(RulesSystem {

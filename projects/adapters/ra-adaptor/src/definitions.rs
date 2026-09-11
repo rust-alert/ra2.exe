@@ -178,9 +178,9 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             }
         }
 
-        // `Foundation` / `Height` 在原版主要写在 art.ini；rules 偶有覆盖。支持 art `Image=` 跳转。
-        let foundation = Foundation::parse(&art_or_rules_string(rules, &key, "Foundation").unwrap_or_default());
-        let height = art_or_rules_i32(rules, &key, "Height").unwrap_or(2).max(1) as u16;
+        // `Foundation` / `Height` 已在装载期由 rules + art（含 `Image=`）解到 `TechnoType`。
+        let foundation = Foundation::parse(&tt.foundation);
+        let height = tt.height.unwrap_or(2).max(1);
         defs.structures.insert(StructureDefinition {
             id,
             type_key: key,
@@ -321,27 +321,6 @@ pub fn parse_factory_category(raw: &str) -> ProductionCategory {
 #[doc(hidden)]
 pub fn ini_string(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<String> {
     doc.get(section, key).map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
-}
-
-/// 先读 art 节，再跟 `Image=` 指向的 art 节，最后回落 rules。
-pub fn art_or_rules_string(rules: &RulesSystem, type_key: &str, key: &str) -> Option<String> {
-    if let Some(v) = ini_string(&rules.art, type_key, key) {
-        return Some(v);
-    }
-    if let Some(image) = ini_string(&rules.art, type_key, "Image") {
-        let image = image.to_ascii_uppercase();
-        if !image.eq_ignore_ascii_case(type_key) {
-            if let Some(v) = ini_string(&rules.art, &image, key) {
-                return Some(v);
-            }
-        }
-    }
-    ini_string(&rules.rules, type_key, key)
-}
-
-#[doc(hidden)]
-pub fn art_or_rules_i32(rules: &RulesSystem, type_key: &str, key: &str) -> Option<i32> {
-    art_or_rules_string(rules, type_key, key)?.parse().ok()
 }
 
 #[doc(hidden)]

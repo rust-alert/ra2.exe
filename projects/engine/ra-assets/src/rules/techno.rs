@@ -89,6 +89,10 @@ pub struct TechnoType {
     pub factory: String,
     /// `SuperWeapon` 键（大写）；空表示无。
     pub super_weapon: String,
+    /// `Foundation` 原文（优先 art，否则 rules）；空表示未写。
+    pub foundation: String,
+    /// `Height`（优先 art，否则 rules）；`None` 表示未写。
+    pub height: Option<u16>,
 }
 
 /// Techno 大类，对应 rules 列表节。
@@ -165,6 +169,23 @@ impl TechnoTypeRegistry {
     pub fn iter(&self) -> impl Iterator<Item = &TechnoType> {
         self.by_id.values()
     }
+
+    /// 用 art（含 `Image=` 跳转）覆盖建筑的 `Foundation` / `Height`，缺键保留 rules。
+    pub fn apply_art_geometry(&mut self, art: &IniDocument) {
+        for tt in self.by_id.values_mut() {
+            if tt.kind != TechnoKind::Building {
+                continue;
+            }
+            if let Some(v) = art_geometry_string(art, &tt.id, "Foundation") {
+                tt.foundation = v;
+            }
+            if let Some(v) = art_geometry_string(art, &tt.id, "Height") {
+                if let Ok(h) = v.parse::<i32>() {
+                    tt.height = Some(h.max(1) as u16);
+                }
+            }
+        }
+    }
 }
 
 /// 类型节字段（一次 Serde 解码；缺省与归一化在组装 `TechnoType` 时完成）。
@@ -240,6 +261,10 @@ struct TechnoSectionFields {
     factory: Option<String>,
     #[serde(rename = "SuperWeapon")]
     super_weapon: Option<String>,
+    #[serde(rename = "Foundation")]
+    foundation: Option<String>,
+    #[serde(rename = "Height")]
+    height: Option<i32>,
 }
 
 /// 武器节字段。
@@ -331,7 +356,25 @@ fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<Techn
             .unwrap_or("")
             .trim()
             .to_ascii_uppercase(),
+        foundation: fields.foundation.unwrap_or_default().trim().to_string(),
+        height: fields.height.map(|h| h.max(1) as u16),
     })
+}
+
+fn section_string(doc: &IniDocument, section: &str, key: &str) -> Option<String> {
+    doc.get(section, key).map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+}
+
+/// 先读 art 本节，再跟 `Image=` 指向的 art 节。
+fn art_geometry_string(art: &IniDocument, type_key: &str, key: &str) -> Option<String> {
+    if let Some(v) = section_string(art, type_key, key) {
+        return Some(v);
+    }
+    let image = section_string(art, type_key, "Image")?.to_ascii_uppercase();
+    if image.eq_ignore_ascii_case(type_key) {
+        return None;
+    }
+    section_string(art, &image, key)
 }
 
 /// 从 `Primary` 武器节读取伤害 / 射程 / ROF / 弹头；缺省时保留类型节 ROF。
