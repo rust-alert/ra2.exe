@@ -4,7 +4,7 @@
 
 use ra_assets::TechnoKind;
 use ra_types::{
-    BuildCat, BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, GameEdition, PowerProfile, PrerequisiteGroups,
+    BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, GameEdition, PowerProfile, PrerequisiteGroups,
     ProductionCategory, ProductionProfile, RaResult, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition,
     TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WarheadName, WeaponDefinition, WeaponId,
 };
@@ -144,7 +144,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         let construction_yard = tt.construction_yard;
         let refinery = tt.refinery;
         let radar = tt.radar;
-        let build_cat = BuildCat::parse(&tt.build_cat);
+        let build_cat = tt.build_cat;
         let capturable = tt.capturable;
         let factory = if tt.factory.trim().is_empty() {
             None

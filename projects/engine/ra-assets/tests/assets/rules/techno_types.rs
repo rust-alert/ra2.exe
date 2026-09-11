@@ -120,7 +120,7 @@ Radar=yes\nRefinery=no\nSuperWeapon=Nuke\nPower=-50\n",
     let power = reg.get("GAPOWR").unwrap();
     assert_eq!(power.power, 200);
     assert_eq!(power.powered, Some(false));
-    assert_eq!(power.build_cat, "Combat");
+    assert_eq!(power.build_cat, ra_types::BuildCat::Combat);
     assert!(power.capturable);
 
     let yard = reg.get("GACNST").unwrap();

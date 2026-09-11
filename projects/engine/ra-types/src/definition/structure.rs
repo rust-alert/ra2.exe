@@ -1,6 +1,10 @@
 //! 建筑与阵营定义表。
 
 use std::collections::BTreeMap;
+use std::fmt;
+
+use serde::de::{self, Deserializer, Visitor};
+use serde::Deserialize;
 
 use crate::id::TypeId;
 
@@ -31,6 +35,53 @@ impl BuildCat {
     /// 是否归入侧栏防御页（W）。
     pub fn is_defense_tab(self) -> bool {
         matches!(self, Self::Combat)
+    }
+}
+
+impl<'de> Deserialize<'de> for BuildCat {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct BuildCatVisitor;
+
+        impl<'de> Visitor<'de> for BuildCatVisitor {
+            type Value = BuildCat;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("BuildCat= Building or Combat")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(BuildCat::parse(v))
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(BuildCat::parse(&v))
+            }
+
+            fn visit_none<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(BuildCat::Building)
+            }
+
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(BuildCat::Building)
+            }
+        }
+
+        deserializer.deserialize_any(BuildCatVisitor)
     }
 }
 
