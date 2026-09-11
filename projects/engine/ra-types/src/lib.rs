@@ -28,7 +28,7 @@ pub use definition::{
     StolenTechKind, StructureDefinition, StructureDefinitions, SuperWeaponActionName, SuperWeaponDefinition, SuperWeaponDefinitions,
     SuperWeaponKindName, SuperWeaponName, TechnoClass, TechnoDefinition, TechnoDefinitions, TechnoName, TerrainSpawnerDefinition,
     TerrainSpawnerDefinitions, TypeDefinitionId, WarheadDefinition, WarheadDefinitions, WarheadName, WarheadVerses, WeaponDefinition,
-    WeaponDefinitions, WeaponName, armor_index, deserialize_optional_factory,
+    WeaponDefinitions, WeaponName, armor_index, deserialize_optional_factory, ProjectileName,
 };
 pub use display_mode::DisplayMode;
 pub use edition::GameEdition;

@@ -155,6 +155,7 @@ fn build_runtime_definitions_binds_primary_weapon_and_warhead_ids() {
     assert_eq!(weapon.range, 6);
     assert_eq!(weapon.rof, 8);
     assert_eq!(weapon.warhead_id, mtnk.warhead_id);
+    assert!(weapon.projectile.is_empty());
     let wh = defs.warheads.get_by_id(mtnk.warhead_id).expect("bound warhead");
     assert_eq!(wh.type_key, "SA");
     assert_eq!(*wh.verses, [100; 11]);

@@ -247,13 +247,14 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
 
     // 武器表：按 techno `Primary`/`Secondary` 与超武 `Weapon=` 去重投影，再绑弹头 id。
     for tt in rules.techno_types.iter() {
-        for (key, damage, range, rof, warhead) in [
+        for (key, damage, range, rof, warhead, projectile) in [
             (
                 tt.primary.as_str().to_string(),
                 tt.damage,
                 tt.range,
                 tt.rof,
                 tt.warhead.clone(),
+                tt.projectile.clone(),
             ),
             (
                 tt.secondary.as_str().to_string(),
@@ -261,6 +262,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
                 tt.secondary_range,
                 tt.secondary_rof,
                 tt.secondary_warhead.clone(),
+                tt.secondary_projectile.clone(),
             ),
         ] {
             if key.is_empty() || defs.weapons.get(&key).is_some() {
@@ -275,6 +277,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
                 rof,
                 warhead,
                 warhead_id: WarheadId(0),
+                projectile,
             });
         }
     }
@@ -292,6 +295,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             rof: sw.weapon_rof,
             warhead: sw.weapon_warhead.clone(),
             warhead_id: WarheadId(0),
+            projectile: sw.weapon_projectile.clone(),
         });
     }
 

@@ -74,6 +74,7 @@ fn parse_primary_weapon_damage_and_range() {
     assert_eq!(m.range, 5);
     assert_eq!(m.rof, 20);
     assert_eq!(m.warhead, "AP");
+    assert_eq!(m.projectile, "INVISIBLE");
 }
 
 #[test]

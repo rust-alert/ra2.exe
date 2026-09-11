@@ -6,8 +6,8 @@ use serde::Deserialize;
 
 use crate::ini::{FieldMergeOverrides, IniDocument, IniMergePolicy, LayeredIniView};
 use ra_types::{
-    BuildCat, Foundation, HouseAllowList, PrerequisiteList, ProductionCategory, SuperWeaponName, TechnoName, WarheadName, WeaponName,
-    deserialize_optional_factory,
+    BuildCat, Foundation, HouseAllowList, PrerequisiteList, ProductionCategory, ProjectileName, SuperWeaponName, TechnoName, WarheadName,
+    WeaponName, deserialize_optional_factory,
 };
 
 /// 步兵 / 载具 / 飞行器 / 建筑的共用类型字段。
@@ -53,6 +53,8 @@ pub struct TechnoType {
     pub rof: u32,
     /// 主武器弹头名（武器节 `Warhead`）；空表示未配置。
     pub warhead: WarheadName,
+    /// 主武器抛射体名（武器节 `Projectile`）；空表示未配置。
+    pub projectile: ProjectileName,
     /// 副武器名（`Secondary`）；空表示未配置。
     pub secondary: WeaponName,
     /// 副武器伤害（来自武器节 `Damage`）；0 表示未配置。
@@ -63,6 +65,8 @@ pub struct TechnoType {
     pub secondary_rof: u32,
     /// 副武器弹头名；空表示未配置。
     pub secondary_warhead: WarheadName,
+    /// 副武器抛射体名；空表示未配置。
+    pub secondary_projectile: ProjectileName,
     /// `Prerequisite`（装载期一次解码）。
     pub prerequisite: PrerequisiteList,
     /// `PrerequisiteOverride`（装载期一次解码）。
@@ -317,6 +321,18 @@ struct WeaponSectionFields {
     rof: Option<u32>,
     #[serde(rename = "Warhead", default)]
     warhead: WarheadName,
+    #[serde(rename = "Projectile", default)]
+    projectile: ProjectileName,
+}
+
+/// 装载期解析出的武器节字段包。
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+struct ResolvedWeaponFields {
+    damage: u32,
+    range: u32,
+    rof: u32,
+    warhead: WarheadName,
+    projectile: ProjectileName,
 }
 
 fn parse_techno(
@@ -330,8 +346,8 @@ fn parse_techno(
     let primary = fields.primary;
     let secondary = fields.secondary;
     let techno_rof = fields.rof.unwrap_or(0);
-    let (damage, range, rof, warhead) = resolve_weapon(view, &primary, techno_rof);
-    let (secondary_damage, secondary_range, secondary_rof, secondary_warhead) = resolve_weapon(view, &secondary, 0);
+    let primary_w = resolve_weapon(view, &primary, techno_rof);
+    let secondary_w = resolve_weapon(view, &secondary, 0);
     let image = fields
         .image
         .as_deref()
@@ -355,15 +371,17 @@ fn parse_techno(
         engineer: fields.engineer.unwrap_or(false),
         harvester: fields.harvester.unwrap_or(false),
         primary,
-        damage,
-        range,
-        rof,
-        warhead,
+        damage: primary_w.damage,
+        range: primary_w.range,
+        rof: primary_w.rof,
+        warhead: primary_w.warhead,
+        projectile: primary_w.projectile,
         secondary,
-        secondary_damage,
-        secondary_range,
-        secondary_rof,
-        secondary_warhead,
+        secondary_damage: secondary_w.damage,
+        secondary_range: secondary_w.range,
+        secondary_rof: secondary_w.rof,
+        secondary_warhead: secondary_w.warhead,
+        secondary_projectile: secondary_w.projectile,
         prerequisite: fields.prerequisite,
         prerequisite_override: fields.prerequisite_override,
         required_houses: fields.required_houses,
@@ -409,20 +427,35 @@ fn art_geometry_string(art: LayeredIniView<'_>, type_key: &str, key: &str) -> Op
     }
 }
 
-/// 从武器节读取伤害 / 射程 / ROF / 弹头；缺省时可用 `fallback_rof`（主武器可回退类型节 ROF）。
-fn resolve_weapon(view: LayeredIniView<'_>, weapon: &WeaponName, fallback_rof: u32) -> (u32, u32, u32, WarheadName) {
+/// 从武器节读取伤害 / 射程 / ROF / 弹头 / 抛射体；缺省时可用 `fallback_rof`（主武器可回退类型节 ROF）。
+fn resolve_weapon(view: LayeredIniView<'_>, weapon: &WeaponName, fallback_rof: u32) -> ResolvedWeaponFields {
     if weapon.is_empty() {
-        return (0, 0, fallback_rof, WarheadName::default());
+        return ResolvedWeaponFields {
+            rof: fallback_rof,
+            ..ResolvedWeaponFields::default()
+        };
     }
     let Some(section) = view.section(weapon.as_str())
     else {
-        return (0, 0, fallback_rof, WarheadName::default());
+        return ResolvedWeaponFields {
+            rof: fallback_rof,
+            ..ResolvedWeaponFields::default()
+        };
     };
     let Ok(w) = section.deserialize::<WeaponSectionFields>()
     else {
-        return (0, 0, fallback_rof, WarheadName::default());
+        return ResolvedWeaponFields {
+            rof: fallback_rof,
+            ..ResolvedWeaponFields::default()
+        };
     };
     let weapon_rof = w.rof.unwrap_or(0);
     let rof = if weapon_rof > 0 { weapon_rof } else { fallback_rof };
-    (w.damage.unwrap_or(0), w.range.unwrap_or(0), rof, w.warhead)
+    ResolvedWeaponFields {
+        damage: w.damage.unwrap_or(0),
+        range: w.range.unwrap_or(0),
+        rof,
+        warhead: w.warhead,
+        projectile: w.projectile,
+    }
 }
