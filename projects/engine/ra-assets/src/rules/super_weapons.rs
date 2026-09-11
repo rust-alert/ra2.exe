@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
-use ra_types::{WarheadName, WeaponName};
+use ra_types::{SuperWeaponActionName, SuperWeaponKindName, WarheadName, WeaponName};
 
 /// 超武类型（装载期资源侧记录）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -14,10 +14,10 @@ pub struct SuperWeaponType {
     pub id: String,
     /// `UIName`。
     pub ui_name: String,
-    /// `Type`（大写）。
-    pub kind: String,
-    /// `Action`（大写）。
-    pub action: String,
+    /// `Type=` 玩法类型名。
+    pub kind: SuperWeaponKindName,
+    /// `Action=` 动作名。
+    pub action: SuperWeaponActionName,
     /// `RechargeTime`（分钟量级整型，缺省 0）。
     pub recharge_time: i32,
     /// `SidebarImage`。
@@ -107,10 +107,10 @@ impl SuperWeaponTypeRegistry {
 struct SuperWeaponSectionFields {
     #[serde(rename = "UIName")]
     ui_name: Option<String>,
-    #[serde(rename = "Type")]
-    kind: Option<String>,
-    #[serde(rename = "Action")]
-    action: Option<String>,
+    #[serde(rename = "Type", default)]
+    kind: SuperWeaponKindName,
+    #[serde(rename = "Action", default)]
+    action: SuperWeaponActionName,
     #[serde(rename = "RechargeTime")]
     recharge_time: Option<i32>,
     #[serde(rename = "SidebarImage")]
@@ -154,18 +154,8 @@ fn parse_super_weapon(view: LayeredIniView<'_>, id: &str) -> Option<SuperWeaponT
     Some(SuperWeaponType {
         id: id.to_string(),
         ui_name: fields.ui_name.unwrap_or_default(),
-        kind: fields
-            .kind
-            .as_deref()
-            .unwrap_or("")
-            .trim()
-            .to_ascii_uppercase(),
-        action: fields
-            .action
-            .as_deref()
-            .unwrap_or("")
-            .trim()
-            .to_ascii_uppercase(),
+        kind: fields.kind,
+        action: fields.action,
         recharge_time: fields.recharge_time.unwrap_or(0).max(0),
         sidebar_image: fields.sidebar_image.unwrap_or_default(),
         weapon,

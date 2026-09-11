@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::id::{TypeId, WeaponId};
 
-use super::WeaponName;
+use super::{SuperWeaponActionName, SuperWeaponKindName, WeaponName};
 
 /// 单条超级武器静态定义（adaptor 冻结；引擎只读查询）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,10 +15,10 @@ pub struct SuperWeaponDefinition {
     pub type_key: String,
     /// `UIName=` CSF 键（可空）。
     pub ui_name: String,
-    /// `Type=` 玩法类型字面（如 `LightningStorm` / `Nuke`；大写；可空）。
-    pub kind: String,
-    /// `Action=` 动作字面（可空）。
-    pub action: String,
+    /// `Type=` 玩法类型名（可空）。
+    pub kind: SuperWeaponKindName,
+    /// `Action=` 动作名（可空）。
+    pub action: SuperWeaponActionName,
     /// `RechargeTime=` 原版充能档（整数；`0` 表示缺省/未写）。
     pub recharge_time: i32,
     /// `SidebarImage=` 侧栏图标名（可空）。

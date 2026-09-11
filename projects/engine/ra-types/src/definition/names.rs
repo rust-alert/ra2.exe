@@ -163,3 +163,15 @@ ini_name!(
     SuperWeaponName,
     "super weapon type name"
 );
+
+ini_name!(
+    /// 超武 `Type=` 玩法类型名；空 = 未写。
+    SuperWeaponKindName,
+    "super weapon Type= name"
+);
+
+ini_name!(
+    /// 超武 `Action=` 动作名；空 = 未写。
+    SuperWeaponActionName,
+    "super weapon Action= name"
+);
