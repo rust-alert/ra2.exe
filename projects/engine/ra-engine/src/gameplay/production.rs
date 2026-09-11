@@ -124,12 +124,12 @@ impl crate::state::BattleState {
         let weapon = self.definitions.weapons.get_by_id(tt.primary_id);
         let attack_range = weapon
             .map(|w| if w.range > 0 { w.range } else { tt.sight.max(1) })
-            .unwrap_or_else(|| if tt.range > 0 { tt.range } else { tt.sight.max(1) });
+            .unwrap_or(0);
         // 无 Primary / Damage=0 保持 0，禁止用 Strength 发明伤害。
-        let attack_damage = weapon.map(|w| w.damage).unwrap_or(tt.damage);
+        let attack_damage = weapon.map(|w| w.damage).unwrap_or(0);
         let attack_cooldown_max = weapon
             .map(|w| if w.rof > 0 { w.rof } else { ATTACK_COOLDOWN_TICKS })
-            .unwrap_or_else(|| if tt.rof > 0 { tt.rof } else { ATTACK_COOLDOWN_TICKS });
+            .unwrap_or(0);
         let warhead_id = weapon.map(|w| w.warhead_id).unwrap_or(tt.warhead_id);
         let attack_verses = verses_for(&self.definitions, warhead_id);
         let id = self.alloc_entity_id();

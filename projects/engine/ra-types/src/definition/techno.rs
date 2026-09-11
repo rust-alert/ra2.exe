@@ -62,14 +62,8 @@ pub struct TechnoDefinition {
     pub harvester: bool,
     /// `Category`（如 `Soldier` / `Dog`）。
     pub category: String,
-    /// 视野（格）；缺省攻击射程回退用。
+    /// 视野（格）；主武器 `Range=0` 时攻击射程回退用。
     pub sight: u32,
-    /// 主武器伤害；0 表示未配置。
-    pub damage: u32,
-    /// 主武器射程（格）；0 表示未配置。
-    pub range: u32,
-    /// 射速间隔（tick）；0 表示未配置。
-    pub rof: u32,
     /// 主武器键（`Primary`）；空表示未配置。
     pub primary: String,
     /// 主武器稳定 id；`WeaponId(0)` 表示未绑定。
