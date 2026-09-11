@@ -52,6 +52,8 @@ pub struct RuntimeDefinitions {
     pub repair_step: u32,
     /// `[General] RepairRate`（分钟）换算的脉冲间隔 tick：`ftol(rate * 900)`（缺省 14）。
     pub repair_interval_ticks: u64,
+    /// `[AudioVisual]` / `[General] SpeakDelay`（分钟）× 900 → 逻辑 tick；0 表示关闭。
+    pub speak_delay_ticks: u32,
 }
 
 impl Default for RuntimeDefinitions {
@@ -76,6 +78,7 @@ impl Default for RuntimeDefinitions {
             repair_percent: 15,
             repair_step: 8,
             repair_interval_ticks: 14,
+            speak_delay_ticks: 0,
         }
     }
 }

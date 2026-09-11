@@ -30,6 +30,12 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         .and_then(|raw| raw.parse::<f64>().ok())
         .map(repair_rate_minutes_to_ticks)
         .unwrap_or(14);
+    defs.speak_delay_ticks = {
+        let raw = ini_string(&rules.rules, "AudioVisual", "SpeakDelay")
+            .or_else(|| ini_string(&rules.rules, "General", "SpeakDelay"));
+        let minutes = raw.and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+        speak_delay_minutes_to_ticks(minutes)
+    };
     for country in rules.countries.countries() {
         if let Some(kind) = StolenTechKind::from_side(&country.side) {
             defs.stolen_tech_by_house.insert(&country.id, kind);
@@ -294,6 +300,14 @@ pub fn repair_rate_minutes_to_ticks(rate_minutes: f64) -> u64 {
     }
     let ticks = (rate_minutes * 900.0).trunc() as i64;
     ticks.max(1) as u64
+}
+
+/// `[AudioVisual] SpeakDelay`（分钟）× 900 → 逻辑 tick；非正数则为 0。
+pub fn speak_delay_minutes_to_ticks(minutes: f64) -> u32 {
+    if !(minutes > 0.0) {
+        return 0;
+    }
+    (minutes * 900.0) as u32
 }
 
 #[doc(hidden)]

@@ -72,7 +72,7 @@ impl BattleState {
         let trigger_runtime = crate::gameplay::TriggerRuntime::from_scripting(&map.scripting);
         let ai_trigger_runtime = crate::gameplay::AiTriggerRuntime::from_map(!map.scripting.ai_triggers.is_empty());
         let terrain_spawners = crate::gameplay::seed_terrain_spawners(&map, &rules.rules);
-        let speak_delay_ticks = crate::gameplay::eva_advice::parse_speak_delay_ticks(&rules.rules);
+        let speak_delay_ticks = definitions.speak_delay_ticks;
         let mut world = Self {
             edition,
             tick: 0,
