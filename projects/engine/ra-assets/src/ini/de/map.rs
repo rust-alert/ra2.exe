@@ -1,5 +1,6 @@
 //! 节 → map / struct 字段访问。
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 use serde::de::{self, MapAccess, Visitor};
@@ -10,8 +11,8 @@ use crate::ini::document::IniSection;
 use crate::ini::merge::LayeredSectionView;
 
 pub(super) struct SectionMapAccess<'a> {
-    /// 比较键 → 有效原文值。
-    values: HashMap<String, &'a str>,
+    /// 比较键 → 有效原文值（层叠 `AppendValues` 可能为拥有拼接串）。
+    values: HashMap<String, Cow<'a, str>>,
     /// 比较键 → 原始键拼写（供 `serde(rename)` 对齐）。
     key_raw: HashMap<String, &'a str>,
     /// 仍待消费的比较键（策略决定的顺序）。
@@ -21,14 +22,14 @@ pub(super) struct SectionMapAccess<'a> {
 
 impl<'a> SectionMapAccess<'a> {
     pub(super) fn new(section: &'a IniSection) -> Self {
-        let mut values: HashMap<String, &'a str> = HashMap::new();
+        let mut values: HashMap<String, Cow<'a, str>> = HashMap::new();
         let mut key_raw: HashMap<String, &'a str> = HashMap::new();
         let mut order: Vec<String> = Vec::new();
         for e in &section.entries {
             if !values.contains_key(&e.key_key) {
                 order.push(e.key_key.clone());
             }
-            values.insert(e.key_key.clone(), e.value_raw.as_str());
+            values.insert(e.key_key.clone(), Cow::Borrowed(e.value_raw.as_str()));
             key_raw.insert(e.key_key.clone(), e.key_raw.as_str());
         }
         Self {
@@ -41,7 +42,7 @@ impl<'a> SectionMapAccess<'a> {
 
     /// 从层叠节构造：键序与有效值由 [`LayeredSectionView`] 策略决定。
     pub(super) fn from_layered(section: &'a LayeredSectionView<'a>) -> Self {
-        let mut values: HashMap<String, &'a str> = HashMap::new();
+        let mut values: HashMap<String, Cow<'a, str>> = HashMap::new();
         let mut key_raw: HashMap<String, &'a str> = HashMap::new();
         let mut order: Vec<String> = Vec::new();
         for raw_key in section.keys() {
@@ -49,12 +50,12 @@ impl<'a> SectionMapAccess<'a> {
             if values.contains_key(&cmp) {
                 continue;
             }
-            let Some(v) = section.get(raw_key)
+            let Some(raw) = section.effective_raw(raw_key)
             else {
                 continue;
             };
             order.push(cmp.clone());
-            values.insert(cmp.clone(), v.raw);
+            values.insert(cmp.clone(), raw);
             key_raw.insert(cmp, raw_key);
         }
         Self {
@@ -104,8 +105,9 @@ impl<'de> MapAccess<'de> for SectionMapAccess<'de> {
         let raw = self
             .values
             .get(cmp)
-            .copied()
-            .ok_or_else(|| IniDeError::custom(format!("内部错误：缺少键 {cmp}")))?;
+            .ok_or_else(|| IniDeError::custom(format!("内部错误：缺少键 {cmp}")))?
+            .as_ref()
+            .to_string();
         seed.deserialize(ScalarDeserializer {
             raw,
             key: Some(cmp.clone()),

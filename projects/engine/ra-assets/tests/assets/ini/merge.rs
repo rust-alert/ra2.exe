@@ -96,6 +96,52 @@ fn layered_section_deserialize_honors_replace_section() {
 }
 
 #[test]
+fn append_values_joins_layers_bottom_first() {
+    let layers = docs(&[b"[MTNK]\nOwner=Americans\n", b"[MTNK]\nOwner=Alliance\n"]);
+    let policy = IniMergePolicy {
+        default_entry: EntryMergePolicy::AppendValues,
+    };
+    let view = LayeredIniView::new(&layers, &policy);
+    let sec = view.section("MTNK").unwrap();
+    let all = sec.all_resolved("Owner");
+    assert_eq!(all.len(), 2);
+    assert_eq!(all[0].layer, 0);
+    assert_eq!(all[0].value.trimmed().raw, "Americans");
+    assert_eq!(all[1].layer, 1);
+    assert_eq!(all[1].value.trimmed().raw, "Alliance");
+    assert_eq!(sec.effective_raw("Owner").unwrap().as_ref(), "Americans,Alliance");
+}
+
+#[derive(Debug, serde::Deserialize, PartialEq)]
+struct OwnerFields {
+    #[serde(rename = "Owner", default)]
+    owner: ra_types::HouseAllowList,
+}
+
+#[test]
+fn append_values_deserializes_joined_house_list() {
+    let layers = docs(&[b"[MTNK]\nOwner=Americans\n", b"[MTNK]\nOwner=Alliance\n"]);
+    let policy = IniMergePolicy {
+        default_entry: EntryMergePolicy::AppendValues,
+    };
+    let view = LayeredIniView::new(&layers, &policy);
+    let fields: OwnerFields = view.section("MTNK").unwrap().deserialize().unwrap();
+    assert!(fields.owner.owner_allows("Americans"));
+    assert!(fields.owner.owner_allows("Alliance"));
+    assert!(!fields.owner.owner_allows("Russians"));
+}
+
+#[test]
+fn resolved_reports_top_layer_for_last_value() {
+    let layers = docs(&[b"[General]\nRepairStep=8\n", b"[General]\nRepairStep=16\n"]);
+    let policy = IniMergePolicy::last_wins();
+    let view = LayeredIniView::new(&layers, &policy);
+    let r = view.section("General").unwrap().resolved("RepairStep").unwrap();
+    assert_eq!(r.layer, 1);
+    assert_eq!(r.value.trimmed().raw, "16");
+}
+
+#[test]
 fn section_keys_lists_unique_names_bottom_first() {
     let layers = docs(&[b"[A]\nx=1\n[B]\ny=2\n", b"[B]\ny=3\n[C]\nz=4\n"]);
     let policy = IniMergePolicy::last_wins();
