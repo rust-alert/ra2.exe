@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::id::TypeId;
+use crate::id::{TypeId, WeaponId};
 
 /// 单条超级武器静态定义（adaptor 冻结；引擎只读查询）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -21,8 +21,10 @@ pub struct SuperWeaponDefinition {
     pub recharge_time: i32,
     /// `SidebarImage=` 侧栏图标名（可空）。
     pub sidebar_image: String,
-    /// `Weapon=` 关联武器键（可空）。
+    /// `Weapon=` 关联武器键（可空，诊断用）。
     pub weapon: String,
+    /// `Weapon=` 绑定到武器表的稳定 id；`WeaponId(0)` 表示未配置或未命中。
+    pub weapon_id: WeaponId,
 }
 
 /// 超级武器定义表（按外部 type_key 查询）。
@@ -60,5 +62,10 @@ impl SuperWeaponDefinitions {
     /// 遍历。
     pub fn iter(&self) -> impl Iterator<Item = &SuperWeaponDefinition> {
         self.by_key.values()
+    }
+
+    /// 可变遍历（装载投影回填引用 id）。
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut SuperWeaponDefinition> {
+        self.by_key.values_mut()
     }
 }

@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::id::{WarheadId, WeaponId};
 
-/// 单条武器静态定义（由 techno `Primary` / `Secondary` 引用）。
+/// 单条武器静态定义（由 techno `Primary` / 超武 `Weapon=` 等引用）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WeaponDefinition {
     /// 稳定武器编号。

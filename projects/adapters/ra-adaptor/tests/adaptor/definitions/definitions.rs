@@ -61,7 +61,9 @@ fn build_runtime_definitions_falls_back_to_stock_repair_defaults() {
 fn build_runtime_definitions_parses_super_weapon_types_and_building_link() {
     let rules = rules_from(
         b"[SuperWeaponTypes]\n0=LightningStorm\n\
-[LightningStorm]\nUIName=Name:LightningStorm\nType=LightningStorm\nAction=LightningStorm\nRechargeTime=10\nSidebarImage=SSWLSICON\n\
+[LightningStorm]\nUIName=Name:LightningStorm\nType=LightningStorm\nAction=LightningStorm\nRechargeTime=10\nSidebarImage=SSWLSICON\nWeapon=LightningBolt\n\
+[LightningBolt]\nDamage=250\nROF=1\nRange=8\nWarhead=SA\n\
+[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n\
 [BuildingTypes]\n0=GACNST\n1=GATECH\n\
 [GACNST]\nConstructionYard=yes\nCost=2500\nStrength=1000\n\
 [GATECH]\nCost=1500\nStrength=600\nSuperWeapon=LightningStorm\n",
@@ -73,6 +75,14 @@ fn build_runtime_definitions_parses_super_weapon_types_and_building_link() {
     assert_eq!(sw.action, "LIGHTNINGSTORM");
     assert_eq!(sw.recharge_time, 10);
     assert_eq!(sw.sidebar_image, "SSWLSICON");
+    assert_eq!(sw.weapon, "LIGHTNINGBOLT");
+    assert_ne!(sw.weapon_id, ra_types::WeaponId(0));
+    let weapon = defs.weapons.get_by_id(sw.weapon_id).expect("SW weapon");
+    assert_eq!(weapon.type_key, "LIGHTNINGBOLT");
+    assert_eq!(weapon.damage, 250);
+    assert_eq!(weapon.range, 8);
+    assert_eq!(weapon.rof, 1);
+    assert_ne!(weapon.warhead_id, ra_types::WarheadId(0));
     assert_eq!(defs.structures.get("GATECH").and_then(|s| s.super_weapon.as_deref()), Some("LIGHTNINGSTORM"));
     let gatech = defs.structures.get("GATECH").expect("tech");
     let sw_id = gatech.super_weapon_id.expect("bound SW id");

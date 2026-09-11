@@ -68,6 +68,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             recharge_time: sw.recharge_time,
             sidebar_image: sw.sidebar_image.clone(),
             weapon: sw.weapon.clone(),
+            weapon_id: WeaponId(0),
         });
     }
     if !defs.super_weapons.is_empty() && !defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon) {
@@ -251,7 +252,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
 
     defs.production.count = defs.structures.iter().filter(|s| s.production.is_some()).count() as u32;
 
-    // 武器表：按 techno `Primary` 去重投影，再绑弹头 id。
+    // 武器表：按 techno `Primary` 与超武 `Weapon=` 去重投影，再绑弹头 id。
     for tt in rules.techno_types.iter() {
         let key = tt.primary.trim().to_ascii_uppercase();
         if key.is_empty() || defs.weapons.get(&key).is_some() {
@@ -265,6 +266,22 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             range: tt.range,
             rof: tt.rof,
             warhead: tt.warhead.to_ascii_uppercase(),
+            warhead_id: WarheadId(0),
+        });
+    }
+    for sw in rules.super_weapons.iter() {
+        let key = sw.weapon.trim().to_ascii_uppercase();
+        if key.is_empty() || defs.weapons.get(&key).is_some() {
+            continue;
+        }
+        let id = alloc_weapon();
+        defs.weapons.insert(WeaponDefinition {
+            id,
+            type_key: key,
+            damage: sw.weapon_damage,
+            range: sw.weapon_range,
+            rof: sw.weapon_rof,
+            warhead: sw.weapon_warhead.clone(),
             warhead_id: WarheadId(0),
         });
     }
@@ -302,6 +319,13 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             WarheadId(0)
         } else {
             defs.warheads.get(&techno.warhead).map(|w| w.id).unwrap_or(WarheadId(0))
+        };
+    }
+    for sw in defs.super_weapons.iter_mut() {
+        sw.weapon_id = if sw.weapon.is_empty() {
+            WeaponId(0)
+        } else {
+            defs.weapons.get(&sw.weapon).map(|w| w.id).unwrap_or(WeaponId(0))
         };
     }
 
