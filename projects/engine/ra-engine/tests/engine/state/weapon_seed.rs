@@ -1,8 +1,8 @@
 //! 主武器 Damage / Range 播种到世界实体。
 
 use ra_adaptor::RulesSystem;
+use crate::common::battle_from_rules;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::BattleState;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -39,7 +39,7 @@ fn seeds_attack_stats_from_primary_weapon() {
         mission: String::new(),
         tag: String::new(),
     });
-    let world = BattleState::new(GameEdition::Ra2, &rules, map);
+    let world = battle_from_rules(&rules, map);
     let combat = world.ecs_combat_view(world.entity_id_at(0).expect("entity")).expect("combat");
     assert_eq!(combat.attack_damage, 75);
     assert_eq!(combat.attack_range, 5);
@@ -78,7 +78,7 @@ fn weaponless_unit_keeps_zero_attack_damage() {
         mission: String::new(),
         tag: String::new(),
     });
-    let world = BattleState::new(GameEdition::Ra2, &rules, map);
+    let world = battle_from_rules(&rules, map);
     let combat = world.ecs_combat_view(world.entity_id_at(0).expect("entity")).expect("combat");
     assert_eq!(combat.attack_damage, 0, "无主武器时不得用 Strength 发明伤害");
 }

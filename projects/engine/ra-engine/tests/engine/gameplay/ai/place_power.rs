@@ -1,9 +1,9 @@
 //! AI 经 PlaceBuilding 放置电厂。
 
-use crate::common::test_engine;
+use crate::common::{test_engine, battle_from_rules};
 use ra_adaptor::RulesSystem;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{BattleState, PRODUCE_TICKS, Session};
+use ra_engine::{PRODUCE_TICKS, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -54,7 +54,7 @@ fn ai_places_power_near_yard() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
+    let mut world = battle_from_rules(&rules, map);
     // 模拟建造场已封满 4x4：旧 AI 只在半径 2 内查 1x1，会选到无法放下 2x2 的邻格。
     world.seal_structure_footprint(8, 8, 4, 4);
     assert!(world.set_house_funds("Soviets", 10_000));

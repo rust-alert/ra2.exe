@@ -1,9 +1,9 @@
 //! AI 放置矿场。
 
-use crate::common::test_engine;
+use crate::common::{test_engine, battle_from_rules};
 use ra_adaptor::RulesSystem;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{BattleState, PRODUCE_TICKS, Session};
+use ra_engine::{PRODUCE_TICKS, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -67,7 +67,7 @@ fn ai_places_refinery_near_yard() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
+    let mut world = battle_from_rules(&rules, map);
     assert!(world.set_house_funds("Soviets", 10_000));
     let mut session = Session::from_state(world, "ai-refn");
     session.expect_battle_mut().ai_enabled = true;

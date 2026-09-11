@@ -1,9 +1,9 @@
 //! 规则绑定到实体运行时字段。
 
-use crate::common::{map_with_size, rules_with_mtnk};
+use crate::common::{map_with_size, rules_with_mtnk, battle_from_rules};
 use ra_adaptor::RulesSystem;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{ATTACK_COOLDOWN_TICKS, BattleState};
+use ra_engine::ATTACK_COOLDOWN_TICKS;
 use ra_map::{MapEntity, MapEntityKind};
 use ra_types::GameEdition;
 use ra_types::TechnoClass;
@@ -24,7 +24,7 @@ fn binds_strength_and_speed() {
         mission: String::new(),
         tag: String::new(),
     });
-    let world = BattleState::new(GameEdition::Ra2, &rules, map);
+    let world = battle_from_rules(&rules, map);
     assert_eq!(world.entity_count(), 1);
     let id = world.entity_id_at(0).expect("entity");
     let health = world.ecs_health(id).expect("health");
@@ -55,7 +55,7 @@ fn unbound_techno_gets_zero_combat_stats() {
         mission: String::new(),
         tag: String::new(),
     });
-    let world = BattleState::new(GameEdition::Ra2, &rules, map);
+    let world = battle_from_rules(&rules, map);
     let id = world.entity_id_at(0).expect("entity");
     let combat = world.ecs_combat_view(id).expect("combat");
     assert_eq!(combat.attack_range, 0);
@@ -96,7 +96,7 @@ fn seeds_structure_health_from_map_ratio() {
         mission: String::new(),
         tag: String::new(),
     });
-    let world = BattleState::new(GameEdition::Ra2, &rules, map);
+    let world = battle_from_rules(&rules, map);
     let id = world.entity_id_at(0).expect("entity");
     let health = world.ecs_health(id).expect("health");
     assert_eq!(health.1, 1000);

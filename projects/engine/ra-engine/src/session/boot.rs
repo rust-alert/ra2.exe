@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use ra_adaptor::{ResourceChain, RulesSystem};
+use ra_adaptor::{ResourceChain, RulesSystem, build_runtime_definitions};
 use ra_map::{MapEntityKind, MapInfo, apply_overlay_land_to_pass_grid, seal_pass_grid_from_tmp, skirmish_start_waypoint};
 use ra_types::{AssetSource, RaResult};
 
@@ -125,7 +125,7 @@ fn open_session_common(
     boot_kind: SessionBootKind,
     seed_skirmish_mcv: bool,
 ) -> RaResult<SkirmishOpenResult> {
-    let mut state = BattleState::new(chain.edition, rules, map);
+    let mut state = BattleState::new(chain.edition, Arc::new(build_runtime_definitions(rules)), map);
     for house in ensure_houses {
         if !house.is_empty() {
             state.ensure_house(house);

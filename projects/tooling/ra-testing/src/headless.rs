@@ -1,6 +1,6 @@
 //! 无窗口遭遇战夹具。
 
-use ra_adaptor::RulesSystem;
+use ra_adaptor::{RulesSystem, build_runtime_definitions};
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use std::sync::Arc;
 
@@ -9,6 +9,10 @@ use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, RuntimeDefinitions};
 
 use crate::alpha_skirmish_v1;
+
+fn battle_from_rules(rules: &RulesSystem, map: MapInfo) -> BattleState {
+    BattleState::new(rules.edition, Arc::new(build_runtime_definitions(rules)), map)
+}
 
 /// 无窗口测试用例。所有推进都经过 `Session::tick` + `EngineRuntime`，与产品路径一致。
 #[derive(Debug)]
@@ -145,7 +149,7 @@ pub fn standard_duel() -> HeadlessCase {
             tag: String::new(),
         },
     ];
-    let world = BattleState::new(GameEdition::Ra2, &rules_db, map);
+    let world = battle_from_rules(&rules_db, map);
     HeadlessCase::new(Session::from_state(world, "ra-testing standard duel"))
 }
 
@@ -183,7 +187,7 @@ pub fn mcv_deploy_open() -> HeadlessCase {
         mission: String::new(),
         tag: String::new(),
     }];
-    let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = battle_from_rules(&rules_db, map);
     assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
     HeadlessCase::new(Session::from_state(world, "ra-testing mcv deploy open"))
 }
@@ -225,7 +229,7 @@ pub fn yard_open() -> HeadlessCase {
         mission: String::new(),
         tag: String::new(),
     }];
-    let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = battle_from_rules(&rules_db, map);
     assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
     HeadlessCase::new(Session::from_state(world, "ra-testing yard open"))
 }
@@ -302,7 +306,7 @@ pub fn ai_skirmish_open() -> HeadlessCase {
             tag: String::new(),
         },
     ];
-    let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = battle_from_rules(&rules_db, map);
     assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
     assert!(world.set_house_funds(slice.ai_house, slice.starting_funds));
     let mut session = Session::from_state(world, "ra-testing ai skirmish open");

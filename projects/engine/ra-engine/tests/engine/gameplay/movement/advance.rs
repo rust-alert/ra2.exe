@@ -1,9 +1,9 @@
 //! 移动命令推进。
 
-use crate::common::{map_with_size, rules_with_mtnk};
-use ra_engine::{BattleState, GameCommand};
+use crate::common::{map_with_size, rules_with_mtnk, battle_from_rules};
+use ra_engine::GameCommand;
 use ra_map::{MapEntity, MapEntityKind, Waypoint};
-use ra_types::{EntityId, GameEdition};
+use ra_types::EntityId;
 
 #[test]
 fn advances_when_ordered_to_move() {
@@ -21,7 +21,7 @@ fn advances_when_ordered_to_move() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
+    let mut world = battle_from_rules(&rules, map);
     assert_eq!(world.ecs_move_destination(world.entity_id_at(0).expect("entity")).expect("dest").0, None);
     assert!(world.ecs_path(world.entity_id_at(0).expect("entity")).expect("path").is_empty());
     world.push_command(GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 20 });
@@ -52,7 +52,7 @@ fn move_path_queues_remaining_waypoints_and_advances() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
+    let mut world = battle_from_rules(&rules, map);
     let id = world.entity_id_at(0).expect("entity");
     world.push_command(GameCommand::MovePath { entity: EntityId(1), points: vec![(12, 20), (12, 22)] });
     world.advance_tick();
@@ -84,7 +84,7 @@ fn turret_chases_body_facing() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
+    let mut world = battle_from_rules(&rules, map);
     let id0 = world.entity_id_at(0).expect("entity");
     assert!(world.set_ecs_turret_facing(id0, 128));
     world.push_command(GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 20 });

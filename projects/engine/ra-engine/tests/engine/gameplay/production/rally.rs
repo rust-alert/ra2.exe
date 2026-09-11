@@ -1,6 +1,7 @@
 //! 工厂集结点。
 
 use ra_adaptor::RulesSystem;
+use crate::common::battle_from_rules;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, CommandRejectReason, GameCommand, PRODUCE_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
@@ -37,7 +38,7 @@ fn barracks_world() -> BattleState {
         mission: String::new(),
         tag: String::new(),
     }];
-    let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = battle_from_rules(&rules_db, map);
     assert!(world.set_house_funds("Americans", 10_000));
     world
 }

@@ -1,9 +1,9 @@
 //! AI 经 GameCommand 自动攻击。
 
-use crate::common::test_engine;
+use crate::common::{test_engine, battle_from_rules};
 use ra_adaptor::RulesSystem;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{BattleState, Session};
+use ra_engine::Session;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -81,7 +81,7 @@ fn duel_session() -> Session {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "ai");
+    let mut session = Session::from_state(battle_from_rules(&rules, map), "ai");
     session.expect_battle_mut().ai_enabled = true;
     session
 }
@@ -149,7 +149,7 @@ fn ambient_house_does_not_auto_attack() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "ambient");
+    let mut session = Session::from_state(battle_from_rules(&rules, map), "ambient");
     session.expect_battle_mut().ai_enabled = true;
     let engine = test_engine();
     let ally = session.expect_battle().world.entity_id_at(0).expect("entity");
@@ -238,7 +238,7 @@ fn guard_mission_skips_ai_auto_attack() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "guard");
+    let mut session = Session::from_state(battle_from_rules(&rules, map), "guard");
     session.expect_battle_mut().ai_enabled = true;
     let engine = test_engine();
     let guard = session.expect_battle().world.find_entity_id_by_owner_type("Americans", "MTNK").expect("guard tank");

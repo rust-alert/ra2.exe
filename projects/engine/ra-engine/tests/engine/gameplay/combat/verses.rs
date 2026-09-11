@@ -1,8 +1,9 @@
 //! 弹头 Verses 相对护甲结算伤害。
 
 use ra_adaptor::RulesSystem;
+use crate::common::battle_from_rules;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{BattleState, GameCommand};
+use ra_engine::GameCommand;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
 
@@ -55,7 +56,7 @@ fn verses_scales_damage_against_armor() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
+    let mut world = battle_from_rules(&rules, map);
     assert_eq!(world.ecs_combat_view(world.entity_id_at(0).expect("entity")).expect("combat").attack_damage, 100);
     assert_eq!(world.ecs_combat_view(world.entity_id_at(0).expect("entity")).expect("combat").attack_verses[5], 50);
     assert_eq!(world.ecs_combat_view(world.entity_id_at(1).expect("entity")).expect("combat").armor, "heavy");

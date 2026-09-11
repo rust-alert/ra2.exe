@@ -1,9 +1,9 @@
 //! Create Team 动作可生成 TaskForce 单位。
 
-use crate::common::test_engine;
+use crate::common::{test_engine, battle_from_rules};
 use ra_adaptor::RulesSystem;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{BattleState, Session, SessionBootKind};
+use ra_engine::{Session, SessionBootKind};
 use ra_map::MapInfo;
 use ra_types::GameEdition;
 
@@ -40,7 +40,7 @@ fn create_team_action_spawns_task_force() {
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "team.map", text).unwrap();
     let engine = test_engine();
-    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules_with_e1(), map), "team");
+    let mut session = Session::from_state(battle_from_rules(&rules_with_e1(), map), "team");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
     session.tick(&engine.runtime());
     let snap = session.expect_battle().snapshot(&[]);
@@ -66,7 +66,7 @@ fn create_team_spawns_at_team_type_waypoint() {
     assert_eq!(map.scripting.team_types[0].waypoint, 2);
     assert_eq!(map.waypoints.iter().find(|w| w.index == 2).map(|w| (w.x, w.y)), Some((12, 8)));
     let engine = test_engine();
-    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules_with_e1(), map), "team-wp");
+    let mut session = Session::from_state(battle_from_rules(&rules_with_e1(), map), "team-wp");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
     session.tick(&engine.runtime());
     let snap = session.expect_battle().snapshot(&[]);
@@ -93,7 +93,7 @@ fn create_team_script_action_3_orders_move_to_waypoint() {
     let map = MapInfo::parse_ini(GameEdition::Ra2, "team-script.map", text).unwrap();
     assert_eq!(map.waypoints.iter().find(|w| w.index == 1).map(|w| (w.x, w.y)), Some((10, 10)));
     let engine = test_engine();
-    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules_with_e1(), map), "team-script");
+    let mut session = Session::from_state(battle_from_rules(&rules_with_e1(), map), "team-script");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
     session.tick(&engine.runtime());
     let ids: Vec<_> = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1").map(|u| u.id).collect();
@@ -135,7 +135,7 @@ fn create_team_script_action_1_orders_attack_near_waypoint() {
         tag: String::new(),
     });
     let engine = test_engine();
-    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules_with_e1(), map), "team-atk");
+    let mut session = Session::from_state(battle_from_rules(&rules_with_e1(), map), "team-atk");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
     session.expect_battle_mut().world.ensure_house("Americans");
     session.expect_battle_mut().world.ensure_house("Russians");
@@ -185,7 +185,7 @@ fn create_team_script_action_6_deploys_mcv() {
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "team-deploy.map", text).unwrap();
     let engine = test_engine();
-    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "team-deploy");
+    let mut session = Session::from_state(battle_from_rules(&rules, map), "team-deploy");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
 
     session.tick(&engine.runtime());
@@ -222,7 +222,7 @@ fn create_team_script_action_8_jumps_then_moves() {
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "team-jump.map", text).unwrap();
     let engine = test_engine();
-    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules_with_e1(), map), "team-jump");
+    let mut session = Session::from_state(battle_from_rules(&rules_with_e1(), map), "team-jump");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
 
     session.tick(&engine.runtime()); // spawn + jump to step 1
@@ -252,7 +252,7 @@ fn create_team_script_action_7_clears_move_after_waypoint() {
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "team-guard.map", text).unwrap();
     let engine = test_engine();
-    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules_with_e1(), map), "team-guard");
+    let mut session = Session::from_state(battle_from_rules(&rules_with_e1(), map), "team-guard");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
 
     session.tick(&engine.runtime()); // spawn + enqueue MoveTo

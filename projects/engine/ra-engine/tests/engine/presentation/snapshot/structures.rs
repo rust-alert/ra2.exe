@@ -1,7 +1,7 @@
 //! 快照包含建筑实体。
 
-use crate::common::rules_with_mtnk;
-use ra_engine::{BattleState, Session};
+use crate::common::{rules_with_mtnk, battle_from_rules};
+use ra_engine::Session;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -23,7 +23,7 @@ fn snapshot_includes_structures() {
         mission: String::new(),
         tag: String::new(),
     });
-    let session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "struct");
+    let session = Session::from_state(battle_from_rules(&rules, map), "struct");
     let snap = session.expect_battle().snapshot(&[]);
     assert_eq!(snap.units.len(), 1);
     assert_eq!(snap.units[0].kind, MapEntityKind::Structure);
