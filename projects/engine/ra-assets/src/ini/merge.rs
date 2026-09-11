@@ -21,7 +21,7 @@ pub enum EntryMergePolicy {
     AppendValues,
     /// 编号索引列表：按索引替换（骨架：暂与 `LastValue` 相同）。
     IndexedValues,
-    /// 编号 pack 串接（骨架：暂与 `LastValue` 相同）。
+    /// 编号 pack 串接：同索引后写覆盖，再按索引序拼接（地图 IsoMapPack 等）。
     NumberedPack,
 }
 
@@ -96,6 +96,11 @@ impl<'a> LayeredIniView<'a> {
         self.section(section)?.get(key)
     }
 
+    /// 对指定节执行编号 pack 拼接（需策略为 [`EntryMergePolicy::NumberedPack`]，或任意策略下按索引后写覆盖）。
+    pub fn numbered_pack_concat(&self, section: &str) -> Option<String> {
+        self.section(section)?.numbered_pack_concat()
+    }
+
     /// 各层出现过的节比较名（底层先出现者在前，顶层新节追加）。
     pub fn section_keys(&self) -> Vec<&'a str> {
         let mut out = Vec::new();
@@ -145,6 +150,46 @@ impl<'a> LayeredSectionView<'a> {
             }
         }
         out
+    }
+
+    /// 编号键按索引解析：自底向顶写入，同索引后层覆盖；`ReplaceSection` 只看顶层节。
+    pub fn numbered_resolved(&self) -> Vec<(u32, ResolvedIniValue<'a>)> {
+        use std::collections::BTreeMap;
+
+        let mut by_index: BTreeMap<u32, ResolvedIniValue<'a>> = BTreeMap::new();
+        let layers: &[(usize, &IniSection)] = match self.policy {
+            EntryMergePolicy::ReplaceSection => self.layers.last().map(std::slice::from_ref).unwrap_or(&[]),
+            _ => self.layers.as_slice(),
+        };
+        for &(layer, sec) in layers {
+            for (k, v) in sec.pairs() {
+                let Ok(index) = k.parse::<u32>()
+                else {
+                    continue;
+                };
+                by_index.insert(
+                    index,
+                    ResolvedIniValue {
+                        value: IniValue::new(v, None, sec.name_raw.as_str(), k),
+                        layer,
+                    },
+                );
+            }
+        }
+        by_index.into_iter().collect()
+    }
+
+    /// 编号 pack 有效文本：索引排序后无分隔符拼接（base64 块串）。
+    pub fn numbered_pack_concat(&self) -> Option<String> {
+        let entries = self.numbered_resolved();
+        if entries.is_empty() {
+            return None;
+        }
+        let mut out = String::new();
+        for (_, r) in entries {
+            out.push_str(r.value.raw);
+        }
+        Some(out)
     }
 
     /// 按策略解析带来源层的有效值（`AppendValues` 取顶层出现值，完整列表见 [`Self::all_resolved`]）。

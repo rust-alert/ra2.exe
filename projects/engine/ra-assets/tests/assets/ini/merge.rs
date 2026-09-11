@@ -148,3 +148,46 @@ fn section_keys_lists_unique_names_bottom_first() {
     let view = LayeredIniView::new(&layers, &policy);
     assert_eq!(view.section_keys(), vec!["A", "B", "C"]);
 }
+
+#[test]
+fn numbered_pack_concats_sorted_indexes() {
+    let layers = docs(&[b"[IsoMapPack5]\n10=C\n2=B\n1=A\n"]);
+    let policy = IniMergePolicy {
+        default_entry: EntryMergePolicy::NumberedPack,
+    };
+    let view = LayeredIniView::new(&layers, &policy);
+    assert_eq!(view.numbered_pack_concat("IsoMapPack5").as_deref(), Some("ABC"));
+}
+
+#[test]
+fn numbered_pack_top_layer_replaces_same_index() {
+    let layers = docs(&[
+        b"[IsoMapPack5]\n1=AA\n2=BB\n3=CC\n",
+        b"[IsoMapPack5]\n2=XX\n",
+    ]);
+    let policy = IniMergePolicy {
+        default_entry: EntryMergePolicy::NumberedPack,
+    };
+    let view = LayeredIniView::new(&layers, &policy);
+    let resolved = view.section("IsoMapPack5").unwrap().numbered_resolved();
+    assert_eq!(resolved.len(), 3);
+    assert_eq!(resolved[0].0, 1);
+    assert_eq!(resolved[0].1.layer, 0);
+    assert_eq!(resolved[1].0, 2);
+    assert_eq!(resolved[1].1.layer, 1);
+    assert_eq!(resolved[1].1.value.raw, "XX");
+    assert_eq!(view.numbered_pack_concat("IsoMapPack5").as_deref(), Some("AAXXCC"));
+}
+
+#[test]
+fn numbered_pack_replace_section_keeps_only_top_indexes() {
+    let layers = docs(&[
+        b"[IsoMapPack5]\n1=AA\n2=BB\n3=CC\n",
+        b"[IsoMapPack5]\n2=XX\n",
+    ]);
+    let policy = IniMergePolicy {
+        default_entry: EntryMergePolicy::ReplaceSection,
+    };
+    let view = LayeredIniView::new(&layers, &policy);
+    assert_eq!(view.numbered_pack_concat("IsoMapPack5").as_deref(), Some("XX"));
+}
