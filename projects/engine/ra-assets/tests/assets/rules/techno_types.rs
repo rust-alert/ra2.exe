@@ -127,7 +127,7 @@ Radar=yes\nRefinery=no\nSuperWeapon=Nuke\nPower=-50\n",
     assert!(yard.construction_yard);
     assert!(!yard.refinery);
     assert!(yard.radar);
-    assert_eq!(yard.factory, "BuildingType");
+    assert_eq!(yard.factory, Some(ra_types::ProductionCategory::Building));
     assert_eq!(yard.super_weapon, "NUKE");
     assert_eq!(yard.power, -50);
 }

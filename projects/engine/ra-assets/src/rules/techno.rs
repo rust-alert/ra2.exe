@@ -5,7 +5,10 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
-use ra_types::{BuildCat, Foundation, HouseAllowList, PrerequisiteList, SuperWeaponName, TechnoName, WarheadName, WeaponName};
+use ra_types::{
+    BuildCat, Foundation, HouseAllowList, PrerequisiteList, ProductionCategory, SuperWeaponName, TechnoName, WarheadName, WeaponName,
+    deserialize_optional_factory,
+};
 
 /// 步兵 / 载具 / 飞行器 / 建筑的共用类型字段。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -86,8 +89,8 @@ pub struct TechnoType {
     pub build_cat: BuildCat,
     /// `Capturable`。
     pub capturable: bool,
-    /// `Factory` 原文。
-    pub factory: String,
+    /// `Factory` 生产类别（装载期一次解码；`None` = 非工厂）。
+    pub factory: Option<ProductionCategory>,
     /// `SuperWeapon` 名；空表示无。
     pub super_weapon: SuperWeaponName,
     /// `Foundation`（优先 art，否则 rules；装载期一次解码）。
@@ -276,8 +279,8 @@ struct TechnoSectionFields {
     build_cat: BuildCat,
     #[serde(rename = "Capturable")]
     capturable: Option<bool>,
-    #[serde(rename = "Factory")]
-    factory: Option<String>,
+    #[serde(rename = "Factory", default, deserialize_with = "deserialize_optional_factory")]
+    factory: Option<ProductionCategory>,
     #[serde(rename = "SuperWeapon", default)]
     super_weapon: SuperWeaponName,
     #[serde(rename = "Foundation", default)]
@@ -350,7 +353,7 @@ fn parse_techno(view: LayeredIniView<'_>, id: &str, kind: TechnoKind) -> Option<
         radar: fields.radar.unwrap_or(false),
         build_cat: fields.build_cat,
         capturable: fields.capturable.unwrap_or(false),
-        factory: fields.factory.unwrap_or_default(),
+        factory: fields.factory,
         super_weapon: fields.super_weapon,
         foundation: fields.foundation,
         height: fields.height.map(|h| h.max(1) as u16),

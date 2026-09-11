@@ -146,12 +146,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         let radar = tt.radar;
         let build_cat = tt.build_cat;
         let capturable = tt.capturable;
-        let factory = if tt.factory.trim().is_empty() {
-            None
-        } else {
-            Some(parse_factory_category(&tt.factory))
-        };
-        let production = factory.map(|category| ProductionProfile { category });
+        let production = tt.factory.map(|category| ProductionProfile { category });
 
         let mut capabilities = vec![BuiltinCapability::Structure];
         if output > 0 {
@@ -347,13 +342,7 @@ pub fn runtime_definitions_from_ini_bytes(
 
 #[doc(hidden)]
 pub fn parse_factory_category(raw: &str) -> ProductionCategory {
-    match raw.trim().to_ascii_lowercase().as_str() {
-        "infantrytype" | "infantry" => ProductionCategory::Infantry,
-        "unittype" | "vehicle" | "unit" => ProductionCategory::Vehicle,
-        "aircrafttype" | "aircraft" => ProductionCategory::Aircraft,
-        "buildingtype" | "building" => ProductionCategory::Building,
-        _ => ProductionCategory::Vehicle,
-    }
+    ProductionCategory::parse(raw)
 }
 
 /// 原版 `RepairRate`（分钟）→ 逻辑 tick：`ftol(rate * 900)`，至少 1。
