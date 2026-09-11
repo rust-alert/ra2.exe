@@ -11,8 +11,6 @@ fn minimal_rules() -> RulesSystem {
     let rules = IniDocument::parse(b"[BuildingTypes]\n0=GACNST\n[GACNST]\nConstructionYard=yes\nStrength=1000\n").expect("测试 INI 必须有效");
     RulesSystem {
         edition: GameEdition::Ra2,
-        rules: rules.clone(),
-        art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&rules),
         overlay_types: OverlayTypeRegistry::default(),
         terrain_spawners: TerrainSpawnerDefinitions::default(),

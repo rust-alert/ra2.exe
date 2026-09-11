@@ -22,8 +22,6 @@ fn attack_structure_kills_and_frees_cell() {
     let warheads = WarheadRegistry::from_names(&doc, techno_types.iter().map(|t| t.warhead.as_str()));
     let rules = RulesSystem {
         edition: GameEdition::Ra2,
-        rules: doc.clone(),
-        art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&doc),
         overlay_types: OverlayTypeRegistry::default(),
         terrain_spawners: TerrainSpawnerDefinitions::default(),
@@ -91,8 +89,6 @@ fn structure_damage_cues_base_under_attack_once_per_suppress_window() {
     let warheads = WarheadRegistry::from_names(&doc, techno_types.iter().map(|t| t.warhead.as_str()));
     let rules = RulesSystem {
         edition: GameEdition::Ra2,
-        rules: doc.clone(),
-        art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&doc),
         overlay_types: OverlayTypeRegistry::default(),
         terrain_spawners: TerrainSpawnerDefinitions::default(),

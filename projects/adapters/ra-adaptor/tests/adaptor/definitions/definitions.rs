@@ -14,17 +14,16 @@ fn rules_from_with_art(rules_text: &[u8], art_text: &[u8]) -> RulesSystem {
     let art = if art_text.is_empty() { IniDocument::default() } else { IniDocument::parse(art_text).expect("test art ini") };
     let mut techno_types = TechnoTypeRegistry::from_rules(&rules);
     techno_types.apply_art_geometry(&art);
+    let warheads = WarheadRegistry::from_names(&rules, techno_types.iter().map(|t| t.warhead.as_str()));
     RulesSystem {
         edition: GameEdition::Ra2,
-        rules: rules.clone(),
-        art,
         globals: RulesGlobals::from_rules(&rules),
         overlay_types: OverlayTypeRegistry::default(),
         terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types,
-        warheads: WarheadRegistry::default(),
+        warheads,
         super_weapons: SuperWeaponTypeRegistry::from_rules(&rules),
     }
 }
@@ -129,8 +128,6 @@ fn build_runtime_definitions_binds_primary_weapon_and_warhead_ids() {
 [90mm]\nDamage=50\nROF=8\nRange=6\nWarhead=SA\n\
 [SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
     );
-    let mut rules = rules;
-    rules.warheads = WarheadRegistry::from_names(&rules.rules, rules.techno_types.iter().map(|t| t.warhead.as_str()));
     let defs = build_runtime_definitions(&rules);
     let mtnk = defs.techno.get("MTNK").expect("MTNK");
     assert_eq!(mtnk.primary, "90MM");

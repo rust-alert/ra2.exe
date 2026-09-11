@@ -22,8 +22,6 @@ fn ai_places_war_factory_and_produces_tank() {
     .unwrap();
     let rules = RulesSystem {
         edition: GameEdition::Ra2,
-        rules: doc.clone(),
-        art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&doc),
         overlay_types: OverlayTypeRegistry::default(),
         terrain_spawners: TerrainSpawnerDefinitions::default(),

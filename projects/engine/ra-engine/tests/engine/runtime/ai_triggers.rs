@@ -15,8 +15,6 @@ fn rules_with_e1() -> RulesSystem {
     .unwrap();
     RulesSystem {
         edition: GameEdition::Ra2,
-        rules: rules.clone(),
-        art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&rules),
         overlay_types: OverlayTypeRegistry::default(),
         terrain_spawners: TerrainSpawnerDefinitions::default(),

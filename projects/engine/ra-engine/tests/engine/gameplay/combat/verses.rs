@@ -21,8 +21,6 @@ fn verses_scales_damage_against_armor() {
     let warheads = WarheadRegistry::from_names(&doc, techno_types.iter().map(|t| t.warhead.as_str()));
     let rules = RulesSystem {
         edition: GameEdition::Ra2,
-        rules: doc.clone(),
-        art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&doc),
         overlay_types: OverlayTypeRegistry::default(),
         terrain_spawners: TerrainSpawnerDefinitions::default(),
