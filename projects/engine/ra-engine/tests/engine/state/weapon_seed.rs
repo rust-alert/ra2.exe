@@ -4,7 +4,7 @@ use ra_adaptor::RulesSystem;
 use crate::common::battle_from_rules;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::GameEdition;
+use ra_types::{GameEdition, TerrainSpawnerDefinitions};
 
 #[test]
 fn seeds_attack_stats_from_primary_weapon() {
@@ -20,6 +20,7 @@ fn seeds_attack_stats_from_primary_weapon() {
         art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&doc),
         overlay_types: OverlayTypeRegistry::default(),
+        terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&doc),
@@ -61,6 +62,7 @@ fn weaponless_unit_keeps_zero_attack_damage() {
         art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&doc),
         overlay_types: OverlayTypeRegistry::default(),
+        terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&doc),

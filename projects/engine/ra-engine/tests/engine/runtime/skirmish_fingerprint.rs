@@ -5,7 +5,7 @@ use ra_adaptor::{ResourceChain, RulesSystem, build_runtime_definitions};
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::open_skirmish_session;
 use ra_map::MapInfo;
-use ra_types::{AssetSource, GameEdition, RaError, RaResult};
+use ra_types::{AssetSource, GameEdition, RaError, RaResult, TerrainSpawnerDefinitions};
 
 fn minimal_rules() -> RulesSystem {
     let rules = IniDocument::parse(b"[BuildingTypes]\n0=GACNST\n[GACNST]\nConstructionYard=yes\nStrength=1000\n").expect("测试 INI 必须有效");
@@ -15,6 +15,7 @@ fn minimal_rules() -> RulesSystem {
         art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&rules),
         overlay_types: OverlayTypeRegistry::default(),
+        terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),

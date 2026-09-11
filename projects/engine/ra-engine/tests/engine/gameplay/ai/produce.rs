@@ -5,7 +5,7 @@ use ra_adaptor::RulesSystem;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{PRODUCE_TICKS, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::GameEdition;
+use ra_types::{GameEdition, TerrainSpawnerDefinitions};
 
 #[test]
 fn ai_places_barracks_and_produces_infantry() {
@@ -26,6 +26,7 @@ fn ai_places_barracks_and_produces_infantry() {
         art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&doc),
         overlay_types: OverlayTypeRegistry::default(),
+        terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&doc),
@@ -113,6 +114,7 @@ fn ai_skips_dog_and_naval_when_picking_produce() {
         art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&doc),
         overlay_types: OverlayTypeRegistry::default(),
+        terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&doc),

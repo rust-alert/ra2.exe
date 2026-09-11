@@ -3,7 +3,7 @@
 // 自 adapters/ra-adaptor/src/definitions.rs :: tests
 use ra_adaptor::{RulesSystem, definitions::*};
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_types::{BuiltinCapability, GameEdition};
+use ra_types::{BuiltinCapability, GameEdition, TerrainSpawnerDefinitions};
 
 fn rules_from(text: &[u8]) -> RulesSystem {
     rules_from_with_art(text, b"")
@@ -20,6 +20,7 @@ fn rules_from_with_art(rules_text: &[u8], art_text: &[u8]) -> RulesSystem {
         art,
         globals: RulesGlobals::from_rules(&rules),
         overlay_types: OverlayTypeRegistry::default(),
+        terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types,

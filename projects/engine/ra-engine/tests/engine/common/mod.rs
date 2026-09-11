@@ -8,7 +8,7 @@ use ra_adaptor::{RulesSystem, build_runtime_definitions};
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, Engine, EngineConfig};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{GameEdition, RuntimeDefinitions};
+use ra_types::{GameEdition, RuntimeDefinitions, TerrainSpawnerDefinitions};
 
 /// 测试用默认引擎（空定义骨架）。
 pub fn test_engine() -> Engine {
@@ -38,6 +38,7 @@ pub fn rules_with_mtnk() -> RulesSystem {
         art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&doc),
         overlay_types: OverlayTypeRegistry::default(),
+        terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types,
@@ -69,6 +70,7 @@ pub fn duel_mtnk_world() -> BattleState {
         art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&rules),
         overlay_types: OverlayTypeRegistry::default(),
+        terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types,

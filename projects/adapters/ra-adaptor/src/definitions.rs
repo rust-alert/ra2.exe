@@ -5,8 +5,8 @@
 use ra_assets::TechnoKind;
 use ra_types::{
     BuildCat, BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, PowerProfile, PrerequisiteGroups, ProductionCategory,
-    ProductionProfile, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition, TechnoClass, TechnoDefinition,
-    TerrainSpawnerDefinition, TypeId, WarheadDefinition,
+    ProductionProfile, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId,
+    WarheadDefinition,
 };
 
 use crate::RulesSystem;
@@ -227,50 +227,10 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         defs.warheads.insert(WarheadDefinition { id, type_key: key, verses });
     }
 
-    fill_terrain_spawners(&mut defs, &rules.rules);
+    defs.terrain_spawners = rules.terrain_spawners.clone();
     defs.overlays = rules.overlay_types.clone();
 
     defs
-}
-
-const TERRAIN_SPAWN_PROBABILITY_DENOMINATOR: f32 = 1_000_000.0;
-
-#[derive(Debug, serde::Deserialize)]
-struct TerrainSpawnerSectionFields {
-    #[serde(rename = "SpawnsTiberium")]
-    spawns_tiberium: Option<bool>,
-    #[serde(rename = "IsAnimated")]
-    is_animated: Option<bool>,
-    #[serde(rename = "AnimationProbability")]
-    animation_probability: Option<f32>,
-    #[serde(rename = "AnimationRate")]
-    animation_rate: Option<u16>,
-}
-
-fn fill_terrain_spawners(defs: &mut RuntimeDefinitions, rules: &ra_assets::IniDocument) {
-    for section in &rules.sections {
-        let Ok(fields) = section.deserialize::<TerrainSpawnerSectionFields>()
-        else {
-            continue;
-        };
-        if fields.spawns_tiberium != Some(true) || fields.is_animated != Some(true) {
-            continue;
-        }
-        let probability = fields
-            .animation_probability
-            .map(|v| (v.clamp(0.0, 1.0) * TERRAIN_SPAWN_PROBABILITY_DENOMINATOR).round() as u32)
-            .unwrap_or(0);
-        let rate = fields.animation_rate.unwrap_or(1).max(1);
-        let type_key = section.name_raw.trim().to_ascii_uppercase();
-        if type_key.is_empty() {
-            continue;
-        }
-        defs.terrain_spawners.insert(TerrainSpawnerDefinition {
-            type_key,
-            animation_probability_micros: probability,
-            animation_rate_ticks: rate,
-        });
-    }
 }
 
 #[doc(hidden)]
