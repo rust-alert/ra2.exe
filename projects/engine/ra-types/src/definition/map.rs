@@ -402,8 +402,8 @@ pub struct MapCellTag {
 pub struct MapTaskForceEntry {
     /// 数量。
     pub count: u16,
-    /// 类型 id。
-    pub type_id: String,
+    /// 类型 id（装载期一次解码为大写 techno 键）。
+    pub type_id: crate::TechnoName,
 }
 
 /// TaskForce 编队（运行契约；来自 `[TaskForces]` 语义）。

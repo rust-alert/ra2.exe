@@ -1,7 +1,7 @@
 //! `[TaskForces]` / `[ScriptTypes]` / `[TeamTypes]`。
 
 use ra_assets::{IniDocument, from_csv_row, numbered_pairs, parse_westwood_csv_line};
-use ra_types::HouseName;
+use ra_types::{HouseName, TechnoName};
 use serde::Deserialize;
 
 /// TaskForce 成员槽（装载解析中间态；投影进 `ra_types::MapTaskForceEntry`）。
@@ -9,8 +9,8 @@ use serde::Deserialize;
 pub struct MapTaskForceEntry {
     /// 数量。
     pub count: u16,
-    /// 类型 id。
-    pub type_id: String,
+    /// 类型 id（装载期一次解码为大写 techno 键）。
+    pub type_id: TechnoName,
 }
 
 /// `[TaskForces]` 一项（装载解析中间态；投影进 `ra_types::MapTaskForce`）。
@@ -104,7 +104,7 @@ struct NamedGroupSectionFields {
 #[derive(Debug, Deserialize)]
 struct TaskForceEntryRow {
     count: u16,
-    type_id: String,
+    type_id: TechnoName,
 }
 
 #[derive(Debug, Deserialize)]
@@ -134,7 +134,7 @@ pub fn parse_task_forces(doc: &IniDocument) -> Vec<MapTaskForce> {
             };
             entries.push(MapTaskForceEntry {
                 count: row.count.max(1),
-                type_id: row.type_id.to_ascii_uppercase(),
+                type_id: row.type_id,
             });
         }
         out.push(MapTaskForce {
