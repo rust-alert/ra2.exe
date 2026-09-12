@@ -115,7 +115,7 @@ AT1=Strike,TM1,Russians,1,0,GACNST,1\n\
     assert_eq!(t.id, "AT1");
     assert_eq!(t.name, "Strike");
     assert_eq!(t.team, "TM1");
-    assert_eq!(t.owner_house, "Russians");
+    assert_eq!(t.owner_house, "RUSSIANS");
     assert_eq!(t.tech_level, 1);
     assert!(map.scripting.unknown_sections.iter().all(|s| !s.eq_ignore_ascii_case("AITriggerTypes")));
 }

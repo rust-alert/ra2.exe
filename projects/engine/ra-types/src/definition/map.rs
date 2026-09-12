@@ -481,8 +481,8 @@ pub struct MapAiTrigger {
     pub name: String,
     /// 关联 TeamType。
     pub team: String,
-    /// 所属 House。
-    pub owner_house: String,
+    /// 所属 House（装载期一次解码为大写）。
+    pub owner_house: crate::HouseName,
     /// 科技等级门槛。
     pub tech_level: i32,
 }
