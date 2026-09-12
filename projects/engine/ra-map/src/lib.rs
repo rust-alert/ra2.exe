@@ -278,7 +278,7 @@ impl MapInfo {
         if trimmed.is_empty() { None } else { Some(trimmed) }
     }
 
-    /// 提取冻结 [`MapDefinition`] 骨架（含触发链与 TaskForces；不含 ScriptTypes / TeamTypes / AI 载荷）。
+    /// 提取冻结 [`MapDefinition`] 骨架（含触发链 / TaskForces / ScriptTypes；不含 TeamTypes / AI 载荷）。
     pub fn to_map_definition(&self) -> MapDefinition {
         MapDefinition {
             name: self.name.clone(),
@@ -339,6 +339,7 @@ impl MapInfo {
             actions: self.scripting.actions.iter().map(map_action_to_definition).collect(),
             cell_tags: self.scripting.cell_tags.iter().map(map_cell_tag_to_definition).collect(),
             task_forces: self.scripting.task_forces.iter().map(map_task_force_to_definition).collect(),
+            script_types: self.scripting.script_types.iter().map(map_script_type_to_definition).collect(),
         }
     }
 
@@ -547,6 +548,21 @@ fn map_task_force_to_definition(tf: &crate::scripting::MapTaskForce) -> ra_types
             })
             .collect(),
         group: tf.group,
+    }
+}
+
+fn map_script_type_to_definition(script: &crate::scripting::MapScriptType) -> ra_types::MapScriptType {
+    ra_types::MapScriptType {
+        id: script.id.clone(),
+        name: script.name.clone(),
+        steps: script
+            .steps
+            .iter()
+            .map(|s| ra_types::MapScriptStep {
+                action: s.action,
+                argument: s.argument,
+            })
+            .collect(),
     }
 }
 

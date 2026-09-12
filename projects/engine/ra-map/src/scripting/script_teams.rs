@@ -25,7 +25,7 @@ pub struct MapTaskForce {
     pub group: i32,
 }
 
-/// Script 一步。
+/// Script 一步（装载解析中间态；投影进 `ra_types::MapScriptStep`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapScriptStep {
     /// 动作码（原版 ScriptTypes；例如 `1` = 攻击航点，`3` = 移动，`6` = 部署，`7` = 驻守，`8` = 跳转）。
@@ -34,7 +34,7 @@ pub struct MapScriptStep {
     pub argument: i32,
 }
 
-/// `[ScriptTypes]` 一项。
+/// `[ScriptTypes]` 一项（装载解析中间态；投影进 `ra_types::MapScriptType`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapScriptType {
     /// id。

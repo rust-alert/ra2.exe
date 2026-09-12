@@ -65,6 +65,8 @@ pub struct MapDefinition {
     pub cell_tags: Vec<MapCellTag>,
     /// `[TaskForces]` 编队成员表。
     pub task_forces: Vec<MapTaskForce>,
+    /// `[ScriptTypes]` 脚本步骤表。
+    pub script_types: Vec<MapScriptType>,
 }
 
 impl Default for MapDefinition {
@@ -95,6 +97,7 @@ impl Default for MapDefinition {
             actions: Vec::new(),
             cell_tags: Vec::new(),
             task_forces: Vec::new(),
+            script_types: Vec::new(),
         }
     }
 }
@@ -370,6 +373,28 @@ pub struct MapTaskForce {
     pub entries: Vec<MapTaskForceEntry>,
     /// `Group=`。
     pub group: i32,
+}
+
+/// Script 一步（运行契约；`action` / `argument` 为原版 ScriptTypes 整数码）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MapScriptStep {
+    /// 动作码（例如 `1` = 攻击航点，`3` = 移动）。
+    pub action: i32,
+    /// 参数（含义随 `action`）。
+    pub argument: i32,
+}
+
+/// ScriptTypes 脚本（运行契约；来自 `[ScriptTypes]` 语义）。
+///
+/// 可改为稳定动作枚举；装载侧见 `ra-map::MapScriptType`。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapScriptType {
+    /// id。
+    pub id: String,
+    /// 名称。
+    pub name: String,
+    /// 步骤。
+    pub steps: Vec<MapScriptStep>,
 }
 
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。
