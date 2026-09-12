@@ -458,8 +458,8 @@ pub struct MapTeamType {
     pub script: crate::ScriptTypeName,
     /// `TaskForce=`（装载期一次解码为大写 TaskForces 键）。
     pub task_force: crate::TaskForceName,
-    /// `Tag=`（可空）。
-    pub tag: String,
+    /// `Tag=`（装载期一次解码为大写 Tags 键；可空）。
+    pub tag: crate::TagName,
     /// `Waypoint=`：产队航点编号；`<0` 表示未指定。
     pub waypoint: i32,
     /// `Max=`。

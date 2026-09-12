@@ -1,7 +1,7 @@
 //! `[TaskForces]` / `[ScriptTypes]` / `[TeamTypes]`。
 
 use ra_assets::{IniDocument, from_csv_row, numbered_pairs, parse_westwood_csv_line};
-use ra_types::{HouseName, ScriptTypeName, TaskForceName, TechnoName};
+use ra_types::{HouseName, ScriptTypeName, TagName, TaskForceName, TechnoName};
 use serde::Deserialize;
 
 /// TaskForce 成员槽（装载解析中间态；投影进 `ra_types::MapTaskForceEntry`）。
@@ -59,8 +59,8 @@ pub struct MapTeamType {
     pub script: ScriptTypeName,
     /// `TaskForce=`（装载期一次解码为大写 TaskForces 键）。
     pub task_force: TaskForceName,
-    /// `Tag=`（可空）。
-    pub tag: String,
+    /// `Tag=`（装载期一次解码为大写 Tags 键；可空）。
+    pub tag: TagName,
     /// `Waypoint=`：产队航点编号；`<0` 表示未指定（运行时回退 index 0）。
     pub waypoint: i32,
     /// `Max=`。
@@ -81,8 +81,8 @@ struct TeamTypeSectionFields {
     script: ScriptTypeName,
     #[serde(rename = "TaskForce", default)]
     task_force: TaskForceName,
-    #[serde(rename = "Tag")]
-    tag: Option<String>,
+    #[serde(rename = "Tag", default)]
+    tag: TagName,
     #[serde(rename = "Waypoint")]
     waypoint: Option<i32>,
     #[serde(rename = "Max")]
@@ -193,7 +193,7 @@ pub fn parse_team_types(doc: &IniDocument) -> Vec<MapTeamType> {
             house: fields.house,
             script: fields.script,
             task_force: fields.task_force,
-            tag: fields.tag.unwrap_or_default().trim().to_string(),
+            tag: fields.tag,
             waypoint: fields.waypoint.unwrap_or(-1),
             max: fields.max.unwrap_or(0),
             priority: fields.priority.unwrap_or(0),

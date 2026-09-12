@@ -301,7 +301,7 @@ fn spawn_team_type(world: &mut BattleState, team: &MapTeamType, forces: &[ra_map
             if let Some(id) = spawned {
                 if !team.tag.is_empty() {
                     let _ = world.with_identity_mut(id, |identity| {
-                        identity.tag = team.tag.clone();
+                        identity.tag = team.tag.to_string();
                     });
                 }
                 members.push(id);
