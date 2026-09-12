@@ -1,6 +1,7 @@
 //! rules `[Countries]` / `[Sides]`：国家与势力表（INI 字段解释，供大厅 / 装载使用）。
 
-use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView, LayeredSectionView};
+use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
+use serde::Deserialize;
 
 /// 一个国家（house）定义。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -303,44 +304,52 @@ pub fn parse_sides(view: LayeredIniView<'_>) -> Vec<SideGroup> {
 pub fn parse_side_chromes(view: LayeredIniView<'_>, sides: &[SideGroup]) -> Vec<SideChromeDef> {
     let mut out = Vec::with_capacity(sides.len());
     for group in sides {
-        let sec: Option<LayeredSectionView<'_>> = view.section(&group.id);
-        let mix_file_index = sec
-            .as_ref()
-            .and_then(|s| s.get("Sidebar.MixFileIndex"))
-            .and_then(|v| v.trimmed().raw.parse::<u32>().ok())
-            .filter(|n| *n >= 1);
-        let yuri_file_names = sec
-            .as_ref()
-            .and_then(|s| s.get("Sidebar.YuriFileNames"))
-            .map(|v| parse_ini_bool_loose(v.trimmed().raw))
-            .unwrap_or(false);
-        let score_background = sec
-            .as_ref()
-            .and_then(|s| s.get("MultiplayerScore.Background"))
-            .map(|v| v.trimmed().raw.to_string())
-            .filter(|s| !s.is_empty());
-        let score_palette = sec
-            .as_ref()
-            .and_then(|s| s.get("MultiplayerScore.Palette"))
-            .map(|v| v.trimmed().raw.to_string())
-            .filter(|s| !s.is_empty());
-        let eva_tag = sec
-            .as_ref()
-            .and_then(|s| s.get("EVA.Tag"))
-            .map(|v| v.trimmed().raw.to_string())
-            .filter(|s| !s.is_empty());
+        let fields = view
+            .section(&group.id)
+            .and_then(|s| s.deserialize::<SideChromeSectionFields>().ok())
+            .unwrap_or_default();
         out.push(SideChromeDef {
             id: group.id.clone(),
-            mix_file_index,
-            yuri_file_names,
-            score_background,
-            score_palette,
-            eva_tag,
+            mix_file_index: fields.mix_file_index,
+            yuri_file_names: fields.yuri_file_names.unwrap_or(false),
+            score_background: fields.score_background.filter(|s| !s.is_empty()),
+            score_palette: fields.score_palette.filter(|s| !s.is_empty()),
+            eva_tag: fields.eva_tag.filter(|s| !s.is_empty()),
             // rules 无独立键；由 edition adaptor stock 填。
             score_stats_shade: None,
         });
     }
     out
+}
+
+/// 势力壳层 chrome 节字段（一次 Serde）。
+#[derive(Debug, Default, Deserialize)]
+struct SideChromeSectionFields {
+    #[serde(rename = "Sidebar.MixFileIndex", default, deserialize_with = "deserialize_optional_mix_file_index")]
+    mix_file_index: Option<u32>,
+    #[serde(rename = "Sidebar.YuriFileNames")]
+    yuri_file_names: Option<bool>,
+    #[serde(rename = "MultiplayerScore.Background")]
+    score_background: Option<String>,
+    #[serde(rename = "MultiplayerScore.Palette")]
+    score_palette: Option<String>,
+    #[serde(rename = "EVA.Tag")]
+    eva_tag: Option<String>,
+}
+
+fn deserialize_optional_mix_file_index<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let Some(raw) = Option::<String>::deserialize(deserializer)?
+    else {
+        return Ok(None);
+    };
+    let Ok(n) = raw.trim().parse::<u32>()
+    else {
+        return Ok(None);
+    };
+    if n >= 1 { Ok(Some(n)) } else { Ok(None) }
 }
 
 /// 仅填空：把 edition adaptor 提供的库存 Side chrome 写入缺键行。
