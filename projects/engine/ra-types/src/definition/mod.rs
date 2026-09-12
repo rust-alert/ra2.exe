@@ -13,6 +13,7 @@ mod fingerprint;
 pub mod foundation;
 mod house_list;
 mod locomotor;
+mod map;
 mod names;
 mod overlay;
 mod production;
@@ -38,6 +39,7 @@ pub use fingerprint::ContentFingerprint;
 pub use foundation::Foundation;
 pub use house_list::HouseAllowList;
 pub use locomotor::LocomotorDefinitions;
+pub use map::{MapDefinition, PreparedMap};
 pub use names::{
     HouseName, ImageName, ProjectileName, SuperWeaponActionName, SuperWeaponKindName, SuperWeaponName, TechnoName, UiName, WarheadName,
     WeaponName,

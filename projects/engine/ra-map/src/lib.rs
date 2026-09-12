@@ -42,7 +42,7 @@ pub mod lcw;
 pub mod lzo;
 
 use ra_assets::{IniDocument, from_row};
-use ra_types::{GameEdition, RaError, RaResult};
+use ra_types::{GameEdition, MapDefinition, RaError, RaResult};
 use serde::Deserialize;
 
 pub use base64::{base64_decode, base64_encode};
@@ -273,6 +273,22 @@ impl MapInfo {
         let raw = if victory { self.next_mission.as_str() } else { self.alternate_next_mission.as_str() };
         let trimmed = raw.trim();
         if trimmed.is_empty() { None } else { Some(trimmed) }
+    }
+
+    /// 提取冻结 [`MapDefinition`] 骨架（不含格子 / 实体 / 脚本载荷）。
+    pub fn to_map_definition(&self) -> MapDefinition {
+        MapDefinition {
+            name: self.name.clone(),
+            size_width: self.size_width,
+            size_height: self.size_height,
+            cell_side: self.width,
+            theater: self.theater.as_str().to_ascii_uppercase(),
+            description_csf: self.description_csf.clone(),
+            game_modes: self.game_modes.clone(),
+            next_mission: self.next_mission.clone(),
+            alternate_next_mission: self.alternate_next_mission.clone(),
+            starting_credits: self.starting_credits,
+        }
     }
 
     /// 当前档的环境光配置。
