@@ -238,24 +238,9 @@ impl StructureLightTable {
         Self { by_key }
     }
 
-    /// 从 rules `IniDocument` 扫描节光键（单测过渡入口；产品路径用 [`Self::from_structures`]）。
-    pub fn from_rules_ini(doc: &IniDocument) -> Self {
-        let mut by_key = std::collections::BTreeMap::new();
-        for section in &doc.sections {
-            let name = section.name_raw.as_str();
-            let intensity = doc.get(name, "LightIntensity").and_then(parse_f32).unwrap_or(0.0);
-            let visibility = doc
-                .get(name, "LightVisibility")
-                .and_then(|v| v.trim().parse::<i32>().ok())
-                .unwrap_or(5000);
-            let red = doc.get(name, "LightRedTint").and_then(parse_f32).unwrap_or(1.0);
-            let green = doc.get(name, "LightGreenTint").and_then(parse_f32).unwrap_or(1.0);
-            let blue = doc.get(name, "LightBlueTint").and_then(parse_f32).unwrap_or(1.0);
-            if let Some(profile) = ra_types::StructureLightProfile::from_rules_floats(intensity, visibility, red, green, blue) {
-                by_key.insert(name.to_ascii_uppercase(), profile);
-            }
-        }
-        Self { by_key }
+    /// 插入或覆盖一条类型光资料（键转大写）。
+    pub fn insert(&mut self, type_key: impl Into<String>, profile: ra_types::StructureLightProfile) {
+        self.by_key.insert(type_key.into().to_ascii_uppercase(), profile);
     }
 
     /// 按类型键查找。

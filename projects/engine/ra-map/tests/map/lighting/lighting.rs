@@ -106,10 +106,12 @@ fn point_light_brightens_near_cell() {
 }
 
 #[test]
-fn refresh_point_lights_from_rules_structures() {
-    let rules =
-        IniDocument::parse(b"[GAYARD]\nLightIntensity=0.4\nLightVisibility=2000\nLightRedTint=1.0\nLightGreenTint=0.8\nLightBlueTint=0.5\n")
-            .expect("rules");
+fn refresh_point_lights_from_structure_light_table() {
+    let mut lights = StructureLightTable::default();
+    lights.insert(
+        "GAYARD",
+        ra_types::StructureLightProfile::from_rules_floats(0.4, 2000, 1.0, 0.8, 0.5).expect("profile"),
+    );
     let mut map = MapInfo::empty(GameEdition::Ra2, "lit.map");
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -123,12 +125,12 @@ fn refresh_point_lights_from_rules_structures() {
         mission: String::new(),
         tag: String::new(),
     });
-    map.refresh_point_lights(&StructureLightTable::from_rules_ini(&rules));
+    map.refresh_point_lights(&lights);
     assert_eq!(map.point_lights.len(), 1);
     assert_eq!(map.structure_point_lights.len(), 1);
     assert_eq!(map.point_lights[0].x, 5);
     assert_eq!(map.point_lights[0].y, 7);
-    let collected = collect_structure_point_lights(&map.entities, &StructureLightTable::from_rules_ini(&rules));
+    let collected = collect_structure_point_lights(&map.entities, &lights);
     assert_eq!(collected, map.structure_point_lights);
     let tint = map.tint_at(5, 7, 0);
     assert!(tint[0] > 1.0 || tint[1] > 0.9, "expected light boost, tint={tint:?}");
@@ -147,7 +149,11 @@ fn refresh_radiation_lights_merges_green_glow() {
     let tint = map.tint_at(8, 8, 0);
     assert!(tint[1] > tint[0], "expected green-heavy radiation tint {tint:?}");
     // 建筑光刷新不得冲掉辐射光。
-    let struct_rules = IniDocument::parse(b"[GAYARD]\nLightIntensity=0.1\nLightVisibility=512\n").expect("rules");
+    let mut struct_lights = StructureLightTable::default();
+    struct_lights.insert(
+        "GAYARD",
+        ra_types::StructureLightProfile::from_rules_floats(0.1, 512, 1.0, 1.0, 1.0).expect("profile"),
+    );
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
         owner: "Neutral".into(),
@@ -160,7 +166,7 @@ fn refresh_radiation_lights_merges_green_glow() {
         mission: String::new(),
         tag: String::new(),
     });
-    map.refresh_point_lights(&StructureLightTable::from_rules_ini(&struct_rules));
+    map.refresh_point_lights(&struct_lights);
     assert_eq!(map.structure_point_lights.len(), 1);
     assert_eq!(map.radiation_point_lights.len(), 1);
     assert_eq!(map.point_lights.len(), 2);
@@ -232,13 +238,18 @@ fn negative_point_light_darkens() {
 }
 
 #[test]
-fn collect_structure_lights_from_rules() {
-    let rules = IniDocument::parse(
-        b"[LAMP]\nLightVisibility=512\nLightIntensity=0.5\nLightRedTint=1\nLightGreenTint=1\nLightBlueTint=1\n\
-[DARK]\nLightVisibility=256\nLightIntensity=-0.25\n\
-[ZERO]\nLightVisibility=4096\nLightIntensity=0\n",
-    )
-    .expect("rules");
+fn collect_structure_lights_from_light_table() {
+    let mut table = StructureLightTable::default();
+    table.insert(
+        "LAMP",
+        ra_types::StructureLightProfile::from_rules_floats(0.5, 512, 1.0, 1.0, 1.0).expect("lamp"),
+    );
+    table.insert(
+        "DARK",
+        ra_types::StructureLightProfile::from_rules_floats(-0.25, 256, 1.0, 1.0, 1.0).expect("dark"),
+    );
+    // 强度 0 不入库。
+    assert!(ra_types::StructureLightProfile::from_rules_floats(0.0, 4096, 1.0, 1.0, 1.0).is_none());
     let entities = vec![
         MapEntity {
             kind: MapEntityKind::Structure,
@@ -277,7 +288,7 @@ fn collect_structure_lights_from_rules() {
             tag: String::new(),
         },
     ];
-    let lights = collect_structure_point_lights(&entities, &StructureLightTable::from_rules_ini(&rules));
+    let lights = collect_structure_point_lights(&entities, &table);
     assert_eq!(lights.len(), 1);
     assert_eq!(lights[0].x, 3);
     assert_eq!(lights[0].y, 4);
