@@ -3,8 +3,9 @@
 //! 行格式：`modeID=显示名CSF, 提示CSF, 规则覆盖INI, 地图过滤标签, 是否允许随机图`。
 
 use ra_types::{RaError, RaResult};
+use serde::Deserialize;
 
-use crate::IniDocument;
+use crate::{IniDocument, from_row};
 
 /// 一条可选多人模式。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,22 +58,45 @@ pub fn parse_mpmodes(bytes: &[u8]) -> RaResult<Vec<MpMode>> {
     Ok(modes)
 }
 
+#[derive(Debug, Deserialize)]
+struct MpModeCsvRow {
+    name_csf: String,
+    tooltip_csf: String,
+    rules_override: String,
+    map_filter: String,
+    #[serde(default)]
+    random_maps_allowed: Option<MpModeBool>,
+}
+
+#[derive(Debug)]
+struct MpModeBool(bool);
+
+impl<'de> Deserialize<'de> for MpModeBool {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let raw = String::deserialize(deserializer)?;
+        parse_ini_bool(&raw).map(MpModeBool).map_err(serde::de::Error::custom)
+    }
+}
+
 #[doc(hidden)]
 pub fn parse_mode_row(id: u32, category: &str, value: &str) -> Result<MpMode, String> {
     // 按逗号切分后 trim；保留中间空段以便发现缺列。
-    let fields: Vec<&str> = value.split(',').map(|s| s.trim()).collect();
-    if fields.len() < 4 {
-        return Err(format!("需要至少 4 个逗号分隔字段，实际 {}", fields.len()));
+    let field_count = value.split(',').count();
+    if field_count < 4 {
+        return Err(format!("需要至少 4 个逗号分隔字段，实际 {field_count}"));
     }
-    let random_maps_allowed = if fields.len() >= 5 { parse_ini_bool(fields[4])? } else { false };
+    let row: MpModeCsvRow = from_row(value).map_err(|e| e.to_string())?;
     Ok(MpMode {
         id,
         category: category.to_string(),
-        name_csf: fields[0].to_string(),
-        tooltip_csf: fields[1].to_string(),
-        rules_override: fields[2].to_string(),
-        map_filter: fields[3].to_string(),
-        random_maps_allowed,
+        name_csf: row.name_csf,
+        tooltip_csf: row.tooltip_csf,
+        rules_override: row.rules_override,
+        map_filter: row.map_filter,
+        random_maps_allowed: row.random_maps_allowed.map(|b| b.0).unwrap_or(false),
     })
 }
 
