@@ -12,7 +12,7 @@ use super::ini_string::{deserialize_upper, parse_upper};
 
 
 /// 抛射体节名（`Projectile=`）；空 = 未配置。
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct ProjectileName {
     /// 规范化键（装载期大写）。
     pub name: String,
@@ -45,6 +45,12 @@ impl Deref for ProjectileName {
 
 impl AsRef<str> for ProjectileName {
     fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl std::borrow::Borrow<str> for ProjectileName {
+    fn borrow(&self) -> &str {
         &self.name
     }
 }
@@ -107,14 +113,14 @@ impl<'de> Deserialize<'de> for ProjectileName {
 pub struct ProjectileDefinition {
     /// 稳定抛射体编号。
     pub id: ProjectileId,
-    /// 外部抛射体键（大写）。
-    pub type_key: String,
+    /// 外部抛射体键。
+    pub type_key: ProjectileName,
 }
 
 /// 抛射体定义表。
 #[derive(Debug, Clone, Default)]
 pub struct ProjectileDefinitions {
-    by_key: BTreeMap<String, ProjectileDefinition>,
+    by_key: BTreeMap<ProjectileName, ProjectileDefinition>,
 }
 
 impl ProjectileDefinitions {
@@ -123,9 +129,14 @@ impl ProjectileDefinitions {
         self.by_key.insert(def.type_key.clone(), def);
     }
 
-    /// 按键查找。
+    /// 按键查找（大小写不敏感）。
     pub fn get(&self, type_key: &str) -> Option<&ProjectileDefinition> {
-        self.by_key.get(&type_key.to_ascii_uppercase())
+        self.by_key.get(&ProjectileName::parse(type_key))
+    }
+
+    /// 按已规范化的抛射体键查找。
+    pub fn get_name(&self, type_key: &ProjectileName) -> Option<&ProjectileDefinition> {
+        self.by_key.get(type_key)
     }
 
     /// 按稳定 id 查找。

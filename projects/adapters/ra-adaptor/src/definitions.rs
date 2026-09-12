@@ -350,7 +350,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         let id = alloc_warhead();
         defs.warheads.insert(WarheadDefinition {
             id,
-            type_key: key.as_str().to_string(),
+            type_key: key,
             verses,
             spread,
             prone_damage,
@@ -371,7 +371,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         let id = alloc_projectile();
         defs.projectiles.insert(ProjectileDefinition {
             id,
-            type_key: key.as_str().to_string(),
+            type_key: key,
         });
     }
 
@@ -379,13 +379,13 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         weapon.warhead_id = if weapon.warhead.is_empty() {
             WarheadId(0)
         } else {
-            defs.warheads.get(weapon.warhead.as_str()).map(|w| w.id).unwrap_or(WarheadId(0))
+            defs.warheads.get_name(&weapon.warhead).map(|w| w.id).unwrap_or(WarheadId(0))
         };
         weapon.projectile_id = if weapon.projectile.is_empty() {
             ProjectileId(0)
         } else {
             defs.projectiles
-                .get(weapon.projectile.as_str())
+                .get_name(&weapon.projectile)
                 .map(|p| p.id)
                 .unwrap_or(ProjectileId(0))
         };
@@ -406,7 +406,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         } else if techno.warhead.is_empty() {
             WarheadId(0)
         } else {
-            defs.warheads.get(techno.warhead.as_str()).map(|w| w.id).unwrap_or(WarheadId(0))
+            defs.warheads.get_name(&techno.warhead).map(|w| w.id).unwrap_or(WarheadId(0))
         };
     }
     for sw in defs.super_weapons.iter_mut() {
