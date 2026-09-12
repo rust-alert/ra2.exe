@@ -1,6 +1,6 @@
 //! 格式解析：字节进、结构出。不碰 `std::fs`。
 //!
-//! 按格式族分目录：`mix` / `ini` / `image` / `voxel` / `rules` / `audio`。
+//! 按格式族分目录：`mix` / `ini` / `csv` / `image` / `voxel` / `rules` / `audio`。
 //! 对外仍扁平再导出，保持既有 `ra_assets::*` 路径。
 //! `image` 含 PAL / SHP / TMP / Bink 容器与视频解码骨架。
 
@@ -8,6 +8,7 @@
 
 pub mod audio;
 pub mod battle;
+pub mod csv;
 pub mod image;
 pub mod ini;
 pub mod mix;
@@ -18,6 +19,7 @@ pub mod voxel;
 pub use audio::{AudioBagEntry, AudioIndex, PcmAudio, WavError, decode_audio_bytes, decode_wav_pcm};
 pub use battle::{BattleCampaign, find_battle_campaign, parse_battle_campaigns};
 
+pub use csv::{CsvDeError, CsvField, CsvRow, from_csv_row, from_row, parse_westwood_csv_line};
 pub use image::{
     bink::{
         BINK_FLAG_ALPHA, BINK_FLAG_GRAY, BinkAudioTrack, BinkColorRange, BinkFile, BinkFrameIndexEntry, BinkFramePacket, BinkHeader,
