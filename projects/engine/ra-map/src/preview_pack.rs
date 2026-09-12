@@ -1,8 +1,9 @@
 //! 地图 `[Preview]` / `[PreviewPack]`：大厅缩略图（LZO 分块 → 行优先 RGB24 → RGBA）。
 
 use image::RgbaImage;
-use ra_assets::{IniDocument, numbered_section_concat};
+use ra_assets::{IniDocument, from_csv_row, numbered_section_concat, parse_westwood_csv_line};
 use ra_types::{RaError, RaResult};
+use serde::Deserialize;
 
 use crate::{base64, lzo};
 
@@ -24,12 +25,39 @@ impl MapPreviewImage {
     }
 }
 
+#[derive(Debug, Deserialize)]
+struct PreviewSizeWh {
+    width: u32,
+    height: u32,
+}
+
+#[derive(Debug, Deserialize)]
+struct PreviewSizeXywh {
+    _x: i32,
+    _y: i32,
+    width: u32,
+    height: u32,
+}
+
+/// `[Preview]` 节字段。
+#[derive(Debug, Default, Deserialize)]
+struct PreviewSectionFields {
+    #[serde(rename = "Size")]
+    size: Option<String>,
+}
+
 /// 解析 `[Preview] Size=`：`w,h` 或 `x,y,w,h`（取宽高）。
 pub fn parse_preview_size(raw: &str) -> Option<(u32, u32)> {
-    let parts: Vec<&str> = raw.split(',').map(str::trim).collect();
-    match parts.as_slice() {
-        [w, h] => Some((w.parse().ok()?, h.parse().ok()?)),
-        [_, _, w, h, ..] => Some((w.parse().ok()?, h.parse().ok()?)),
+    let row = parse_westwood_csv_line(raw);
+    match row.len() {
+        2 => {
+            let parsed: PreviewSizeWh = from_csv_row(&row).ok()?;
+            Some((parsed.width, parsed.height))
+        }
+        n if n >= 4 => {
+            let parsed: PreviewSizeXywh = from_csv_row(&row).ok()?;
+            Some((parsed.width, parsed.height))
+        }
         _ => None,
     }
 }
@@ -63,7 +91,11 @@ pub fn decode_preview_pack(pack_b64: &str, width: u32, height: u32) -> RaResult<
 
 /// 从场景 INI 文档解码预览；无 `[Preview]` / `[PreviewPack]` 时返回 `Ok(None)`。
 pub fn decode_preview_from_ini(doc: &IniDocument) -> RaResult<Option<MapPreviewImage>> {
-    let Some(size_raw) = doc.get("Preview", "Size")
+    let fields = doc
+        .section("Preview")
+        .and_then(|s| s.deserialize::<PreviewSectionFields>().ok())
+        .unwrap_or_default();
+    let Some(size_raw) = fields.size.as_deref()
     else {
         return Ok(None);
     };
