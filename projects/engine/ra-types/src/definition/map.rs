@@ -69,6 +69,8 @@ pub struct MapDefinition {
     pub script_types: Vec<MapScriptType>,
     /// `[TeamTypes]` 产队定义。
     pub team_types: Vec<MapTeamType>,
+    /// `[AITriggerTypes]` AI 产队触发（字段子集）。
+    pub ai_triggers: Vec<MapAiTrigger>,
 }
 
 impl Default for MapDefinition {
@@ -101,6 +103,7 @@ impl Default for MapDefinition {
             task_forces: Vec::new(),
             script_types: Vec::new(),
             team_types: Vec::new(),
+            ai_triggers: Vec::new(),
         }
     }
 }
@@ -425,6 +428,23 @@ pub struct MapTeamType {
     pub priority: i32,
     /// `VeteranLevel=`。
     pub veteran_level: i32,
+}
+
+/// AI 触发（运行契约；来自 `[AITriggerTypes]` 语义子集）。
+///
+/// 可改为稳定 team / house id；装载侧见 `ra-map::MapAiTrigger`。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapAiTrigger {
+    /// 触发 id。
+    pub id: String,
+    /// 显示名。
+    pub name: String,
+    /// 关联 TeamType。
+    pub team: String,
+    /// 所属 House。
+    pub owner_house: String,
+    /// 科技等级门槛。
+    pub tech_level: i32,
 }
 
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。

@@ -278,7 +278,7 @@ impl MapInfo {
         if trimmed.is_empty() { None } else { Some(trimmed) }
     }
 
-    /// 提取冻结 [`MapDefinition`] 骨架（含触发链与队伍脚本表；不含 AITriggerTypes 载荷）。
+    /// 提取冻结 [`MapDefinition`] 骨架（含触发链 / 队伍脚本 / AITriggerTypes；不含天气与预览等外围载荷）。
     pub fn to_map_definition(&self) -> MapDefinition {
         MapDefinition {
             name: self.name.clone(),
@@ -341,6 +341,7 @@ impl MapInfo {
             task_forces: self.scripting.task_forces.iter().map(map_task_force_to_definition).collect(),
             script_types: self.scripting.script_types.iter().map(map_script_type_to_definition).collect(),
             team_types: self.scripting.team_types.iter().map(map_team_type_to_definition).collect(),
+            ai_triggers: self.scripting.ai_triggers.iter().map(map_ai_trigger_to_definition).collect(),
         }
     }
 
@@ -579,6 +580,16 @@ fn map_team_type_to_definition(team: &crate::scripting::MapTeamType) -> ra_types
         max: team.max,
         priority: team.priority,
         veteran_level: team.veteran_level,
+    }
+}
+
+fn map_ai_trigger_to_definition(trigger: &crate::scripting::MapAiTrigger) -> ra_types::MapAiTrigger {
+    ra_types::MapAiTrigger {
+        id: trigger.id.clone(),
+        name: trigger.name.clone(),
+        team: trigger.team.clone(),
+        owner_house: trigger.owner_house.clone(),
+        tech_level: trigger.tech_level,
     }
 }
 
