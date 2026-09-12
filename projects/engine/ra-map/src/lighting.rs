@@ -238,7 +238,7 @@ impl StructureLightTable {
         Self { by_key }
     }
 
-    /// 从 rules `IniDocument` 扫描节光键（预览 / 测试过渡入口）。
+    /// 从 rules `IniDocument` 扫描节光键（单测过渡入口；产品路径用 [`Self::from_structures`]）。
     pub fn from_rules_ini(doc: &IniDocument) -> Self {
         let mut by_key = std::collections::BTreeMap::new();
         for section in &doc.sections {

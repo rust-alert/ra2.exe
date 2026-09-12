@@ -1,7 +1,7 @@
 //! 遭遇战启动预览：地形 + overlay + 物件 + 建筑；会话播种后可再叠移动单位 SHP。
 
 use image::RgbaImage;
-use ra_assets::{Hsv, IniDocument, Palette};
+use ra_assets::{Hsv, Palette};
 use ra_types::AssetSource;
 
 use crate::{
@@ -69,25 +69,24 @@ pub struct BootPreviewResult {
 /// 动画地形 → 矿柱 Idle → 建筑活动层。
 /// `ore_underlay` = 无可采矿的定格层，脏刷新时 `clone` 后再叠当前可采矿即可。
 ///
+/// `structure_lights` 来自冻结建筑定义（宿主侧 `StructureLightTable::from_structures`）。
+///
 /// 返回 `(合成图, 无活动层底图, 矿 underlay, 统计, 建筑活动层, 地形活动层, 矿柱银行)`。
 pub fn compose_skirmish_preview(
     source: &dyn AssetSource,
     map: &MapInfo,
     art_ini: &str,
     rules_ini: &str,
+    structure_lights: &StructureLightTable,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     is_tiberium: &dyn Fn(u8) -> bool,
     tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     anim_clock_ms: u64,
 ) -> Option<(TerrainImage, RgbaImage, RgbaImage, SkirmishPreviewStats, StructureAnimBank, TerrainAnimBank, TerrainAnimBank)> {
-    // 预览叠画需要点光源；从 rules 收集后挂到地图副本上（不改调用方 MapInfo）。
+    // 预览叠画需要点光源；挂到地图副本上（不改调用方 MapInfo）。
     let mut lit_map = map.clone();
-    if let Ok(bytes) = source.read(rules_ini) {
-        if let Ok(doc) = IniDocument::parse(&bytes) {
-            lit_map.refresh_point_lights(&StructureLightTable::from_rules_ini(&doc));
-        }
-    }
+    lit_map.refresh_point_lights(structure_lights);
     let map = &lit_map;
 
     let mut map_non_ore = map.clone();
@@ -205,13 +204,14 @@ pub fn compose_boot_preview(
     map: &MapInfo,
     art_ini: &str,
     rules_ini: &str,
+    structure_lights: &StructureLightTable,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     is_tiberium: &dyn Fn(u8) -> bool,
     tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<BootPreviewResult> {
     let (image, base_without_anims, ore_underlay, stats, anim_bank, terrain_anim_bank, ore_tree_anim_bank) =
-        compose_skirmish_preview(source, map, art_ini, rules_ini, overlay_type_name, is_tiberium, tiberium_hsv, remap_owner, 0)?;
+        compose_skirmish_preview(source, map, art_ini, rules_ini, structure_lights, overlay_type_name, is_tiberium, tiberium_hsv, remap_owner, 0)?;
     let terrain_hit = terrain_anim_bank
         .layers
         .first()
