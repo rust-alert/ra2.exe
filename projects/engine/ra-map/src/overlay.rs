@@ -1,9 +1,9 @@
-//! `[OverlayPack]` / `[OverlayDataPack]`：base64 → LCW 分块 → 512×512 格网。
+//! `[OverlayPack]` / `[OverlayDataPack]`：编号 pack → base64 → LCW 分块 → 512×512 格网。
 
-use ra_assets::{IniDocument, numbered_section_concat};
+use ra_assets::IniDocument;
 use ra_types::{RaError, RaResult};
 
-use crate::{base64, lcw};
+use crate::{lcw, numbered_pack::decode_numbered_base64_pack};
 
 /// 覆盖层格网边长（固定 512）。
 pub const OVERLAY_GRID: usize = 512;
@@ -49,7 +49,6 @@ pub fn decode_overlay_packs(doc: &IniDocument) -> RaResult<Vec<OverlayCell>> {
 }
 
 fn decode_pack_section(doc: &IniDocument, section: &str) -> RaResult<Vec<u8>> {
-    let b64 = numbered_section_concat(doc, section).ok_or_else(|| RaError::Parse(format!("缺少 [{section}]")))?;
-    let compressed = base64::base64_decode(&b64).map_err(RaError::Parse)?;
+    let compressed = decode_numbered_base64_pack(doc, section)?;
     lcw::decompress_chunks(&compressed).map_err(|e| RaError::Parse(e.to_string()))
 }

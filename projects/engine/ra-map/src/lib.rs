@@ -14,6 +14,7 @@ mod overlay;
 mod overlay_paint;
 mod overlay_pass;
 mod packed_cell;
+mod numbered_pack;
 mod pass_grid;
 mod placements;
 pub mod playfield;
