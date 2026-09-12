@@ -1,10 +1,291 @@
 //! 超级武器定义表（`[SuperWeaponTypes]`）。
 
 use std::collections::BTreeMap;
+use std::fmt;
+use std::ops::Deref;
+
+use serde::Deserialize;
 
 use crate::id::{TypeId, WeaponId};
 
-use super::{ImageName, SuperWeaponActionName, SuperWeaponKindName, UiName, WeaponName};
+use super::ini_string::{deserialize_upper, parse_upper};
+use super::{ImageName, UiName, WeaponName};
+
+
+/// 超级武器类型名（`SuperWeapon=`）；空 = 未配置。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct SuperWeaponName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl SuperWeaponName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for SuperWeaponName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for SuperWeaponName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for SuperWeaponName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for SuperWeaponName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for SuperWeaponName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for SuperWeaponName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for SuperWeaponName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<SuperWeaponName> for str {
+    fn eq(&self, other: &SuperWeaponName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<SuperWeaponName> for &str {
+    fn eq(&self, other: &SuperWeaponName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for SuperWeaponName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
+
+
+/// 超武 `Type=` 玩法类型名；空 = 未写。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct SuperWeaponKindName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl SuperWeaponKindName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for SuperWeaponKindName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for SuperWeaponKindName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for SuperWeaponKindName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for SuperWeaponKindName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for SuperWeaponKindName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for SuperWeaponKindName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for SuperWeaponKindName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<SuperWeaponKindName> for str {
+    fn eq(&self, other: &SuperWeaponKindName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<SuperWeaponKindName> for &str {
+    fn eq(&self, other: &SuperWeaponKindName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for SuperWeaponKindName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
+
+
+/// 超武 `Action=` 动作名；空 = 未写。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct SuperWeaponActionName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl SuperWeaponActionName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for SuperWeaponActionName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for SuperWeaponActionName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for SuperWeaponActionName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for SuperWeaponActionName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for SuperWeaponActionName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for SuperWeaponActionName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for SuperWeaponActionName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<SuperWeaponActionName> for str {
+    fn eq(&self, other: &SuperWeaponActionName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<SuperWeaponActionName> for &str {
+    fn eq(&self, other: &SuperWeaponActionName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for SuperWeaponActionName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
 
 /// 单条超级武器静态定义（adaptor 冻结；引擎只读查询）。
 #[derive(Debug, Clone, PartialEq, Eq)]
