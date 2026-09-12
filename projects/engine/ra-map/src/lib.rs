@@ -42,14 +42,14 @@ pub mod lcw;
 /// LZO1X 解压（IsoMapPack5）。
 pub mod lzo;
 
-use ra_assets::{IniDocument, from_row, numbered_pairs};
+use ra_assets::{IniDocument, numbered_pairs};
 use ra_types::{
     GameEdition, MapDefinition, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapTerrainObject,
     MapWeatherKind,
     MapWaypoint, RaError, RaResult,
 };
 use serde::Deserialize;
-use serde::de::{self, Deserializer};
+use serde::de::Deserializer;
 
 pub use base64::{base64_decode, base64_encode};
 pub use boot_map::{
@@ -593,15 +593,6 @@ fn prepared_occupancy_from_map(map: &MapInfo, structures: Option<&ra_types::Stru
     occupancy
 }
 
-/// `Size=x,y,width,height` 行（前两列原点，后两列宽高）。
-#[derive(Debug, Deserialize)]
-struct MapSizeRow {
-    _origin_x: i32,
-    _origin_y: i32,
-    width: u32,
-    height: u32,
-}
-
 fn map_entity_to_placed(ent: &MapEntity) -> MapPlacedEntity {
     MapPlacedEntity {
         kind: match ent.kind {
@@ -765,40 +756,26 @@ fn map_lighting_from_config(cfg: &LightingConfig) -> MapLighting {
     }
 }
 
-/// `LocalSize=left,top,width,height` 行。
-#[derive(Debug, Deserialize)]
-struct LocalSizeRow {
-    left: i32,
-    top: i32,
-    width: i32,
-    height: i32,
-}
-
 fn de_opt_map_size<'de, D>(deserializer: D) -> Result<Option<(u32, u32)>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let raw = String::deserialize(deserializer)?;
-    let row: MapSizeRow = from_row(&raw).map_err(de::Error::custom)?;
-    Ok(Some((row.width, row.height)))
+    // `Size=x,y,width,height`：INI 逗号序列一次落到四元组。
+    let (_origin_x, _origin_y, width, height) = <(i32, i32, u32, u32)>::deserialize(deserializer)?;
+    Ok(Some((width, height)))
 }
 
 fn de_opt_local_size<'de, D>(deserializer: D) -> Result<Option<LocalSize>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let raw = String::deserialize(deserializer)?;
-    let Ok(row) = from_row::<LocalSizeRow>(&raw)
+    // 非法 / 非正宽高软回落 `None`（与旧 `from_row` 失败行为一致）。
+    let Ok((left, top, width, height)) = <(i32, i32, i32, i32)>::deserialize(deserializer)
     else {
         return Ok(None);
     };
-    if row.width <= 0 || row.height <= 0 {
+    if width <= 0 || height <= 0 {
         return Ok(None);
     }
-    Ok(Some(LocalSize {
-        left: row.left,
-        top: row.top,
-        width: row.width,
-        height: row.height,
-    }))
+    Ok(Some(LocalSize { left, top, width, height }))
 }
