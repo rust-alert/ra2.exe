@@ -15,5 +15,6 @@ publish = false
 [dependencies]
 ra-types = { workspace = true }
 ra-assets = { workspace = true }
+serde = { workspace = true }
 base64 = { workspace = true }
 image = { workspace = true }
