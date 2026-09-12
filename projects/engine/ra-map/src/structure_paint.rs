@@ -26,6 +26,8 @@ struct StructureTypePaintHints {
     tech_level: i32,
     /// rules `TurretAnimIsVoxel` 炮塔体素（缺则跳过）。
     turret_voxel: Option<StructureTurretVoxelHints>,
+    /// art `DamageFireOffset0..7`（槽位, x, y）。
+    fire_offsets: Vec<(u8, i32, i32)>,
 }
 
 /// 建筑炮塔体素叠画提示。
@@ -47,7 +49,7 @@ fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocum
     };
     let body_key = art.and_then(|a| a.get(&art_section, "Image")).unwrap_or(art_section.as_str()).to_ascii_uppercase();
     StructureTypePaintHints {
-        art_section,
+        art_section: art_section.clone(),
         remapable,
         body_key,
         body_new_theater,
@@ -55,7 +57,24 @@ fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocum
         bib_new_theater,
         tech_level: structure_tech_level(rules, type_id),
         turret_voxel: structure_turret_voxel_hints(rules, type_id),
+        fire_offsets: structure_damage_fire_offsets(art, type_id, &art_section),
     }
+}
+
+fn structure_damage_fire_offsets(art: Option<&IniDocument>, type_id: &str, art_section: &str) -> Vec<(u8, i32, i32)> {
+    let mut out = Vec::new();
+    for i in 0..8u8 {
+        let Some(raw) = art_get_building(art, type_id, art_section, &format!("DamageFireOffset{i}"))
+        else {
+            continue;
+        };
+        let Some((ox, oy)) = parse_damage_fire_offset(raw)
+        else {
+            continue;
+        };
+        out.push((i, ox, oy));
+    }
+    out
 }
 
 fn structure_turret_voxel_hints(rules: Option<&IniDocument>, type_id: &str) -> Option<StructureTurretVoxelHints> {
@@ -334,18 +353,10 @@ pub fn collect_structure_anim_bank(
         }
 
         // 黄血及以下：按 art `DamageFireOffset*` 叠 `DamageFireTypes` 火焰。
-        if !yellow || damage.fire_types.is_empty() {
+        if !yellow || damage.fire_types.is_empty() || type_hint.fire_offsets.is_empty() {
             continue;
         }
-        for i in 0..8u8 {
-            let Some(raw) = art_get_building(art, &ent.type_id, art_section, &format!("DamageFireOffset{i}"))
-            else {
-                continue;
-            };
-            let Some((ox, oy)) = parse_damage_fire_offset(raw)
-            else {
-                continue;
-            };
+        for &(i, ox, oy) in &type_hint.fire_offsets {
             let fire_name = &damage.fire_types[usize::from(i) % damage.fire_types.len()];
             let fire_hint = cached_anim_section_hint(&mut anim_hints, art, fire_name, 80).clone();
             let Some(shp) = load_shp(source, map, &fire_hint.image_key, fire_hint.new_theater, &mut shp_cache)
