@@ -77,6 +77,8 @@ pub struct MapDefinition {
     pub preview_width: u32,
     /// `[Preview] Size` 高（缺节或无效为 0）。
     pub preview_height: u32,
+    /// 装载期天气种类（剧院默认投影；粒子场由呈现层按此实例化）。
+    pub weather: MapWeatherKind,
 }
 
 impl Default for MapDefinition {
@@ -113,8 +115,23 @@ impl Default for MapDefinition {
             ai_triggers: Vec::new(),
             preview_width: 0,
             preview_height: 0,
+            weather: MapWeatherKind::None,
         }
     }
+}
+
+/// 装载期天气种类（运行契约；不是粒子仿真状态）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum MapWeatherKind {
+    /// 无氛围粒子。
+    #[default]
+    None,
+    /// 飘雪。
+    Snow,
+    /// 薄雾。
+    Fog,
+    /// 雨丝。
+    Rain,
 }
 
 /// 地图环境光档（`[Lighting]` / Ion 键）。

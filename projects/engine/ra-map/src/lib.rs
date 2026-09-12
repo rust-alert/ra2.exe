@@ -45,6 +45,7 @@ pub mod lzo;
 use ra_assets::{IniDocument, from_row};
 use ra_types::{
     GameEdition, MapDefinition, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapTerrainObject,
+    MapWeatherKind,
     MapWaypoint, RaError, RaResult,
 };
 use serde::Deserialize;
@@ -298,7 +299,7 @@ impl MapInfo {
         if trimmed.is_empty() { None } else { Some(trimmed) }
     }
 
-    /// 提取冻结 [`MapDefinition`] 骨架（含触发链 / 队伍脚本 / AI / Preview 尺寸 / Smudge；不含预览像素与天气粒子）。
+    /// 提取冻结 [`MapDefinition`] 骨架（含触发链 / 队伍脚本 / AI / Preview 尺寸 / Smudge / 天气种类；不含预览像素与粒子场）。
     pub fn to_map_definition(&self) -> MapDefinition {
         MapDefinition {
             name: self.name.clone(),
@@ -369,6 +370,7 @@ impl MapInfo {
             ai_triggers: self.scripting.ai_triggers.iter().map(map_ai_trigger_to_definition).collect(),
             preview_width: self.preview_width,
             preview_height: self.preview_height,
+            weather: map_weather_kind_from_theater(self.theater),
         }
     }
 
@@ -626,6 +628,14 @@ fn map_ai_trigger_to_definition(trigger: &crate::scripting::MapAiTrigger) -> ra_
         team: trigger.team.clone(),
         owner_house: trigger.owner_house.clone(),
         tech_level: trigger.tech_level,
+    }
+}
+
+/// 剧院默认天气种类（与 `WeatherParticleField::for_theater` 对齐）。
+fn map_weather_kind_from_theater(theater: Theater) -> MapWeatherKind {
+    match theater {
+        Theater::Snow => MapWeatherKind::Snow,
+        _ => MapWeatherKind::None,
     }
 }
 
