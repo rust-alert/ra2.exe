@@ -550,9 +550,10 @@ fn parse_map_digest(doc: &IniDocument) -> String {
 ///
 /// 若提供 `structures`，按 `Foundation=` 从锚点向右下展开；缺表或未知类型按 `1x1`。
 fn prepared_occupancy_from_map(map: &MapInfo, structures: Option<&ra_types::StructureDefinitions>) -> Vec<u8> {
+    use ra_types::occupancy_kind;
     let width = map.width.max(1) as usize;
     let height = map.height.max(1) as usize;
-    let mut occupancy = vec![0u8; width.saturating_mul(height)];
+    let mut occupancy = vec![occupancy_kind::EMPTY; width.saturating_mul(height)];
     let mark = |occ: &mut [u8], x: u16, y: u16, kind: u8| {
         let xi = usize::from(x);
         let yi = usize::from(y);
@@ -560,7 +561,7 @@ fn prepared_occupancy_from_map(map: &MapInfo, structures: Option<&ra_types::Stru
             return;
         }
         let i = yi * width + xi;
-        if occ[i] == 0 || kind == 1 {
+        if occ[i] == occupancy_kind::EMPTY || kind == occupancy_kind::STRUCTURE {
             occ[i] = kind;
         }
     };
@@ -578,16 +579,16 @@ fn prepared_occupancy_from_map(map: &MapInfo, structures: Option<&ra_types::Stru
                     &mut occupancy,
                     ent.x.saturating_add(dx),
                     ent.y.saturating_add(dy),
-                    1,
+                    occupancy_kind::STRUCTURE,
                 );
             }
         }
     }
     for obj in &map.terrain_objects {
-        mark(&mut occupancy, obj.x, obj.y, 2);
+        mark(&mut occupancy, obj.x, obj.y, occupancy_kind::TERRAIN);
     }
     for smudge in &map.smudges {
-        mark(&mut occupancy, smudge.x, smudge.y, 3);
+        mark(&mut occupancy, smudge.x, smudge.y, occupancy_kind::SMUDGE);
     }
     occupancy
 }

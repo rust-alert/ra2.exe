@@ -31,7 +31,7 @@ pub use definition::{
     StructureDefinition, StructureDefinitions, StructureLightProfile, SuperWeaponActionName, SuperWeaponDefinition, SuperWeaponDefinitions,
     SuperWeaponKindName, SuperWeaponName, TechnoCategory, TechnoClass, TechnoDefinition, TechnoDefinitions, TechnoName,
     TerrainSpawnerDefinition, TerrainSpawnerDefinitions, TypeDefinitionId, UiName, WarheadDefinition, WarheadDefinitions, WarheadName,
-    WarheadVerses, WeaponDefinition, WeaponDefinitions, WeaponName, armor_index, deserialize_optional_factory,
+    WarheadVerses, WeaponDefinition, WeaponDefinitions, WeaponName, armor_index, deserialize_optional_factory, occupancy_kind,
 };
 pub use display_mode::DisplayMode;
 pub use edition::GameEdition;
