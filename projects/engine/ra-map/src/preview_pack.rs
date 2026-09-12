@@ -1,10 +1,12 @@
 //! 地图 `[Preview]` / `[PreviewPack]`：大厅缩略图（LZO 分块 → 行优先 RGB24 → RGBA）。
 
+use std::fmt;
+
 use image::RgbaImage;
 use ra_assets::{IniDocument, from_csv_row, parse_westwood_csv_line};
 use ra_types::{RaError, RaResult};
 use serde::Deserialize;
-use serde::de::Deserializer;
+use serde::de::{self, Deserializer, SeqAccess, Visitor};
 
 use crate::{base64, lzo, numbered_pack::try_decode_numbered_base64_pack};
 
@@ -51,8 +53,36 @@ fn de_opt_preview_size<'de, D>(deserializer: D) -> Result<Option<(u32, u32)>, D:
 where
     D: Deserializer<'de>,
 {
-    let raw = String::deserialize(deserializer)?;
-    Ok(parse_preview_size(&raw))
+    struct PreviewSizeVisitor;
+
+    impl<'de> Visitor<'de> for PreviewSizeVisitor {
+        type Value = Option<(u32, u32)>;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("Preview Size as w,h or x,y,w,h")
+        }
+
+        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+        where
+            A: SeqAccess<'de>,
+        {
+            let mut vals = Vec::new();
+            while let Some(v) = seq.next_element::<u32>()? {
+                vals.push(v);
+            }
+            Ok(match vals.as_slice() {
+                [w, h] => Some((*w, *h)),
+                [_, _, w, h, ..] => Some((*w, *h)),
+                _ => None,
+            })
+        }
+
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+            Ok(parse_preview_size(v))
+        }
+    }
+
+    deserializer.deserialize_any(PreviewSizeVisitor)
 }
 
 /// 解析 `[Preview] Size=`：`w,h` 或 `x,y,w,h`（取宽高）。
