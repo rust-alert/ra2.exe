@@ -1,6 +1,7 @@
 //! `[AITriggerTypes]` 解析（引擎侧 `tick_ai_triggers` 最小执行产队）。
 
-use ra_assets::IniDocument;
+use ra_assets::{IniDocument, from_csv_row, parse_westwood_csv_line};
+use serde::Deserialize;
 
 /// 一条 AI 触发（字段子集，供缺口诊断与后续执行）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,6 +16,33 @@ pub struct MapAiTrigger {
     pub owner_house: String,
     /// 科技等级门槛。
     pub tech_level: i32,
+}
+
+#[derive(Debug, Deserialize)]
+struct AiTriggerCsvRow {
+    name: String,
+    #[serde(default)]
+    team: String,
+    #[serde(default)]
+    owner_house: String,
+    #[serde(default)]
+    tech_level: i32,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct AiTriggerSectionFields {
+    #[serde(rename = "Name")]
+    name: Option<String>,
+    #[serde(rename = "Team1")]
+    team1: Option<String>,
+    #[serde(rename = "Team")]
+    team: Option<String>,
+    #[serde(rename = "OwnerHouse")]
+    owner_house: Option<String>,
+    #[serde(rename = "House")]
+    house: Option<String>,
+    #[serde(rename = "TechLevel")]
+    tech_level: Option<i32>,
 }
 
 /// 解析 `[AITriggerTypes]`。
@@ -33,33 +61,43 @@ pub fn parse_ai_triggers(doc: &IniDocument) -> Vec<MapAiTrigger> {
             continue;
         }
         if value.contains(',') {
-            let fields: Vec<&str> = value.split(',').map(str::trim).collect();
+            let Ok(row) = from_csv_row::<AiTriggerCsvRow>(&parse_westwood_csv_line(value))
+            else {
+                continue;
+            };
             out.push(MapAiTrigger {
-                id: if key.is_empty() { fields.first().copied().unwrap_or("").to_string() } else { key.to_string() },
-                name: fields.first().copied().unwrap_or("").to_string(),
-                team: fields.get(1).copied().unwrap_or("").to_string(),
-                owner_house: fields.get(2).copied().unwrap_or("").to_string(),
-                tech_level: fields.get(3).and_then(|v| v.parse().ok()).unwrap_or(0),
+                id: if key.is_empty() { row.name.clone() } else { key.to_string() },
+                name: row.name,
+                team: row.team,
+                owner_house: row.owner_house,
+                tech_level: row.tech_level,
             });
             continue;
         }
         let id = value.to_string();
         if let Some(sec) = doc.section(&id) {
+            let fields = sec.deserialize::<AiTriggerSectionFields>().unwrap_or_default();
             out.push(MapAiTrigger {
                 id: id.clone(),
-                name: sec.get("Name").unwrap_or(id.as_str()).trim().to_string(),
-                team: first_nonempty(sec.get("Team1").or_else(|| sec.get("Team"))).unwrap_or_default(),
-                owner_house: first_nonempty(sec.get("OwnerHouse").or_else(|| sec.get("House"))).unwrap_or_default(),
-                tech_level: sec.get("TechLevel").and_then(|v| v.parse().ok()).unwrap_or(0),
+                name: fields.name.unwrap_or(id).trim().to_string(),
+                team: first_nonempty(fields.team1.or(fields.team)).unwrap_or_default(),
+                owner_house: first_nonempty(fields.owner_house.or(fields.house)).unwrap_or_default(),
+                tech_level: fields.tech_level.unwrap_or(0),
             });
         }
         else {
-            out.push(MapAiTrigger { id, name: String::new(), team: String::new(), owner_house: String::new(), tech_level: 0 });
+            out.push(MapAiTrigger {
+                id,
+                name: String::new(),
+                team: String::new(),
+                owner_house: String::new(),
+                tech_level: 0,
+            });
         }
     }
     out
 }
 
-fn first_nonempty(raw: Option<&str>) -> Option<String> {
-    raw.map(str::trim).filter(|s| !s.is_empty()).map(str::to_string)
+fn first_nonempty(raw: Option<String>) -> Option<String> {
+    raw.map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
 }
