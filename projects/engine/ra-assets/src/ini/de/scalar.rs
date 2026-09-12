@@ -7,11 +7,15 @@ use super::IniDeError;
 pub(super) struct ScalarDeserializer {
     pub raw: String,
     pub key: Option<String>,
+    pub section: Option<String>,
 }
 
 impl ScalarDeserializer {
     fn err(&self, msg: impl std::fmt::Display) -> IniDeError {
-        let e = IniDeError::custom(msg);
+        let mut e = IniDeError::custom(msg);
+        if let Some(sec) = &self.section {
+            e = e.with_section(sec.clone());
+        }
         match &self.key {
             Some(k) => e.with_key(k.clone()),
             None => e,
@@ -212,6 +216,7 @@ impl<'de> de::Deserializer<'de> for ScalarDeserializer {
         visitor.visit_seq(CommaSep {
             parts: parts.into_iter(),
             key: self.key,
+            section: self.section,
         })
     }
 
@@ -278,6 +283,7 @@ impl<'de> de::Deserializer<'de> for ScalarDeserializer {
 struct CommaSep {
     parts: std::vec::IntoIter<String>,
     key: Option<String>,
+    section: Option<String>,
 }
 
 impl<'de> SeqAccess<'de> for CommaSep {
@@ -292,6 +298,7 @@ impl<'de> SeqAccess<'de> for CommaSep {
                 .deserialize(ScalarDeserializer {
                     raw: part,
                     key: self.key.clone(),
+                    section: self.section.clone(),
                 })
                 .map(Some),
             None => Ok(None),
