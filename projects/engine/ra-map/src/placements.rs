@@ -2,9 +2,11 @@
 //!
 //! 行值是 Westwood CSV，经 [`ra_assets::from_row`] 按列序反序列化。
 
+use std::fmt;
+
 use ra_assets::{IniDocument, from_row};
 use serde::Deserialize;
-use serde::de::{self, Deserializer};
+use serde::de::{self, Deserializer, Visitor};
 
 /// 放置类别。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -193,16 +195,41 @@ struct StructureRow {
     tag: String,
 }
 
-/// 放置血量：非法回落 256并钳到 `0..=256`；空列失败（行不够长）。
+/// 放置血量：非法回落 256 并钳到 `0..=256`；空列失败（行不够长）。
 fn placement_health<'de, D>(deserializer: D) -> Result<u16, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let raw = String::deserialize(deserializer)?;
-    if raw.is_empty() {
-        return Err(de::Error::custom("缺 health 列"));
+    struct HealthVisitor;
+
+    impl<'de> Visitor<'de> for HealthVisitor {
+        type Value = u16;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("placement health 0..=256")
+        }
+
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<u16, E> {
+            Ok(v.min(256) as u16)
+        }
+
+        fn visit_i64<E: de::Error>(self, v: i64) -> Result<u16, E> {
+            if v < 0 {
+                return Ok(256);
+            }
+            self.visit_u64(v as u64)
+        }
+
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<u16, E> {
+            let t = v.trim();
+            if t.is_empty() {
+                return Err(E::custom("缺 health 列"));
+            }
+            Ok(t.parse().unwrap_or(256).min(256))
+        }
     }
-    Ok(raw.parse().unwrap_or(256).min(256))
+
+    deserializer.deserialize_any(HealthVisitor)
 }
 
 /// 朝向：非法回落 0，钳到 `u8`；空列失败。
@@ -210,11 +237,36 @@ fn placement_facing<'de, D>(deserializer: D) -> Result<u8, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let raw = String::deserialize(deserializer)?;
-    if raw.is_empty() {
-        return Err(de::Error::custom("缺 facing 列"));
+    struct FacingVisitor;
+
+    impl<'de> Visitor<'de> for FacingVisitor {
+        type Value = u8;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("placement facing 0..=255")
+        }
+
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<u8, E> {
+            Ok(v.min(255) as u8)
+        }
+
+        fn visit_i64<E: de::Error>(self, v: i64) -> Result<u8, E> {
+            if v < 0 {
+                return Ok(0);
+            }
+            self.visit_u64(v as u64)
+        }
+
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<u8, E> {
+            let t = v.trim();
+            if t.is_empty() {
+                return Err(E::custom("缺 facing 列"));
+            }
+            Ok(t.parse::<u16>().unwrap_or(0).min(255) as u8)
+        }
     }
-    Ok(raw.parse::<u16>().unwrap_or(0).min(255) as u8)
+
+    deserializer.deserialize_any(FacingVisitor)
 }
 
 /// 步兵子格：非法回落 0，钳到 `0..=4`；空列失败。
@@ -222,9 +274,34 @@ fn placement_sub_cell<'de, D>(deserializer: D) -> Result<u8, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let raw = String::deserialize(deserializer)?;
-    if raw.is_empty() {
-        return Err(de::Error::custom("缺 sub_cell 列"));
+    struct SubCellVisitor;
+
+    impl<'de> Visitor<'de> for SubCellVisitor {
+        type Value = u8;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("infantry sub_cell 0..=4")
+        }
+
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<u8, E> {
+            Ok(v.min(4) as u8)
+        }
+
+        fn visit_i64<E: de::Error>(self, v: i64) -> Result<u8, E> {
+            if v < 0 {
+                return Ok(0);
+            }
+            self.visit_u64(v as u64)
+        }
+
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<u8, E> {
+            let t = v.trim();
+            if t.is_empty() {
+                return Err(E::custom("缺 sub_cell 列"));
+            }
+            Ok(t.parse().unwrap_or(0).min(4))
+        }
     }
-    Ok(raw.parse().unwrap_or(0).min(4))
+
+    deserializer.deserialize_any(SubCellVisitor)
 }
