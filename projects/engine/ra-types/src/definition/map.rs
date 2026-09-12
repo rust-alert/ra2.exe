@@ -6,7 +6,7 @@
 /// 冻结的完整静态地图（装载期产出，对局与绘制只读）。
 ///
 /// 当前为骨架：字段随地图语义层收口逐步迁入，禁止在运行路径回查地图 INI。
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MapDefinition {
     /// 地图逻辑名（场景名 / 文件 stem）。
     pub name: String,
@@ -30,6 +30,10 @@ pub struct MapDefinition {
     pub alternate_next_mission: String,
     /// `[Basic] StartingCredits`。
     pub starting_credits: i32,
+    /// `[Lighting]` 普通环境光。
+    pub lighting: MapLighting,
+    /// `[Lighting]` Ion / 闪电风暴档。
+    pub ion_lighting: MapLighting,
     /// `[Waypoints]` 格子锚点（编号已排序）。
     pub waypoints: Vec<MapWaypoint>,
     /// `[Terrain]` 静态地形物件。
@@ -42,6 +46,62 @@ pub struct MapDefinition {
     pub overlays: Vec<MapOverlayCell>,
     /// `[Houses]` 地图各方。
     pub houses: Vec<MapHouse>,
+}
+
+impl Default for MapDefinition {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            size_width: 0,
+            size_height: 0,
+            local_size: MapLocalSize::default(),
+            cell_side: 0,
+            theater: String::new(),
+            description_csf: String::new(),
+            game_modes: Vec::new(),
+            next_mission: String::new(),
+            alternate_next_mission: String::new(),
+            starting_credits: 0,
+            lighting: MapLighting::default(),
+            ion_lighting: MapLighting::ion_default(),
+            waypoints: Vec::new(),
+            terrain_objects: Vec::new(),
+            entities: Vec::new(),
+            cells: Vec::new(),
+            overlays: Vec::new(),
+            houses: Vec::new(),
+        }
+    }
+}
+
+/// 地图环境光档（`[Lighting]` / Ion 键）。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MapLighting {
+    /// 环境亮度。
+    pub ambient: f32,
+    /// 红通道倍率。
+    pub red: f32,
+    /// 绿通道倍率。
+    pub green: f32,
+    /// 蓝通道倍率。
+    pub blue: f32,
+    /// 地面压暗项。
+    pub ground: f32,
+    /// 每级高度对 ambient 的增量。
+    pub level: f32,
+}
+
+impl Default for MapLighting {
+    fn default() -> Self {
+        Self { ambient: 1.0, red: 1.0, green: 1.0, blue: 1.0, ground: 0.20, level: 0.032 }
+    }
+}
+
+impl MapLighting {
+    /// Ion / 闪电风暴零售缺省。
+    pub const fn ion_default() -> Self {
+        Self { ambient: 0.87, red: 0.30, green: 0.40, blue: 0.75, ground: 0.0, level: 0.0 }
+    }
 }
 
 /// 冻结地图航点（任务 / 出生点等格子锚点）。
@@ -173,7 +233,7 @@ pub struct MapHouse {
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。
 ///
 /// 当前为骨架：通行网格、占格、渲染资源清单等在准备层收口后填入。
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct PreparedMap {
     /// 已冻结的静态地图。
     pub definition: MapDefinition,

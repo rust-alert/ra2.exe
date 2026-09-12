@@ -43,8 +43,8 @@ pub mod lzo;
 
 use ra_assets::{IniDocument, from_row};
 use ra_types::{
-    GameEdition, MapDefinition, MapIsoCell, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapTerrainObject, MapWaypoint,
-    RaError, RaResult,
+    GameEdition, MapDefinition, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapTerrainObject,
+    MapWaypoint, RaError, RaResult,
 };
 use serde::Deserialize;
 
@@ -297,6 +297,8 @@ impl MapInfo {
             next_mission: self.next_mission.clone(),
             alternate_next_mission: self.alternate_next_mission.clone(),
             starting_credits: self.starting_credits,
+            lighting: map_lighting_from_config(&self.lighting),
+            ion_lighting: map_lighting_from_config(&self.ion_lighting),
             waypoints: self
                 .waypoints
                 .iter()
@@ -469,6 +471,17 @@ fn map_house_to_definition(house: &crate::scripting::MapHouse) -> ra_types::MapH
         player_control: house.player_control,
         color: house.color.clone(),
         allies: house.allies.clone(),
+    }
+}
+
+fn map_lighting_from_config(cfg: &LightingConfig) -> MapLighting {
+    MapLighting {
+        ambient: cfg.ambient,
+        red: cfg.red,
+        green: cfg.green,
+        blue: cfg.blue,
+        ground: cfg.ground,
+        level: cfg.level,
     }
 }
 
