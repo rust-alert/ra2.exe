@@ -5,7 +5,7 @@
 use ra_types::{RaError, RaResult};
 use serde::Deserialize;
 
-use crate::{IniDocument, from_row};
+use crate::{IniDocument, from_row, parse_numbered_key};
 
 /// 一条可选多人模式。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -45,7 +45,7 @@ pub fn parse_mpmodes(bytes: &[u8]) -> RaResult<Vec<MpMode>> {
             continue;
         }
         for (key, value) in section.pairs() {
-            let Ok(id) = key.trim().parse::<u32>()
+            let Some(id) = parse_numbered_key(key)
             else {
                 continue;
             };
@@ -65,20 +65,7 @@ struct MpModeCsvRow {
     rules_override: String,
     map_filter: String,
     #[serde(default)]
-    random_maps_allowed: Option<MpModeBool>,
-}
-
-#[derive(Debug)]
-struct MpModeBool(bool);
-
-impl<'de> Deserialize<'de> for MpModeBool {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let raw = String::deserialize(deserializer)?;
-        parse_ini_bool(&raw).map(MpModeBool).map_err(serde::de::Error::custom)
-    }
+    random_maps_allowed: bool,
 }
 
 #[doc(hidden)]
@@ -96,7 +83,7 @@ pub fn parse_mode_row(id: u32, category: &str, value: &str) -> Result<MpMode, St
         tooltip_csf: row.tooltip_csf,
         rules_override: row.rules_override,
         map_filter: row.map_filter,
-        random_maps_allowed: row.random_maps_allowed.map(|b| b.0).unwrap_or(false),
+        random_maps_allowed: row.random_maps_allowed,
     })
 }
 
