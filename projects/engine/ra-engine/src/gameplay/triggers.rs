@@ -278,7 +278,7 @@ fn any_living_of_house(world: &BattleState, house: &str, filter: HouseAliveFilte
 }
 
 fn tags_for_trigger(tags: &[ra_map::MapTag], trigger_id: &str) -> HashSet<String> {
-    tags.iter().filter(|t| t.trigger_id.eq_ignore_ascii_case(trigger_id)).map(|t| t.id.clone()).collect()
+    tags.iter().filter(|t| t.trigger_id.eq_ignore_ascii_case(trigger_id)).map(|t| t.id.to_string()).collect()
 }
 
 /// 统计地图中含 `Allow Win` 动作的触发条数（每条贡献一层胜利阻塞）。

@@ -311,8 +311,8 @@ pub struct MapHouse {
 /// 可改为指向 trigger 的稳定 id / 索引；装载侧同名类型见 `ra-map` 解析层。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTag {
-    /// Tag id。
-    pub id: String,
+    /// Tag id（装载期一次解码为大写 Tags 键）。
+    pub id: crate::TagName,
     /// 持久性：0 volatile / 1 semi / 2 persistent。
     pub persistence: u8,
     /// 编辑器名。

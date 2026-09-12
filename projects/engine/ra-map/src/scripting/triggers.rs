@@ -12,8 +12,8 @@ use super::{MapActionKind, MapEventKind};
 /// `[Tags]` 一行（装载解析中间态；投影进 `ra_types::MapTag` 后由运行契约消费）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTag {
-    /// Tag id。
-    pub id: String,
+    /// Tag id（装载期一次解码为大写 Tags 键）。
+    pub id: TagName,
     /// 持久性：0 volatile / 1 semi / 2 persistent。
     pub persistence: u8,
     /// 编辑器名。
@@ -235,7 +235,7 @@ pub fn parse_tags(doc: &IniDocument) -> Vec<MapTag> {
             continue;
         };
         out.push(MapTag {
-            id: id.to_string(),
+            id: TagName::parse(id),
             persistence: row.persistence,
             name: row.name,
             trigger_id: row.trigger_id,
