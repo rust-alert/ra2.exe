@@ -495,6 +495,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
             side: "Americans",
             player_name: "Player",
             side_flag: None,
+            map_preview: None,
             status: "装载中",
             allow_retry: false,
             progress: 0.5,
@@ -509,6 +510,32 @@ fn compose_load_screen_paints_country_art_and_progress() {
     let px = ((332u32 * loading.width() + 56) * 4) as usize;
     assert_eq!(&loading.as_raw()[px..px + 4], &[200, 40, 40, 255]);
 
+    // `mmpb` 区：有预览时等比贴入 (499,379,216,166)；中心约 (607,462)。
+    let preview = RgbaImage::from_raw(50, 50, vec![9, 8, 7, 255].repeat(50 * 50)).unwrap();
+    let with_preview = compose_load_screen_page(
+        &decoded,
+        800,
+        600,
+        None,
+        None,
+        None,
+        None,
+        LoadScreenPaint {
+            side: "Americans",
+            player_name: "Player",
+            side_flag: None,
+            map_preview: Some(&preview),
+            status: "装载中",
+            allow_retry: false,
+            progress: 0.5,
+            brief_csf_override: None,
+            special_ui_name: None,
+        },
+    )
+    .unwrap();
+    let preview_px = ((462u32 * with_preview.width() + 607) * 4) as usize;
+    assert_eq!(&with_preview.as_raw()[preview_px..preview_px + 4], &[9, 8, 7, 255]);
+
     let failed = compose_load_screen_page(
         &decoded,
         800,
@@ -521,6 +548,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
             side: "Americans",
             player_name: "Player",
             side_flag: None,
+            map_preview: None,
             status: "装载失败 · test",
             allow_retry: true,
             progress: 1.0,

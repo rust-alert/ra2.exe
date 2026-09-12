@@ -15,7 +15,7 @@ pub fn rect_i(x: i32, y: i32, w: i32, h: i32) -> Rect {
     Rect::from_xywh(x as f32, y as f32, w as f32, h as f32)
 }
 
-/// 装载页：文案槽、进度条原点、失败时重试/取消。
+/// 装载页：文案槽、进度条原点、地图预览区、失败时重试/取消。
 pub fn load_screen_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
     let children = vec![
         // 装载页文案与进度槽：800×600 设计画布固定像素。
@@ -26,6 +26,8 @@ pub fn load_screen_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
         fixed_rect_leaf("progress", rect_i(56, 332, 200, 16)),
         fixed_rect_leaf("player_flag", rect_i(150, 324, 40, 24)),
         fixed_rect_leaf("player_name", rect_i(202, 328, 120, 20)),
+        // 选中图预览区：对齐原生 `mmpb` 800 分支 (499,379,216,166)。
+        fixed_rect_leaf("map_preview", rect_i(499, 379, 216, 166)),
         fixed_rect_leaf(LOAD_SCREEN_BUTTON_IDS[0], Rect::from_frac(0.30, 0.88, 0.50, 0.96, chrome.shell_w, chrome.shell_h)),
         fixed_rect_leaf(LOAD_SCREEN_BUTTON_IDS[1], Rect::from_frac(0.54, 0.88, 0.74, 0.96, chrome.shell_w, chrome.shell_h)),
     ];

@@ -9,6 +9,8 @@ pub struct LoadScreenPaint<'a> {
     pub player_name: &'a str,
     /// 阵营小旗（`usai.pcx` 等，进度条右侧）。
     pub side_flag: Option<&'a RgbaImage>,
+    /// 选中地图预览（合成进 `mmpb` 区；缺则保留背景白框）。
+    pub map_preview: Option<&'a RgbaImage>,
     /// 底栏状态（装载中或失败说明；失败时才强调）。
     pub status: &'a str,
     /// 是否允许「重试」（装载线程进行中为 false；失败后为 true）。
@@ -47,11 +49,17 @@ pub fn compose_load_screen_page(
     let progress = rect_px_from_snapshot(&snap, "progress");
     let player_flag = rect_px_from_snapshot(&snap, "player_flag");
     let player_name = rect_px_from_snapshot(&snap, "player_name");
+    let map_preview_rect = rect_px_from_snapshot(&snap, "map_preview");
 
     let mut page = RgbaImage::from_raw(canvas.w as u32, canvas.h as u32, vec![0u8; (canvas.w as usize) * (canvas.h as usize) * 4])?;
     fill_rect(&mut page, canvas, [0, 0, 0, 255]);
     if let Some(bg) = decoded.background.as_ref() {
         blit_stretched(&mut page, &bg.image, canvas);
+    }
+
+    // 国家装载图画布右下有预留白框；原生在此合成选中图预览（`mmpb` 区）。
+    if let Some(preview) = paint.map_preview {
+        blit_map_preview_fit(&mut page, preview, map_preview_rect);
     }
 
     if let Some(fnt) = fnt {
