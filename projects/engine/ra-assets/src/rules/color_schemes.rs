@@ -8,7 +8,11 @@ use crate::{
     image::pal::Palette,
     ini::{IniDocument, IniMergePolicy, LayeredIniView},
 };
-use serde::Deserialize;
+
+fn parse_hsv(value: &str) -> Option<Hsv> {
+    let (h, s, v) = from_row::<(u8, u8, u8)>(value).ok()?;
+    Some(Hsv { h, s, v })
+}
 
 /// 零售 `[Colors]` 表，以及装载期绑定的阵营 / 矿石呈现 HSV。
 #[derive(Debug, Clone, Default)]
@@ -162,16 +166,4 @@ impl ColorSchemes {
     pub fn is_empty(&self) -> bool {
         self.by_name.is_empty()
     }
-}
-
-#[derive(Debug, Deserialize)]
-struct HsvCsvRow {
-    h: u8,
-    s: u8,
-    v: u8,
-}
-
-fn parse_hsv(value: &str) -> Option<Hsv> {
-    let row: HsvCsvRow = from_row(value).ok()?;
-    Some(Hsv { h: row.h, s: row.s, v: row.v })
 }
