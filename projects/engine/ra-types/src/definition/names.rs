@@ -229,3 +229,15 @@ ini_name!(
     TeamTypeName,
     "TeamTypes id"
 );
+
+ini_name!(
+    /// 地图 `[Triggers]` / Tag 关联 Trigger id（装载期大写）；空 = 未写。
+    TriggerName,
+    "Triggers id"
+);
+
+ini_name!(
+    /// 地图 `[Tags]` / CellTag / 实体 Tag id（装载期大写）；空 = 未写。
+    TagName,
+    "Tags id"
+);

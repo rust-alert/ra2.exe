@@ -317,8 +317,8 @@ pub struct MapTag {
     pub persistence: u8,
     /// 编辑器名。
     pub name: String,
-    /// 关联 Trigger id。
-    pub trigger_id: String,
+    /// 关联 Trigger id（装载期一次解码为大写 Triggers 键）。
+    pub trigger_id: crate::TriggerName,
 }
 
 /// Trigger 定义（运行契约；来自地图 `[Triggers]` 语义，非 INI 行镜像）。

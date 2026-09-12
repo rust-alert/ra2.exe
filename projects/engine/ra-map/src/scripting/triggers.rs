@@ -3,7 +3,7 @@
 use std::fmt;
 
 use ra_assets::{CsvField, CsvRow, IniDocument, from_csv_row, from_row, parse_westwood_csv_line};
-use ra_types::HouseName;
+use ra_types::{HouseName, TriggerName};
 use serde::Deserialize;
 use serde::de::{self, Deserializer, Visitor};
 
@@ -18,8 +18,8 @@ pub struct MapTag {
     pub persistence: u8,
     /// 编辑器名。
     pub name: String,
-    /// 关联 Trigger id。
-    pub trigger_id: String,
+    /// 关联 Trigger id（装载期一次解码为大写 Triggers 键）。
+    pub trigger_id: TriggerName,
 }
 
 /// `[Triggers]` 一行（装载解析中间态；投影进 `ra_types::MapTrigger` 后由运行契约消费）。
@@ -94,7 +94,7 @@ pub struct MapCellTag {
 struct TagCsvRow {
     persistence: u8,
     name: String,
-    trigger_id: String,
+    trigger_id: TriggerName,
 }
 
 #[derive(Debug, Deserialize)]
