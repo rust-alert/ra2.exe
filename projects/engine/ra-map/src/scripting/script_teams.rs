@@ -1,6 +1,6 @@
 //! `[TaskForces]` / `[ScriptTypes]` / `[TeamTypes]`。
 
-use ra_assets::{IniDocument, from_csv_row, parse_westwood_csv_line};
+use ra_assets::{IniDocument, from_csv_row, numbered_pairs, parse_westwood_csv_line};
 use serde::Deserialize;
 
 /// TaskForce 成员槽。
@@ -123,11 +123,10 @@ pub fn parse_task_forces(doc: &IniDocument) -> Vec<MapTaskForce> {
         };
         let meta = sec.deserialize::<NamedGroupSectionFields>().unwrap_or_default();
         let mut entries = Vec::new();
-        for i in 0..6 {
-            let Some(raw) = sec.get(&i.to_string())
-            else {
-                continue;
-            };
+        for (index, raw) in numbered_pairs(sec) {
+            if index >= 6 {
+                break;
+            }
             let Ok(row) = from_csv_row::<TaskForceEntryRow>(&parse_westwood_csv_line(raw))
             else {
                 continue;
@@ -158,11 +157,10 @@ pub fn parse_script_types(doc: &IniDocument) -> Vec<MapScriptType> {
         };
         let meta = sec.deserialize::<NamedGroupSectionFields>().unwrap_or_default();
         let mut steps = Vec::new();
-        for i in 0..50 {
-            let Some(raw) = sec.get(&i.to_string())
-            else {
-                continue;
-            };
+        for (index, raw) in numbered_pairs(sec) {
+            if index >= 50 {
+                break;
+            }
             let Ok(row) = from_csv_row::<ScriptStepRow>(&parse_westwood_csv_line(raw))
             else {
                 continue;
