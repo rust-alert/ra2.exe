@@ -115,9 +115,19 @@ pub fn health_ratio_256(health_256: u16) -> f32 {
     f32::from(health_256.min(256)) / 256.0
 }
 
+#[derive(Debug, Default, Deserialize)]
+struct TechLevelFields {
+    #[serde(rename = "TechLevel")]
+    tech_level: Option<i32>,
+}
+
 /// 从 rules 类型节读 `TechLevel`；缺省按平民建筑 `-1`。
 pub fn structure_tech_level(rules: Option<&IniDocument>, type_id: &str) -> i32 {
-    rules.and_then(|d| d.get(type_id, "TechLevel")).and_then(|s| s.trim().parse().ok()).unwrap_or(-1)
+    rules
+        .and_then(|d| d.section(type_id))
+        .and_then(|s| s.deserialize::<TechLevelFields>().ok())
+        .and_then(|f| f.tech_level)
+        .unwrap_or(-1)
 }
 
 /// 主体受损帧（无人占领、非驻军折叠）。
