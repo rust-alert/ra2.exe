@@ -155,31 +155,18 @@ pub fn parse_countries(view: LayeredIniView<'_>) -> Vec<CountryDef> {
     else {
         return Vec::new();
     };
-    let mut indexed: Vec<(u32, String)> = Vec::new();
-    for key in list.keys() {
-        let Ok(n) = key.trim().parse::<u32>()
-        else {
-            continue;
-        };
-        let Some(value) = list.get(key)
-        else {
-            continue;
-        };
-        let id = value.trimmed().raw;
+    let mut out = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for (list_index, resolved) in list.numbered_resolved() {
+        let id = resolved.value.trimmed().raw;
         if id.is_empty() {
             continue;
         }
-        indexed.push((n, id.to_string()));
-    }
-    indexed.sort_by_key(|(n, _)| *n);
-    let mut out = Vec::with_capacity(indexed.len());
-    let mut seen = std::collections::HashSet::new();
-    for (list_index, id) in indexed {
         let id_key = id.to_ascii_uppercase();
         if !seen.insert(id_key) {
             continue;
         }
-        out.push(parse_country(view, list_index, &id));
+        out.push(parse_country(view, list_index, id));
     }
     out
 }
