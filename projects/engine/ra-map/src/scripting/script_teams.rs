@@ -38,8 +38,8 @@ pub struct MapScriptStep {
 /// `[ScriptTypes]` 一项（装载解析中间态；投影进 `ra_types::MapScriptType`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapScriptType {
-    /// id。
-    pub id: String,
+    /// id（装载期一次解码为大写 ScriptTypes 键）。
+    pub id: ScriptTypeName,
     /// 名称。
     pub name: String,
     /// 步骤。
@@ -169,7 +169,7 @@ pub fn parse_script_types(doc: &IniDocument) -> Vec<MapScriptType> {
             steps.push(MapScriptStep { action: row.action, argument: row.argument });
         }
         out.push(MapScriptType {
-            id,
+            id: ScriptTypeName::parse(&id),
             name: meta.name.unwrap_or_default().trim().to_string(),
             steps,
         });

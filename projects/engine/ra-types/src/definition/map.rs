@@ -435,8 +435,8 @@ pub struct MapScriptStep {
 /// 可改为稳定动作枚举；装载侧见 `ra-map::MapScriptType`。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapScriptType {
-    /// id。
-    pub id: String,
+    /// id（装载期一次解码为大写 ScriptTypes 键）。
+    pub id: crate::ScriptTypeName,
     /// 名称。
     pub name: String,
     /// 步骤。
