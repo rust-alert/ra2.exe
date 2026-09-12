@@ -1,7 +1,10 @@
 //! 建筑受损阈值与主体帧 / 燃烧叠画选用。
 
+use std::fmt;
+
 use ra_assets::{IniDocument, from_row};
 use serde::Deserialize;
+use serde::de::{self, Deserializer, Visitor};
 
 /// 规则里的建筑受损阈值与火焰类型名。
 #[derive(Debug, Clone, PartialEq)]
@@ -24,23 +27,23 @@ impl Default for StructureDamageRules {
 /// `[AudioVisual]` 受损相关键。
 #[derive(Debug, Default, Deserialize)]
 struct AudioVisualDamageFields {
-    #[serde(rename = "ConditionYellow")]
-    condition_yellow: Option<String>,
-    #[serde(rename = "ConditionRed")]
-    condition_red: Option<String>,
-    #[serde(rename = "DamageFireTypes")]
-    damage_fire_types: Option<String>,
-    #[serde(rename = "DamageFireNames")]
-    damage_fire_names: Option<String>,
+    #[serde(rename = "ConditionYellow", default, deserialize_with = "deserialize_optional_condition_percent")]
+    condition_yellow: Option<f32>,
+    #[serde(rename = "ConditionRed", default, deserialize_with = "deserialize_optional_condition_percent")]
+    condition_red: Option<f32>,
+    #[serde(rename = "DamageFireTypes", default, deserialize_with = "deserialize_optional_fire_type_list")]
+    damage_fire_types: Option<Vec<String>>,
+    #[serde(rename = "DamageFireNames", default, deserialize_with = "deserialize_optional_fire_type_list")]
+    damage_fire_names: Option<Vec<String>>,
 }
 
 /// `[General]` 火焰类型键。
 #[derive(Debug, Default, Deserialize)]
 struct GeneralDamageFireFields {
-    #[serde(rename = "DamageFireTypes")]
-    damage_fire_types: Option<String>,
-    #[serde(rename = "DamageFireNames")]
-    damage_fire_names: Option<String>,
+    #[serde(rename = "DamageFireTypes", default, deserialize_with = "deserialize_optional_fire_type_list")]
+    damage_fire_types: Option<Vec<String>>,
+    #[serde(rename = "DamageFireNames", default, deserialize_with = "deserialize_optional_fire_type_list")]
+    damage_fire_names: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -57,33 +60,24 @@ impl StructureDamageRules {
             .section("AudioVisual")
             .and_then(|s| s.deserialize::<AudioVisualDamageFields>().ok())
             .unwrap_or_default();
-        if let Some(raw) = av.condition_yellow.as_deref() {
-            if let Some(v) = parse_condition_percent(raw) {
-                out.yellow = v;
-            }
+        if let Some(v) = av.condition_yellow {
+            out.yellow = v;
         }
-        if let Some(raw) = av.condition_red.as_deref() {
-            if let Some(v) = parse_condition_percent(raw) {
-                out.red = v;
-            }
+        if let Some(v) = av.condition_red {
+            out.red = v;
         }
         let general = doc
             .section("General")
             .and_then(|s| s.deserialize::<GeneralDamageFireFields>().ok())
             .unwrap_or_default();
         // 零售写在 `[General]`；个别模组可能挂在 `[AudioVisual]`。
-        let fire_raw = general
+        if let Some(types) = general
             .damage_fire_types
             .or(general.damage_fire_names)
             .or(av.damage_fire_types)
-            .or(av.damage_fire_names);
-        if let Some(raw) = fire_raw {
-            out.fire_types = raw
-                .split(',')
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-                .map(|s| s.to_ascii_uppercase())
-                .collect();
+            .or(av.damage_fire_names)
+        {
+            out.fire_types = types;
         }
         out
     }
@@ -99,6 +93,84 @@ impl StructureDamageRules {
     }
 }
 
+fn deserialize_optional_condition_percent<'de, D>(deserializer: D) -> Result<Option<f32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let Some(raw) = Option::<String>::deserialize(deserializer)?
+    else {
+        return Ok(None);
+    };
+    Ok(parse_condition_percent(&raw))
+}
+
+fn deserialize_optional_fire_type_list<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct FireListVisitor;
+
+    impl<'de> Visitor<'de> for FireListVisitor {
+        type Value = Option<Vec<String>>;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("comma-separated fire type names")
+        }
+
+        fn visit_none<E>(self) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(None)
+        }
+
+        fn visit_unit<E>(self) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(None)
+        }
+
+        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(Some(parse_fire_type_list(v)))
+        }
+
+        fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(Some(parse_fire_type_list(&v)))
+        }
+
+        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+        where
+            A: de::SeqAccess<'de>,
+        {
+            let mut out = Vec::new();
+            while let Some(part) = seq.next_element::<String>()? {
+                let name = part.trim();
+                if !name.is_empty() {
+                    out.push(name.to_ascii_uppercase());
+                }
+            }
+            Ok(Some(out))
+        }
+    }
+
+    deserializer.deserialize_any(FireListVisitor)
+}
+
+fn parse_fire_type_list(raw: &str) -> Vec<String> {
+    raw.split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_ascii_uppercase())
+        .collect()
+}
+
 /// 解析 `50%` / `0.5` / `50` 为 0..=1。
 pub fn parse_condition_percent(raw: &str) -> Option<f32> {
     let s = raw.trim();
@@ -107,7 +179,11 @@ pub fn parse_condition_percent(raw: &str) -> Option<f32> {
         return Some((v / 100.0).clamp(0.0, 1.0));
     }
     let v: f32 = s.parse().ok()?;
-    if v > 1.0 { Some((v / 100.0).clamp(0.0, 1.0)) } else { Some(v.clamp(0.0, 1.0)) }
+    if v > 1.0 {
+        Some((v / 100.0).clamp(0.0, 1.0))
+    } else {
+        Some(v.clamp(0.0, 1.0))
+    }
 }
 
 /// 地图放置血量比例（256=满）。
