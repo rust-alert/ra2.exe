@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use ra_assets::{Hsv, IniDocument, Palette, ShpFile, shp_body_frame_count};
-use ra_types::AssetSource;
+use ra_types::{AssetSource, ImageName};
 use serde::Deserialize;
 
 use crate::{
@@ -288,8 +288,8 @@ fn resolve_overlay_art_keys(
         .and_then(|r| r.section(type_name))
         .and_then(|s| s.deserialize::<OverlayRulesImageFields>().ok())
         .and_then(|f| f.image)
-        .map(|s| s.trim().to_ascii_uppercase())
-        .filter(|s| !s.is_empty());
+        .filter(|n| !n.is_empty())
+        .map(|n| n.as_str().to_string());
     let rules_image_or_type = rules_image.clone().unwrap_or_else(|| type_name.to_ascii_uppercase());
     let art_section = art
         .and_then(|a| {
@@ -311,8 +311,9 @@ fn resolve_overlay_art_keys(
         .unwrap_or_default();
     let image_key = art_fields
         .image
-        .as_deref()
-        .map(str::to_ascii_uppercase)
+        .as_ref()
+        .filter(|n| !n.is_empty())
+        .map(|n| n.as_str().to_string())
         .or(rules_image)
         .unwrap_or_else(|| display_name.to_ascii_uppercase());
     OverlayArtHints {
@@ -325,13 +326,13 @@ fn resolve_overlay_art_keys(
 #[derive(Debug, Default, Deserialize)]
 struct OverlayRulesImageFields {
     #[serde(rename = "Image")]
-    image: Option<String>,
+    image: Option<ImageName>,
 }
 
 #[derive(Debug, Default, Deserialize)]
 struct OverlayArtSectionFields {
     #[serde(rename = "Image")]
-    image: Option<String>,
+    image: Option<ImageName>,
     #[serde(rename = "NewTheater")]
     new_theater: Option<bool>,
     #[serde(rename = "Theater")]
