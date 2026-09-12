@@ -384,12 +384,27 @@ impl BattleController {
     }
 
     pub(super) fn action_lines_active(&self) -> bool {
+        if !self.in_game_options.target_lines {
+            return false;
+        }
         let Some(start) = self.action_lines_start_tick
         else {
             return false;
         };
         let tick = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.tick).unwrap_or(start);
         tick.saturating_sub(start) < ACTION_LINES_DURATION_TICKS
+    }
+
+    /// 局内选项滚屏档 → 相对默认速度的倍率（0 最慢，6 最快）。
+    pub(super) fn scroll_rate_speed_scale(&self) -> f32 {
+        let t = f32::from(self.in_game_options.scroll_rate.min(6)) / 6.0;
+        0.35 + t * 1.30
+    }
+
+    /// 局内选项游戏速度档 → 仿真 `dt` 倍率（0 最慢，6 最快）。
+    pub(super) fn game_speed_dt_scale(&self) -> f64 {
+        let t = f64::from(self.in_game_options.game_speed.min(6)) / 6.0;
+        0.25 + t * 1.50
     }
 
     /// 应用新的装载结果（重开）。
