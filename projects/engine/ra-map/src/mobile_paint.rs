@@ -6,7 +6,7 @@ use ra_assets::{
     HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, from_row, rasterize_vxl_layer_poses,
     rasterize_vxl_shadow_layer_poses,
 };
-use ra_types::AssetSource;
+use ra_types::{AssetSource, ImageName};
 use serde::Deserialize;
 
 use crate::{
@@ -39,10 +39,9 @@ fn mobile_type_paint_hints(rules: Option<&IniDocument>, art: Option<&IniDocument
     let new_theater = art_fields.new_theater.unwrap_or(false);
     let sequence_section = art_fields
         .sequence
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(|s| s.to_ascii_uppercase());
+        .as_ref()
+        .filter(|n| !n.is_empty())
+        .map(|n| n.as_str().to_string());
     let (walk_triple, ready_triple) = match (art, sequence_section.as_deref()) {
         (Some(art), Some(seq)) => sequence_triples_from_section(art, seq),
         _ => (None, None),
@@ -63,15 +62,15 @@ struct MobileArtImageFields {
     #[serde(rename = "NewTheater")]
     new_theater: Option<bool>,
     #[serde(rename = "Sequence")]
-    sequence: Option<String>,
+    sequence: Option<ImageName>,
     #[serde(rename = "Image")]
-    image: Option<String>,
+    image: Option<ImageName>,
 }
 
 #[derive(Debug, Default, Deserialize)]
 struct MobileRulesImageFields {
     #[serde(rename = "Image")]
-    image: Option<String>,
+    image: Option<ImageName>,
 }
 
 fn collect_mobile_type_paint_hints(
@@ -199,10 +198,9 @@ pub fn resolve_mobile_image_key(rules: Option<&IniDocument>, art: Option<&IniDoc
         .and_then(|f| f.image);
     from_rules
         .or(from_art)
-        .as_deref()
-        .unwrap_or(type_id)
-        .trim()
-        .to_ascii_uppercase()
+        .filter(|n| !n.is_empty())
+        .map(|n| n.as_str().to_string())
+        .unwrap_or_else(|| type_id.trim().to_ascii_uppercase())
 }
 
 /// 步兵朝向字节 → SHP 朝向槽（0..=7）。
@@ -221,8 +219,8 @@ pub fn sequence_section_name(art: &IniDocument, image_key: &str) -> Option<Strin
     art.section(image_key)
         .and_then(|s| s.deserialize::<MobileArtImageFields>().ok())
         .and_then(|f| f.sequence)
-        .map(|s| s.trim().to_ascii_uppercase())
-        .filter(|s| !s.is_empty())
+        .filter(|n| !n.is_empty())
+        .map(|n| n.as_str().to_string())
 }
 
 #[doc(hidden)]
