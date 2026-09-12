@@ -2,16 +2,46 @@
 
 use std::collections::HashMap;
 
-use ra_assets::{Palette, ShpFile, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated};
+use ra_assets::{IniDocument, Palette, ShpFile, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated};
 use ra_types::AssetSource;
 
 use crate::{
-    LightingConfig, MapInfo, PointLight,
+    LightingConfig, MapInfo, PointLight, TerrainObject,
     compose::{ShadowBlit, TerrainImage, TileBlit, paint_cell_sprites},
     iso_math::{TILE_HEIGHT, TILE_WIDTH},
     lighting::{apply_rgba_tint, cell_tint_with_lights},
     theater::{theater_palette, theater_tmp_extension},
 };
+
+/// 地形物件叠画所需的 art / rules 提示（按类型名去重一次）。
+#[derive(Debug, Clone)]
+struct TerrainObjectPaintHints {
+    image_key: String,
+    is_animated: bool,
+    spawns_tiberium: bool,
+    animation_rate: u32,
+}
+
+fn terrain_object_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocument>, name: &str) -> TerrainObjectPaintHints {
+    TerrainObjectPaintHints {
+        image_key: art.and_then(|a| a.get(name, "Image")).unwrap_or(name).to_ascii_uppercase(),
+        is_animated: rules.is_some_and(|r| is_yes(r.get(name, "IsAnimated"))),
+        spawns_tiberium: rules.is_some_and(|r| is_yes(r.get(name, "SpawnsTiberium"))),
+        animation_rate: rules.and_then(|r| r.get(name, "AnimationRate")).and_then(parse_u32).unwrap_or(1),
+    }
+}
+
+fn collect_terrain_object_paint_hints(
+    art: Option<&IniDocument>,
+    rules: Option<&IniDocument>,
+    objects: &[TerrainObject],
+) -> HashMap<String, TerrainObjectPaintHints> {
+    let mut out = HashMap::new();
+    for obj in objects {
+        out.entry(obj.name.clone()).or_insert_with(|| terrain_object_paint_hints(art, rules, &obj.name));
+    }
+    out
+}
 
 /// FA2 `IsoView` 对普通地形物件（树/岩）的额外 Y（钻石中心叠画后再偏 −3）。
 const TERRAIN_OBJECT_Y_FUDGE: i32 = -3;
@@ -150,6 +180,7 @@ pub fn paint_map_terrain_objects(
 
     let art = docs.art.as_ref();
     let rules = docs.rules.as_ref();
+    let hints = collect_terrain_object_paint_hints(art, rules, &map.terrain_objects);
     let theater_pal_name = theater_palette(map.theater);
     let theater_pal = source.read(theater_pal_name).ok().and_then(|b| Palette::parse(&b).ok());
     let unit_pal = source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok());
@@ -164,9 +195,13 @@ pub fn paint_map_terrain_objects(
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
     for obj in &map.terrain_objects {
-        let image_key = art.and_then(|a| a.get(&obj.name, "Image")).unwrap_or(obj.name.as_str()).to_ascii_uppercase();
-        let animated = rules.is_some_and(|r| is_yes(r.get(&obj.name, "IsAnimated")));
-        let spawns_tiberium = rules.is_some_and(|r| is_yes(r.get(&obj.name, "SpawnsTiberium")));
+        let Some(hint) = hints.get(&obj.name)
+        else {
+            continue;
+        };
+        let image_key = hint.image_key.clone();
+        let animated = hint.is_animated;
+        let spawns_tiberium = hint.spawns_tiberium;
         // 矿柱：`StaticOnly` 底图不画（由 `OreTree` 银行按状态机帧叠画）；`AllWithClock` 仍可画 Idle 0 供测试。
         let loops_with_clock = animated && !spawns_tiberium;
         let anim_clock_ms = match mode {
@@ -174,7 +209,7 @@ pub fn paint_map_terrain_objects(
             TerrainPaintMode::StaticOnly => 0,
             TerrainPaintMode::AllWithClock { anim_clock_ms } => anim_clock_ms,
         };
-        let anim_rate = rules.and_then(|r| r.get(&obj.name, "AnimationRate")).and_then(parse_u32).unwrap_or(1);
+        let anim_rate = hint.animation_rate;
         let Some(obj_pal) = pick_terrain_palette(spawns_tiberium, theater_pal.as_ref(), unit_pal.as_ref())
         else {
             continue;
@@ -248,6 +283,7 @@ pub fn collect_terrain_anim_bank(source: &dyn AssetSource, map: &MapInfo, docs: 
     else {
         return TerrainAnimBank { lighting: map.lighting.clone(), point_lights: map.point_lights.clone(), layers: Vec::new() };
     };
+    let hints = collect_terrain_object_paint_hints(art, Some(rules), &map.terrain_objects);
     let theater_pal_name = theater_palette(map.theater);
     let theater_pal = source.read(theater_pal_name).ok().and_then(|b| Palette::parse(&b).ok());
     let unit_pal = source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok());
@@ -260,11 +296,11 @@ pub fn collect_terrain_anim_bank(source: &dyn AssetSource, map: &MapInfo, docs: 
     let mut layers = Vec::new();
 
     for obj in &map.terrain_objects {
-        if !is_yes(rules.get(&obj.name, "IsAnimated")) {
+        let Some(hint) = hints.get(&obj.name)
+        else {
             continue;
-        }
-        // 产矿矿柱：条件动画，不进入呈现时钟循环。
-        if is_yes(rules.get(&obj.name, "SpawnsTiberium")) {
+        };
+        if !hint.is_animated || hint.spawns_tiberium {
             continue;
         }
         let spawns_tiberium = false;
@@ -273,8 +309,8 @@ pub fn collect_terrain_anim_bank(source: &dyn AssetSource, map: &MapInfo, docs: 
             continue;
         };
         let palette_name = theater_pal_name.to_string();
-        let anim_rate = rules.get(&obj.name, "AnimationRate").and_then(parse_u32).unwrap_or(1);
-        let image_key = art.and_then(|a| a.get(&obj.name, "Image")).unwrap_or(obj.name.as_str()).to_ascii_uppercase();
+        let anim_rate = hint.animation_rate;
+        let image_key = hint.image_key.clone();
         let file = format!("{}.{ext}", image_key.to_ascii_lowercase());
         if !shp_cache.contains_key(&file) {
             let Ok(bytes) = source.read(&file)
@@ -390,6 +426,7 @@ pub fn collect_ore_tree_anim_bank(source: &dyn AssetSource, map: &MapInfo, docs:
     else {
         return TerrainAnimBank { lighting: map.lighting.clone(), point_lights: map.point_lights.clone(), layers: Vec::new() };
     };
+    let hints = collect_terrain_object_paint_hints(art, Some(rules), &map.terrain_objects);
     let theater_pal_name = theater_palette(map.theater);
     let theater_pal = source.read(theater_pal_name).ok().and_then(|b| Palette::parse(&b).ok());
     let unit_pal = source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok());
@@ -402,15 +439,19 @@ pub fn collect_ore_tree_anim_bank(source: &dyn AssetSource, map: &MapInfo, docs:
     let mut layers = Vec::new();
 
     for obj in &map.terrain_objects {
-        if !is_yes(rules.get(&obj.name, "SpawnsTiberium")) {
+        let Some(hint) = hints.get(&obj.name)
+        else {
+            continue;
+        };
+        if !hint.spawns_tiberium {
             continue;
         }
         let Some(obj_pal) = pick_terrain_palette(true, theater_pal.as_ref(), unit_pal.as_ref())
         else {
             continue;
         };
-        let anim_rate = rules.get(&obj.name, "AnimationRate").and_then(parse_u32).unwrap_or(1);
-        let image_key = art.and_then(|a| a.get(&obj.name, "Image")).unwrap_or(obj.name.as_str()).to_ascii_uppercase();
+        let anim_rate = hint.animation_rate;
+        let image_key = hint.image_key.clone();
         let file = format!("{}.{ext}", image_key.to_ascii_lowercase());
         if !shp_cache.contains_key(&file) {
             let Ok(bytes) = source.read(&file)
