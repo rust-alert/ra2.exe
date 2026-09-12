@@ -27,7 +27,7 @@ pub struct Warhead {
 /// `warhead_id` → 解析后的弹头。
 #[derive(Debug, Clone, Default)]
 pub struct WarheadRegistry {
-    by_id: HashMap<String, Warhead>,
+    by_id: HashMap<WarheadName, Warhead>,
 }
 
 impl WarheadRegistry {
@@ -42,7 +42,7 @@ impl WarheadRegistry {
     pub fn from_names_layered(view: LayeredIniView<'_>, names: impl IntoIterator<Item=impl AsRef<str>>) -> Self {
         let mut by_id = HashMap::new();
         for name in names {
-            let id = name.as_ref().trim().to_ascii_uppercase();
+            let id = WarheadName::parse(name.as_ref());
             if id.is_empty() || by_id.contains_key(&id) {
                 continue;
             }
@@ -55,7 +55,12 @@ impl WarheadRegistry {
 
     /// 按 id 查找（大小写不敏感）。
     pub fn get(&self, id: &str) -> Option<&Warhead> {
-        self.by_id.get(&id.to_ascii_uppercase())
+        self.by_id.get(&WarheadName::parse(id))
+    }
+
+    /// 按已规范化的弹头键查找。
+    pub fn get_name(&self, id: &WarheadName) -> Option<&Warhead> {
+        self.by_id.get(id)
     }
 
     /// 已解析弹头数。
@@ -84,11 +89,11 @@ fn default_prone_damage() -> u32 {
     100
 }
 
-fn parse_warhead(view: LayeredIniView<'_>, id: &str) -> Option<Warhead> {
-    let section = view.section(id)?;
+fn parse_warhead(view: LayeredIniView<'_>, id: &WarheadName) -> Option<Warhead> {
+    let section = view.section(id.as_str())?;
     let fields: WarheadSectionFields = section.deserialize().ok()?;
     Some(Warhead {
-        id: WarheadName::parse(id),
+        id: id.clone(),
         verses: fields.verses,
         spread: fields.spread,
         prone_damage: fields.prone_damage,

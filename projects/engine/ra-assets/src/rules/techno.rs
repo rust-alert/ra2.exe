@@ -139,7 +139,7 @@ pub enum TechnoKind {
 /// `type_id` → 解析后的 TechnoType。
 #[derive(Debug, Clone, Default)]
 pub struct TechnoTypeRegistry {
-    by_id: HashMap<String, TechnoType>,
+    by_id: HashMap<TechnoName, TechnoType>,
 }
 
 impl TechnoTypeRegistry {
@@ -173,16 +173,15 @@ impl TechnoTypeRegistry {
                 else {
                     continue;
                 };
-                let id = name_val.trimmed().raw;
+                let id = TechnoName::parse(name_val.trimmed().raw);
                 if id.is_empty() {
                     continue;
                 }
-                let id_up = id.to_ascii_uppercase();
-                if by_id.contains_key(&id_up) {
+                if by_id.contains_key(&id) {
                     continue;
                 }
-                if let Some(tt) = parse_techno(view, &id_up, kind, overrides) {
-                    by_id.insert(id_up, tt);
+                if let Some(tt) = parse_techno(view, &id, kind, overrides) {
+                    by_id.insert(id, tt);
                 }
             }
         }
@@ -191,7 +190,12 @@ impl TechnoTypeRegistry {
 
     /// 按 id 查找（大小写不敏感）。
     pub fn get(&self, id: &str) -> Option<&TechnoType> {
-        self.by_id.get(&id.to_ascii_uppercase())
+        self.by_id.get(&TechnoName::parse(id))
+    }
+
+    /// 按已规范化的类型键查找。
+    pub fn get_name(&self, id: &TechnoName) -> Option<&TechnoType> {
+        self.by_id.get(id)
     }
 
     /// 已解析类型总数。
@@ -356,11 +360,11 @@ struct ResolvedWeaponFields {
 
 fn parse_techno(
     view: LayeredIniView<'_>,
-    id: &str,
+    id: &TechnoName,
     kind: TechnoKind,
     overrides: Option<&FieldMergeOverrides>,
 ) -> Option<TechnoType> {
-    let section = view.section_with_overrides(id, overrides)?;
+    let section = view.section_with_overrides(id.as_str(), overrides)?;
     let fields: TechnoSectionFields = section.deserialize().ok()?;
     let primary = fields.primary;
     let secondary = fields.secondary;
@@ -368,12 +372,12 @@ fn parse_techno(
     let primary_w = resolve_weapon(view, &primary, techno_rof);
     let secondary_w = resolve_weapon(view, &secondary, 0);
     let image = if fields.image.is_empty() {
-        ImageName::parse(id)
+        ImageName::parse(id.as_str())
     } else {
         fields.image
     };
     Some(TechnoType {
-        id: TechnoName::parse(id),
+        id: id.clone(),
         kind,
         strength: fields.strength.unwrap_or(1),
         armor: fields.armor,

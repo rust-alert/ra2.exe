@@ -108,7 +108,7 @@ impl<'de> Deserialize<'de> for HouseName {
 
 
 /// 房屋 / 阵营 `Color=` 方案名（装载期大写，对齐 rules `[Colors]` 键）；空 = 未写。
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct ColorName {
     /// 规范化键（装载期大写）。
     pub name: String,
@@ -141,6 +141,12 @@ impl Deref for ColorName {
 
 impl AsRef<str> for ColorName {
     fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl std::borrow::Borrow<str> for ColorName {
+    fn borrow(&self) -> &str {
         &self.name
     }
 }
