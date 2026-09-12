@@ -454,10 +454,10 @@ pub struct MapTeamType {
     pub name: String,
     /// `House=`（装载期一次解码为大写）。
     pub house: crate::HouseName,
-    /// `Script=`。
-    pub script: String,
-    /// `TaskForce=`。
-    pub task_force: String,
+    /// `Script=`（装载期一次解码为大写 ScriptTypes 键）。
+    pub script: crate::ScriptTypeName,
+    /// `TaskForce=`（装载期一次解码为大写 TaskForces 键）。
+    pub task_force: crate::TaskForceName,
     /// `Tag=`（可空）。
     pub tag: String,
     /// `Waypoint=`：产队航点编号；`<0` 表示未指定。

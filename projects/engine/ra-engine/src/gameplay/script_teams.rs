@@ -262,7 +262,7 @@ fn nearest_hostile_near(world: &BattleState, house: &str, cx: u16, cy: u16, radi
 }
 
 fn spawn_team_type(world: &mut BattleState, team: &MapTeamType, forces: &[ra_map::MapTaskForce], waypoints: &[ra_map::Waypoint]) {
-    let Some(force) = forces.iter().find(|f| f.id.eq_ignore_ascii_case(&team.task_force))
+    let Some(force) = forces.iter().find(|f| f.id.eq_ignore_ascii_case(team.task_force.as_str()))
     else {
         return;
     };
@@ -318,7 +318,7 @@ fn spawn_team_type(world: &mut BattleState, team: &MapTeamType, forces: &[ra_map
         world.script_team_runtime.active.push(ActiveScriptTeam {
             team_type_id: team.id.clone(),
             members,
-            script_id: team.script.clone(),
+            script_id: team.script.to_string(),
             step_idx: 0,
         });
     }

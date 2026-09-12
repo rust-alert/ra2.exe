@@ -211,3 +211,15 @@ ini_name!(
     SmudgeName,
     "smudge type name"
 );
+
+ini_name!(
+    /// 地图 `Script=` / `[ScriptTypes]` 引用名（装载期大写）；空 = 未写。
+    ScriptTypeName,
+    "ScriptTypes id"
+);
+
+ini_name!(
+    /// 地图 `TaskForce=` / `[TaskForces]` 引用名（装载期大写）；空 = 未写。
+    TaskForceName,
+    "TaskForces id"
+);
