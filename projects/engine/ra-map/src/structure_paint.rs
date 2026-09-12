@@ -28,6 +28,8 @@ struct StructureTypePaintHints {
     turret_voxel: Option<StructureTurretVoxelHints>,
     /// art `DamageFireOffset0..7`（槽位, x, y）。
     fire_offsets: Vec<(u8, i32, i32)>,
+    /// art `Buildup=` 一次性展开序列（缺则 `None`）。
+    buildup: Option<StructureBuildupHints>,
 }
 
 /// 建筑炮塔体素叠画提示。
@@ -36,6 +38,14 @@ struct StructureTurretVoxelHints {
     stem: String,
     anim_x: i32,
     anim_y: i32,
+}
+
+/// 建筑 Buildup 叠画提示。
+#[derive(Debug, Clone)]
+struct StructureBuildupHints {
+    image_key: String,
+    new_theater: bool,
+    rate_ms: u32,
 }
 
 fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocument>, type_id: &str) -> StructureTypePaintHints {
@@ -58,7 +68,18 @@ fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocum
         tech_level: structure_tech_level(rules, type_id),
         turret_voxel: structure_turret_voxel_hints(rules, type_id),
         fire_offsets: structure_damage_fire_offsets(art, type_id, &art_section),
+        buildup: structure_buildup_hints(art, &art_section, body_new_theater),
     }
+}
+
+fn structure_buildup_hints(art: Option<&IniDocument>, art_section: &str, parent_new_theater: bool) -> Option<StructureBuildupHints> {
+    let art = art?;
+    let buildup_key = art.get(art_section, "Buildup")?.to_ascii_uppercase();
+    // 无独立 Buildup 段时沿用建筑段的 `NewTheater`，文件名即 `Buildup` 键。
+    let image_key = art.get(&buildup_key, "Image").unwrap_or(buildup_key.as_str()).to_ascii_uppercase();
+    let new_theater = art.get(&buildup_key, "NewTheater").map(|v| v.eq_ignore_ascii_case("yes")).unwrap_or(parent_new_theater);
+    let rate_ms = art.get(&buildup_key, "Rate").and_then(parse_u32).unwrap_or(100);
+    Some(StructureBuildupHints { image_key, new_theater, rate_ms })
 }
 
 fn structure_damage_fire_offsets(art: Option<&IniDocument>, type_id: &str, art_section: &str) -> Vec<(u8, i32, i32)> {
@@ -510,18 +531,13 @@ pub fn load_structure_buildup_clip(
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<StructureBuildupClip> {
     let art = crate::read_optional_ini(source, art_ini)?;
-    let art_section = resolve_art_section(Some(&art), type_id);
-    let buildup_key = art.get(&art_section, "Buildup")?.to_ascii_uppercase();
-    let parent_new_theater = art.get(&art_section, "NewTheater").is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-    // 无独立 `[GACNSTMK]` 段时沿用建筑段的 `NewTheater`，文件名即 `Buildup` 键。
-    let image_key = art.get(&buildup_key, "Image").unwrap_or(buildup_key.as_str()).to_ascii_uppercase();
-    let new_theater = art.get(&buildup_key, "NewTheater").map(|v| v.eq_ignore_ascii_case("yes")).unwrap_or(parent_new_theater);
-    let rate_ms = art.get(&buildup_key, "Rate").and_then(parse_u32).unwrap_or(100);
-    let remapable = is_remapable(Some(&art), &art_section, true);
+    let hints = structure_type_paint_hints(Some(&art), None, type_id);
+    let buildup = hints.buildup?;
+    let remapable = hints.remapable;
     let obj_pal = load_object_palette(source, map)?;
     let pal = if remapable { remap_owner(&obj_pal, owner) } else { obj_pal };
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
-    let shp = load_shp(source, map, &image_key, new_theater, &mut shp_cache)?;
+    let shp = load_shp(source, map, &buildup.image_key, buildup.new_theater, &mut shp_cache)?;
     // 偶数帧且后半有像素时，后半是落影（常为索引 1）；Buildup 只播主体半幅。
     let body_n = shp_body_frame_count(&shp.frames);
     let mut frames = Vec::with_capacity(body_n);
@@ -539,7 +555,7 @@ pub fn load_structure_buildup_clip(
         return None;
     }
     let cell_z = map.cells.iter().find(|c| c.x == x as i16 && c.y == y as i16).map(|c| c.z).unwrap_or(0);
-    Some(StructureBuildupClip { x, y, cell_z, rate_ms, frames })
+    Some(StructureBuildupClip { x, y, cell_z, rate_ms: buildup.rate_ms, frames })
 }
 
 /// 把 Buildup 某一帧叠到 RGBA 预览。
