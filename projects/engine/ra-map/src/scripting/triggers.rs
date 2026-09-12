@@ -1,6 +1,8 @@
 //! `[Tags]` / `[Triggers]` / `[Events]` / `[Actions]` / `[CellTags]`。
 
-use ra_assets::IniDocument;
+use ra_assets::{IniDocument, from_row};
+use serde::Deserialize;
+use serde::de::{self, Deserializer};
 
 use super::{MapActionKind, MapEventKind};
 
@@ -85,6 +87,49 @@ pub struct MapCellTag {
     pub tag_id: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct TagCsvRow {
+    persistence: u8,
+    name: String,
+    trigger_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct TriggerCsvRow {
+    house: String,
+    linked: String,
+    name: String,
+    #[serde(deserialize_with = "flag_is_one")]
+    disabled: bool,
+    #[serde(deserialize_with = "flag_not_zero")]
+    easy: bool,
+    #[serde(deserialize_with = "flag_not_zero")]
+    normal: bool,
+    #[serde(deserialize_with = "flag_not_zero")]
+    hard: bool,
+}
+
+/// `1` 为真，其余为假。
+fn flag_is_one<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = String::deserialize(deserializer)?;
+    Ok(raw.trim() == "1")
+}
+
+/// 非 `0` 为真（缺列由上层行长校验兜住）。
+fn flag_not_zero<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = String::deserialize(deserializer)?;
+    if raw.is_empty() {
+        return Err(de::Error::custom("缺难度开关列"));
+    }
+    Ok(raw.trim() != "0")
+}
+
 /// 解析 `[Tags]`。
 pub fn parse_tags(doc: &IniDocument) -> Vec<MapTag> {
     let Some(sec) = doc.section("Tags")
@@ -93,15 +138,15 @@ pub fn parse_tags(doc: &IniDocument) -> Vec<MapTag> {
     };
     let mut out = Vec::new();
     for (id, value) in sec.pairs() {
-        let fields: Vec<&str> = value.split(',').map(str::trim).collect();
-        if fields.len() < 3 {
+        let Ok(row) = from_row::<TagCsvRow>(value)
+        else {
             continue;
-        }
+        };
         out.push(MapTag {
             id: id.to_string(),
-            persistence: fields[0].parse().unwrap_or(0),
-            name: fields[1].to_string(),
-            trigger_id: fields[2].to_string(),
+            persistence: row.persistence,
+            name: row.name,
+            trigger_id: row.trigger_id,
         });
     }
     out
@@ -115,19 +160,19 @@ pub fn parse_triggers(doc: &IniDocument) -> Vec<MapTrigger> {
     };
     let mut out = Vec::new();
     for (id, value) in sec.pairs() {
-        let fields: Vec<&str> = value.split(',').map(str::trim).collect();
-        if fields.len() < 7 {
+        let Ok(row) = from_row::<TriggerCsvRow>(value)
+        else {
             continue;
-        }
+        };
         out.push(MapTrigger {
             id: id.to_string(),
-            house: fields[0].to_string(),
-            linked: fields[1].to_string(),
-            name: fields[2].to_string(),
-            disabled: fields[3] == "1",
-            easy: fields[4] != "0",
-            normal: fields.get(5).map(|v| *v != "0").unwrap_or(true),
-            hard: fields.get(6).map(|v| *v != "0").unwrap_or(true),
+            house: row.house,
+            linked: row.linked,
+            name: row.name,
+            disabled: row.disabled,
+            easy: row.easy,
+            normal: row.normal,
+            hard: row.hard,
         });
     }
     out
