@@ -71,6 +71,10 @@ pub struct MapDefinition {
     pub team_types: Vec<MapTeamType>,
     /// `[AITriggerTypes]` AI 产队触发（字段子集）。
     pub ai_triggers: Vec<MapAiTrigger>,
+    /// `[Preview] Size` 宽（缺节或无效为 0）。
+    pub preview_width: u32,
+    /// `[Preview] Size` 高（缺节或无效为 0）。
+    pub preview_height: u32,
 }
 
 impl Default for MapDefinition {
@@ -104,6 +108,8 @@ impl Default for MapDefinition {
             script_types: Vec::new(),
             team_types: Vec::new(),
             ai_triggers: Vec::new(),
+            preview_width: 0,
+            preview_height: 0,
         }
     }
 }
