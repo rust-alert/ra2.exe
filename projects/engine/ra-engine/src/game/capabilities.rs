@@ -405,7 +405,7 @@ pub fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<Super
         else {
             continue;
         };
-        let key = def.type_key.clone();
+        let key = def.type_key.as_str().to_string();
         if !keys.iter().any(|k| k == &key) {
             keys.push(key);
         }

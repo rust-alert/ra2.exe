@@ -217,7 +217,7 @@ pub fn tick_super_weapon_charges(world: &mut BattleState) {
         else {
             continue;
         };
-        active.push((owner, sw_def.type_key.clone(), required_ticks_for_sw(sw_def)));
+        active.push((owner, sw_def.type_key.as_str().to_string(), required_ticks_for_sw(sw_def)));
     }
 
     for (house, sw_key, required) in active {

@@ -83,7 +83,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         let id = alloc();
         defs.super_weapons.insert(SuperWeaponDefinition {
             id,
-            type_key: sw.id.as_str().to_string(),
+            type_key: sw.id.clone(),
             ui_name: sw.ui_name.clone(),
             kind: sw.kind.clone(),
             action: sw.action.clone(),

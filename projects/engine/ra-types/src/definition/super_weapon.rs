@@ -292,8 +292,8 @@ impl<'de> Deserialize<'de> for SuperWeaponActionName {
 pub struct SuperWeaponDefinition {
     /// 稳定类型编号。
     pub id: TypeId,
-    /// 外部类型键（INI 节名，大写）。
-    pub type_key: String,
+    /// 外部类型键（INI 节名，装载期一次解码为大写）。
+    pub type_key: SuperWeaponName,
     /// `UIName=` CSF 键（装载期一次解码）；空表示未写。
     pub ui_name: UiName,
     /// `Type=` 玩法类型名（可空）。
@@ -319,7 +319,7 @@ pub struct SuperWeaponDefinitions {
 impl SuperWeaponDefinitions {
     /// 插入一条定义。
     pub fn insert(&mut self, def: SuperWeaponDefinition) {
-        self.by_key.insert(def.type_key.clone(), def);
+        self.by_key.insert(def.type_key.as_str().to_string(), def);
     }
 
     /// 按外部类型键查找（大小写不敏感）。
