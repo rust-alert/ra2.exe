@@ -503,8 +503,8 @@ pub struct PreparedMap {
     pub passable: Vec<u8>,
     /// 行优先格高度档，与 [`Self::passable`] 同长或空。
     pub cell_heights: Vec<u8>,
-    /// 行优先粗占格：`0` 空，`1` 建筑锚点，`2` 地形物件。空表示尚未填充。
+    /// 行优先粗占格：`0` 空，`1` 建筑锚点，`2` 地形物件，`3` 污迹。空表示尚未填充。
     ///
-    /// 不含 Foundation 多格展开或规则绑定；仅装载期锚点占位。
+    /// 不含 Foundation 多格展开或规则绑定；仅装载期锚点 / 污迹占位。
     pub occupancy: Vec<u8>,
 }
