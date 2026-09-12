@@ -45,6 +45,8 @@ pub struct MapDefinition {
     pub waypoints: Vec<MapWaypoint>,
     /// `[Terrain]` 静态地形物件。
     pub terrain_objects: Vec<MapTerrainObject>,
+    /// `[Smudge]` 污迹占位。
+    pub smudges: Vec<MapSmudge>,
     /// 预放实体（Structures / Units / Infantry / Aircraft）。
     pub entities: Vec<MapPlacedEntity>,
     /// `[IsoMapPack5]` 等距地形单元。
@@ -95,6 +97,7 @@ impl Default for MapDefinition {
             ion_lighting: MapLighting::ion_default(),
             waypoints: Vec::new(),
             terrain_objects: Vec::new(),
+            smudges: Vec::new(),
             entities: Vec::new(),
             cells: Vec::new(),
             overlays: Vec::new(),
@@ -176,6 +179,17 @@ pub struct MapTerrainObject {
     /// 格子 Y。
     pub y: u16,
     /// 物件类型名（通常已大写）。
+    pub name: String,
+}
+
+/// `[Smudge]` 污迹占位（运行契约；装载侧见 `ra-map::MapSmudge`）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapSmudge {
+    /// 格子 X。
+    pub x: u16,
+    /// 格子 Y。
+    pub y: u16,
+    /// 污迹类型名（通常已大写）。
     pub name: String,
 }
 

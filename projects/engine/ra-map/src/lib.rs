@@ -23,6 +23,7 @@ mod preview_pack;
 pub mod radiation_light;
 pub mod scripting;
 mod skirmish_preview;
+mod smudge;
 pub mod structure_damage;
 mod structure_paint;
 mod terrain_objects;
@@ -91,6 +92,7 @@ pub use scripting::{
 pub use skirmish_preview::{
     BootPreviewResult, SkirmishPreviewStats, compose_boot_preview, compose_skirmish_preview, paint_mobiles_onto_preview_rgba,
 };
+pub use smudge::{MapSmudge, parse_map_smudges};
 pub use structure_damage::{
     StructureDamageRules, damaged_body_frame, health_ratio_256, parse_condition_percent, parse_damage_fire_offset, structure_tech_level,
 };
@@ -162,6 +164,8 @@ pub struct MapInfo {
     pub overlays: Vec<OverlayCell>,
     /// 静态地形物件。
     pub terrain_objects: Vec<TerrainObject>,
+    /// `[Smudge]` 污迹占位。
+    pub smudges: Vec<MapSmudge>,
     /// 预放实体。
     pub entities: Vec<MapEntity>,
     /// 航点。
@@ -200,6 +204,7 @@ impl MapInfo {
             cells: Vec::new(),
             overlays: Vec::new(),
             terrain_objects: Vec::new(),
+            smudges: Vec::new(),
             entities: Vec::new(),
             waypoints: Vec::new(),
             scripting: MapScripting::default(),
@@ -245,6 +250,7 @@ impl MapInfo {
             Err(_) => Vec::new(),
         };
         let terrain_objects = parse_terrain_objects(&doc);
+        let smudges = parse_map_smudges(&doc);
         let entities = parse_map_entities(&doc);
         let waypoints = parse_waypoints(&doc);
         let scripting = parse_map_scripting(&doc);
@@ -276,6 +282,7 @@ impl MapInfo {
             cells,
             overlays,
             terrain_objects,
+            smudges,
             entities,
             waypoints,
             scripting,
@@ -291,7 +298,7 @@ impl MapInfo {
         if trimmed.is_empty() { None } else { Some(trimmed) }
     }
 
-    /// 提取冻结 [`MapDefinition`] 骨架（含触发链 / 队伍脚本 / AI / Preview 尺寸；不含预览像素与天气粒子）。
+    /// 提取冻结 [`MapDefinition`] 骨架（含触发链 / 队伍脚本 / AI / Preview 尺寸 / Smudge；不含预览像素与天气粒子）。
     pub fn to_map_definition(&self) -> MapDefinition {
         MapDefinition {
             name: self.name.clone(),
@@ -321,6 +328,11 @@ impl MapInfo {
                 .terrain_objects
                 .iter()
                 .map(|t| MapTerrainObject { x: t.x, y: t.y, name: t.name.clone() })
+                .collect(),
+            smudges: self
+                .smudges
+                .iter()
+                .map(|s| ra_types::MapSmudge { x: s.x, y: s.y, name: s.name.clone() })
                 .collect(),
             entities: self.entities.iter().map(map_entity_to_placed).collect(),
             cells: self
