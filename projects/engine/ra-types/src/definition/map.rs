@@ -198,8 +198,8 @@ pub struct MapTerrainObject {
     pub x: u16,
     /// 格子 Y。
     pub y: u16,
-    /// 物件类型名（通常已大写）。
-    pub name: String,
+    /// 物件类型名（装载期一次解码为大写地形键）。
+    pub name: crate::TerrainName,
 }
 
 /// `[Smudge]` 污迹占位（运行契约；装载侧见 `ra-map::MapSmudge`）。

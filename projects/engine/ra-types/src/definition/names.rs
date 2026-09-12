@@ -199,3 +199,15 @@ ini_name!(
     ColorName,
     "Color= scheme name"
 );
+
+ini_name!(
+    /// 地图 `[Terrain]` 物件类型名（装载期大写，对齐 rules 地形节）；空 = 未写。
+    TerrainName,
+    "terrain type name"
+);
+
+ini_name!(
+    /// 地图 `[Smudge]` 污迹类型名（装载期大写）；空 = 未写。
+    SmudgeName,
+    "smudge type name"
+);

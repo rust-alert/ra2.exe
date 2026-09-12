@@ -156,11 +156,11 @@ pub fn seed_terrain_spawners(map: &MapInfo, spawners: &TerrainSpawnerDefinitions
 
 #[doc(hidden)]
 pub fn spawner_from_terrain_object(obj: &TerrainObject, spawners: &TerrainSpawnerDefinitions) -> Option<TerrainSpawnerState> {
-    let def = spawners.get(&obj.name)?;
+    let def = spawners.get(obj.name.as_str())?;
     Some(TerrainSpawnerState::new(
         obj.x,
         obj.y,
-        obj.name.clone(),
+        obj.name.to_string(),
         def.animation_probability_micros,
         def.animation_rate_ticks,
         STOCK_TIBTRE_FRAME_COUNT,

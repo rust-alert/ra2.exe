@@ -28,10 +28,10 @@ pub use definition::{
     MapSmudge, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, MapWeatherKind, MapEdge, OverlayTypeRegistry,
     PowerProfile,
     PrerequisiteGroupKind, PrerequisiteGroups, PrerequisiteList, PrerequisiteToken, PreparedMap, ProductionCategory, ProductionDefinitions,
-    ProductionProfile, ProjectileDefinition, ProjectileDefinitions, ProjectileName, RuntimeDefinitions, SoundDefinitions, StolenTechKind,
+    ProductionProfile, ProjectileDefinition, ProjectileDefinitions, ProjectileName, RuntimeDefinitions, SmudgeName, SoundDefinitions, StolenTechKind,
     StructureDefinition, StructureDefinitions, StructureLightProfile, SuperWeaponActionName, SuperWeaponDefinition, SuperWeaponDefinitions,
     SuperWeaponKindName, SuperWeaponName, TMP_TERRAIN_TO_LAND, TechnoCategory, TechnoClass, TechnoDefinition, TechnoDefinitions, TechnoName,
-    TerrainSpawnerDefinition, TerrainSpawnerDefinitions, TypeDefinitionId, UiName, WarheadDefinition, WarheadDefinitions, WarheadName,
+    TerrainName, TerrainSpawnerDefinition, TerrainSpawnerDefinitions, TypeDefinitionId, UiName, WarheadDefinition, WarheadDefinitions, WarheadName,
     WarheadVerses, WeaponDefinition, WeaponDefinitions, WeaponName, armor_index, deserialize_optional_factory, ground_passable, land_passable,
     occupancy_kind, tmp_terrain_to_land_type,
 };
