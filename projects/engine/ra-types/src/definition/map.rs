@@ -36,6 +36,10 @@ pub struct MapDefinition {
     pub terrain_objects: Vec<MapTerrainObject>,
     /// 预放实体（Structures / Units / Infantry / Aircraft）。
     pub entities: Vec<MapPlacedEntity>,
+    /// `[IsoMapPack5]` 等距地形单元。
+    pub cells: Vec<MapIsoCell>,
+    /// `[OverlayPack]` / `[OverlayDataPack]` 覆盖层格。
+    pub overlays: Vec<MapOverlayCell>,
 }
 
 /// 冻结地图航点（任务 / 出生点等格子锚点）。
@@ -109,6 +113,36 @@ pub struct MapPlacedEntity {
     pub mission: String,
     /// 绑定的 Tag id；空表示无。
     pub tag: String,
+}
+
+/// 等距地形单元（自 IsoMapPack 解码）。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MapIsoCell {
+    /// 格子 X。
+    pub x: i16,
+    /// 格子 Y。
+    pub y: i16,
+    /// 全局砖块号（相对 tileset；`0xFFFF` 表示 Clear 占位，绘制时当 0）。
+    pub tile_num: i32,
+    /// TMP 子砖下标。
+    pub sub_tile: u8,
+    /// 高度档。
+    pub z: u8,
+    /// 原版标志字节。
+    pub flags: u8,
+}
+
+/// 覆盖层格（自 OverlayPack / OverlayDataPack 解码）。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MapOverlayCell {
+    /// 格子 X。
+    pub x: u16,
+    /// 格子 Y。
+    pub y: u16,
+    /// 覆盖类型索引 id。
+    pub overlay_id: u8,
+    /// 来自 OverlayDataPack：矿密度 / 墙帧等。
+    pub data: u8,
 }
 
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。

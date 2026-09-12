@@ -43,7 +43,8 @@ pub mod lzo;
 
 use ra_assets::{IniDocument, from_row};
 use ra_types::{
-    GameEdition, MapDefinition, MapLocalSize, MapPlacedEntity, MapPlacedEntityKind, MapTerrainObject, MapWaypoint, RaError, RaResult,
+    GameEdition, MapDefinition, MapIsoCell, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapTerrainObject, MapWaypoint,
+    RaError, RaResult,
 };
 use serde::Deserialize;
 
@@ -277,7 +278,7 @@ impl MapInfo {
         if trimmed.is_empty() { None } else { Some(trimmed) }
     }
 
-    /// 提取冻结 [`MapDefinition`] 骨架（含航点 / 地形物件 / 预放实体；不含格子与脚本载荷）。
+    /// 提取冻结 [`MapDefinition`] 骨架（含航点 / 地形物件 / 预放实体 / 地形与覆盖层格；不含脚本载荷）。
     pub fn to_map_definition(&self) -> MapDefinition {
         MapDefinition {
             name: self.name.clone(),
@@ -307,6 +308,28 @@ impl MapInfo {
                 .map(|t| MapTerrainObject { x: t.x, y: t.y, name: t.name.clone() })
                 .collect(),
             entities: self.entities.iter().map(map_entity_to_placed).collect(),
+            cells: self
+                .cells
+                .iter()
+                .map(|c| MapIsoCell {
+                    x: c.x,
+                    y: c.y,
+                    tile_num: c.tile_num,
+                    sub_tile: c.sub_tile,
+                    z: c.z,
+                    flags: c.flags,
+                })
+                .collect(),
+            overlays: self
+                .overlays
+                .iter()
+                .map(|o| MapOverlayCell {
+                    x: o.x,
+                    y: o.y,
+                    overlay_id: o.overlay_id,
+                    data: o.data,
+                })
+                .collect(),
         }
     }
 
