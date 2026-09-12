@@ -3,7 +3,7 @@
 use ra_assets::IniDocument;
 use serde::Deserialize;
 
-/// 地图一方（战役 / 遭遇均可出现）。
+/// 地图一方（装载解析中间态；投影进 `ra_types::MapHouse` 后由运行契约消费）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapHouse {
     /// 节名（常为 `Player House` 等）。

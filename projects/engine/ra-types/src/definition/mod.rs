@@ -3,6 +3,9 @@
 //! adaptor 填充；engine / renderer / desktop / testing / net 只消费。
 //! 对局创建后不可变；不含 ECS、实体、资金、tick、路径或 GPU 句柄。
 //! 禁止在引擎内按外部内容名（如 GAPOWR）做玩法分支。
+//!
+//! 本 crate 类型是**运行最优形状**，可随执行需求改布局；不是 INI / 地图文件的存储 schema。
+//! 原版兼容在 loader / adaptor 侧完成投影。
 
 mod animation;
 mod armor;

@@ -6,7 +6,7 @@ use serde::de::{self, Deserializer};
 
 use super::{MapActionKind, MapEventKind};
 
-/// `[Tags]` 一行。
+/// `[Tags]` 一行（装载解析中间态；投影进 `ra_types::MapTag` 后由运行契约消费）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTag {
     /// Tag id。
@@ -19,7 +19,7 @@ pub struct MapTag {
     pub trigger_id: String,
 }
 
-/// `[Triggers]` 一行。
+/// `[Triggers]` 一行（装载解析中间态；投影进 `ra_types::MapTrigger` 后由运行契约消费）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTrigger {
     /// Trigger id。
@@ -76,7 +76,7 @@ pub struct MapAction {
     pub commands: Vec<MapActionCommand>,
 }
 
-/// `[CellTags]`：格子绑定 Tag。
+/// `[CellTags]`：格子绑定 Tag（装载解析中间态；投影进 `ra_types::MapCellTag`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapCellTag {
     /// 格子 X。
