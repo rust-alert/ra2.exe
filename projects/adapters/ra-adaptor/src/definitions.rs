@@ -280,7 +280,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     for tt in rules.techno_types.iter() {
         for (key, damage, range, rof, warhead, projectile) in [
             (
-                tt.primary.as_str().to_string(),
+                tt.primary.clone(),
                 tt.damage,
                 tt.range,
                 tt.rof,
@@ -288,7 +288,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
                 tt.projectile.clone(),
             ),
             (
-                tt.secondary.as_str().to_string(),
+                tt.secondary.clone(),
                 tt.secondary_damage,
                 tt.secondary_range,
                 tt.secondary_rof,
@@ -296,7 +296,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
                 tt.secondary_projectile.clone(),
             ),
         ] {
-            if key.is_empty() || defs.weapons.get(&key).is_some() {
+            if key.is_empty() || defs.weapons.get_name(&key).is_some() {
                 continue;
             }
             let id = alloc_weapon();
@@ -314,8 +314,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         }
     }
     for sw in rules.super_weapons.iter() {
-        let key = sw.weapon.as_str().to_string();
-        if key.is_empty() || defs.weapons.get(&key).is_some() {
+        let key = sw.weapon.clone();
+        if key.is_empty() || defs.weapons.get_name(&key).is_some() {
             continue;
         }
         let id = alloc_weapon();
@@ -394,12 +394,12 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         techno.primary_id = if techno.primary.is_empty() {
             WeaponId(0)
         } else {
-            defs.weapons.get(techno.primary.as_str()).map(|w| w.id).unwrap_or(WeaponId(0))
+            defs.weapons.get_name(&techno.primary).map(|w| w.id).unwrap_or(WeaponId(0))
         };
         techno.secondary_id = if techno.secondary.is_empty() {
             WeaponId(0)
         } else {
-            defs.weapons.get(techno.secondary.as_str()).map(|w| w.id).unwrap_or(WeaponId(0))
+            defs.weapons.get_name(&techno.secondary).map(|w| w.id).unwrap_or(WeaponId(0))
         };
         techno.warhead_id = if let Some(w) = defs.weapons.get_by_id(techno.primary_id) {
             w.warhead_id
@@ -413,7 +413,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         sw.weapon_id = if sw.weapon.is_empty() {
             WeaponId(0)
         } else {
-            defs.weapons.get(sw.weapon.as_str()).map(|w| w.id).unwrap_or(WeaponId(0))
+            defs.weapons.get_name(&sw.weapon).map(|w| w.id).unwrap_or(WeaponId(0))
         };
     }
 

@@ -12,7 +12,7 @@ use super::ini_string::{deserialize_upper, parse_upper};
 use super::{ProjectileName, WarheadName};
 
 /// 武器节名（`Primary` / `Secondary` / `Weapon=` 等）；空 = 未配置。
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct WeaponName {
     /// 规范化键（装载期大写）。
     pub name: String,
@@ -45,6 +45,12 @@ impl Deref for WeaponName {
 
 impl AsRef<str> for WeaponName {
     fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl std::borrow::Borrow<str> for WeaponName {
+    fn borrow(&self) -> &str {
         &self.name
     }
 }
@@ -107,8 +113,8 @@ impl<'de> Deserialize<'de> for WeaponName {
 pub struct WeaponDefinition {
     /// 稳定武器编号。
     pub id: WeaponId,
-    /// 外部武器键（大写）。
-    pub type_key: String,
+    /// 外部武器键。
+    pub type_key: WeaponName,
     /// `Damage`。
     pub damage: u32,
     /// `Range`（格）。
@@ -128,7 +134,7 @@ pub struct WeaponDefinition {
 /// 武器定义表。
 #[derive(Debug, Clone, Default)]
 pub struct WeaponDefinitions {
-    by_key: BTreeMap<String, WeaponDefinition>,
+    by_key: BTreeMap<WeaponName, WeaponDefinition>,
 }
 
 impl WeaponDefinitions {
@@ -137,9 +143,14 @@ impl WeaponDefinitions {
         self.by_key.insert(def.type_key.clone(), def);
     }
 
-    /// 按键查找。
+    /// 按键查找（大小写不敏感）。
     pub fn get(&self, type_key: &str) -> Option<&WeaponDefinition> {
-        self.by_key.get(&type_key.to_ascii_uppercase())
+        self.by_key.get(&WeaponName::parse(type_key))
+    }
+
+    /// 按已规范化的武器键查找。
+    pub fn get_name(&self, type_key: &WeaponName) -> Option<&WeaponDefinition> {
+        self.by_key.get(type_key)
     }
 
     /// 按稳定 id 查找。
