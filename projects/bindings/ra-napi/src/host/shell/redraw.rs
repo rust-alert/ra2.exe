@@ -155,6 +155,7 @@ impl Shell {
                             self.menu_font.as_ref(),
                             self.menu_csf.as_ref(),
                             movie,
+                            wave,
                             self.menu_panel_anim_frame,
                         )
                     }),
@@ -353,6 +354,8 @@ impl Shell {
                                 rows: rows.as_slice(),
                                 campaign: self.results_is_campaign(),
                             },
+                            movie,
+                            wave,
                             self.menu_panel_anim_frame,
                         )
                     }

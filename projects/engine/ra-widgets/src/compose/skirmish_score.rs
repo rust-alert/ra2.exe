@@ -44,6 +44,8 @@ pub fn compose_skirmish_score_page(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     paint: SkirmishScorePaint<'_>,
+    movie: Option<&RgbaImage>,
+    wave: Option<ShellWaveFrames<'_>>,
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
     let snap = solve_skirmish_score();
@@ -56,9 +58,9 @@ pub fn compose_skirmish_score_page(
         None,
         fnt,
         csf,
-        None,
+        movie,
         MenuCaptionKind::SkirmishScore,
-        None,
+        wave,
         warn_anim_frame,
     )?;
 

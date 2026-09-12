@@ -78,6 +78,10 @@ pub const SKIRMISH_SLIDE: ShellSlideSpec = ShellSlideSpec { slot_count: SHELL_PA
 pub const CAMPAIGN_SLIDE: ShellSlideSpec = ShellSlideSpec { slot_count: SHELL_PANEL_WAVE_SLOTS };
 /// 选图页：整列统一波浪。
 pub const CHOOSE_MAP_SLIDE: ShellSlideSpec = ShellSlideSpec { slot_count: SHELL_PANEL_WAVE_SLOTS };
+/// 选项页：与主菜单同壳，整列统一波浪。
+pub const OPTIONS_SLIDE: ShellSlideSpec = ShellSlideSpec { slot_count: SHELL_PANEL_WAVE_SLOTS };
+/// 结算积分页：与主菜单同壳，整列统一波浪。
+pub const RESULTS_SLIDE: ShellSlideSpec = ShellSlideSpec { slot_count: SHELL_PANEL_WAVE_SLOTS };
 
 /// 按平铺格下标取进场 tick（格 0 → tick 1）。
 pub fn entry_tick_for_slot(slot: u32) -> i32 {

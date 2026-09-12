@@ -8,8 +8,8 @@ use ra_widgets::{
     menu_action::MenuAction,
     original_screen::OriginalScreen,
     shell_slide::{
-        CAMPAIGN_SLIDE, CHOOSE_MAP_SLIDE, MAIN_MENU_SLIDE, SINGLE_PLAYER_SLIDE, SKIRMISH_SLIDE, ShellFrameWave, ShellSlideSpec,
-        WAVE_STOWED_FRAME, WaveDirection,
+        CAMPAIGN_SLIDE, CHOOSE_MAP_SLIDE, MAIN_MENU_SLIDE, OPTIONS_SLIDE, RESULTS_SLIDE, SINGLE_PLAYER_SLIDE, SKIRMISH_SLIDE,
+        ShellFrameWave, ShellSlideSpec, WAVE_STOWED_FRAME, WaveDirection,
     },
 };
 use winit::event_loop::ActiveEventLoop;
@@ -121,6 +121,8 @@ impl Shell {
             OriginalScreen::SkirmishLobby => Some(SKIRMISH_SLIDE),
             OriginalScreen::Campaign => Some(CAMPAIGN_SLIDE),
             OriginalScreen::ChooseMap => Some(CHOOSE_MAP_SLIDE),
+            OriginalScreen::Options => Some(OPTIONS_SLIDE),
+            OriginalScreen::Results => Some(RESULTS_SLIDE),
             _ => None,
         }
     }
@@ -143,6 +145,8 @@ impl Shell {
             OriginalScreen::SkirmishLobby => (ra_layout::solve_skirmish_lobby(), &ra_layout::SKIRMISH_LOBBY_BUTTON_IDS),
             OriginalScreen::Campaign => (ra_layout::solve_campaign(), &ra_layout::CAMPAIGN_BUTTON_IDS),
             OriginalScreen::ChooseMap => (ra_layout::solve_choose_map(), &ra_layout::CHOOSE_MAP_BUTTON_IDS),
+            OriginalScreen::Options => (ra_layout::solve_options_page(), &ra_layout::OPTIONS_BUTTON_IDS),
+            OriginalScreen::Results => (ra_layout::solve_skirmish_score(), &ra_layout::SKIRMISH_SCORE_BUTTON_IDS),
             _ => return None,
         })
     }
@@ -438,6 +442,8 @@ impl Shell {
                 self.menu_hovered_entry = None;
                 self.set_screen(OriginalScreen::Results);
                 self.banner = if self.results_is_campaign() { "任务结算".into() } else { "遭遇战积分".into() };
+                // 对局不是壳层页，无 SlideOut；进结算走与选项相同的壳层 SlideIn。
+                self.maybe_start_slide_in();
                 self.refresh_menu_backdrop();
                 self.refresh_shell_title();
             }
