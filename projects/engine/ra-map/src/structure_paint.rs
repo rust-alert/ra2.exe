@@ -59,6 +59,50 @@ fn collect_structure_type_paint_hints(
     out
 }
 
+/// 活动层 / 火焰 anim 节提示（按 anim 节名去重一次）。
+#[derive(Debug, Clone)]
+struct StructureAnimSectionHints {
+    image_key: String,
+    new_theater: bool,
+    loop_start: u16,
+    loop_end: u16,
+    rate_ms: u32,
+    /// `None` 表示沿用建筑默认 `Remapable`。
+    remapable_override: Option<bool>,
+}
+
+fn structure_anim_section_hints(art: Option<&IniDocument>, anim_name: &str, default_rate_ms: u32) -> StructureAnimSectionHints {
+    let image_key = art.and_then(|a| a.get(anim_name, "Image")).unwrap_or(anim_name).to_ascii_uppercase();
+    let new_theater = art.and_then(|a| a.get(anim_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+    let loop_start = art
+        .and_then(|a| a.get(anim_name, "LoopStart").or_else(|| a.get(anim_name, "Start")))
+        .and_then(parse_u16)
+        .unwrap_or(0);
+    let loop_end = art.and_then(|a| a.get(anim_name, "LoopEnd")).and_then(parse_u16).unwrap_or(loop_start + 1);
+    let rate_ms = art.and_then(|a| a.get(anim_name, "Rate")).and_then(parse_u32).unwrap_or(default_rate_ms);
+    let remapable_override = art.and_then(|a| a.get(anim_name, "Remapable")).map(|v| !v.eq_ignore_ascii_case("no"));
+    StructureAnimSectionHints {
+        image_key,
+        new_theater,
+        loop_start,
+        loop_end,
+        rate_ms,
+        remapable_override,
+    }
+}
+
+fn cached_anim_section_hint<'a>(
+    cache: &'a mut HashMap<String, StructureAnimSectionHints>,
+    art: Option<&IniDocument>,
+    anim_name: &str,
+    default_rate_ms: u32,
+) -> &'a StructureAnimSectionHints {
+    if !cache.contains_key(anim_name) {
+        cache.insert(anim_name.to_string(), structure_anim_section_hints(art, anim_name, default_rate_ms));
+    }
+    cache.get(anim_name).expect("just inserted")
+}
+
 /// 建筑循环活动层键：常态 / 受损 / ZAdjust。含 `IdleAnim`（科技前哨收回臂等）。
 const STRUCTURE_LOOP_ANIM_KEYS: &[(&str, &str, &str)] = &[
     ("ActiveAnim", "ActiveAnimDamaged", "ActiveAnimZAdjust"),
@@ -187,7 +231,9 @@ pub fn collect_structure_anim_bank(
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
 
     let art = docs.art.as_ref();
-    let damage = docs.rules.as_ref().map(StructureDamageRules::from_rules_doc).unwrap_or_default();
+    let rules = docs.rules.as_ref();
+    let type_hints = collect_structure_type_paint_hints(art, rules, &structures);
+    let damage = rules.map(StructureDamageRules::from_rules_doc).unwrap_or_default();
     let Some(obj_pal) = load_object_palette(source, map)
     else {
         return StructureAnimBank::default();
@@ -195,48 +241,48 @@ pub fn collect_structure_anim_bank(
     let fire_pal = load_anim_palette(source).unwrap_or_else(|| obj_pal.clone());
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
+    let mut anim_hints: HashMap<String, StructureAnimSectionHints> = HashMap::new();
     let mut layers = Vec::new();
 
     for ent in structures {
-        let art_section = resolve_art_section(art, &ent.type_id);
-        let remapable = is_remapable(art, &art_section, true);
+        let Some(type_hint) = type_hints.get(&ent.type_id)
+        else {
+            continue;
+        };
+        let art_section = type_hint.art_section.as_str();
+        let remapable = type_hint.remapable;
         let cell_z = z_lookup.get(&(ent.x, ent.y)).copied().unwrap_or(0);
         let yellow = damage.is_yellow(ent.health);
 
         for &(anim_key, damaged_key, z_key) in STRUCTURE_LOOP_ANIM_KEYS {
-            let Some(anim_name) = resolve_structure_anim_name(art, &ent.type_id, &art_section, anim_key, damaged_key, yellow)
+            let Some(anim_name) = resolve_structure_anim_name(art, &ent.type_id, art_section, anim_key, damaged_key, yellow)
             else {
                 continue;
             };
             // `*ZAdjust` 是原版 Z 缓冲排序偏移，不是屏幕像素。预览叠画已分主体/活动两遍，忽略即可。
             let _ = z_key;
-            let anim_image = art.and_then(|a| a.get(&anim_name, "Image")).unwrap_or(anim_name.as_str()).to_ascii_uppercase();
-            let anim_new_theater = art.and_then(|a| a.get(&anim_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-            let loop_start = art
-                .as_ref()
-                .and_then(|a| a.get(&anim_name, "LoopStart").or_else(|| a.get(&anim_name, "Start")))
-                .and_then(parse_u16)
-                .unwrap_or(0);
-            let loop_end = art.and_then(|a| a.get(&anim_name, "LoopEnd")).and_then(parse_u16).unwrap_or(loop_start + 1);
-            let rate_ms = art.and_then(|a| a.get(&anim_name, "Rate")).and_then(parse_u32).unwrap_or(300);
-            let anim_remapable =
-                art.and_then(|a| a.get(&anim_name, "Remapable")).map(|v| !v.eq_ignore_ascii_case("no")).unwrap_or(remapable);
+            let hint = cached_anim_section_hint(&mut anim_hints, art, &anim_name, 300).clone();
+            let anim_remapable = hint.remapable_override.unwrap_or(remapable);
             let anim_pal = if anim_remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
 
-            let Some(shp) = load_shp(source, map, &anim_image, anim_new_theater, &mut shp_cache)
+            let Some(shp) = load_shp(source, map, &hint.image_key, hint.new_theater, &mut shp_cache)
             else {
                 continue;
             };
             let body_n = shp_body_frame_count(&shp.frames) as u16;
             let end = {
-                let raw = if loop_end > loop_start { loop_end } else { loop_start.saturating_add(1) };
-                raw.min(body_n.max(loop_start.saturating_add(1)))
+                let raw = if hint.loop_end > hint.loop_start {
+                    hint.loop_end
+                } else {
+                    hint.loop_start.saturating_add(1)
+                };
+                raw.min(body_n.max(hint.loop_start.saturating_add(1)))
             };
-            if end <= loop_start {
+            if end <= hint.loop_start {
                 continue;
             }
-            let mut frames = Vec::with_capacity(usize::from(end.saturating_sub(loop_start)));
-            for frame_idx in loop_start..end {
+            let mut frames = Vec::with_capacity(usize::from(end.saturating_sub(hint.loop_start)));
+            for frame_idx in hint.loop_start..end {
                 let Some(blit) = frame_to_blit(shp, frame_idx, 0, &anim_pal)
                 else {
                     // 空帧占位，保持下标对齐。
@@ -248,7 +294,15 @@ pub fn collect_structure_anim_bank(
             if frames.iter().all(|f| f.width == 0) {
                 continue;
             }
-            layers.push(StructureAnimLayer { x: ent.x, y: ent.y, cell_z, rate_ms, loop_start, loop_end: end, frames });
+            layers.push(StructureAnimLayer {
+                x: ent.x,
+                y: ent.y,
+                cell_z,
+                rate_ms: hint.rate_ms,
+                loop_start: hint.loop_start,
+                loop_end: end,
+                frames,
+            });
         }
 
         // 黄血及以下：按 art `DamageFireOffset*` 叠 `DamageFireTypes` 火焰。
@@ -256,7 +310,7 @@ pub fn collect_structure_anim_bank(
             continue;
         }
         for i in 0..8u8 {
-            let Some(raw) = art_get_building(art, &ent.type_id, &art_section, &format!("DamageFireOffset{i}"))
+            let Some(raw) = art_get_building(art, &ent.type_id, art_section, &format!("DamageFireOffset{i}"))
             else {
                 continue;
             };
@@ -265,10 +319,8 @@ pub fn collect_structure_anim_bank(
                 continue;
             };
             let fire_name = &damage.fire_types[usize::from(i) % damage.fire_types.len()];
-            let fire_image = art.and_then(|a| a.get(fire_name, "Image")).unwrap_or(fire_name.as_str()).to_ascii_uppercase();
-            let fire_new_theater = art.and_then(|a| a.get(fire_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-            let rate_ms = art.and_then(|a| a.get(fire_name, "Rate")).and_then(parse_u32).unwrap_or(80);
-            let Some(shp) = load_shp(source, map, &fire_image, fire_new_theater, &mut shp_cache)
+            let fire_hint = cached_anim_section_hint(&mut anim_hints, art, fire_name, 80).clone();
+            let Some(shp) = load_shp(source, map, &fire_hint.image_key, fire_hint.new_theater, &mut shp_cache)
             else {
                 // 无节时仍尝试直接按类型名读 SHP。
                 let Some(shp) = load_shp(source, map, fire_name, false, &mut shp_cache)
@@ -293,7 +345,15 @@ pub fn collect_structure_anim_bank(
                 if frames.iter().all(|f| f.width == 0) {
                     continue;
                 }
-                layers.push(StructureAnimLayer { x: ent.x, y: ent.y, cell_z, rate_ms, loop_start: 0, loop_end: body_n, frames });
+                layers.push(StructureAnimLayer {
+                    x: ent.x,
+                    y: ent.y,
+                    cell_z,
+                    rate_ms: fire_hint.rate_ms,
+                    loop_start: 0,
+                    loop_end: body_n,
+                    frames,
+                });
                 continue;
             };
             let body_n = shp_body_frame_count(&shp.frames) as u16;
@@ -314,7 +374,15 @@ pub fn collect_structure_anim_bank(
             if frames.iter().all(|f| f.width == 0) {
                 continue;
             }
-            layers.push(StructureAnimLayer { x: ent.x, y: ent.y, cell_z, rate_ms, loop_start: 0, loop_end: body_n, frames });
+            layers.push(StructureAnimLayer {
+                x: ent.x,
+                y: ent.y,
+                cell_z,
+                rate_ms: fire_hint.rate_ms,
+                loop_start: 0,
+                loop_end: body_n,
+                frames,
+            });
         }
     }
 
@@ -507,6 +575,7 @@ fn paint_map_structures_inner(
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
     let mut blit_cache: HashMap<(String, String, u16, i32), TileBlit> = HashMap::new();
+    let mut anim_hints: HashMap<String, StructureAnimSectionHints> = HashMap::new();
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
     let mut missing: Vec<(u16, u16)> = Vec::new();
 
@@ -561,24 +630,15 @@ fn paint_map_structures_inner(
             };
             // `*ZAdjust` 仅影响原版 Z 排序，勿当屏幕 Y 像素（医院 `ActiveAnimZAdjust=-200` 会漂到水上）。
             let _ = z_key;
-            let anim_image = art.and_then(|a| a.get(&anim_name, "Image")).unwrap_or(anim_name.as_str()).to_ascii_uppercase();
-            let anim_new_theater = art.and_then(|a| a.get(&anim_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-            let loop_start = art
-                .as_ref()
-                .and_then(|a| a.get(&anim_name, "LoopStart").or_else(|| a.get(&anim_name, "Start")))
-                .and_then(parse_u16)
-                .unwrap_or(0);
-            let loop_end = art.and_then(|a| a.get(&anim_name, "LoopEnd")).and_then(parse_u16).unwrap_or(loop_start + 1);
-            let rate_ms = art.and_then(|a| a.get(&anim_name, "Rate")).and_then(parse_u32).unwrap_or(300);
-            let frame_idx = structure_anim_frame(clock_ms, rate_ms, loop_start, loop_end);
-            let anim_remapable =
-                art.and_then(|a| a.get(&anim_name, "Remapable")).map(|v| !v.eq_ignore_ascii_case("no")).unwrap_or(remapable);
+            let anim_hint = cached_anim_section_hint(&mut anim_hints, art, &anim_name, 300).clone();
+            let frame_idx = structure_anim_frame(clock_ms, anim_hint.rate_ms, anim_hint.loop_start, anim_hint.loop_end);
+            let anim_remapable = anim_hint.remapable_override.unwrap_or(remapable);
             let anim_pal = if anim_remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
             if let Some(mut blit) = load_structure_blit(
                 source,
                 map,
-                &anim_image,
-                anim_new_theater,
+                &anim_hint.image_key,
+                anim_hint.new_theater,
                 frame_idx,
                 0,
                 &anim_pal,
