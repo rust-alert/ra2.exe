@@ -288,7 +288,14 @@ fn count_allow_win_actions(scripting: &MapScripting) -> u32 {
 
 /// 查找触发器所属 house（`[Triggers]` 行首字段）。
 fn trigger_owner_house(world: &BattleState, trigger_id: &str) -> Option<String> {
-    world.map.scripting.triggers.iter().find(|t| t.id.eq_ignore_ascii_case(trigger_id)).map(|t| t.house.clone()).filter(|h| !h.is_empty())
+    world
+        .map
+        .scripting
+        .triggers
+        .iter()
+        .find(|t| t.id.eq_ignore_ascii_case(trigger_id))
+        .map(|t| t.house.as_str().to_string())
+        .filter(|h| !h.is_empty())
 }
 
 /// 双向结盟或解盟：写入双方 `PlayerState.allies`。

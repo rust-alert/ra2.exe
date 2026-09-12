@@ -328,8 +328,8 @@ pub struct MapTag {
 pub struct MapTrigger {
     /// Trigger id。
     pub id: String,
-    /// 所属 house。
-    pub house: String,
+    /// 所属 house（装载期一次解码为大写）。
+    pub house: crate::HouseName,
     /// 链接的另一 trigger（`<none>` 表示无）。
     pub linked: String,
     /// 编辑器名。

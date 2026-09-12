@@ -3,6 +3,7 @@
 use std::fmt;
 
 use ra_assets::{CsvField, CsvRow, IniDocument, from_csv_row, from_row, parse_westwood_csv_line};
+use ra_types::HouseName;
 use serde::Deserialize;
 use serde::de::{self, Deserializer, Visitor};
 
@@ -26,8 +27,8 @@ pub struct MapTag {
 pub struct MapTrigger {
     /// Trigger id。
     pub id: String,
-    /// 所属 house。
-    pub house: String,
+    /// 所属 house（装载期一次解码为大写）。
+    pub house: HouseName,
     /// 链接的另一 trigger（`<none>` 表示无）。
     pub linked: String,
     /// 编辑器名。
@@ -98,7 +99,7 @@ struct TagCsvRow {
 
 #[derive(Debug, Deserialize)]
 struct TriggerCsvRow {
-    house: String,
+    house: HouseName,
     linked: String,
     name: String,
     #[serde(deserialize_with = "flag_is_one")]
