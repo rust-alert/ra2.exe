@@ -101,40 +101,78 @@ impl<'de> MapAccess<'de> for SectionMapAccess<'de> {
         }
         let cmp = self.keys[self.index].clone();
         self.index += 1;
-        let raw = self
-            .key_raw
-            .get(&cmp)
-            .copied()
-            .unwrap_or(cmp.as_str())
-            .to_string();
-        seed.deserialize(KeyDeserializer { key: raw }).map(Some)
+        match self.key_raw.get(&cmp).copied() {
+            Some(raw) => seed.deserialize(KeyDeserializer { key: raw }).map(Some),
+            None => seed.deserialize(KeyDeserializerOwned { key: cmp }).map(Some),
+        }
     }
 
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error>
     where
         V: de::DeserializeSeed<'de>,
     {
-        let cmp = &self.keys[self.index - 1];
+        let cmp = self.keys[self.index - 1].clone();
+        let key = self.key_raw.get(&cmp).copied();
+        let section = self.section;
         let raw = self
             .values
-            .get(cmp)
-            .ok_or_else(|| self.attach_section(IniDeError::custom(format!("内部错误：缺少键 {cmp}"))))?
-            .as_ref()
-            .to_string();
+            .remove(&cmp)
+            .ok_or_else(|| self.attach_section(IniDeError::custom(format!("内部错误：缺少键 {cmp}"))))?;
         seed.deserialize(ScalarDeserializer {
             raw,
-            key: Some(cmp.clone()),
-            section: self.section.map(str::to_string),
+            key,
+            section,
         })
-            .map_err(|e| self.attach_section(e))
+        .map_err(|e| self.attach_section(e))
     }
 }
 
-struct KeyDeserializer {
+struct KeyDeserializer<'a> {
+    key: &'a str,
+}
+
+impl<'de> de::Deserializer<'de> for KeyDeserializer<'de> {
+    type Error = IniDeError;
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_borrowed_str(self.key)
+    }
+
+    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_borrowed_str(self.key)
+    }
+
+    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_string(self.key.to_string())
+    }
+
+    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_borrowed_str(self.key)
+    }
+
+    serde::forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char bytes byte_buf
+        option unit unit_struct newtype_struct seq tuple tuple_struct map struct enum ignored_any
+    }
+}
+
+struct KeyDeserializerOwned {
     key: String,
 }
 
-impl<'de> de::Deserializer<'de> for KeyDeserializer {
+impl<'de> de::Deserializer<'de> for KeyDeserializerOwned {
     type Error = IniDeError;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
