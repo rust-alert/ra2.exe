@@ -448,8 +448,8 @@ pub struct MapScriptType {
 /// 可改为稳定 house / script / task_force id；装载侧见 `ra-map::MapTeamType`。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTeamType {
-    /// id。
-    pub id: String,
+    /// id（装载期一次解码为大写 TeamTypes 键）。
+    pub id: crate::TeamTypeName,
     /// 名称。
     pub name: String,
     /// `House=`（装载期一次解码为大写）。
