@@ -475,7 +475,7 @@ pub fn paint_map_structures(
     source: &dyn AssetSource,
     map: &MapInfo,
     image: &mut TerrainImage,
-    docs: &crate::PaintIniDocs,
+    art_rules: &crate::ArtRules,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     mode: StructureAnimMode,
 ) -> (usize, usize) {
@@ -483,14 +483,14 @@ pub fn paint_map_structures(
         StructureAnimMode::BodyOnly => (true, None),
         StructureAnimMode::BodyAndAnims { clock_ms } => (true, Some(clock_ms)),
     };
-    paint_map_structures_inner(source, map, image, docs, remap_owner, paint_body, clock_ms)
+    paint_map_structures_inner(source, map, image, art_rules, remap_owner, paint_body, clock_ms)
 }
 
 /// 收集建筑活动层并预解码全部循环帧（不含主体；含黄血燃烧）。
 pub fn collect_structure_anim_bank(
     source: &dyn AssetSource,
     map: &MapInfo,
-    docs: &crate::PaintIniDocs,
+    art_rules: &crate::ArtRules,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> StructureAnimBank {
     let structures: Vec<_> = map.entities.iter().filter(|e| e.kind == MapEntityKind::Structure).collect();
@@ -501,10 +501,10 @@ pub fn collect_structure_anim_bank(
     let z_lookup: HashMap<(u16, u16), u8> =
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
 
-    let art = docs.art.as_ref();
-    let rules = docs.rules.as_ref();
+    let art = art_rules.art.as_ref();
+    let rules = art_rules.rules.as_ref();
     let type_hints = collect_structure_type_paint_hints(art, rules, &structures);
-    let damage = &docs.damage;
+    let damage = &art_rules.damage;
     let Some(obj_pal) = load_object_palette(source, map)
     else {
         return StructureAnimBank::default();
@@ -725,15 +725,15 @@ pub fn buildup_frame_index(elapsed_ms: u64, rate_ms: u32, frame_count: usize) ->
 pub fn load_structure_buildup_clip(
     source: &dyn AssetSource,
     map: &MapInfo,
-    docs: &crate::PaintIniDocs,
+    art_rules: &crate::ArtRules,
     type_id: &str,
     owner: &str,
     x: u16,
     y: u16,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<StructureBuildupClip> {
-    let art = docs.art.as_ref()?;
-    let hints = structure_type_paint_hints(Some(art), docs.rules.as_ref(), type_id);
+    let art = art_rules.art.as_ref()?;
+    let hints = structure_type_paint_hints(Some(art), art_rules.rules.as_ref(), type_id);
     let buildup = hints.buildup?;
     let remapable = hints.remapable;
     let obj_pal = load_object_palette(source, map)?;
@@ -787,11 +787,11 @@ pub fn paint_structures_onto_rgba(
     image: &mut image::RgbaImage,
     origin_x: i32,
     origin_y: i32,
-    docs: &crate::PaintIniDocs,
+    art_rules: &crate::ArtRules,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> usize {
     let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
-    let (n, _) = paint_map_structures(source, map, &mut terrain, docs, remap_owner, StructureAnimMode::BodyOnly);
+    let (n, _) = paint_map_structures(source, map, &mut terrain, art_rules, remap_owner, StructureAnimMode::BodyOnly);
     *image = terrain.image;
     n
 }
@@ -800,7 +800,7 @@ fn paint_map_structures_inner(
     source: &dyn AssetSource,
     map: &MapInfo,
     image: &mut TerrainImage,
-    docs: &crate::PaintIniDocs,
+    art_rules: &crate::ArtRules,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     paint_body: bool,
     anim_clock_ms: Option<u64>,
@@ -814,10 +814,10 @@ fn paint_map_structures_inner(
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
-    let art = docs.art.as_ref();
-    let rules_doc = docs.rules.as_ref();
+    let art = art_rules.art.as_ref();
+    let rules_doc = art_rules.rules.as_ref();
     let type_hints = collect_structure_type_paint_hints(art, rules_doc, &structures);
-    let damage = &docs.damage;
+    let damage = &art_rules.damage;
     let Some(obj_pal) = load_object_palette(source, map)
     else {
         if !paint_body {

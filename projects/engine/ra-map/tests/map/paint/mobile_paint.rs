@@ -1,6 +1,6 @@
 //! 自顶层 `mobile_paint.rs`。
 
-use ra_map::{PaintIniDocs, MapInfo, MobilePaintPose, TerrainImage, paint_map_mobiles};
+use ra_map::{ArtRules, MapInfo, MobilePaintPose, TerrainImage, paint_map_mobiles};
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
 struct EmptySource;
@@ -15,7 +15,7 @@ fn empty_mobiles_noop() {
     let map = MapInfo::empty(GameEdition::Ra2, "t");
     let mut image = TerrainImage::blank(1, 1);
     assert_eq!(
-        paint_map_mobiles(&EmptySource, &map, &mut image, &PaintIniDocs::default(), &|p, _| p.clone(), &|_| MobilePaintPose::default(),),
+        paint_map_mobiles(&EmptySource, &map, &mut image, &ArtRules::default(), &|p, _| p.clone(), &|_| MobilePaintPose::default(), ),
         0
     );
 }

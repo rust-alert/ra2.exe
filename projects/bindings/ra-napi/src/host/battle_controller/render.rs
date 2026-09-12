@@ -196,7 +196,7 @@ impl BattleController {
                 &mut clean,
                 self.preview_origin.0,
                 self.preview_origin.1,
-                &self.paint_ini,
+                &self.art_rules,
                 &|id| overlay_types.name(id).map(str::to_owned),
                 &|id| overlay_types.is_harvestable(id),
                 &tib_hsv,
@@ -223,7 +223,7 @@ impl BattleController {
             clean,
             self.preview_origin.0,
             self.preview_origin.1,
-            &self.paint_ini,
+            &self.art_rules,
             &|id| overlay_types.name(id).map(str::to_owned),
             &|id| overlay_types.is_harvestable(id),
             &tib_hsv,
@@ -294,15 +294,15 @@ impl BattleController {
             });
             let remap = |base: &ra_assets::Palette, own: &str| remap_owner_palette(rules, Some(&lobby), base, own);
                         if let Some(clean) = self.preview_clean.as_mut() {
-                let n = paint_structures_onto_rgba(assets, &one, clean, origin.0, origin.1, &self.paint_ini, &remap);
+                let n = paint_structures_onto_rgba(assets, &one, clean, origin.0, origin.1, &self.art_rules, &remap);
                 any |= n > 0;
             }
             if let Some(underlay) = self.preview_ore_underlay.as_mut() {
-                let n = paint_structures_onto_rgba(assets, &one, underlay, origin.0, origin.1, &self.paint_ini, &remap);
+                let n = paint_structures_onto_rgba(assets, &one, underlay, origin.0, origin.1, &self.art_rules, &remap);
                 any |= n > 0;
             }
             self.structure_anims.layers.retain(|layer| !(layer.x == *x && layer.y == *y));
-            let bank = collect_structure_anim_bank(assets, &one, &self.paint_ini, &remap);
+            let bank = collect_structure_anim_bank(assets, &one, &self.art_rules, &remap);
             self.structure_anims.layers.extend(bank.layers);
         }
         if any {
