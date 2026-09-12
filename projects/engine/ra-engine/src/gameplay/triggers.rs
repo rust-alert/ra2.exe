@@ -56,7 +56,7 @@ impl TriggerRuntime {
                     .find(|c| c.kind == MapEventKind::TimeElapse)
                     .map(|c| c.params.first().and_then(|p| p.parse::<u32>().ok()).unwrap_or(0))
             });
-            states.push(TriggerRuntimeState { id: tr.id.clone(), disabled: tr.disabled, fired: false, timer_remaining, timer_paused: false });
+            states.push(TriggerRuntimeState { id: tr.id.to_string(), disabled: tr.disabled, fired: false, timer_remaining, timer_paused: false });
         }
         Self {
             states,

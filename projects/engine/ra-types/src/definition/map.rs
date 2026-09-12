@@ -326,8 +326,8 @@ pub struct MapTag {
 /// 可改为稠密表或稳定 id；装载侧同名类型见 `ra-map` 解析层。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTrigger {
-    /// Trigger id。
-    pub id: String,
+    /// Trigger id（装载期一次解码为大写 Triggers 键）。
+    pub id: crate::TriggerName,
     /// 所属 house（装载期一次解码为大写）。
     pub house: crate::HouseName,
     /// 链接的另一 trigger（装载期一次解码为大写；`<none>` / 空表示无）。

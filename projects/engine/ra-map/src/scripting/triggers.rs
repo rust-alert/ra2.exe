@@ -25,8 +25,8 @@ pub struct MapTag {
 /// `[Triggers]` 一行（装载解析中间态；投影进 `ra_types::MapTrigger` 后由运行契约消费）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTrigger {
-    /// Trigger id。
-    pub id: String,
+    /// Trigger id（装载期一次解码为大写 Triggers 键）。
+    pub id: TriggerName,
     /// 所属 house（装载期一次解码为大写）。
     pub house: HouseName,
     /// 链接的另一 trigger（装载期一次解码为大写；`<none>` / 空表示无）。
@@ -257,7 +257,7 @@ pub fn parse_triggers(doc: &IniDocument) -> Vec<MapTrigger> {
             continue;
         };
         out.push(MapTrigger {
-            id: id.to_string(),
+            id: TriggerName::parse(id),
             house: row.house,
             linked: row.linked,
             name: row.name,
