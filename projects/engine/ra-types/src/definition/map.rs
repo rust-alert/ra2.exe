@@ -358,8 +358,8 @@ pub struct MapEventCondition {
 /// 与某 trigger 对齐的事件表（运行契约）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapEvent {
-    /// Trigger id。
-    pub id: String,
+    /// Trigger id（装载期一次解码为大写 Triggers 键）。
+    pub id: crate::TriggerName,
     /// 条件列表。
     pub conditions: Vec<MapEventCondition>,
 }
@@ -378,8 +378,8 @@ pub struct MapActionCommand {
 /// 与某 trigger 对齐的动作表（运行契约）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapAction {
-    /// Trigger id。
-    pub id: String,
+    /// Trigger id（装载期一次解码为大写 Triggers 键）。
+    pub id: crate::TriggerName,
     /// 动作列表。
     pub commands: Vec<MapActionCommand>,
 }

@@ -86,8 +86,8 @@ pub fn tick_triggers(world: &mut BattleState) {
         return;
     }
 
-    let events_by_id: HashMap<String, ra_map::MapEvent> = scripting.events.iter().cloned().map(|e| (e.id.clone(), e)).collect();
-    let actions_by_id: HashMap<String, ra_map::MapAction> = scripting.actions.iter().cloned().map(|a| (a.id.clone(), a)).collect();
+    let events_by_id: HashMap<String, ra_map::MapEvent> = scripting.events.iter().cloned().map(|e| (e.id.to_string(), e)).collect();
+    let actions_by_id: HashMap<String, ra_map::MapAction> = scripting.actions.iter().cloned().map(|a| (a.id.to_string(), a)).collect();
     let tags = scripting.tags.clone();
     let cell_tags = scripting.cell_tags.clone();
     let local_house = world.players.iter().find(|p| p.id == world.local_player).map(|p| p.house.clone()).unwrap_or_default();

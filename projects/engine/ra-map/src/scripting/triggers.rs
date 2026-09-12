@@ -55,8 +55,8 @@ pub struct MapEventCondition {
 /// `[Events]` 中与某 trigger 对齐的事件表（装载解析中间态；投影进 `ra_types::MapEvent`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapEvent {
-    /// Trigger id。
-    pub id: String,
+    /// Trigger id（装载期一次解码为大写 Triggers 键）。
+    pub id: TriggerName,
     /// 条件列表。
     pub conditions: Vec<MapEventCondition>,
 }
@@ -73,8 +73,8 @@ pub struct MapActionCommand {
 /// `[Actions]` 中与某 trigger 对齐的动作表（装载解析中间态；投影进 `ra_types::MapAction`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapAction {
-    /// Trigger id。
-    pub id: String,
+    /// Trigger id（装载期一次解码为大写 Triggers 键）。
+    pub id: TriggerName,
     /// 动作列表。
     pub commands: Vec<MapActionCommand>,
 }
@@ -300,7 +300,7 @@ pub fn parse_events(doc: &IniDocument) -> Vec<MapEvent> {
                 params: vec![cond.p1, cond.p2],
             });
         }
-        out.push(MapEvent { id: id.to_string(), conditions });
+            out.push(MapEvent { id: TriggerName::parse(id), conditions });
     }
     out
 }
@@ -335,7 +335,7 @@ pub fn parse_actions(doc: &IniDocument) -> Vec<MapAction> {
                 params: [cmd.p0, cmd.p1, cmd.p2, cmd.p3, cmd.p4, cmd.p5, cmd.p6],
             });
         }
-        out.push(MapAction { id: id.to_string(), commands });
+            out.push(MapAction { id: TriggerName::parse(id), commands });
     }
     out
 }
