@@ -2,9 +2,7 @@
 
 use super::*;
 use crate::{
-    battle_pause_menu::{
-        BattlePauseChrome, button_rects, cameo_clear_rect, center_panel_dest_rect, dim_rect, menu_strip_rect, resolve_sidebttn,
-    },
+    battle_pause_menu::{BattlePauseChrome, button_rects, dim_rect, resolve_sidebttn},
     skin::text::battle_pause_menu_fallback_label,
 };
 
@@ -223,15 +221,9 @@ fn paint_command_tip(page: &mut RgbaImage, fnt: &FntFile, tip: &str, cell: RectP
 
 /// 合成对局暂停菜单叠加层（窗口像素，叠在已画好的对局 HUD 之上）。
 ///
-/// 原版暂停逻辑：
-/// - 战术区半透明压暗（地图仍可见）
-/// - 居中贴阵营徽（`radar` 去左右侧轨后的徽芯放大，不是整块雷达槽）
-/// - **保留**侧栏 chrome：`credits`/`top`/`radar`/`side2` 边轨/`side3`/`addon`
-/// - **保留**底边 `lendcap`/`lspacer`/`rendcap` 金属轨（HUD 暂停态已画）
-/// - 只清 side1 / cameo 内芯 / 顶栏选项外交，再画 Options / Fullscreen / Abort / Resume
-///
-/// **禁止**再画主菜单 `sdtp` / `sdbtnanm`，也**禁止**在 radar/顶栏装饰上叠钮。
-/// **禁止**再涂命令钮槽，以免砸掉 `lspacer` 白顶/红底细线。
+/// 几何只认 [`ra_layout::solve_battle_pause_at`]：全屏 `dim` + 右缘四钮。
+/// **禁止**再画主菜单 `sdtp` / `sdbtnanm`，**禁止**放大 `radar` 做中心徽，
+/// **禁止**用手写 HUD cameo/side1 坐标排钮。
 pub fn compose_battle_pause_menu_overlay(
     viewport_w: u32,
     viewport_h: u32,
@@ -240,54 +232,15 @@ pub fn compose_battle_pause_menu_overlay(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     pause: Option<&BattlePauseChrome>,
-    hud_metrics: BattleHudChromeMetrics,
 ) -> Option<RgbaImage> {
     let w = viewport_w.max(1);
     let h = viewport_h.max(1);
     let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
 
-    let dim = dim_rect(w, h, hud_metrics);
+    let dim = dim_rect(w, h);
     fill_rect(&mut page, dim, [0, 0, 0, 160]);
 
-    // 中心阵营徽（与侧栏菜单分离）。
-    if let Some(pause) = pause {
-        if let Some(panel) = pause.center_panel.as_ref() {
-            let dest = center_panel_dest_rect(w, h, hud_metrics, panel.width(), panel.height());
-            blit_stretched(&mut page, panel, dest);
-        }
-        else if let Some(radar) = pause.radar.as_ref() {
-            let dest = center_panel_dest_rect(w, h, hud_metrics, radar.image.width(), radar.image.height());
-            blit_stretched(&mut page, &radar.image, dest);
-        }
-    }
-
-    let snap = solve_battle_hud_with_metrics(w, h, hud_metrics);
-    // 侧栏空槽底色：深墨蓝，别用纯黑把金属轨「吃掉」。
-    let well = [8, 12, 24, 255];
-
-    // side1：修理/出售/QWER 槽换成菜单落点井（radar / side2 / side3 / addon 由 HUD 保留）。
-    let side1 = rect_px_from_snapshot(&snap, "side1");
-    if side1.w > 0 && side1.h > 0 {
-        fill_rect(&mut page, side1, well);
-    }
-    // cameo 只清内芯，左右留给 HUD 已画好的 `side2` 金属边轨。
-    let cameo_well = cameo_clear_rect(w, h, hud_metrics);
-    if cameo_well.w > 0 && cameo_well.h > 0 {
-        fill_rect(&mut page, cameo_well, well);
-    }
-
-    // 顶栏选项/外交：只盖钮面，不动 `top.shp` 半圆装饰。
-    for id in ["opt_btn", "diplo_btn"] {
-        let r = rect_px_from_snapshot(&snap, id);
-        if r.w > 0 && r.h > 0 {
-            fill_rect(&mut page, r, well);
-        }
-    }
-
-    // 底边命令轨已由 HUD 在暂停态画好（lendcap/lspacer/rendcap），禁止再涂 cmd 槽砸掉金属细线。
-
-    let _strip = menu_strip_rect(w, h, hud_metrics);
-    let rects = button_rects(w, h, hud_metrics);
+    let rects = button_rects(w, h);
     for (entry_id, cell) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().zip(rects.iter()) {
         let pressed = pressed_entry_id == Some(*entry_id);
         let hovered = hovered_entry_id == Some(*entry_id);

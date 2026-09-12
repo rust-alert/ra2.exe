@@ -22,6 +22,7 @@ pub use reference::{
     COMMAND_BAR_H, COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W, DluRect, FontBaseUnits, LOAD_SCREEN_BUTTON_IDS, MS_SANS_SERIF_8PT,
     NETWORK_BUTTON_IDS, OPTIONS_CONTENT_IDS, SIDEBAR_TAB_COUNT, battle_hud_world_viewport, cameo_content_rect, cameo_slot_rect,
     cameo_visible_slot_count, hit_cameo_slot, mul_div_round, solve_battle_hud, solve_battle_hud_with_metrics, solve_battle_pause,
+    solve_battle_pause_at,
     solve_campaign, solve_choose_map, solve_exit_confirm, solve_load_screen, solve_network_page, solve_options_page, solve_shell_page,
     solve_skirmish_lobby, solve_skirmish_score,
 };
