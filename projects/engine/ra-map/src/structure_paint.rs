@@ -149,19 +149,34 @@ fn structure_damage_fire_offsets(art: Option<&IniDocument>, type_id: &str, art_s
 
 fn structure_turret_voxel_hints(rules: Option<&IniDocument>, type_id: &str) -> Option<StructureTurretVoxelHints> {
     let rules = rules?;
-    let is_voxel = rules.get(type_id, "TurretAnimIsVoxel").is_some_and(|v| v.eq_ignore_ascii_case("yes") || v == "1");
-    if !is_voxel {
+    let fields = rules
+        .section(type_id)
+        .and_then(|s| s.deserialize::<TurretVoxelSectionFields>().ok())
+        .unwrap_or_default();
+    if !fields.is_voxel.unwrap_or(false) {
         return None;
     }
-    let stem = rules.get(type_id, "TurretAnim")?.trim().to_ascii_lowercase();
+    let stem = fields.anim.as_deref()?.trim().to_ascii_lowercase();
     if stem.is_empty() {
         return None;
     }
     Some(StructureTurretVoxelHints {
         stem,
-        anim_x: rules.get(type_id, "TurretAnimX").and_then(parse_i32).unwrap_or(0),
-        anim_y: rules.get(type_id, "TurretAnimY").and_then(parse_i32).unwrap_or(0),
+        anim_x: fields.anim_x.unwrap_or(0),
+        anim_y: fields.anim_y.unwrap_or(0),
     })
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct TurretVoxelSectionFields {
+    #[serde(rename = "TurretAnimIsVoxel")]
+    is_voxel: Option<bool>,
+    #[serde(rename = "TurretAnim")]
+    anim: Option<String>,
+    #[serde(rename = "TurretAnimX")]
+    anim_x: Option<i32>,
+    #[serde(rename = "TurretAnimY")]
+    anim_y: Option<i32>,
 }
 
 fn collect_structure_type_paint_hints(
@@ -902,10 +917,6 @@ fn load_structure_turret_vxl(
         rgba: sprite.rgba,
         shadow: None,
     })
-}
-
-fn parse_i32(raw: &str) -> Option<i32> {
-    raw.trim().parse().ok()
 }
 
 fn parse_u16(raw: &str) -> Option<u16> {
