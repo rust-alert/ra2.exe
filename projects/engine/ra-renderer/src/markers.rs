@@ -696,29 +696,29 @@ pub fn push_pixel_rect(out: &mut Vec<LineVertex>, camera: &Camera, sw: f32, sh: 
 
 #[doc(hidden)]
 pub const SPRITE_WGSL: &str = r#"
-#[doc(hidden)]
-pub struct VertexInput {
+struct VertexInput {
     @location(0) pos: vec2<f32>,
     @location(1) uv: vec2<f32>,
 };
-#[doc(hidden)]
-pub struct VertexOutput {
+
+struct VertexOutput {
     @builtin(position) clip: vec4<f32>,
     @location(0) uv: vec2<f32>,
 };
+
 @group(0) @binding(0) var icon_tex: texture_2d<f32>;
 @group(0) @binding(1) var icon_samp: sampler;
+
 @vertex
-#[doc(hidden)]
-pub fn vs_main(v: VertexInput) -> VertexOutput {
+fn vs_main(v: VertexInput) -> VertexOutput {
     var out: VertexOutput;
     out.clip = vec4<f32>(v.pos, 0.0, 1.0);
     out.uv = v.uv;
     return out;
 }
+
 @fragment
-#[doc(hidden)]
-pub fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let c = textureSample(icon_tex, icon_samp, in.uv);
     if (c.a < 0.01) { discard; }
     return c;
@@ -727,27 +727,26 @@ pub fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
 #[doc(hidden)]
 pub const LINE_WGSL: &str = r#"
-#[doc(hidden)]
-pub struct VertexInput {
+struct VertexInput {
     @location(0) pos: vec2<f32>,
     @location(1) color: vec4<f32>,
 };
-#[doc(hidden)]
-pub struct VertexOutput {
+
+struct VertexOutput {
     @builtin(position) clip: vec4<f32>,
     @location(0) color: vec4<f32>,
 };
+
 @vertex
-#[doc(hidden)]
-pub fn vs_main(v: VertexInput) -> VertexOutput {
+fn vs_main(v: VertexInput) -> VertexOutput {
     var out: VertexOutput;
     out.clip = vec4<f32>(v.pos, 0.0, 1.0);
     out.color = v.color;
     return out;
 }
+
 @fragment
-#[doc(hidden)]
-pub fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     return in.color;
 }
 "#;
