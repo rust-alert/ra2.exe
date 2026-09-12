@@ -21,7 +21,7 @@ use std::{
 use ra_adaptor::RulesSystem;
 use ra_assets::Rgba;
 use ra_engine::{Engine, Session};
-use ra_map::{ArtRules, StructureAnimBank, TerrainAnimBank, Theater, WeatherParticleField};
+use ra_map::{ArtRules, StructureAnimBank, StructurePaintHintTable, TerrainAnimBank, Theater, WeatherParticleField};
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::EntityId;
 use ra_widgets::{
@@ -179,6 +179,8 @@ pub struct BattleController {
     pub(super) rules_ini: &'static str,
     /// 叠画用 art/rules 文档（boot 解析一次，热路径复用）。
     pub(super) art_rules: ArtRules,
+    /// 建筑类型叠画提示表（跨 paint / anim-bank / buildup 复用）。
+    pub(super) structure_paint_hints: StructurePaintHintTable,
     /// 规则快照（房屋色调）。
     pub(super) rules: Option<RulesSystem>,
     /// 大厅行色 → house 主色。
@@ -294,6 +296,7 @@ impl BattleController {
             art_ini: boot.art_ini,
             rules_ini: boot.rules_ini,
             art_rules: boot.art_rules,
+            structure_paint_hints: StructurePaintHintTable::default(),
             rules: boot.rules,
             lobby_primaries: boot.lobby_primaries,
             pending_buildups: Vec::new(),
@@ -371,8 +374,7 @@ impl BattleController {
             if let Some(id) = self.local.select_local_start(game) {
                 tracing::info!("开局已选中本方单位 #{}", id.0);
                 Some(game.world.tick)
-            }
-            else {
+            } else {
                 tracing::warn!("开局未找到可本方选中的移动单位");
                 None
             }
@@ -455,6 +457,7 @@ impl BattleController {
         self.art_ini = boot.art_ini;
         self.rules_ini = boot.rules_ini;
         self.art_rules = boot.art_rules;
+        self.structure_paint_hints = StructurePaintHintTable::default();
         self.rules = boot.rules;
         self.lobby_primaries = boot.lobby_primaries;
         self.hotkeys = boot.hotkeys;
@@ -491,8 +494,7 @@ impl BattleController {
             tracing::info!("重开完成 · {}", boot.note);
             self.bind_local_start();
             self.ensure_start_view(renderer);
-        }
-        else {
+        } else {
             tracing::error!("重开失败 · {}", boot.note);
         }
     }

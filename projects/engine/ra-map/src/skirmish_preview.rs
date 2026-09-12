@@ -5,7 +5,8 @@ use ra_assets::{Hsv, Palette};
 use ra_types::AssetSource;
 
 use crate::{
-    MapInfo, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureAnimMode, StructureLightTable, TerrainAnimBank, TerrainPaintMode,
+    MapInfo, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureAnimMode, StructureLightTable, StructurePaintHintTable,
+    TerrainAnimBank, TerrainPaintMode,
     compose::TerrainImage,
     fallback_preview::RawRgbaImage,
     mobile_paint::paint_map_mobiles,
@@ -119,9 +120,10 @@ pub fn compose_skirmish_preview(
     let _ = paint_map_terrain_objects(source, map, &mut underlay, art_rules, TerrainPaintMode::StaticOnly);
     let terrain_anim_bank = collect_terrain_anim_bank(source, map, art_rules);
     let ore_tree_anim_bank = collect_ore_tree_anim_bank(source, map, art_rules);
+    let mut structure_hints = StructurePaintHintTable::default();
     let (structures, structure_mark) =
-        paint_map_structures(source, map, &mut image, art_rules, remap_owner, StructureAnimMode::BodyOnly);
-    let _ = paint_map_structures(source, map, &mut underlay, art_rules, remap_owner, StructureAnimMode::BodyOnly);
+        paint_map_structures(source, map, &mut image, art_rules, &mut structure_hints, remap_owner, StructureAnimMode::BodyOnly);
+    let _ = paint_map_structures(source, map, &mut underlay, art_rules, &mut structure_hints, remap_owner, StructureAnimMode::BodyOnly);
     let (bridge_shp, bridge_mark) = paint_map_overlays(
         source,
         map,
@@ -143,7 +145,7 @@ pub fn compose_skirmish_preview(
         OverlayLayerFilter::Bridge,
     );
     let ore_underlay = underlay.image;
-    let anim_bank = collect_structure_anim_bank(source, map, art_rules, remap_owner);
+    let anim_bank = collect_structure_anim_bank(source, map, art_rules, &mut structure_hints, remap_owner);
     let mobiles = paint_map_mobiles(source, map, &mut image, art_rules, remap_owner, &|_| MobilePaintPose::default());
     let base_without_anims = image.image.clone();
     // 旗帜等常循环地形在刷新时叠在建筑主体之上。

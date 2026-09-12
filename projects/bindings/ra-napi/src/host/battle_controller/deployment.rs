@@ -200,9 +200,17 @@ impl BattleController {
                 return;
             };
             let lobby = &self.lobby_primaries;
-                        load_structure_buildup_clip(assets, &game.world.map, &self.art_rules, &job.type_id, &job.owner, job.x, job.y, &|base, owner| {
-                remap_owner_palette(rules, Some(lobby), base, owner)
-            })
+            load_structure_buildup_clip(
+                assets,
+                &game.world.map,
+                &self.art_rules,
+                &mut self.structure_paint_hints,
+                &job.type_id,
+                &job.owner,
+                job.x,
+                job.y,
+                &|base, owner| remap_owner_palette(rules, Some(lobby), base, owner),
+            )
         };
         match clip {
             Some(clip) => {
@@ -269,9 +277,16 @@ impl BattleController {
                 tag: Default::default(),
             });
             let lobby = &self.lobby_primaries;
-                        let mut n = paint_structures_onto_rgba(assets, &one, clean, origin.0, origin.1, &self.art_rules, &|base, own| {
-                remap_owner_palette(rules, Some(lobby), base, own)
-            });
+            let mut n = paint_structures_onto_rgba(
+                assets,
+                &one,
+                clean,
+                origin.0,
+                origin.1,
+                &self.art_rules,
+                &mut self.structure_paint_hints,
+                &|base, own| remap_owner_palette(rules, Some(lobby), base, own),
+            );
             if n == 0 {
                 if let Some(clip) = clip {
                     if let Some(last) = clip.frames.len().checked_sub(1) {
@@ -288,7 +303,7 @@ impl BattleController {
                 tracing::warn!("定格失败 · {} 无主体也无 Buildup 帧，保留原预览", type_id);
                 return;
             }
-            let bank = collect_structure_anim_bank(assets, &one, &self.art_rules, &|base, own| {
+            let bank = collect_structure_anim_bank(assets, &one, &self.art_rules, &mut self.structure_paint_hints, &|base, own| {
                 remap_owner_palette(rules, Some(lobby), base, own)
             });
             (n, bank)
@@ -312,9 +327,16 @@ impl BattleController {
                     tag: Default::default(),
                 });
                 let lobby = &self.lobby_primaries;
-                                let mut n = paint_structures_onto_rgba(assets, &one, underlay, origin.0, origin.1, &self.art_rules, &|base, own| {
-                    remap_owner_palette(rules, Some(lobby), base, own)
-                });
+                let mut n = paint_structures_onto_rgba(
+                    assets,
+                    &one,
+                    underlay,
+                    origin.0,
+                    origin.1,
+                    &self.art_rules,
+                    &mut self.structure_paint_hints,
+                    &|base, own| remap_owner_palette(rules, Some(lobby), base, own),
+                );
                 if n == 0 {
                     if let Some(clip) = clip {
                         if let Some(last) = clip.frames.len().checked_sub(1) {
@@ -389,7 +411,7 @@ impl BattleController {
         }
         let mut base = clean.clone();
         let lobby = &self.lobby_primaries;
-                paint_mobiles_onto_preview_rgba(
+        paint_mobiles_onto_preview_rgba(
             assets,
             &mobile_map,
             &mut base,
@@ -458,7 +480,7 @@ impl BattleController {
         }
         let lobby = self.lobby_primaries.clone();
         let mut composed = clean.clone();
-                paint_mobiles_onto_preview_rgba(
+        paint_mobiles_onto_preview_rgba(
             assets,
             &mobile_map,
             &mut composed,

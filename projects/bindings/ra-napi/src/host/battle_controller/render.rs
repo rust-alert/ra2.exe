@@ -189,7 +189,7 @@ impl BattleController {
 
         if let Some(underlay) = self.preview_ore_underlay.as_ref() {
             let mut clean = underlay.clone();
-                        let (shp, mark) = paint_overlays_onto_preview_rgba(
+            let (shp, mark) = paint_overlays_onto_preview_rgba(
                 assets,
                 &map,
                 &harvestable,
@@ -216,7 +216,7 @@ impl BattleController {
         else {
             return false;
         };
-                let (shp, mark) = paint_overlays_onto_preview_rgba(
+        let (shp, mark) = paint_overlays_onto_preview_rgba(
             assets,
             &map,
             &cells,
@@ -293,16 +293,34 @@ impl BattleController {
                 tag: Default::default(),
             });
             let remap = |base: &ra_assets::Palette, own: &str| remap_owner_palette(rules, Some(&lobby), base, own);
-                        if let Some(clean) = self.preview_clean.as_mut() {
-                let n = paint_structures_onto_rgba(assets, &one, clean, origin.0, origin.1, &self.art_rules, &remap);
+            if let Some(clean) = self.preview_clean.as_mut() {
+                let n = paint_structures_onto_rgba(
+                    assets,
+                    &one,
+                    clean,
+                    origin.0,
+                    origin.1,
+                    &self.art_rules,
+                    &mut self.structure_paint_hints,
+                    &remap,
+                );
                 any |= n > 0;
             }
             if let Some(underlay) = self.preview_ore_underlay.as_mut() {
-                let n = paint_structures_onto_rgba(assets, &one, underlay, origin.0, origin.1, &self.art_rules, &remap);
+                let n = paint_structures_onto_rgba(
+                    assets,
+                    &one,
+                    underlay,
+                    origin.0,
+                    origin.1,
+                    &self.art_rules,
+                    &mut self.structure_paint_hints,
+                    &remap,
+                );
                 any |= n > 0;
             }
             self.structure_anims.layers.retain(|layer| !(layer.x == *x && layer.y == *y));
-            let bank = collect_structure_anim_bank(assets, &one, &self.art_rules, &remap);
+            let bank = collect_structure_anim_bank(assets, &one, &self.art_rules, &mut self.structure_paint_hints, &remap);
             self.structure_anims.layers.extend(bank.layers);
         }
         if any {

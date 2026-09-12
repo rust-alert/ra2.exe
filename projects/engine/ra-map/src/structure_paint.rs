@@ -43,6 +43,34 @@ struct StructureTypePaintHints {
     loop_anims: Vec<(Option<String>, Option<String>)>,
 }
 
+/// 建筑类型叠画提示表（跨多次 paint / anim-bank 调用复用，避免重复扫 art/rules）。
+#[derive(Debug, Clone, Default)]
+pub struct StructurePaintHintTable {
+    by_type: HashMap<TechnoName, StructureTypePaintHints>,
+}
+
+impl StructurePaintHintTable {
+    /// 确保表中含该类型提示（已有则跳过 INI 扫描）。
+    pub fn ensure(&mut self, art_rules: &crate::ArtRules, type_id: &TechnoName) {
+        if self.by_type.contains_key(type_id) {
+            return;
+        }
+        let hint = structure_type_paint_hints(art_rules.art.as_ref(), art_rules.rules.as_ref(), type_id.as_str());
+        self.by_type.insert(type_id.clone(), hint);
+    }
+
+    /// 为实体列表补齐提示。
+    pub fn ensure_entities(&mut self, art_rules: &crate::ArtRules, structures: &[&MapEntity]) {
+        for ent in structures {
+            self.ensure(art_rules, &ent.type_id);
+        }
+    }
+
+    fn get(&self, type_id: &TechnoName) -> Option<&StructureTypePaintHints> {
+        self.by_type.get(type_id)
+    }
+}
+
 /// 建筑炮塔体素叠画提示。
 #[derive(Debug, Clone)]
 struct StructureTurretVoxelHints {
@@ -306,15 +334,11 @@ struct TurretVoxelSectionFields {
 }
 
 fn collect_structure_type_paint_hints(
-    art: Option<&IniDocument>,
-    rules: Option<&IniDocument>,
+    hints: &mut StructurePaintHintTable,
+    art_rules: &crate::ArtRules,
     structures: &[&MapEntity],
-) -> HashMap<TechnoName, StructureTypePaintHints> {
-    let mut out = HashMap::new();
-    for ent in structures {
-        out.entry(ent.type_id.clone()).or_insert_with(|| structure_type_paint_hints(art, rules, ent.type_id.as_str()));
-    }
-    out
+) {
+    hints.ensure_entities(art_rules, structures);
 }
 
 /// 活动层 / 火焰 anim 节提示（按 anim 节名去重一次）。
@@ -476,6 +500,7 @@ pub fn paint_map_structures(
     map: &MapInfo,
     image: &mut TerrainImage,
     art_rules: &crate::ArtRules,
+    hints: &mut StructurePaintHintTable,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     mode: StructureAnimMode,
 ) -> (usize, usize) {
@@ -483,7 +508,7 @@ pub fn paint_map_structures(
         StructureAnimMode::BodyOnly => (true, None),
         StructureAnimMode::BodyAndAnims { clock_ms } => (true, Some(clock_ms)),
     };
-    paint_map_structures_inner(source, map, image, art_rules, remap_owner, paint_body, clock_ms)
+    paint_map_structures_inner(source, map, image, art_rules, hints, remap_owner, paint_body, clock_ms)
 }
 
 /// 收集建筑活动层并预解码全部循环帧（不含主体；含黄血燃烧）。
@@ -491,6 +516,7 @@ pub fn collect_structure_anim_bank(
     source: &dyn AssetSource,
     map: &MapInfo,
     art_rules: &crate::ArtRules,
+    hints: &mut StructurePaintHintTable,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> StructureAnimBank {
     let structures: Vec<_> = map.entities.iter().filter(|e| e.kind == MapEntityKind::Structure).collect();
@@ -502,8 +528,7 @@ pub fn collect_structure_anim_bank(
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
 
     let art = art_rules.art.as_ref();
-    let rules = art_rules.rules.as_ref();
-    let type_hints = collect_structure_type_paint_hints(art, rules, &structures);
+    collect_structure_type_paint_hints(hints, art_rules, &structures);
     let damage = &art_rules.damage;
     let Some(obj_pal) = load_object_palette(source, map)
     else {
@@ -516,7 +541,7 @@ pub fn collect_structure_anim_bank(
     let mut layers = Vec::new();
 
     for ent in structures {
-        let Some(type_hint) = type_hints.get(&ent.type_id)
+        let Some(type_hint) = hints.get(&ent.type_id)
         else {
             continue;
         };
@@ -726,16 +751,19 @@ pub fn load_structure_buildup_clip(
     source: &dyn AssetSource,
     map: &MapInfo,
     art_rules: &crate::ArtRules,
+    hints: &mut StructurePaintHintTable,
     type_id: &str,
     owner: &str,
     x: u16,
     y: u16,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<StructureBuildupClip> {
-    let art = art_rules.art.as_ref()?;
-    let hints = structure_type_paint_hints(Some(art), art_rules.rules.as_ref(), type_id);
-    let buildup = hints.buildup?;
-    let remapable = hints.remapable;
+    let _ = art_rules.art.as_ref()?;
+    let techno = TechnoName::parse(type_id);
+    hints.ensure(art_rules, &techno);
+    let type_hint = hints.get(&techno)?;
+    let buildup = type_hint.buildup.as_ref()?;
+    let remapable = type_hint.remapable;
     let obj_pal = load_object_palette(source, map)?;
     let pal = if remapable { remap_owner(&obj_pal, owner) } else { obj_pal };
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
@@ -788,10 +816,11 @@ pub fn paint_structures_onto_rgba(
     origin_x: i32,
     origin_y: i32,
     art_rules: &crate::ArtRules,
+    hints: &mut StructurePaintHintTable,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> usize {
     let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
-    let (n, _) = paint_map_structures(source, map, &mut terrain, art_rules, remap_owner, StructureAnimMode::BodyOnly);
+    let (n, _) = paint_map_structures(source, map, &mut terrain, art_rules, hints, remap_owner, StructureAnimMode::BodyOnly);
     *image = terrain.image;
     n
 }
@@ -801,6 +830,7 @@ fn paint_map_structures_inner(
     map: &MapInfo,
     image: &mut TerrainImage,
     art_rules: &crate::ArtRules,
+    hints: &mut StructurePaintHintTable,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     paint_body: bool,
     anim_clock_ms: Option<u64>,
@@ -815,8 +845,7 @@ fn paint_map_structures_inner(
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
     let art = art_rules.art.as_ref();
-    let rules_doc = art_rules.rules.as_ref();
-    let type_hints = collect_structure_type_paint_hints(art, rules_doc, &structures);
+    collect_structure_type_paint_hints(hints, art_rules, &structures);
     let damage = &art_rules.damage;
     let Some(obj_pal) = load_object_palette(source, map)
     else {
@@ -835,7 +864,7 @@ fn paint_map_structures_inner(
     let mut missing: Vec<(u16, u16)> = Vec::new();
 
     for ent in structures {
-        let Some(hint) = type_hints.get(&ent.type_id)
+        let Some(hint) = hints.get(&ent.type_id)
         else {
             continue;
         };
