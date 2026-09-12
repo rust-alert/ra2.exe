@@ -81,7 +81,7 @@ pub use radiation_light::{
 pub use scripting::{
     MapAction, MapActionCommand, MapActionKind, MapAiTrigger, MapCapabilityGap, MapCellTag, MapEvent, MapEventCondition, MapEventKind,
     MapHouse, MapScriptStep, MapScriptType, MapScripting, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType, MapTrigger,
-    campaign_blocking_capability_message, map_scripting_capability_gaps, parse_map_scripting,
+    campaign_blocking_capability_message, map_scripting_capability_gaps, parse_map_houses, parse_map_scripting,
 };
 pub use skirmish_preview::{
     BootPreviewResult, SkirmishPreviewStats, compose_boot_preview, compose_skirmish_preview, paint_mobiles_onto_preview_rgba,

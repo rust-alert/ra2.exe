@@ -1,6 +1,7 @@
 //! `[Houses]` 与各方 House 节。
 
 use ra_assets::IniDocument;
+use serde::Deserialize;
 
 /// 地图一方（战役 / 遭遇均可出现）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,6 +26,49 @@ pub struct MapHouse {
     pub allies: Vec<String>,
 }
 
+/// 单方 House 节字段（一次 Serde）。
+#[derive(Debug, Default, Deserialize)]
+struct MapHouseSectionFields {
+    #[serde(rename = "Country")]
+    country: Option<String>,
+    #[serde(rename = "TechLevel")]
+    tech_level: Option<i32>,
+    #[serde(rename = "Credits")]
+    credits: Option<i32>,
+    #[serde(rename = "IQ")]
+    iq: Option<i32>,
+    #[serde(rename = "Edge")]
+    edge: Option<String>,
+    #[serde(rename = "PlayerControl")]
+    player_control: Option<bool>,
+    #[serde(rename = "Color")]
+    color: Option<String>,
+    #[serde(rename = "Allies")]
+    allies: Option<Vec<String>>,
+}
+
+impl MapHouseSectionFields {
+    fn into_house(self, name: String) -> MapHouse {
+        MapHouse {
+            name,
+            country: self.country.unwrap_or_default().trim().to_string(),
+            tech_level: self.tech_level.unwrap_or(0),
+            credits: self.credits.unwrap_or(0),
+            iq: self.iq.unwrap_or(0),
+            edge: self.edge.unwrap_or_default().trim().to_string(),
+            player_control: self.player_control.unwrap_or(false),
+            color: self.color.unwrap_or_default().trim().to_string(),
+            allies: self
+                .allies
+                .unwrap_or_default()
+                .into_iter()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect(),
+        }
+    }
+}
+
 /// 解析 `[Houses]` 列表及各方节。
 pub fn parse_map_houses(doc: &IniDocument) -> Vec<MapHouse> {
     let Some(list) = doc.section("Houses")
@@ -39,35 +83,11 @@ pub fn parse_map_houses(doc: &IniDocument) -> Vec<MapHouse> {
         }
         let Some(sec) = doc.section(name)
         else {
-            out.push(MapHouse {
-                name: name.to_string(),
-                country: String::new(),
-                tech_level: 0,
-                credits: 0,
-                iq: 0,
-                edge: String::new(),
-                player_control: false,
-                color: String::new(),
-                allies: Vec::new(),
-            });
+            out.push(MapHouseSectionFields::default().into_house(name.to_string()));
             continue;
         };
-        let allies = sec.get("Allies").unwrap_or("").split(',').map(str::trim).filter(|s| !s.is_empty()).map(str::to_string).collect();
-        out.push(MapHouse {
-            name: name.to_string(),
-            country: sec.get("Country").unwrap_or("").trim().to_string(),
-            tech_level: sec.get("TechLevel").and_then(|v| v.parse().ok()).unwrap_or(0),
-            credits: sec.get("Credits").and_then(|v| v.parse().ok()).unwrap_or(0),
-            iq: sec.get("IQ").and_then(|v| v.parse().ok()).unwrap_or(0),
-            edge: sec.get("Edge").unwrap_or("").trim().to_string(),
-            player_control: parse_yes(sec.get("PlayerControl").unwrap_or("")),
-            color: sec.get("Color").unwrap_or("").trim().to_string(),
-            allies,
-        });
+        let fields = sec.deserialize::<MapHouseSectionFields>().unwrap_or_default();
+        out.push(fields.into_house(name.to_string()));
     }
     out
-}
-
-fn parse_yes(raw: &str) -> bool {
-    matches!(raw.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1")
 }
