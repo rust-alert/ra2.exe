@@ -114,3 +114,11 @@ fn mp03t4_style_start_waypoint_fits_game_grid() {
     assert_eq!((wp0.x, wp0.y), (28, 88));
     assert!(u32::from(wp0.x) < info.width && u32::from(wp0.y) < info.height);
 }
+
+#[test]
+fn parse_digest_numbered_pairs_into_map_definition() {
+    let text = b"[Map]\nSize=0,0,50,40\nTheater=TEMPERATE\n[Digest]\n1=AB\n2=CD\n";
+    let info = MapInfo::parse_ini(GameEdition::Ra2, "t", text).unwrap();
+    assert_eq!(info.digest, "ABCD");
+    assert_eq!(info.to_map_definition().digest, "ABCD");
+}

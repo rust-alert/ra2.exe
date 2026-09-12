@@ -42,7 +42,7 @@ pub mod lcw;
 /// LZO1X 解压（IsoMapPack5）。
 pub mod lzo;
 
-use ra_assets::{IniDocument, from_row};
+use ra_assets::{IniDocument, from_row, numbered_pairs};
 use ra_types::{
     GameEdition, MapDefinition, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapTerrainObject,
     MapWeatherKind,
@@ -177,6 +177,8 @@ pub struct MapInfo {
     pub preview_width: u32,
     /// `[Preview] Size` 高（缺节或无效为 0；不含像素载荷）。
     pub preview_height: u32,
+    /// `[Digest]` 编号键按序拼接的校验摘要（缺节为空）。
+    pub digest: String,
 }
 
 impl MapInfo {
@@ -211,6 +213,7 @@ impl MapInfo {
             scripting: MapScripting::default(),
             preview_width: 0,
             preview_height: 0,
+            digest: String::new(),
         }
     }
 
@@ -260,6 +263,7 @@ impl MapInfo {
             .and_then(|s| s.deserialize::<PreviewSizeSectionFields>().ok())
             .and_then(|f| f.size.as_deref().and_then(parse_preview_size))
             .unwrap_or((0, 0));
+        let digest = parse_map_digest(&doc);
         Ok(Self {
             edition,
             name: name.into(),
@@ -289,6 +293,7 @@ impl MapInfo {
             scripting,
             preview_width,
             preview_height,
+            digest,
         })
     }
 
@@ -299,7 +304,7 @@ impl MapInfo {
         if trimmed.is_empty() { None } else { Some(trimmed) }
     }
 
-    /// 提取冻结 [`MapDefinition`] 骨架（含触发链 / 队伍脚本 / AI / Preview 尺寸 / Smudge / 天气种类；不含预览像素与粒子场）。
+    /// 提取冻结 [`MapDefinition`] 骨架（含触发链 / 队伍脚本 / AI / Preview 尺寸 / Digest / Smudge / 天气种类；不含预览像素与粒子场）。
     pub fn to_map_definition(&self) -> MapDefinition {
         MapDefinition {
             name: self.name.clone(),
@@ -370,6 +375,7 @@ impl MapInfo {
             ai_triggers: self.scripting.ai_triggers.iter().map(map_ai_trigger_to_definition).collect(),
             preview_width: self.preview_width,
             preview_height: self.preview_height,
+            digest: self.digest.clone(),
             weather: map_weather_kind_from_theater(self.theater),
         }
     }
@@ -491,6 +497,19 @@ struct BasicSectionFields {
 struct PreviewSizeSectionFields {
     #[serde(rename = "Size")]
     size: Option<String>,
+}
+
+/// `[Digest]` 编号键按序拼接；缺节或全空为 `""`。
+fn parse_map_digest(doc: &IniDocument) -> String {
+    let Some(section) = doc.section("Digest") else {
+        return String::new();
+    };
+    numbered_pairs(section)
+        .into_iter()
+        .map(|(_, value)| value.trim())
+        .filter(|value| !value.is_empty())
+        .collect::<Vec<_>>()
+        .join("")
 }
 
 /// `Size=x,y,width,height` 行（前两列原点，后两列宽高）。
