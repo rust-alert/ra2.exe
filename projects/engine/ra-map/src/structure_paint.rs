@@ -25,7 +25,6 @@ const STRUCTURE_LOOP_ANIM_KEYS: &[(&str, &str, &str)] = &[
 /// 建筑类型叠画主体提示（按 `type_id` 去重一次）。
 #[derive(Debug, Clone)]
 struct StructureTypePaintHints {
-    art_section: String,
     remapable: bool,
     body_key: String,
     body_new_theater: bool,
@@ -69,7 +68,6 @@ fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocum
     };
     let body_key = art.and_then(|a| a.get(&art_section, "Image")).unwrap_or(art_section.as_str()).to_ascii_uppercase();
     StructureTypePaintHints {
-        art_section: art_section.clone(),
         remapable,
         body_key,
         body_new_theater,
