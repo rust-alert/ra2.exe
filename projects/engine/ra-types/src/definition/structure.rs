@@ -8,7 +8,7 @@ use serde::de::{self, Deserializer, Visitor};
 
 use crate::id::{HouseId, TypeId};
 
-use super::{ArmorKind, BuiltinCapability, Foundation, HouseAllowList, HouseName, ProductionProfile, SideName, StolenTechKind, SuperWeaponName};
+use super::{ArmorKind, BuiltinCapability, Foundation, HouseAllowList, HouseName, ProductionProfile, SideName, StolenTechKind, SuperWeaponName, TechnoName};
 
 /// 建造栏分类（INI `BuildCat=`）。
 ///
@@ -148,8 +148,8 @@ fn light_float_to_units(value: f32) -> i32 {
 pub struct StructureDefinition {
     /// 稳定类型编号。
     pub id: TypeId,
-    /// 外部类型键（INI 节名，大写）。
-    pub type_key: String,
+    /// 外部类型键（INI 节名）。
+    pub type_key: TechnoName,
     /// 电力。
     pub power: PowerProfile,
     /// 造价。
@@ -248,7 +248,7 @@ impl HouseDefinitions {
 #[derive(Debug, Clone, Default)]
 #[doc(hidden)]
 pub struct StructureDefinitions {
-    by_key: BTreeMap<String, StructureDefinition>,
+    by_key: BTreeMap<TechnoName, StructureDefinition>,
 }
 
 impl StructureDefinitions {
@@ -259,7 +259,12 @@ impl StructureDefinitions {
 
     /// 按外部类型键查找（大小写不敏感）。
     pub fn get(&self, type_key: &str) -> Option<&StructureDefinition> {
-        self.by_key.get(&type_key.to_ascii_uppercase())
+        self.by_key.get(&TechnoName::parse(type_key))
+    }
+
+    /// 按已规范化的类型键查找。
+    pub fn get_name(&self, type_key: &TechnoName) -> Option<&StructureDefinition> {
+        self.by_key.get(type_key)
     }
 
     /// 条目数。

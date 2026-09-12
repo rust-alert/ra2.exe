@@ -285,10 +285,10 @@ pub fn point_light_from_profile(profile: Option<&ra_types::StructureLightProfile
     })
 }
 
-/// 类型键 → 建筑点光源（大写键）。
+/// 类型键 → 建筑点光源。
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct StructureLightTable {
-    by_key: std::collections::BTreeMap<String, ra_types::StructureLightProfile>,
+    by_key: std::collections::BTreeMap<ra_types::TechnoName, ra_types::StructureLightProfile>,
 }
 
 impl StructureLightTable {
@@ -303,14 +303,14 @@ impl StructureLightTable {
         Self { by_key }
     }
 
-    /// 插入或覆盖一条类型光资料（键转大写）。
-    pub fn insert(&mut self, type_key: impl Into<String>, profile: ra_types::StructureLightProfile) {
-        self.by_key.insert(type_key.into().to_ascii_uppercase(), profile);
+    /// 插入或覆盖一条类型光资料。
+    pub fn insert(&mut self, type_key: impl Into<ra_types::TechnoName>, profile: ra_types::StructureLightProfile) {
+        self.by_key.insert(type_key.into(), profile);
     }
 
-    /// 按类型键查找。
+    /// 按类型键查找（大小写不敏感）。
     pub fn get(&self, type_key: &str) -> Option<&ra_types::StructureLightProfile> {
-        self.by_key.get(&type_key.to_ascii_uppercase())
+        self.by_key.get(&ra_types::TechnoName::parse(type_key))
     }
 }
 

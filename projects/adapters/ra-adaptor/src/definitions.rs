@@ -6,8 +6,8 @@ use ra_assets::TechnoKind;
 use ra_types::{
     BuiltinCapability, DeployableDefinition, DeploymentPlacement, GameEdition, HouseDefinition, HouseId, PowerProfile, PrerequisiteGroups,
     ProductionCategory, ProductionProfile, ProjectileDefinition, ProjectileId, ProjectileName, RaResult, RuntimeDefinitions, StolenTechKind,
-    StructureDefinition, StructureLightProfile, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId,
-    WarheadName, WeaponDefinition, WeaponId,
+    StructureDefinition, StructureLightProfile, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TechnoName, TypeId, WarheadDefinition,
+    WarheadId, WarheadName, WeaponDefinition, WeaponId,
 };
 use std::collections::HashMap;
 
@@ -67,7 +67,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     for country in rules.countries.countries() {
         let stolen_tech = StolenTechKind::from_side(&country.side);
         if let Some(kind) = stolen_tech {
-            defs.stolen_tech_by_house.insert(country.id.as_str(), kind);
+            defs.stolen_tech_by_house.insert(country.id.clone(), kind);
         }
         let id = alloc_house();
         defs.houses.insert(HouseDefinition {
@@ -98,7 +98,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     }
 
     for tt in rules.techno_types.iter() {
-        let key = tt.id.to_ascii_uppercase();
+        let key = tt.id.clone();
         let class = match tt.kind {
             TechnoKind::Infantry => TechnoClass::Infantry,
             TechnoKind::Vehicle => TechnoClass::Vehicle,
@@ -149,8 +149,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         if tt.kind != TechnoKind::Building {
             // 部署关系可挂在载具上
             if !tt.deploys_into.is_empty() {
-                let target_key = tt.deploys_into.as_str().to_string();
-                let target_id = defs.techno.get(&target_key).map(|t| t.id).unwrap_or(TypeId(0));
+                let target_key = tt.deploys_into.clone();
+                let target_id = defs.techno.get_name(&target_key).map(|t| t.id).unwrap_or(TypeId(0));
                 defs.deployables.insert(DeployableDefinition {
                     source: id,
                     source_key: key.clone(),
@@ -250,7 +250,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     let mut fixed = Vec::new();
     for d in defs.deployables.iter() {
         let mut d = d.clone();
-        if let Some(t) = defs.techno.get(&d.target_key) {
+        if let Some(t) = defs.techno.get_name(&d.target_key) {
             d.target = t.id;
         }
         fixed.push(d);
@@ -261,8 +261,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     }
 
     // 前置 token：UnboundType → TypeId（全部 techno 已入库后）。
-    let type_ids: HashMap<String, TypeId> = defs.techno.iter().map(|t| (t.type_key.clone(), t.id)).collect();
-    let resolve = |key: &str| type_ids.get(&key.to_ascii_uppercase()).copied();
+    let type_ids: HashMap<TechnoName, TypeId> = defs.techno.iter().map(|t| (t.type_key.clone(), t.id)).collect();
+    let resolve = |key: &TechnoName| type_ids.get(key).copied();
     for techno in defs.techno.iter_mut() {
         techno.prerequisite = std::mem::take(&mut techno.prerequisite)
             .into_iter()

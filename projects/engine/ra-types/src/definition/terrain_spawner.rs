@@ -2,11 +2,13 @@
 
 use std::collections::BTreeMap;
 
+use super::TerrainName;
+
 /// 可产矿的动画地形类型。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TerrainSpawnerDefinition {
     /// 外部类型键（如 `TIBTRE01`）。
-    pub type_key: String,
+    pub type_key: TerrainName,
     /// `AnimationProbability` × 1_000_000。
     pub animation_probability_micros: u32,
     /// `AnimationRate`（逻辑 tick / 动画帧），至少 1。
@@ -16,7 +18,7 @@ pub struct TerrainSpawnerDefinition {
 /// 地形矿柱定义表。
 #[derive(Debug, Clone, Default)]
 pub struct TerrainSpawnerDefinitions {
-    by_key: BTreeMap<String, TerrainSpawnerDefinition>,
+    by_key: BTreeMap<TerrainName, TerrainSpawnerDefinition>,
 }
 
 impl TerrainSpawnerDefinitions {
@@ -25,9 +27,14 @@ impl TerrainSpawnerDefinitions {
         self.by_key.insert(def.type_key.clone(), def);
     }
 
-    /// 按键查找。
+    /// 按键查找（大小写不敏感）。
     pub fn get(&self, type_key: &str) -> Option<&TerrainSpawnerDefinition> {
-        self.by_key.get(&type_key.to_ascii_uppercase())
+        self.by_key.get(&TerrainName::parse(type_key))
+    }
+
+    /// 按已规范化的地形键查找。
+    pub fn get_name(&self, type_key: &TerrainName) -> Option<&TerrainSpawnerDefinition> {
+        self.by_key.get(type_key)
     }
 
     /// 条目数。

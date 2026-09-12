@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use crate::id::TypeId;
 
-use super::TechnoName;
+use super::{HouseName, TechnoName};
 
 /// 渗透作战实验室后可获得的偷取科技类别（对齐 `RequiresStolen*Tech`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -72,8 +72,8 @@ pub enum PrerequisiteToken {
     Group(PrerequisiteGroupKind),
     /// 已解析到 techno 表的类型引用。
     Type(TypeId),
-    /// 未在 techno 表中找到的类型键（大写）；按存活建筑类型键比对。
-    UnboundType(String),
+    /// 未在 techno 表中找到的类型键；按存活建筑类型键比对。
+    UnboundType(TechnoName),
 }
 
 impl PrerequisiteToken {
@@ -86,11 +86,11 @@ impl PrerequisiteToken {
         if let Some(group) = PrerequisiteGroupKind::parse(&upper) {
             return Some(Self::Group(group));
         }
-        Some(Self::UnboundType(upper))
+        Some(Self::UnboundType(TechnoName { name: upper }))
     }
 
     /// 将 [`Self::UnboundType`] 升级为 [`Self::Type`]（若类型表有该键）。
-    pub fn bind_type_id(self, resolve: &impl Fn(&str) -> Option<TypeId>) -> Self {
+    pub fn bind_type_id(self, resolve: &impl Fn(&TechnoName) -> Option<TypeId>) -> Self {
         match self {
             Self::UnboundType(key) => resolve(&key).map(Self::Type).unwrap_or(Self::UnboundType(key)),
             other => other,
@@ -171,7 +171,7 @@ impl PrerequisiteList {
     }
 
     /// 绑定类型引用后返回新列表。
-    pub fn bind_type_ids(self, resolve: &impl Fn(&str) -> Option<TypeId>) -> Self {
+    pub fn bind_type_ids(self, resolve: &impl Fn(&TechnoName) -> Option<TypeId>) -> Self {
         Self {
             tokens: self.tokens.into_iter().map(|t| t.bind_type_id(resolve)).collect(),
         }
@@ -299,21 +299,26 @@ impl PrerequisiteGroups {
     }
 }
 
-/// house id（大写）→ 渗透其科技建筑时授予的偷取科技类别。
+/// house id → 渗透其科技建筑时授予的偷取科技类别。
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct HouseStolenTechMap {
-    by_house: BTreeMap<String, StolenTechKind>,
+    by_house: BTreeMap<HouseName, StolenTechKind>,
 }
 
 impl HouseStolenTechMap {
     /// 插入一条映射。
-    pub fn insert(&mut self, house: impl AsRef<str>, kind: StolenTechKind) {
-        self.by_house.insert(house.as_ref().to_ascii_uppercase(), kind);
+    pub fn insert(&mut self, house: HouseName, kind: StolenTechKind) {
+        self.by_house.insert(house, kind);
     }
 
-    /// 按 house 查找。
+    /// 按 house 查找（大小写不敏感）。
     pub fn get(&self, house: &str) -> Option<StolenTechKind> {
-        self.by_house.get(&house.to_ascii_uppercase()).copied()
+        self.by_house.get(&HouseName::parse(house)).copied()
+    }
+
+    /// 按已规范化的 house 键查找。
+    pub fn get_name(&self, house: &HouseName) -> Option<StolenTechKind> {
+        self.by_house.get(house).copied()
     }
 
     /// 条目数。
