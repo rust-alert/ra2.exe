@@ -31,7 +31,7 @@ pub use definition::{
     ProductionProfile, ProjectileDefinition, ProjectileDefinitions, ProjectileName, RuntimeDefinitions, SmudgeName, SoundDefinitions, StolenTechKind,
     StructureDefinition, StructureDefinitions, StructureLightProfile, SuperWeaponActionName, SuperWeaponDefinition, SuperWeaponDefinitions,
     SuperWeaponKindName, SuperWeaponName, TMP_TERRAIN_TO_LAND, TechnoCategory, TechnoClass, TechnoDefinition, TechnoDefinitions, TechnoName,
-    TerrainName, TerrainSpawnerDefinition, TerrainSpawnerDefinitions, TypeDefinitionId, UiName, WarheadDefinition, WarheadDefinitions, WarheadName,
+    TerrainName, TerrainSpawnerDefinition, TerrainSpawnerDefinitions, Theater, TypeDefinitionId, UiName, WarheadDefinition, WarheadDefinitions, WarheadName,
     WarheadVerses, WeaponDefinition, WeaponDefinitions, WeaponName, armor_index, deserialize_optional_factory, ground_passable, land_passable,
     occupancy_kind, tmp_terrain_to_land_type,
 };

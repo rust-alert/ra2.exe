@@ -30,6 +30,7 @@ mod super_weapon;
 mod tech_tree;
 mod techno;
 mod terrain_spawner;
+mod theater;
 mod type_definition;
 mod warhead;
 mod warhead_verses;
@@ -69,6 +70,7 @@ pub use tech_tree::{
 };
 pub use techno::{TechnoClass, TechnoDefinition, TechnoDefinitions};
 pub use terrain_spawner::{TerrainSpawnerDefinition, TerrainSpawnerDefinitions};
+pub use theater::Theater;
 pub use type_definition::TypeDefinitionId;
 pub use warhead::{WarheadDefinition, WarheadDefinitions};
 pub use warhead_verses::WarheadVerses;

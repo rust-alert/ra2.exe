@@ -25,8 +25,8 @@ pub struct MapDefinition {
     pub local_size: MapLocalSize,
     /// 游戏格网边长（与 iso / 航点 / 覆盖层同一坐标系）。
     pub cell_side: u32,
-    /// 剧院名（大写，如 `TEMPERATE`）。
-    pub theater: String,
+    /// 剧院（装载期一次解码为枚举）。
+    pub theater: crate::Theater,
     /// `[Basic] Description` CSF 键（可空）。
     pub description_csf: String,
     /// `[Basic] GameModes` 标签。
@@ -91,7 +91,7 @@ impl Default for MapDefinition {
             size_height: 0,
             local_size: MapLocalSize::default(),
             cell_side: 0,
-            theater: String::new(),
+            theater: crate::Theater::Temperate,
             description_csf: String::new(),
             game_modes: Vec::new(),
             next_mission: String::new(),

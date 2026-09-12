@@ -320,7 +320,7 @@ impl MapInfo {
                 height: self.local_size.height,
             },
             cell_side: self.width,
-            theater: self.theater.as_str().to_ascii_uppercase(),
+            theater: self.theater,
             description_csf: self.description_csf.clone(),
             game_modes: self.game_modes.clone(),
             next_mission: self.next_mission.clone(),
