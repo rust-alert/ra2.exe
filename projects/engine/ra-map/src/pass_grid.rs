@@ -93,6 +93,12 @@ impl PassGrid {
         self.passable.iter().filter(|p| !**p).count()
     }
 
+    /// 导出 [`ra_types::PreparedMap`] 通行层（`1`/`0` 位图 + 高度档）。
+    pub fn to_prepared_pass_layers(&self) -> (u32, u32, Vec<u8>, Vec<u8>) {
+        let passable = self.passable.iter().map(|&p| if p { 1 } else { 0 }).collect();
+        (self.width, self.height, passable, self.cell_height.clone())
+    }
+
     /// 按 TMP `terrain_type` 封死不可走陆地（水/岩/墙）。
     pub fn seal_land_type(&mut self, x: u16, y: u16, terrain_type: u8) {
         if !crate::ground_passable(terrain_type) {

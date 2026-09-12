@@ -486,10 +486,18 @@ pub struct MapAiTrigger {
 
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。
 ///
-/// 当前为骨架：通行网格、占格、渲染资源清单等在准备层收口后填入。
+/// 当前为骨架：通行格已可由装载侧灌入；占格细化、渲染资源清单等仍待准备层收口。
 /// 与 [`MapDefinition`] 一样，本类型是运行最优形状，可随时改，不绑定磁盘格式。
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct PreparedMap {
     /// 已冻结的静态地图。
     pub definition: MapDefinition,
+    /// 通行表宽（格）。`passable` / `cell_heights` 为空时为 0。
+    pub pass_width: u32,
+    /// 通行表高（格）。
+    pub pass_height: u32,
+    /// 行优先通行位：`1` 可走，`0` 封死。空表示尚未填充。
+    pub passable: Vec<u8>,
+    /// 行优先格高度档，与 [`Self::passable`] 同长或空。
+    pub cell_heights: Vec<u8>,
 }
