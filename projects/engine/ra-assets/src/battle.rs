@@ -2,7 +2,7 @@
 //!
 //! `[Battles]` 列出战役 id；各节含 `Scenario` / `Description` 等字段。
 
-use ra_types::{RaResult, UiName};
+use ra_types::{CampaignName, RaResult, UiName};
 use serde::Deserialize;
 
 use crate::IniDocument;
@@ -11,8 +11,8 @@ use crate::IniDocument;
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[doc(hidden)]
 pub struct BattleCampaign {
-    /// 战役 id（如 `ALL1` / `TUT1` / `SOV1`）。
-    pub id: String,
+    /// 战役 id（装载期一次解码为大写；如 `ALL1` / `TUT1` / `SOV1`）。
+    pub id: CampaignName,
     /// 首关地图文件名（INI 原文；读取时可再规范化大小写）。
     pub scenario: String,
     /// 描述 CSF 键（装载期一次解码为大写；如 `DESC:ALL1`）；可空。
@@ -54,8 +54,9 @@ pub fn parse_battle_campaigns(bytes: &[u8]) -> RaResult<Vec<BattleCampaign>> {
         }
         ids.push(id.to_string());
     }
-    for id in ids {
-        let Some(section) = doc.section(&id)
+    for raw_id in ids {
+        let id = CampaignName::parse(&raw_id);
+        let Some(section) = doc.section(raw_id.as_str()).or_else(|| doc.section(id.as_str()))
         else {
             continue;
         };

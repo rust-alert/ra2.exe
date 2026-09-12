@@ -247,3 +247,9 @@ ini_name!(
     AiTriggerName,
     "AITriggerTypes id"
 );
+
+ini_name!(
+    /// 战役表 `[Battles]` / 战役节 id（装载期大写）；空 = 未写。
+    CampaignName,
+    "battle campaign id"
+);
