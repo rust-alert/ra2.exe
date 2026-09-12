@@ -209,8 +209,8 @@ pub struct MapSmudge {
     pub x: u16,
     /// 格子 Y。
     pub y: u16,
-    /// 污迹类型名（通常已大写）。
-    pub name: String,
+    /// 污迹类型名（装载期一次解码为大写污迹键）。
+    pub name: crate::SmudgeName,
 }
 
 /// 预放实体类别。

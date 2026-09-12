@@ -1,6 +1,7 @@
 //! 地图 `[Smudge]`：弹坑 / 焦痕等污迹占位。
 
 use ra_assets::IniDocument;
+use ra_types::SmudgeName;
 
 use crate::packed_cell::parse_packed_cell;
 
@@ -11,8 +12,8 @@ pub struct MapSmudge {
     pub x: u16,
     /// 格子 Y。
     pub y: u16,
-    /// 污迹类型名（通常已大写）。
-    pub name: String,
+    /// 污迹类型名（装载期一次解码为大写污迹键）。
+    pub name: SmudgeName,
 }
 
 /// 解析 `[Smudge]`：键为 `y * 1000 + x`，值为污迹类型名。
@@ -27,11 +28,11 @@ pub fn parse_map_smudges(doc: &IniDocument) -> Vec<MapSmudge> {
         else {
             continue;
         };
-        let name = value.trim();
+        let name = SmudgeName::parse(value);
         if name.is_empty() {
             continue;
         }
-        out.push(MapSmudge { x, y, name: name.to_ascii_uppercase() });
+        out.push(MapSmudge { x, y, name });
     }
     out
 }
