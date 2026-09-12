@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use ra_assets::{Hsv, IniDocument, Palette, ShpFile, shp_body_frame_count};
 use ra_types::AssetSource;
+use serde::Deserialize;
 
 use crate::{
     MapInfo, OverlayCell,
@@ -283,26 +284,58 @@ fn resolve_overlay_art_keys(
     type_name: &str,
     display_name: &str,
 ) -> OverlayArtHints {
-    let rules_image = rules.and_then(|r| r.get(type_name, "Image")).map(str::to_ascii_uppercase);
+    let rules_image = rules
+        .and_then(|r| r.section(type_name))
+        .and_then(|s| s.deserialize::<OverlayRulesImageFields>().ok())
+        .and_then(|f| f.image)
+        .map(|s| s.trim().to_ascii_uppercase())
+        .filter(|s| !s.is_empty());
     let rules_image_or_type = rules_image.clone().unwrap_or_else(|| type_name.to_ascii_uppercase());
     let art_section = art
         .and_then(|a| {
             for candidate in [type_name, rules_image_or_type.as_str(), display_name] {
-                if a.get(candidate, "Theater").is_some() || a.get(candidate, "NewTheater").is_some() || a.get(candidate, "Image").is_some() {
+                let fields = a
+                    .section(candidate)
+                    .and_then(|s| s.deserialize::<OverlayArtSectionFields>().ok())
+                    .unwrap_or_default();
+                if fields.theater.is_some() || fields.new_theater.is_some() || fields.image.is_some() {
                     return Some(candidate.to_ascii_uppercase());
                 }
             }
             None
         })
         .unwrap_or_else(|| type_name.to_ascii_uppercase());
-    let image_key = art
-        .and_then(|a| a.get(&art_section, "Image"))
+    let art_fields = art
+        .and_then(|a| a.section(&art_section))
+        .and_then(|s| s.deserialize::<OverlayArtSectionFields>().ok())
+        .unwrap_or_default();
+    let image_key = art_fields
+        .image
+        .as_deref()
         .map(str::to_ascii_uppercase)
         .or(rules_image)
         .unwrap_or_else(|| display_name.to_ascii_uppercase());
-    let new_theater = art.and_then(|a| a.get(&art_section, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-    let theater_yes = art.and_then(|a| a.get(&art_section, "Theater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-    OverlayArtHints { image_key, new_theater, theater_yes }
+    OverlayArtHints {
+        image_key,
+        new_theater: art_fields.new_theater.unwrap_or(false),
+        theater_yes: art_fields.theater.unwrap_or(false),
+    }
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct OverlayRulesImageFields {
+    #[serde(rename = "Image")]
+    image: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct OverlayArtSectionFields {
+    #[serde(rename = "Image")]
+    image: Option<String>,
+    #[serde(rename = "NewTheater")]
+    new_theater: Option<bool>,
+    #[serde(rename = "Theater")]
+    theater: Option<bool>,
 }
 
 /// 矿石 / 墙 / 箱子相对格子中心的额外 Y（零售 overlay 绘制偏置 −12）。
