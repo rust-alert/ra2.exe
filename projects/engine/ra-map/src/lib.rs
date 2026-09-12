@@ -396,11 +396,11 @@ impl MapInfo {
         self.prepared_map_from_pass_grid(grid, None)
     }
 
-    /// 在 [`Self::to_prepared_map_skeleton`] 基础上，按建筑表 `Foundation=` 展开 occupancy 多格占地。
+    /// 在 [`Self::to_prepared_map_skeleton`] 基础上，按建筑表 `Foundation=` 展开 occupancy 与通行封格。
     ///
-    /// 未知类型回退 `1x1`；通行层仍只封锚点（Foundation 封格另刀）。
+    /// 未知类型回退 `1x1`；仍不含 overlay 陆地覆写或渲染清单。
     pub fn to_prepared_map_skeleton_with_structures(&self, structures: &ra_types::StructureDefinitions) -> ra_types::PreparedMap {
-        self.prepared_map_from_pass_grid(PassGrid::from_map(self), Some(structures))
+        self.prepared_map_from_pass_grid(PassGrid::from_map_with_structures(self, Some(structures)), Some(structures))
     }
 
     fn prepared_map_from_pass_grid(

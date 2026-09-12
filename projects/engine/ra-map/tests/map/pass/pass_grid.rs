@@ -155,4 +155,9 @@ fn prepared_map_skeleton_expands_structure_foundation() {
     let bare = map.to_prepared_map_skeleton();
     assert_eq!(bare.occupancy[1 * 4 + 1], 1);
     assert_eq!(bare.occupancy[1 * 4 + 2], 0);
+    assert_eq!(prepared.passable[1 * 4 + 1], 0);
+    assert_eq!(prepared.passable[1 * 4 + 2], 0);
+    assert_eq!(prepared.passable[2 * 4 + 1], 0);
+    assert_eq!(prepared.passable[2 * 4 + 2], 0);
+    assert_eq!(bare.passable[1 * 4 + 2], 1);
 }

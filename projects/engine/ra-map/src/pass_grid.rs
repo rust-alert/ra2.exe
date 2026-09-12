@@ -24,7 +24,16 @@ impl PassGrid {
     }
 
     /// 由地图尺寸建表：灌入 `IsoCell.z`，并用建筑 / 地形物件占用格封死。
+    ///
+    /// 建筑仅封锚点 `1x1`；完整 `Foundation=` 见 [`Self::from_map_with_structures`]。
     pub fn from_map(map: &MapInfo) -> Self {
+        Self::from_map_with_structures(map, None)
+    }
+
+    /// 同 [`Self::from_map`]，但按建筑表 `Foundation=` 从锚点向右下封多格。
+    ///
+    /// 未知类型回退 `1x1`。
+    pub fn from_map_with_structures(map: &MapInfo, structures: Option<&ra_types::StructureDefinitions>) -> Self {
         let mut grid = Self::open(map.width.max(1), map.height.max(1));
         for cell in &map.cells {
             if cell.x < 0 || cell.y < 0 {
@@ -33,8 +42,17 @@ impl PassGrid {
             grid.set_height(cell.x as u16, cell.y as u16, cell.z);
         }
         for e in &map.entities {
-            if e.kind == MapEntityKind::Structure {
-                grid.set_passable(e.x, e.y, false);
+            if e.kind != MapEntityKind::Structure {
+                continue;
+            }
+            let (fw, fh) = structures
+                .and_then(|table| table.get(&e.type_id))
+                .map(|def| (def.foundation.width.max(1), def.foundation.height.max(1)))
+                .unwrap_or((1, 1));
+            for dy in 0..fh {
+                for dx in 0..fw {
+                    grid.set_passable(e.x.saturating_add(dx), e.y.saturating_add(dy), false);
+                }
             }
         }
         for t in &map.terrain_objects {
