@@ -2,7 +2,7 @@
 //!
 //! `[Battles]` 列出战役 id；各节含 `Scenario` / `Description` 等字段。
 
-use ra_types::RaResult;
+use ra_types::{RaResult, UiName};
 use serde::Deserialize;
 
 use crate::IniDocument;
@@ -15,8 +15,8 @@ pub struct BattleCampaign {
     pub id: String,
     /// 首关地图文件名（INI 原文；读取时可再规范化大小写）。
     pub scenario: String,
-    /// 描述 CSF 键（如 `DESC:ALL1`）；可空。
-    pub description_csf: String,
+    /// 描述 CSF 键（装载期一次解码为大写；如 `DESC:ALL1`）；可空。
+    pub description_csf: UiName,
     /// 所需光盘编号（`-1` 表示任意）。
     pub cd: i32,
     /// 是否仅调试战役（`DebugOnly=yes`）。
@@ -27,8 +27,8 @@ pub struct BattleCampaign {
 struct BattleSectionFields {
     #[serde(rename = "Scenario")]
     scenario: Option<String>,
-    #[serde(rename = "Description")]
-    description: Option<String>,
+    #[serde(rename = "Description", default)]
+    description: UiName,
     #[serde(rename = "CD")]
     cd: Option<i32>,
     #[serde(rename = "DebugOnly")]
@@ -64,7 +64,7 @@ pub fn parse_battle_campaigns(bytes: &[u8]) -> RaResult<Vec<BattleCampaign>> {
         if scenario.is_empty() {
             continue;
         }
-        let description_csf = fields.description.unwrap_or_default().trim().to_string();
+        let description_csf = fields.description;
         let cd = fields.cd.unwrap_or(-1);
         let debug_only = fields.debug_only.unwrap_or(false);
         out.push(BattleCampaign { id, scenario, description_csf, cd, debug_only });
