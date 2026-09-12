@@ -27,8 +27,8 @@ pub struct MapDefinition {
     pub cell_side: u32,
     /// 剧院（装载期一次解码为枚举）。
     pub theater: crate::Theater,
-    /// `[Basic] Description` CSF 键（可空）。
-    pub description_csf: String,
+    /// `[Basic] Description` CSF 键（装载期一次解码为大写；可空）。
+    pub description_csf: crate::UiName,
     /// `[Basic] GameModes` 标签。
     pub game_modes: Vec<String>,
     /// `[Basic] NextMission`（可空）。
@@ -92,7 +92,7 @@ impl Default for MapDefinition {
             local_size: MapLocalSize::default(),
             cell_side: 0,
             theater: crate::Theater::Temperate,
-            description_csf: String::new(),
+            description_csf: crate::UiName::default(),
             game_modes: Vec::new(),
             next_mission: String::new(),
             alternate_next_mission: String::new(),

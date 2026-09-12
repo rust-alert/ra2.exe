@@ -141,8 +141,8 @@ pub struct MapInfo {
     pub theater: Theater,
     /// `[Basic] GameModes` 标签（逗号分隔解析；空表示仅匹配 `standard`）。
     pub game_modes: Vec<String>,
-    /// `[Basic] Description` CSF 键（可空；官方遭遇图常省略）。
-    pub description_csf: String,
+    /// `[Basic] Description` CSF 键（装载期一次解码为大写；可空；官方遭遇图常省略）。
+    pub description_csf: ra_types::UiName,
     /// `[Basic] NextMission`：战役胜利后下一关地图文件名（可空）。
     pub next_mission: String,
     /// `[Basic] AlternateNextMission`：战役失败后下一关 / 分支地图文件名（可空）。
@@ -196,7 +196,7 @@ impl MapInfo {
             height: 0,
             theater: Theater::Temperate,
             game_modes: Vec::new(),
-            description_csf: String::new(),
+            description_csf: ra_types::UiName::default(),
             next_mission: String::new(),
             alternate_next_mission: String::new(),
             starting_credits: 0,
@@ -243,7 +243,7 @@ impl MapInfo {
             .and_then(|s| s.deserialize::<BasicSectionFields>().ok())
             .unwrap_or_default();
         let game_modes = basic.game_modes;
-        let description_csf = basic.description.unwrap_or_default().trim().to_string();
+        let description_csf = basic.description;
         let next_mission = basic.next_mission.unwrap_or_default().trim().to_string();
         let alternate_next_mission = basic.alternate_next_mission.unwrap_or_default().trim().to_string();
         let starting_credits = basic.starting_credits.unwrap_or(0).max(0);
@@ -524,8 +524,8 @@ struct MapSectionFields {
 struct BasicSectionFields {
     #[serde(rename = "GameModes", default)]
     game_modes: Vec<String>,
-    #[serde(rename = "Description")]
-    description: Option<String>,
+    #[serde(rename = "Description", default)]
+    description: ra_types::UiName,
     #[serde(rename = "NextMission")]
     next_mission: Option<String>,
     #[serde(rename = "AlternateNextMission")]
