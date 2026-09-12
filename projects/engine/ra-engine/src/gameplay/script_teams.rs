@@ -114,7 +114,7 @@ pub fn tick_script_teams(world: &mut BattleState) {
                         else {
                             continue;
                         };
-                        let Some(player) = world.players.iter().find(|p| p.house.as_ref() == house.as_ref())
+                        let Some(player) = world.players.iter().find(|p| p.house.eq_ignore_ascii_case(house.as_ref()))
                         else {
                             continue;
                         };
@@ -139,7 +139,7 @@ pub fn tick_script_teams(world: &mut BattleState) {
                         else {
                             continue;
                         };
-                        let Some(player) = world.players.iter().find(|p| p.house.as_ref() == house.as_ref())
+                        let Some(player) = world.players.iter().find(|p| p.house.eq_ignore_ascii_case(house.as_ref()))
                         else {
                             continue;
                         };
@@ -161,7 +161,7 @@ pub fn tick_script_teams(world: &mut BattleState) {
                     else {
                         continue;
                     };
-                    let Some(player) = world.players.iter().find(|p| p.house.as_ref() == house.as_ref())
+                    let Some(player) = world.players.iter().find(|p| p.house.eq_ignore_ascii_case(house.as_ref()))
                     else {
                         continue;
                     };
@@ -266,8 +266,16 @@ fn spawn_team_type(world: &mut BattleState, team: &MapTeamType, forces: &[ra_map
     else {
         return;
     };
-    let house = if team.house.is_empty() { "Neutral" } else { team.house.as_str() };
-    world.ensure_house(house);
+    let house_key = if team.house.is_empty() { "Neutral" } else { team.house.as_str() };
+    world.ensure_house(house_key);
+    // 与已有 `PlayerState.house` 原文对齐，避免 `HouseName` 大写键对不上大小写敏感查找。
+    let house = world
+        .players
+        .iter()
+        .find(|p| p.house.eq_ignore_ascii_case(house_key))
+        .map(|p| p.house.as_ref().to_string())
+        .unwrap_or_else(|| house_key.to_string());
+    let house = house.as_str();
     // 产队格：优先 `TeamType.Waypoint=` 航点编号；未指定（<0）或缺失时回退 index 0。
     let spawn_wp = if team.waypoint >= 0 { waypoints.iter().find(|w| w.index as i32 == team.waypoint) } else { None };
     let (wx, wy) = spawn_wp

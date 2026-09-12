@@ -1,6 +1,7 @@
 //! `[TaskForces]` / `[ScriptTypes]` / `[TeamTypes]`。
 
 use ra_assets::{IniDocument, from_csv_row, numbered_pairs, parse_westwood_csv_line};
+use ra_types::HouseName;
 use serde::Deserialize;
 
 /// TaskForce 成员槽（装载解析中间态；投影进 `ra_types::MapTaskForceEntry`）。
@@ -52,8 +53,8 @@ pub struct MapTeamType {
     pub id: String,
     /// 名称。
     pub name: String,
-    /// `House=`。
-    pub house: String,
+    /// `House=`（装载期一次解码为大写）。
+    pub house: HouseName,
     /// `Script=`。
     pub script: String,
     /// `TaskForce=`。
@@ -74,8 +75,8 @@ pub struct MapTeamType {
 struct TeamTypeSectionFields {
     #[serde(rename = "Name")]
     name: Option<String>,
-    #[serde(rename = "House")]
-    house: Option<String>,
+    #[serde(rename = "House", default)]
+    house: HouseName,
     #[serde(rename = "Script")]
     script: Option<String>,
     #[serde(rename = "TaskForce")]
@@ -189,7 +190,7 @@ pub fn parse_team_types(doc: &IniDocument) -> Vec<MapTeamType> {
         out.push(MapTeamType {
             id,
             name: fields.name.unwrap_or_default().trim().to_string(),
-            house: fields.house.unwrap_or_default().trim().to_string(),
+            house: fields.house,
             script: fields.script.unwrap_or_default().trim().to_string(),
             task_force: fields.task_force.unwrap_or_default().trim().to_string(),
             tag: fields.tag.unwrap_or_default().trim().to_string(),

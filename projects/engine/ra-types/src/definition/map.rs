@@ -452,8 +452,8 @@ pub struct MapTeamType {
     pub id: String,
     /// 名称。
     pub name: String,
-    /// `House=`。
-    pub house: String,
+    /// `House=`（装载期一次解码为大写）。
+    pub house: crate::HouseName,
     /// `Script=`。
     pub script: String,
     /// `TaskForce=`。
