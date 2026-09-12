@@ -29,8 +29,8 @@ pub struct MapTrigger {
     pub id: String,
     /// 所属 house（装载期一次解码为大写）。
     pub house: HouseName,
-    /// 链接的另一 trigger（`<none>` 表示无）。
-    pub linked: String,
+    /// 链接的另一 trigger（装载期一次解码为大写；`<none>` / 空表示无）。
+    pub linked: TriggerName,
     /// 编辑器名。
     pub name: String,
     /// `1` = 初始禁用。
@@ -100,7 +100,7 @@ struct TagCsvRow {
 #[derive(Debug, Deserialize)]
 struct TriggerCsvRow {
     house: HouseName,
-    linked: String,
+    linked: TriggerName,
     name: String,
     #[serde(deserialize_with = "flag_is_one")]
     disabled: bool,

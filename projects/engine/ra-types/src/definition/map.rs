@@ -330,8 +330,8 @@ pub struct MapTrigger {
     pub id: String,
     /// 所属 house（装载期一次解码为大写）。
     pub house: crate::HouseName,
-    /// 链接的另一 trigger（`<none>` 表示无）。
-    pub linked: String,
+    /// 链接的另一 trigger（装载期一次解码为大写；`<none>` / 空表示无）。
+    pub linked: crate::TriggerName,
     /// 编辑器名。
     pub name: String,
     /// `1` = 初始禁用。
