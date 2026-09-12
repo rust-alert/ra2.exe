@@ -340,7 +340,7 @@ fn any_living_with_tags(world: &BattleState, tags: &HashSet<String>) -> bool {
 }
 
 fn cell_entered_by_house(world: &BattleState, cell_tags: &[ra_map::MapCellTag], bound_tags: &HashSet<String>, house: &str) -> bool {
-    let cells: Vec<(u16, u16)> = cell_tags.iter().filter(|c| bound_tags.contains(&c.tag_id)).map(|c| (c.x, c.y)).collect();
+    let cells: Vec<(u16, u16)> = cell_tags.iter().filter(|c| bound_tags.contains(c.tag_id.as_str())).map(|c| (c.x, c.y)).collect();
     if cells.is_empty() {
         return false;
     }

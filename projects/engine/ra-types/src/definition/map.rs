@@ -393,8 +393,8 @@ pub struct MapCellTag {
     pub x: u16,
     /// 格子 Y。
     pub y: u16,
-    /// Tag id。
-    pub tag_id: String,
+    /// Tag id（装载期一次解码为大写 Tags 键）。
+    pub tag_id: crate::TagName,
 }
 
 /// TaskForce 成员槽（运行契约；规则绑定前仍用类型名字符串）。

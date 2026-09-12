@@ -3,7 +3,7 @@
 use std::fmt;
 
 use ra_assets::{CsvField, CsvRow, IniDocument, from_csv_row, from_row, parse_westwood_csv_line};
-use ra_types::{HouseName, TriggerName};
+use ra_types::{HouseName, TagName, TriggerName};
 use serde::Deserialize;
 use serde::de::{self, Deserializer, Visitor};
 
@@ -86,8 +86,8 @@ pub struct MapCellTag {
     pub x: u16,
     /// 格子 Y。
     pub y: u16,
-    /// Tag id。
-    pub tag_id: String,
+    /// Tag id（装载期一次解码为大写 Tags 键）。
+    pub tag_id: TagName,
 }
 
 #[derive(Debug, Deserialize)]
@@ -364,7 +364,7 @@ pub fn parse_cell_tags(doc: &IniDocument) -> Vec<MapCellTag> {
         else {
             continue;
         };
-        out.push(MapCellTag { x, y, tag_id: tag_id.trim().to_string() });
+        out.push(MapCellTag { x, y, tag_id: TagName::parse(tag_id) });
     }
     out
 }
