@@ -189,43 +189,79 @@ pub fn integer_sqrt(value: i64) -> i64 {
     (value as f64).sqrt() as i64
 }
 
-/// 从 rules 建筑节收集点光源（`LightIntensity≠0` 且 `LightVisibility>0`）。
-pub fn collect_structure_point_lights(entities: &[MapEntity], rules: &IniDocument) -> Vec<PointLight> {
-    let mut lights = Vec::new();
+/// 从冻结建筑光表收集点光源。
+pub fn collect_structure_point_lights(entities: &[MapEntity], lights: &StructureLightTable) -> Vec<PointLight> {
+    let mut out = Vec::new();
     for ent in entities {
         if ent.kind != MapEntityKind::Structure {
             continue;
         }
-        if let Some(light) = point_light_from_rules(rules, &ent.type_id, ent.x, ent.y) {
-            lights.push(light);
+        if let Some(light) = point_light_from_profile(lights.get(&ent.type_id), ent.x, ent.y) {
+            out.push(light);
         }
     }
-    lights
+    out
 }
 
-/// 由 rules 类型节构造格点光源。
-pub fn point_light_from_rules(rules: &IniDocument, type_id: &str, x: u16, y: u16) -> Option<PointLight> {
-    let intensity = rules.get(type_id, "LightIntensity").and_then(parse_f32).unwrap_or(0.0);
-    let intensity_u = light_value_to_units(intensity);
-    if intensity_u == 0 {
+/// 由冻结光资料构造格点光源。
+pub fn point_light_from_profile(profile: Option<&ra_types::StructureLightProfile>, x: u16, y: u16) -> Option<PointLight> {
+    let profile = profile?;
+    if profile.intensity == 0 || profile.radius_leptons <= 0 {
         return None;
     }
-    let visibility = rules.get(type_id, "LightVisibility").and_then(|v| v.trim().parse::<i32>().ok()).unwrap_or(5000).max(0);
-    if visibility == 0 {
-        return None;
-    }
-    let red = rules.get(type_id, "LightRedTint").and_then(parse_f32).unwrap_or(1.0);
-    let green = rules.get(type_id, "LightGreenTint").and_then(parse_f32).unwrap_or(1.0);
-    let blue = rules.get(type_id, "LightBlueTint").and_then(parse_f32).unwrap_or(1.0);
     Some(PointLight {
         x,
         y,
         center_x: i32::from(x) * LEPTONS_PER_CELL + HALF_CELL_LEPTONS,
         center_y: i32::from(y) * LEPTONS_PER_CELL + HALF_CELL_LEPTONS,
-        radius_leptons: visibility,
-        intensity: intensity_u,
-        tint: [light_value_to_units(red), light_value_to_units(green), light_value_to_units(blue)],
+        radius_leptons: profile.radius_leptons,
+        intensity: profile.intensity,
+        tint: profile.tint,
     })
+}
+
+/// 类型键 → 建筑点光源（大写键）。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct StructureLightTable {
+    by_key: std::collections::BTreeMap<String, ra_types::StructureLightProfile>,
+}
+
+impl StructureLightTable {
+    /// 从冻结建筑表投影发光条目。
+    pub fn from_structures(structures: &ra_types::StructureDefinitions) -> Self {
+        let mut by_key = std::collections::BTreeMap::new();
+        for s in structures.iter() {
+            if let Some(light) = s.light {
+                by_key.insert(s.type_key.clone(), light);
+            }
+        }
+        Self { by_key }
+    }
+
+    /// 从 rules `IniDocument` 扫描节光键（预览 / 测试过渡入口）。
+    pub fn from_rules_ini(doc: &IniDocument) -> Self {
+        let mut by_key = std::collections::BTreeMap::new();
+        for section in &doc.sections {
+            let name = section.name_raw.as_str();
+            let intensity = doc.get(name, "LightIntensity").and_then(parse_f32).unwrap_or(0.0);
+            let visibility = doc
+                .get(name, "LightVisibility")
+                .and_then(|v| v.trim().parse::<i32>().ok())
+                .unwrap_or(5000);
+            let red = doc.get(name, "LightRedTint").and_then(parse_f32).unwrap_or(1.0);
+            let green = doc.get(name, "LightGreenTint").and_then(parse_f32).unwrap_or(1.0);
+            let blue = doc.get(name, "LightBlueTint").and_then(parse_f32).unwrap_or(1.0);
+            if let Some(profile) = ra_types::StructureLightProfile::from_rules_floats(intensity, visibility, red, green, blue) {
+                by_key.insert(name.to_ascii_uppercase(), profile);
+            }
+        }
+        Self { by_key }
+    }
+
+    /// 按类型键查找。
+    pub fn get(&self, type_key: &str) -> Option<&ra_types::StructureLightProfile> {
+        self.by_key.get(&type_key.to_ascii_uppercase())
+    }
 }
 
 /// 手动构造测试用点光源（强度 / 染色为浮点）。

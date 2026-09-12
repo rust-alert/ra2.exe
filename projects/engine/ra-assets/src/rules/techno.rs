@@ -11,7 +11,7 @@ use ra_types::{
 };
 
 /// 步兵 / 载具 / 飞行器 / 建筑的共用类型字段。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TechnoType {
     /// 类型 id（大写）。
     pub id: String,
@@ -111,6 +111,16 @@ pub struct TechnoType {
     pub foundation: Foundation,
     /// `Height`（优先 art，否则 rules）；`None` 表示未写。
     pub height: Option<u16>,
+    /// `LightIntensity`；缺省 0。
+    pub light_intensity: f32,
+    /// `LightVisibility`；缺省 5000。
+    pub light_visibility: i32,
+    /// `LightRedTint`；缺省 1。
+    pub light_red: f32,
+    /// `LightGreenTint`；缺省 1。
+    pub light_green: f32,
+    /// `LightBlueTint`；缺省 1。
+    pub light_blue: f32,
 }
 
 /// Techno 大类，对应 rules 列表节。
@@ -308,6 +318,16 @@ struct TechnoSectionFields {
     foundation: Foundation,
     #[serde(rename = "Height")]
     height: Option<i32>,
+    #[serde(rename = "LightIntensity")]
+    light_intensity: Option<f32>,
+    #[serde(rename = "LightVisibility")]
+    light_visibility: Option<i32>,
+    #[serde(rename = "LightRedTint")]
+    light_red: Option<f32>,
+    #[serde(rename = "LightGreenTint")]
+    light_green: Option<f32>,
+    #[serde(rename = "LightBlueTint")]
+    light_blue: Option<f32>,
 }
 
 /// 武器节字段。
@@ -403,6 +423,11 @@ fn parse_techno(
         super_weapon: fields.super_weapon,
         foundation: fields.foundation,
         height: fields.height.map(|h| h.max(1) as u16),
+        light_intensity: fields.light_intensity.unwrap_or(0.0),
+        light_visibility: fields.light_visibility.unwrap_or(5000),
+        light_red: fields.light_red.unwrap_or(1.0),
+        light_green: fields.light_green.unwrap_or(1.0),
+        light_blue: fields.light_blue.unwrap_or(1.0),
     })
 }
 

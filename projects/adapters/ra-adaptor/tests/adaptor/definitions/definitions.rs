@@ -246,3 +246,19 @@ fn build_runtime_definitions_freezes_countries_into_house_table() {
     assert!(!rus.multiplay);
     assert_eq!(defs.stolen_tech_by_house.get("Americans"), Some(ra_types::StolenTechKind::Allied));
 }
+
+#[test]
+fn build_runtime_definitions_freezes_structure_light_profiles() {
+    let rules = rules_from(
+        b"[BuildingTypes]\n0=GALITE\n1=GAPOWR\n\
+[GALITE]\nCost=200\nStrength=400\nLightIntensity=0.5\nLightVisibility=2500\nLightRedTint=1\nLightGreenTint=0.5\nLightBlueTint=0.25\n\
+[GAPOWR]\nCost=600\nStrength=600\nPower=150\n",
+    );
+    let defs = build_runtime_definitions(&rules);
+    let lite = defs.structures.get("GALITE").expect("GALITE");
+    let light = lite.light.expect("light profile");
+    assert_eq!(light.intensity, 500);
+    assert_eq!(light.radius_leptons, 2500);
+    assert_eq!(light.tint, [1000, 500, 250]);
+    assert!(defs.structures.get("GAPOWR").expect("GAPOWR").light.is_none());
+}

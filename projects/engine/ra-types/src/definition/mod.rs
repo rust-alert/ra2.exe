@@ -47,7 +47,9 @@ pub use production::{ProductionCategory, ProductionDefinitions, ProductionProfil
 pub use projectile::{ProjectileDefinition, ProjectileDefinitions};
 pub use runtime::RuntimeDefinitions;
 pub use sound::SoundDefinitions;
-pub use structure::{BuildCat, HouseDefinition, HouseDefinitions, PowerProfile, StructureDefinition, StructureDefinitions};
+pub use structure::{
+    BuildCat, HouseDefinition, HouseDefinitions, PowerProfile, StructureDefinition, StructureDefinitions, StructureLightProfile,
+};
 pub use super_weapon::{SuperWeaponDefinition, SuperWeaponDefinitions};
 pub use tech_tree::{
     HouseStolenTechMap, PrerequisiteGroupKind, PrerequisiteGroups, PrerequisiteList, PrerequisiteToken, StolenTechKind,

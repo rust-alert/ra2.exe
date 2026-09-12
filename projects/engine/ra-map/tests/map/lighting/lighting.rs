@@ -3,8 +3,8 @@
 use ra_assets::IniDocument;
 use ra_map::{
     LEPTONS_PER_CELL, LightingConfig, LightingProfile, MapEntity, MapEntityKind, MapInfo, RadiationLightRules, RadiationLightSite,
-    apply_rgba_tint, cell_light_scalar, cell_tint, cell_tint_with_lights, collect_structure_point_lights, parse_lighting, parse_map_lighting,
-    point_light_at, terrain_tint,
+    StructureLightTable, apply_rgba_tint, cell_light_scalar, cell_tint, cell_tint_with_lights, collect_structure_point_lights, parse_lighting,
+    parse_map_lighting, point_light_at, terrain_tint,
 };
 use ra_types::GameEdition;
 
@@ -123,12 +123,12 @@ fn refresh_point_lights_from_rules_structures() {
         mission: String::new(),
         tag: String::new(),
     });
-    map.refresh_point_lights(&rules);
+    map.refresh_point_lights(&StructureLightTable::from_rules_ini(&rules));
     assert_eq!(map.point_lights.len(), 1);
     assert_eq!(map.structure_point_lights.len(), 1);
     assert_eq!(map.point_lights[0].x, 5);
     assert_eq!(map.point_lights[0].y, 7);
-    let collected = collect_structure_point_lights(&map.entities, &rules);
+    let collected = collect_structure_point_lights(&map.entities, &StructureLightTable::from_rules_ini(&rules));
     assert_eq!(collected, map.structure_point_lights);
     let tint = map.tint_at(5, 7, 0);
     assert!(tint[0] > 1.0 || tint[1] > 0.9, "expected light boost, tint={tint:?}");
@@ -160,7 +160,7 @@ fn refresh_radiation_lights_merges_green_glow() {
         mission: String::new(),
         tag: String::new(),
     });
-    map.refresh_point_lights(&struct_rules);
+    map.refresh_point_lights(&StructureLightTable::from_rules_ini(&struct_rules));
     assert_eq!(map.structure_point_lights.len(), 1);
     assert_eq!(map.radiation_point_lights.len(), 1);
     assert_eq!(map.point_lights.len(), 2);
@@ -277,7 +277,7 @@ fn collect_structure_lights_from_rules() {
             tag: String::new(),
         },
     ];
-    let lights = collect_structure_point_lights(&entities, &rules);
+    let lights = collect_structure_point_lights(&entities, &StructureLightTable::from_rules_ini(&rules));
     assert_eq!(lights.len(), 1);
     assert_eq!(lights[0].x, 3);
     assert_eq!(lights[0].y, 4);

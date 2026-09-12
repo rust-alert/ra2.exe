@@ -5,7 +5,7 @@ use ra_assets::{Hsv, IniDocument, Palette};
 use ra_types::AssetSource;
 
 use crate::{
-    MapInfo, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureAnimMode, TerrainAnimBank, TerrainPaintMode,
+    MapInfo, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureAnimMode, StructureLightTable, TerrainAnimBank, TerrainPaintMode,
     compose::TerrainImage,
     fallback_preview::RawRgbaImage,
     mobile_paint::paint_map_mobiles,
@@ -85,7 +85,7 @@ pub fn compose_skirmish_preview(
     let mut lit_map = map.clone();
     if let Ok(bytes) = source.read(rules_ini) {
         if let Ok(doc) = IniDocument::parse(&bytes) {
-            lit_map.refresh_point_lights(&doc);
+            lit_map.refresh_point_lights(&StructureLightTable::from_rules_ini(&doc));
         }
     }
     let map = &lit_map;

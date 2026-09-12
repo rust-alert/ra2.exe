@@ -104,6 +104,44 @@ impl PowerProfile {
     }
 }
 
+/// 建筑点光源（rules `LightIntensity` / `LightVisibility` / tint；已量化为内部单位）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct StructureLightProfile {
+    /// 强度（`LightIntensity` × 1000 截断单位）。
+    pub intensity: i32,
+    /// 半径 leptons（`LightVisibility`）。
+    pub radius_leptons: i32,
+    /// RGB 染色（各通道 × 1000 截断单位）。
+    pub tint: [i32; 3],
+}
+
+impl StructureLightProfile {
+    /// 由 rules 浮点键构造；强度或可见度为 0 时返回 `None`。
+    pub fn from_rules_floats(intensity: f32, visibility: i32, red: f32, green: f32, blue: f32) -> Option<Self> {
+        let intensity_u = light_float_to_units(intensity);
+        if intensity_u == 0 {
+            return None;
+        }
+        let radius = visibility.max(0);
+        if radius == 0 {
+            return None;
+        }
+        Some(Self {
+            intensity: intensity_u,
+            radius_leptons: radius,
+            tint: [
+                light_float_to_units(red),
+                light_float_to_units(green),
+                light_float_to_units(blue),
+            ],
+        })
+    }
+}
+
+fn light_float_to_units(value: f32) -> i32 {
+    (value * 1000.0 + 0.1) as i32
+}
+
 /// 单条建筑静态定义（adaptor 冻结；引擎只读查询）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[doc(hidden)]
@@ -142,6 +180,8 @@ pub struct StructureDefinition {
     pub super_weapon: Option<SuperWeaponName>,
     /// 挂接超武的稳定 id；装载期绑定，执行侧优先于此。
     pub super_weapon_id: Option<TypeId>,
+    /// 建筑点光源；`None` 表示不发光。
+    pub light: Option<StructureLightProfile>,
     /// 定义期能力声明。
     pub capabilities: Vec<BuiltinCapability>,
 }

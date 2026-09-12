@@ -6,8 +6,8 @@ use ra_assets::TechnoKind;
 use ra_types::{
     BuiltinCapability, DeployableDefinition, DeploymentPlacement, GameEdition, HouseDefinition, HouseId, PowerProfile, PrerequisiteGroups,
     ProductionCategory, ProductionProfile, ProjectileDefinition, ProjectileId, ProjectileName, RaResult, RuntimeDefinitions, StolenTechKind,
-    StructureDefinition, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WarheadName,
-    WeaponDefinition, WeaponId,
+    StructureDefinition, StructureLightProfile, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId,
+    WarheadName, WeaponDefinition, WeaponId,
 };
 use std::collections::HashMap;
 
@@ -216,6 +216,13 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         // `Foundation` / `Height` 已在装载期由 rules + art（含 `Image=`）解到 `TechnoType`。
         let foundation = tt.foundation.clone();
         let height = tt.height.unwrap_or(2).max(1);
+        let light = StructureLightProfile::from_rules_floats(
+            tt.light_intensity,
+            tt.light_visibility,
+            tt.light_red,
+            tt.light_green,
+            tt.light_blue,
+        );
         defs.structures.insert(StructureDefinition {
             id,
             type_key: key,
@@ -234,6 +241,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             height,
             super_weapon,
             super_weapon_id,
+            light,
             capabilities,
         });
     }
