@@ -49,6 +49,7 @@ use ra_types::{
     MapWaypoint, RaError, RaResult,
 };
 use serde::Deserialize;
+use serde::de::{self, Deserializer};
 
 pub use base64::{base64_decode, base64_encode};
 pub use boot_map::{
@@ -220,16 +221,17 @@ impl MapInfo {
     /// 从场景 INI（`.map` / `.mpr`）解析尺寸、剧院，并尝试解码地形与覆盖层。
     pub fn parse_ini(edition: GameEdition, name: impl Into<String>, bytes: &[u8]) -> RaResult<Self> {
         let doc = IniDocument::parse(bytes)?;
-        let map_fields = doc
-            .section("Map")
-            .and_then(|s| s.deserialize::<MapSectionFields>().ok())
-            .unwrap_or_default();
-        let size_raw = map_fields.size.as_deref().ok_or_else(|| RaError::Parse("地图缺少 [Map] Size".into()))?;
-        let (size_width, size_height) = parse_size(size_raw)?;
+        let map_fields = match doc.section("Map") {
+            Some(sec) => sec
+                .deserialize::<MapSectionFields>()
+                .map_err(|e| RaError::Parse(format!("[Map] 节无效: {e}")))?,
+            None => MapSectionFields::default(),
+        };
+        let (size_width, size_height) = map_fields
+            .size
+            .ok_or_else(|| RaError::Parse("地图缺少 [Map] Size".into()))?;
         let local_size = map_fields
             .local_size
-            .as_deref()
-            .and_then(|raw| parse_local_size(raw).ok())
             .unwrap_or_else(|| LocalSize::from_full_size(size_width, size_height));
         // 航点 / IsoMapPack / 覆盖层落在方形游戏格空间，边长为 Size 高 + max(宽, 高)。
         let side = game_cell_grid_side(size_width, size_height);
@@ -492,13 +494,13 @@ pub fn game_cell_grid_side(size_width: u32, size_height: u32) -> u32 {
     size_height.saturating_add(size_width.max(size_height))
 }
 
-/// `[Map]` 节字段（一次 Serde；`Size` / `LocalSize` 仍为 CSV 字符串再进行解码）。
+/// `[Map]` 节字段（一次 Serde；`Size` / `LocalSize` 在反序列化时解码为结构化宽高）。
 #[derive(Debug, Default, Deserialize)]
 struct MapSectionFields {
-    #[serde(rename = "Size")]
-    size: Option<String>,
-    #[serde(rename = "LocalSize")]
-    local_size: Option<String>,
+    #[serde(rename = "Size", default, deserialize_with = "de_opt_map_size")]
+    size: Option<(u32, u32)>,
+    #[serde(rename = "LocalSize", default, deserialize_with = "de_opt_local_size")]
+    local_size: Option<LocalSize>,
     #[serde(rename = "Theater")]
     theater: Option<String>,
 }
@@ -765,17 +767,31 @@ struct LocalSizeRow {
     height: i32,
 }
 
-/// 解析 `Size=x,y,width,height` 中的宽高。
-fn parse_size(raw: &str) -> RaResult<(u32, u32)> {
-    let row: MapSizeRow = from_row(raw).map_err(|e| RaError::Parse(format!("无效 Size: {raw} ({e})")))?;
-    Ok((row.width, row.height))
+fn de_opt_map_size<'de, D>(deserializer: D) -> Result<Option<(u32, u32)>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = String::deserialize(deserializer)?;
+    let row: MapSizeRow = from_row(&raw).map_err(de::Error::custom)?;
+    Ok(Some((row.width, row.height)))
 }
 
-/// 解析 `LocalSize=left,top,width,height`。
-fn parse_local_size(raw: &str) -> RaResult<LocalSize> {
-    let row: LocalSizeRow = from_row(raw).map_err(|e| RaError::Parse(format!("无效 LocalSize: {raw} ({e})")))?;
+fn de_opt_local_size<'de, D>(deserializer: D) -> Result<Option<LocalSize>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = String::deserialize(deserializer)?;
+    let Ok(row) = from_row::<LocalSizeRow>(&raw)
+    else {
+        return Ok(None);
+    };
     if row.width <= 0 || row.height <= 0 {
-        return Err(RaError::Parse(format!("LocalSize 宽高须为正: {raw}")));
+        return Ok(None);
     }
-    Ok(LocalSize { left: row.left, top: row.top, width: row.width, height: row.height })
+    Ok(Some(LocalSize {
+        left: row.left,
+        top: row.top,
+        width: row.width,
+        height: row.height,
+    }))
 }
