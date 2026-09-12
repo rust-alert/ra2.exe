@@ -94,9 +94,6 @@ impl Shell {
                 let animate_empty_tiles = self.menu_frame_wave.as_ref().is_some_and(|w| w.direction() == WaveDirection::SlideOut);
                 compose::ShellWaveFrames { buttons: buttons.as_slice(), tiles: tiles.as_slice(), animate_empty_tiles }
             });
-            if matches!(self.screen, OriginalScreen::Results) {
-                self.ensure_score_backdrop();
-            }
             if let Some(decoded) = self.ui_decode_cache.as_ref() {
                 let movie = self.menu_movie.as_ref().and_then(|m| m.frame());
                 let page = match self.screen {
@@ -354,18 +351,7 @@ impl Shell {
                                 game_index: 1,
                                 time_text: time.as_str(),
                                 rows: rows.as_slice(),
-                                backdrop: self.score_backdrop.as_ref(),
                                 campaign: self.results_is_campaign(),
-                                stats_shade: {
-                                    let house = self.results_local_house();
-                                    let faction_id = self.results_faction_id();
-                                    self.battle_controller
-                                        .as_ref()
-                                        .and_then(|c| c.ui_faction_chrome().cloned())
-                                        .or_else(|| self.resolve_ui_faction_chrome(&house, faction_id))
-                                        .map(|c| c.score_stats_shade)
-                                        .unwrap_or(true)
-                                },
                             },
                             self.menu_panel_anim_frame,
                         )
