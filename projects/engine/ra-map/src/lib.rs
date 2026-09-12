@@ -278,7 +278,7 @@ impl MapInfo {
         if trimmed.is_empty() { None } else { Some(trimmed) }
     }
 
-    /// 提取冻结 [`MapDefinition`] 骨架（含航点 / 地形物件 / 预放实体 / 地形与覆盖层格；不含脚本载荷）。
+    /// 提取冻结 [`MapDefinition`] 骨架（含航点 / 地形物件 / 预放实体 / 地形与覆盖层格 / 地图房屋；不含完整脚本载荷）。
     pub fn to_map_definition(&self) -> MapDefinition {
         MapDefinition {
             name: self.name.clone(),
@@ -330,6 +330,7 @@ impl MapInfo {
                     data: o.data,
                 })
                 .collect(),
+            houses: self.scripting.houses.iter().map(map_house_to_definition).collect(),
         }
     }
 
@@ -454,6 +455,20 @@ fn map_entity_to_placed(ent: &MapEntity) -> MapPlacedEntity {
         sub_cell: ent.sub_cell,
         mission: ent.mission.clone(),
         tag: ent.tag.clone(),
+    }
+}
+
+fn map_house_to_definition(house: &crate::scripting::MapHouse) -> ra_types::MapHouse {
+    ra_types::MapHouse {
+        name: house.name.clone(),
+        country: house.country.clone(),
+        tech_level: house.tech_level,
+        credits: house.credits,
+        iq: house.iq,
+        edge: house.edge.clone(),
+        player_control: house.player_control,
+        color: house.color.clone(),
+        allies: house.allies.clone(),
     }
 }
 

@@ -40,6 +40,8 @@ pub struct MapDefinition {
     pub cells: Vec<MapIsoCell>,
     /// `[OverlayPack]` / `[OverlayDataPack]` 覆盖层格。
     pub overlays: Vec<MapOverlayCell>,
+    /// `[Houses]` 地图各方。
+    pub houses: Vec<MapHouse>,
 }
 
 /// 冻结地图航点（任务 / 出生点等格子锚点）。
@@ -143,6 +145,29 @@ pub struct MapOverlayCell {
     pub overlay_id: u8,
     /// 来自 OverlayDataPack：矿密度 / 墙帧等。
     pub data: u8,
+}
+
+/// 地图一方（战役 / 遭遇均可出现；规则绑定前仍用名称字符串）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapHouse {
+    /// 节名（常为 `Player House` 等）。
+    pub name: String,
+    /// `Country=`。
+    pub country: String,
+    /// `TechLevel=`。
+    pub tech_level: i32,
+    /// `Credits=`（地图单位常为百计资金）。
+    pub credits: i32,
+    /// `IQ=`。
+    pub iq: i32,
+    /// `Edge=`。
+    pub edge: String,
+    /// `PlayerControl=`。
+    pub player_control: bool,
+    /// `Color=`。
+    pub color: String,
+    /// `Allies=` 逗号列表。
+    pub allies: Vec<String>,
 }
 
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。
