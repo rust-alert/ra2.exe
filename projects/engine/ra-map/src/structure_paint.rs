@@ -143,13 +143,9 @@ pub fn collect_structure_anim_bank(
     let z_lookup: HashMap<(u16, u16), u8> =
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
 
-    let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
-    let damage = source
-        .read(rules_ini)
-        .ok()
-        .and_then(|b| IniDocument::parse(&b).ok())
-        .map(|d| StructureDamageRules::from_rules_doc(&d))
-        .unwrap_or_default();
+    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
+    let art = docs.art;
+    let damage = docs.rules.as_ref().map(StructureDamageRules::from_rules_doc).unwrap_or_default();
     let Some(obj_pal) = load_object_palette(source, map)
     else {
         return StructureAnimBank::default();
@@ -364,7 +360,7 @@ pub fn load_structure_buildup_clip(
     y: u16,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<StructureBuildupClip> {
-    let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok())?;
+    let art = crate::read_optional_ini(source, art_ini)?;
     let art_section = resolve_art_section(Some(&art), type_id);
     let buildup_key = art.get(&art_section, "Buildup")?.to_ascii_uppercase();
     let parent_new_theater = art.get(&art_section, "NewTheater").is_some_and(|v| v.eq_ignore_ascii_case("yes"));
@@ -453,8 +449,9 @@ fn paint_map_structures_inner(
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
-    let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
-    let rules_doc = source.read(rules_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
+    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
+    let art = docs.art;
+    let rules_doc = docs.rules;
     let damage = rules_doc.as_ref().map(StructureDamageRules::from_rules_doc).unwrap_or_default();
     let Some(obj_pal) = load_object_palette(source, map)
     else {

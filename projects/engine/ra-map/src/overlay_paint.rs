@@ -99,8 +99,9 @@ pub fn paint_map_overlays(
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
-    let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
-    let rules = source.read(rules_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
+    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
+    let art = docs.art;
+    let rules = docs.rules;
     let unit_pal = source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok());
     let theater_pal = source.read(theater_palette(map.theater)).ok().and_then(|b| Palette::parse(&b).ok());
     let tib_pal = source.read(theater_tiberium_palette(map.theater)).ok().and_then(|b| Palette::parse(&b).ok());
