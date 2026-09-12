@@ -48,6 +48,8 @@ pub struct MapDefinition {
     pub houses: Vec<MapHouse>,
     /// `[Tags]` 触发器绑定标签。
     pub tags: Vec<MapTag>,
+    /// `[Triggers]` 触发器定义。
+    pub triggers: Vec<MapTrigger>,
     /// `[CellTags]` 格子绑定的 Tag。
     pub cell_tags: Vec<MapCellTag>,
 }
@@ -75,6 +77,7 @@ impl Default for MapDefinition {
             overlays: Vec::new(),
             houses: Vec::new(),
             tags: Vec::new(),
+            triggers: Vec::new(),
             cell_tags: Vec::new(),
         }
     }
@@ -247,6 +250,27 @@ pub struct MapTag {
     pub name: String,
     /// 关联 Trigger id。
     pub trigger_id: String,
+}
+
+/// `[Triggers]` 一行（规则绑定前仍用 house / 链接 id 字符串）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapTrigger {
+    /// Trigger id。
+    pub id: String,
+    /// 所属 house。
+    pub house: String,
+    /// 链接的另一 trigger（`<none>` 表示无）。
+    pub linked: String,
+    /// 编辑器名。
+    pub name: String,
+    /// `1` = 初始禁用。
+    pub disabled: bool,
+    /// Easy 难度启用。
+    pub easy: bool,
+    /// Normal 难度启用。
+    pub normal: bool,
+    /// Hard 难度启用。
+    pub hard: bool,
 }
 
 /// `[CellTags]`：格子绑定 Tag。

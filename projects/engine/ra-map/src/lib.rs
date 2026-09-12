@@ -278,7 +278,7 @@ impl MapInfo {
         if trimmed.is_empty() { None } else { Some(trimmed) }
     }
 
-    /// 提取冻结 [`MapDefinition`] 骨架（含航点 / 地形 / 预放 / 房屋 / Tags；不含完整 Triggers 载荷）。
+    /// 提取冻结 [`MapDefinition`] 骨架（含航点 / 地形 / 预放 / 房屋 / Tags / Triggers；不含 Events/Actions 载荷）。
     pub fn to_map_definition(&self) -> MapDefinition {
         MapDefinition {
             name: self.name.clone(),
@@ -334,6 +334,7 @@ impl MapInfo {
                 .collect(),
             houses: self.scripting.houses.iter().map(map_house_to_definition).collect(),
             tags: self.scripting.tags.iter().map(map_tag_to_definition).collect(),
+            triggers: self.scripting.triggers.iter().map(map_trigger_to_definition).collect(),
             cell_tags: self.scripting.cell_tags.iter().map(map_cell_tag_to_definition).collect(),
         }
     }
@@ -482,6 +483,19 @@ fn map_tag_to_definition(tag: &crate::scripting::MapTag) -> ra_types::MapTag {
         persistence: tag.persistence,
         name: tag.name.clone(),
         trigger_id: tag.trigger_id.clone(),
+    }
+}
+
+fn map_trigger_to_definition(trigger: &crate::scripting::MapTrigger) -> ra_types::MapTrigger {
+    ra_types::MapTrigger {
+        id: trigger.id.clone(),
+        house: trigger.house.clone(),
+        linked: trigger.linked.clone(),
+        name: trigger.name.clone(),
+        disabled: trigger.disabled,
+        easy: trigger.easy,
+        normal: trigger.normal,
+        hard: trigger.hard,
     }
 }
 

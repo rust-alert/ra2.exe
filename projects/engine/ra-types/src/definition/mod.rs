@@ -41,7 +41,7 @@ pub use house_list::HouseAllowList;
 pub use locomotor::LocomotorDefinitions;
 pub use map::{
     MapCellTag, MapDefinition, MapHouse, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind,
-    MapTag, MapTerrainObject, MapWaypoint, PreparedMap,
+    MapTag, MapTerrainObject, MapTrigger, MapWaypoint, PreparedMap,
 };
 pub use names::{
     HouseName, ImageName, ProjectileName, SuperWeaponActionName, SuperWeaponKindName, SuperWeaponName, TechnoName, UiName, WarheadName,
