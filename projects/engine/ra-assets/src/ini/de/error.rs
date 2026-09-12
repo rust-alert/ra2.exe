@@ -4,6 +4,8 @@ use std::fmt;
 
 use serde::de;
 
+use crate::ini::SourceSpan;
+
 /// 从 INI 节反序列化失败。
 #[derive(Debug, Clone)]
 pub struct IniDeError {
@@ -13,6 +15,8 @@ pub struct IniDeError {
     pub section: Option<String>,
     /// 相关键（若有）。
     pub key: Option<String>,
+    /// 字段值源位置（若有）。
+    pub span: Option<SourceSpan>,
 }
 
 impl IniDeError {
@@ -22,6 +26,7 @@ impl IniDeError {
             message: msg.to_string(),
             section: None,
             key: None,
+            span: None,
         }
     }
 
@@ -36,16 +41,26 @@ impl IniDeError {
         self.key = Some(key.into());
         self
     }
+
+    /// 带源位置的错误。
+    pub fn with_span(mut self, span: SourceSpan) -> Self {
+        self.span = Some(span);
+        self
+    }
 }
 
 impl fmt::Display for IniDeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match (&self.section, &self.key) {
-            (Some(sec), Some(k)) => write!(f, "INI [{sec}] 字段 `{k}`: {}", self.message),
-            (Some(sec), None) => write!(f, "INI [{sec}]: {}", self.message),
-            (None, Some(k)) => write!(f, "INI 字段 `{k}`: {}", self.message),
-            (None, None) => write!(f, "INI 反序列化: {}", self.message),
+            (Some(sec), Some(k)) => write!(f, "INI [{sec}] 字段 `{k}`: {}", self.message)?,
+            (Some(sec), None) => write!(f, "INI [{sec}]: {}", self.message)?,
+            (None, Some(k)) => write!(f, "INI 字段 `{k}`: {}", self.message)?,
+            (None, None) => write!(f, "INI 反序列化: {}", self.message)?,
         }
+        if let Some(span) = self.span {
+            write!(f, " (@{}:{}-{})", span.source.0, span.start, span.end)?;
+        }
+        Ok(())
     }
 }
 

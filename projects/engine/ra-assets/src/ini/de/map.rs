@@ -9,6 +9,7 @@ use super::IniDeError;
 use super::scalar::ScalarDeserializer;
 use crate::ini::document::IniSection;
 use crate::ini::merge::LayeredSectionView;
+use crate::ini::SourceSpan;
 
 pub(super) struct SectionMapAccess<'a> {
     /// 节名原始拼写（诊断用；可空）。
@@ -17,6 +18,8 @@ pub(super) struct SectionMapAccess<'a> {
     values: HashMap<String, Cow<'a, str>>,
     /// 比较键 → 原始键拼写（供 `serde(rename)` 对齐）。
     key_raw: HashMap<String, &'a str>,
+    /// 比较键 → 值源位置（`AppendValues` 拼接时可能为空）。
+    spans: HashMap<String, Option<SourceSpan>>,
     /// 仍待消费的比较键（策略决定的顺序）。
     keys: Vec<String>,
     index: usize,
@@ -26,6 +29,7 @@ impl<'a> SectionMapAccess<'a> {
     pub(super) fn new(section: &'a IniSection) -> Self {
         let mut values: HashMap<String, Cow<'a, str>> = HashMap::new();
         let mut key_raw: HashMap<String, &'a str> = HashMap::new();
+        let mut spans: HashMap<String, Option<SourceSpan>> = HashMap::new();
         let mut order: Vec<String> = Vec::new();
         for e in &section.entries {
             if !values.contains_key(&e.key_key) {
@@ -33,11 +37,13 @@ impl<'a> SectionMapAccess<'a> {
             }
             values.insert(e.key_key.clone(), Cow::Borrowed(e.value_raw.as_str()));
             key_raw.insert(e.key_key.clone(), e.key_raw.as_str());
+            spans.insert(e.key_key.clone(), e.span);
         }
         Self {
             section: Some(section.name_raw.as_str()),
             values,
             key_raw,
+            spans,
             keys: order,
             index: 0,
         }
@@ -47,6 +53,7 @@ impl<'a> SectionMapAccess<'a> {
     pub(super) fn from_layered(section: &'a LayeredSectionView<'a>) -> Self {
         let mut values: HashMap<String, Cow<'a, str>> = HashMap::new();
         let mut key_raw: HashMap<String, &'a str> = HashMap::new();
+        let mut spans: HashMap<String, Option<SourceSpan>> = HashMap::new();
         let mut order: Vec<String> = Vec::new();
         for raw_key in section.keys() {
             let cmp = raw_key.to_ascii_uppercase();
@@ -57,15 +64,18 @@ impl<'a> SectionMapAccess<'a> {
             else {
                 continue;
             };
+            let span = section.get(raw_key).and_then(|v| v.span);
             order.push(cmp.clone());
             values.insert(cmp.clone(), raw);
-            key_raw.insert(cmp, raw_key);
+            key_raw.insert(cmp.clone(), raw_key);
+            spans.insert(cmp, span);
         }
         let name = section.name_raw();
         Self {
             section: if name.is_empty() { None } else { Some(name) },
             values,
             key_raw,
+            spans,
             keys: order,
             index: 0,
         }
@@ -76,6 +86,7 @@ impl<'a> SectionMapAccess<'a> {
             section: None,
             values: HashMap::new(),
             key_raw: HashMap::new(),
+            spans: HashMap::new(),
             keys: Vec::new(),
             index: 0,
         }
@@ -114,6 +125,7 @@ impl<'de> MapAccess<'de> for SectionMapAccess<'de> {
         let cmp = self.keys[self.index - 1].clone();
         let key = self.key_raw.get(&cmp).copied();
         let section = self.section;
+        let span = self.spans.remove(&cmp).flatten();
         let raw = self
             .values
             .remove(&cmp)
@@ -122,6 +134,7 @@ impl<'de> MapAccess<'de> for SectionMapAccess<'de> {
             raw,
             key,
             section,
+            span,
         })
         .map_err(|e| self.attach_section(e))
     }

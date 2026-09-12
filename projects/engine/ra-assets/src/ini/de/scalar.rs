@@ -11,6 +11,7 @@ pub(super) struct ScalarDeserializer<'a> {
     pub raw: Cow<'a, str>,
     pub key: Option<&'a str>,
     pub section: Option<&'a str>,
+    pub span: Option<crate::ini::SourceSpan>,
 }
 
 impl<'a> ScalarDeserializer<'a> {
@@ -19,10 +20,13 @@ impl<'a> ScalarDeserializer<'a> {
         if let Some(sec) = self.section {
             e = e.with_section(sec);
         }
-        match self.key {
-            Some(k) => e.with_key(k),
-            None => e,
+        if let Some(k) = self.key {
+            e = e.with_key(k);
         }
+        if let Some(span) = self.span {
+            e = e.with_span(span);
+        }
+        e
     }
 
     fn trimmed(&self) -> &str {
@@ -233,6 +237,7 @@ impl<'de> de::Deserializer<'de> for ScalarDeserializer<'de> {
                     parts: parts.into_iter(),
                     key: self.key,
                     section: self.section,
+                    span: self.span,
                 })
             }
             Cow::Owned(s) => {
@@ -247,6 +252,7 @@ impl<'de> de::Deserializer<'de> for ScalarDeserializer<'de> {
                     parts: parts.into_iter(),
                     key: self.key,
                     section: self.section,
+                    span: self.span,
                 })
             }
         }
@@ -320,6 +326,7 @@ struct CommaSepBorrowed<'a> {
     parts: std::vec::IntoIter<&'a str>,
     key: Option<&'a str>,
     section: Option<&'a str>,
+    span: Option<crate::ini::SourceSpan>,
 }
 
 impl<'de> SeqAccess<'de> for CommaSepBorrowed<'de> {
@@ -335,6 +342,7 @@ impl<'de> SeqAccess<'de> for CommaSepBorrowed<'de> {
                     raw: Cow::Borrowed(part),
                     key: self.key,
                     section: self.section,
+                    span: self.span,
                 })
                 .map(Some),
             None => Ok(None),
@@ -347,6 +355,7 @@ struct CommaSepOwned<'a> {
     parts: std::vec::IntoIter<String>,
     key: Option<&'a str>,
     section: Option<&'a str>,
+    span: Option<crate::ini::SourceSpan>,
 }
 
 impl<'de> SeqAccess<'de> for CommaSepOwned<'de> {
@@ -362,6 +371,7 @@ impl<'de> SeqAccess<'de> for CommaSepOwned<'de> {
                     raw: Cow::Owned(part),
                     key: self.key,
                     section: self.section,
+                    span: self.span,
                 })
                 .map(Some),
             None => Ok(None),
