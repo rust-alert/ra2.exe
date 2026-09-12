@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use ra_map::MapEntityKind;
-use ra_types::{ArmorKind, EntityId, TechnoClass};
+use ra_types::{ArmorKind, EntityId, TagName, TechnoClass};
 
 /// 稳定身份与内容类型引用。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,8 +18,8 @@ pub struct Identity {
     pub kind: MapEntityKind,
     /// 地图放置任务态（如 `Guard` / `Attack`；空表示未指定）。
     pub mission: String,
-    /// 地图 Tag id（空表示无绑定）。
-    pub tag: String,
+    /// 地图 Tag id（装载期一次解码为大写；空表示无绑定）。
+    pub tag: TagName,
 }
 
 /// 所属房主。

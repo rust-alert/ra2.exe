@@ -58,7 +58,7 @@ impl BattleState {
                     type_id: Arc::<str>::from(e.type_id.as_ref()),
                     kind: e.kind,
                     mission: e.mission.clone(),
-                    tag: e.tag.to_string(),
+                    tag: e.tag.clone(),
                 },
                 owner: Owner { house: Arc::<str>::from(e.owner.as_ref()) },
                 transform: Transform { x: e.x, y: e.y, facing: e.facing, turret_facing: e.facing, sub_cell: e.sub_cell },
@@ -209,7 +209,7 @@ impl BattleState {
             TechnoClass::Building => MapEntityKind::Structure,
         };
         self.spawn_from_bundle(EntitySpawnBundle {
-            identity: Identity { entity_id: id, type_id: Arc::<str>::from(type_key), kind, mission: String::new(), tag: String::new() },
+            identity: Identity { entity_id: id, type_id: Arc::<str>::from(type_key), kind, mission: String::new(), tag: ra_types::TagName::default() },
             owner: Owner { house: Arc::<str>::from(house) },
             transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
             health: Health { current: max_health, maximum: max_health, dead: false },
