@@ -8,7 +8,7 @@ use serde::de::{self, Deserializer, Visitor};
 
 use crate::id::{HouseId, TypeId};
 
-use super::{ArmorKind, BuiltinCapability, Foundation, HouseAllowList, ProductionProfile, SideName, StolenTechKind, SuperWeaponName};
+use super::{ArmorKind, BuiltinCapability, Foundation, HouseAllowList, HouseName, ProductionProfile, SideName, StolenTechKind, SuperWeaponName};
 
 /// 建造栏分类（INI `BuildCat=`）。
 ///
@@ -191,8 +191,8 @@ pub struct StructureDefinition {
 pub struct HouseDefinition {
     /// 稳定房屋编号。
     pub id: HouseId,
-    /// 外部房屋键（国家节名，大写）。
-    pub type_key: String,
+    /// 外部房屋键（国家节名，装载期一次解码为大写）。
+    pub type_key: HouseName,
     /// `Side=` 势力 id（装载期一次解码为大写）；空表示未写。
     pub side: SideName,
     /// 由 `Side=` 推导的偷取科技类别；未知 Side 为 `None`。
@@ -210,7 +210,7 @@ pub struct HouseDefinitions {
 impl HouseDefinitions {
     /// 插入。
     pub fn insert(&mut self, def: HouseDefinition) {
-        self.by_key.insert(def.type_key.clone(), def);
+        self.by_key.insert(def.type_key.as_str().to_string(), def);
     }
 
     /// 按外部键查找（大小写不敏感）。

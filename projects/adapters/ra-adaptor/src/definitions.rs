@@ -72,7 +72,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         let id = alloc_house();
         defs.houses.insert(HouseDefinition {
             id,
-            type_key: country.id.as_str().to_string(),
+            type_key: country.id.clone(),
             side: country.side.clone(),
             stolen_tech,
             multiplay: country.visible_in_skirmish(),
