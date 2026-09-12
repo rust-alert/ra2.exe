@@ -29,7 +29,7 @@ fn mining_world() -> BattleState {
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Unit,
@@ -41,7 +41,7 @@ fn mining_world() -> BattleState {
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
     ];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
@@ -112,7 +112,7 @@ fn idle_harvester_seeks_ore_then_returns_to_refinery() {
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Unit,
@@ -124,7 +124,7 @@ fn idle_harvester_seeks_ore_then_returns_to_refinery() {
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
     ];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);

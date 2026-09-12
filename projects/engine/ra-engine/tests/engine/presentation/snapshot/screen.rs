@@ -22,7 +22,7 @@ fn snapshot_screen_moves_to_results_on_victory() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -34,7 +34,7 @@ fn snapshot_screen_moves_to_results_on_victory() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "screen");
     assert_eq!(session.expect_battle().snapshot(&[]).screen, SessionScreen::InBattle);

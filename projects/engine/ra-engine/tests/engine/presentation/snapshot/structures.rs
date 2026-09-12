@@ -21,7 +21,7 @@ fn snapshot_includes_structures() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "struct");
     let snap = session.expect_battle().snapshot(&[]);

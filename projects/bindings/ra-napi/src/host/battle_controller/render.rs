@@ -295,7 +295,7 @@ impl BattleController {
                 facing: 0,
                 sub_cell: 0,
                 mission: String::new(),
-                tag: String::new(),
+                tag: Default::default(),
             });
             let remap = |base: &ra_assets::Palette, own: &str| remap_owner_palette(rules, Some(&lobby), base, own);
             if let Some(clean) = self.preview_clean.as_mut() {

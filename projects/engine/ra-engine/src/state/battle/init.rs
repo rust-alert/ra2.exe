@@ -58,7 +58,7 @@ impl BattleState {
                     type_id: Arc::<str>::from(e.type_id.as_ref()),
                     kind: e.kind,
                     mission: e.mission.clone(),
-                    tag: e.tag.clone(),
+                    tag: e.tag.to_string(),
                 },
                 owner: Owner { house: Arc::<str>::from(e.owner.as_ref()) },
                 transform: Transform { x: e.x, y: e.y, facing: e.facing, turret_facing: e.facing, sub_cell: e.sub_cell },

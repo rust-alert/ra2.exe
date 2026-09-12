@@ -238,7 +238,7 @@ fn paint_session_mobiles_onto_preview(
             facing,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         });
     }
     if paint_map.entities.is_empty() {

@@ -20,7 +20,7 @@ fn shared_waypoint_queues_on_neighbor() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -32,7 +32,7 @@ fn shared_waypoint_queues_on_neighbor() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);
     world.push_command(GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 10 });

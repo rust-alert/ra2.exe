@@ -73,7 +73,7 @@ fn open_skirmish_strips_map_preplaced_mobiles() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Infantry,
@@ -85,7 +85,7 @@ fn open_skirmish_strips_map_preplaced_mobiles() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -97,7 +97,7 @@ fn open_skirmish_strips_map_preplaced_mobiles() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let opened = open_skirmish_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(),
         map,

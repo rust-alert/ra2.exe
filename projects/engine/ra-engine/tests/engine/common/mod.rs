@@ -66,7 +66,7 @@ pub fn duel_mtnk_world() -> BattleState {
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Unit,
@@ -78,7 +78,7 @@ pub fn duel_mtnk_world() -> BattleState {
             facing: 128,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
     ];
     battle_from_defs(GameEdition::Ra2, defs, map)

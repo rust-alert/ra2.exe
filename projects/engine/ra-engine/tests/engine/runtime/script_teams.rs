@@ -117,7 +117,7 @@ fn create_team_script_action_1_orders_attack_near_waypoint() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs_with_e1(), map), "team-atk");

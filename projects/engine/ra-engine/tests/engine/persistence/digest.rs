@@ -19,7 +19,7 @@ fn twin_worlds_same_command_stream_match_hash() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -31,7 +31,7 @@ fn twin_worlds_same_command_stream_match_hash() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mk = || {
         let mut w = battle_from_defs(GameEdition::Ra2, defs.clone(), map.clone());

@@ -28,7 +28,7 @@ fn sw_world() -> ra_engine::BattleState {
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Structure,
@@ -40,7 +40,7 @@ fn sw_world() -> ra_engine::BattleState {
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
     ];
     let mut world = battle_from_defs(GameEdition::Ra2, sw_defs(), map);

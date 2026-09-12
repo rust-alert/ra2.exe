@@ -32,7 +32,7 @@ fn atk_structure_world(strength: &str, map_name: &str) -> ra_engine::BattleState
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -44,7 +44,7 @@ fn atk_structure_world(strength: &str, map_name: &str) -> ra_engine::BattleState
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     battle_from_defs(GameEdition::Ra2, defs, map)
 }

@@ -23,7 +23,7 @@ fn session_tick_and_snapshot() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);
     let mut session = Session::from_state(world, "test");
@@ -52,7 +52,7 @@ fn order_attack_and_detects_victor() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -64,7 +64,7 @@ fn order_attack_and_detects_victor() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "t");
     {
@@ -123,7 +123,7 @@ fn snapshot_includes_screen_coords_and_selection() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "t");
     session.expect_battle_mut().set_preview_origin(-100, -50);

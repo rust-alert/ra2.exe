@@ -26,7 +26,7 @@ fn duel_session() -> Session {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -38,7 +38,7 @@ fn duel_session() -> Session {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -50,7 +50,7 @@ fn duel_session() -> Session {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -62,7 +62,7 @@ fn duel_session() -> Session {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs, map), "ai");
     session.expect_battle_mut().ai_enabled = true;
@@ -103,7 +103,7 @@ fn ambient_house_does_not_auto_attack() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -115,7 +115,7 @@ fn ambient_house_does_not_auto_attack() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs, map), "ambient");
     session.expect_battle_mut().ai_enabled = true;
@@ -153,7 +153,7 @@ fn guard_mission_skips_ai_auto_attack() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -165,7 +165,7 @@ fn guard_mission_skips_ai_auto_attack() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -177,7 +177,7 @@ fn guard_mission_skips_ai_auto_attack() {
         facing: 0,
         sub_cell: 0,
         mission: "Guard".into(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -189,7 +189,7 @@ fn guard_mission_skips_ai_auto_attack() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs, map), "guard");
     session.expect_battle_mut().ai_enabled = true;

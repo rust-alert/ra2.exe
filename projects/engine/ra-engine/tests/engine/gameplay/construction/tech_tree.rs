@@ -41,7 +41,7 @@ fn allied_yard_world() -> BattleState {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     }];
     let mut world = battle_from_defs(GameEdition::Ra2, tech_defs(), map);
     assert!(world.set_house_funds("Americans", 20_000));

@@ -270,7 +270,7 @@ impl BattleController {
                 facing: 0,
                 sub_cell: 0,
                 mission: String::new(),
-                tag: String::new(),
+                tag: Default::default(),
             });
             let lobby = &self.lobby_primaries;
             let mut n = paint_structures_onto_rgba(assets, &one, clean, origin.0, origin.1, art_ini, self.rules_ini, &|base, own| {
@@ -315,7 +315,7 @@ impl BattleController {
                     facing: 0,
                     sub_cell: 0,
                     mission: String::new(),
-                    tag: String::new(),
+                    tag: Default::default(),
                 });
                 let lobby = &self.lobby_primaries;
                 let mut n = paint_structures_onto_rgba(assets, &one, underlay, origin.0, origin.1, art_ini, self.rules_ini, &|base, own| {
@@ -390,7 +390,7 @@ impl BattleController {
                 facing,
                 sub_cell: 0,
                 mission: String::new(),
-                tag: String::new(),
+                tag: Default::default(),
             });
         }
         let mut base = clean.clone();
@@ -460,7 +460,7 @@ impl BattleController {
                 facing,
                 sub_cell: 0,
                 mission: String::new(),
-                tag: String::new(),
+                tag: Default::default(),
             });
         }
         let lobby = self.lobby_primaries.clone();

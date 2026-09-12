@@ -128,7 +128,7 @@ pub fn standard_duel() -> HeadlessCase {
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Unit,
@@ -140,7 +140,7 @@ pub fn standard_duel() -> HeadlessCase {
             facing: 128,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
     ];
     let world = battle_from_defs(GameEdition::Ra2, defs, map);
@@ -170,7 +170,7 @@ pub fn mcv_deploy_open() -> HeadlessCase {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     }];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
@@ -203,7 +203,7 @@ pub fn yard_open() -> HeadlessCase {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     }];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
@@ -244,7 +244,7 @@ pub fn ai_skirmish_open() -> HeadlessCase {
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Unit,
@@ -256,7 +256,7 @@ pub fn ai_skirmish_open() -> HeadlessCase {
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Unit,
@@ -268,7 +268,7 @@ pub fn ai_skirmish_open() -> HeadlessCase {
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
     ];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
