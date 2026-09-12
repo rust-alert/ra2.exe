@@ -51,7 +51,10 @@ pub(super) use controls::*;
 pub(super) use menu::*;
 pub(super) use raster::*;
 
-pub use battle::{BattleHudModel, compose_battle_hud_overlay, compose_battle_pause_menu_overlay};
+pub use battle::{
+    BattleHudModel, compose_battle_abort_confirm_overlay, compose_battle_hud_overlay, compose_battle_in_game_options_overlay,
+    compose_battle_pause_menu_overlay,
+};
 pub use campaign::{CampaignPaint, compose_campaign_page};
 pub use choose_map::compose_choose_map_page;
 pub use chrome::ShellWaveFrames;

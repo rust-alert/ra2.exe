@@ -273,3 +273,173 @@ pub fn compose_battle_pause_menu_overlay(
 
     Some(page)
 }
+
+/// 合成放弃确认叠层（dim + Leave / Cancel）。
+pub fn compose_battle_abort_confirm_overlay(
+    viewport_w: u32,
+    viewport_h: u32,
+    pressed_entry_id: Option<&str>,
+    hovered_entry_id: Option<&str>,
+    fnt: Option<&FntFile>,
+    csf: Option<&CsfFile>,
+    pause: Option<&BattlePauseChrome>,
+) -> Option<RgbaImage> {
+    use crate::{
+        battle_abort_confirm::{button_rects as abort_button_rects, dim_rect as abort_dim, prompt_rect},
+        skin::text::{battle_abort_confirm_csf_label, battle_abort_confirm_fallback_label, battle_abort_confirm_prompt_csf_key},
+    };
+    use ra_layout::BATTLE_ABORT_CONFIRM_BUTTON_IDS;
+
+    let w = viewport_w.max(1);
+    let h = viewport_h.max(1);
+    let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
+
+    fill_rect(&mut page, abort_dim(w, h), [0, 0, 0, 160]);
+
+    if let Some(fnt) = fnt {
+        let prompt = prompt_rect(w, h);
+        let text = {
+            let from = resolve_caption(csf, "prompt", Some(battle_abort_confirm_prompt_csf_key()));
+            if from == "prompt" {
+                "要放弃当前任务吗？".to_string()
+            } else {
+                from
+            }
+        };
+        blit_caption_wrapped(&mut page, fnt, &text, prompt.x, prompt.y, prompt.w, prompt.h, MENU_TEXT_ENABLED);
+    }
+
+    let rects = abort_button_rects(w, h);
+    for (entry_id, cell) in BATTLE_ABORT_CONFIRM_BUTTON_IDS.iter().zip(rects.iter()) {
+        let pressed = pressed_entry_id == Some(*entry_id);
+        let hovered = hovered_entry_id == Some(*entry_id);
+        let sprite = pause.and_then(|p| resolve_sidebttn(p, pressed, hovered));
+        if let Some(sprite) = sprite {
+            blit_stretched(&mut page, &sprite.image, *cell);
+        } else {
+            let fill = if pressed {
+                [80, 24, 24, 255]
+            } else if hovered {
+                [48, 24, 24, 255]
+            } else {
+                [32, 16, 16, 255]
+            };
+            fill_rect(&mut page, *cell, fill);
+            stroke_rect(&mut page, *cell, [180, 80, 80, 255]);
+        }
+        if let Some(fnt) = fnt {
+            let caption = {
+                let from_csf = resolve_caption(csf, entry_id, battle_abort_confirm_csf_label(entry_id));
+                if from_csf == entry_id.replace('_', " ") {
+                    battle_abort_confirm_fallback_label(entry_id).to_string()
+                } else {
+                    from_csf
+                }
+            };
+            let (tx, ty, tw, th) = owner_draw_caption_rect(*cell, pressed);
+            blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, MENU_TEXT_ENABLED);
+        }
+    }
+
+    Some(page)
+}
+
+/// 合成局内选项 `0xBBB` 叠层。
+pub fn compose_battle_in_game_options_overlay(
+    viewport_w: u32,
+    viewport_h: u32,
+    state: &crate::battle_in_game_options::BattleInGameOptionsState,
+    pressed_entry_id: Option<&str>,
+    hovered_entry_id: Option<&str>,
+    fnt: Option<&FntFile>,
+    csf: Option<&CsfFile>,
+    pause: Option<&BattlePauseChrome>,
+    stub_notice: Option<&str>,
+) -> Option<RgbaImage> {
+    use crate::{
+        battle_in_game_options::{button_rects as opts_button_rects, options_snapshot},
+        skin::text::{
+            battle_in_game_options_csf_label, battle_in_game_options_fallback_label, battle_in_game_speed_label_key,
+        },
+    };
+    use ra_layout::{BATTLE_IN_GAME_OPTIONS_BUTTON_IDS, rect_px_from_snapshot};
+
+    let w = viewport_w.max(1);
+    let h = viewport_h.max(1);
+    let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
+    let snap = options_snapshot(w, h);
+
+    fill_rect(&mut page, rect_px_from_snapshot(&snap, "dim"), [0, 0, 0, 160]);
+
+    let label = |id: &str, fallback: &str| -> String {
+        let from = resolve_caption(csf, id, battle_in_game_options_csf_label(id));
+        if from == id.replace('_', " ") || from == *id {
+            battle_in_game_options_fallback_label(id).to_string()
+        } else if from.is_empty() {
+            fallback.to_string()
+        } else {
+            from
+        }
+    };
+
+    if let Some(fnt) = fnt {
+        let title = rect_px_from_snapshot(&snap, "title");
+        blit_caption_in_cell(
+            &mut page,
+            fnt,
+            &label("title", "Game Options"),
+            title.x,
+            title.y,
+            title.w,
+            title.h,
+            MENU_TEXT_SECTION,
+        );
+        for (id, fallback) in [("caption_game_speed", "Game Speed"), ("caption_scroll_rate", "Scroll Rate")] {
+            let cell = rect_px_from_snapshot(&snap, id);
+            blit_caption_top_right_clipped(&mut page, fnt, &label(id, fallback), cell.x, cell.y, cell.w, cell.h, MENU_TEXT_ACCENT);
+        }
+        for (id, pos) in [("value_game_speed", state.game_speed), ("value_scroll_rate", state.scroll_rate)] {
+            let cell = rect_px_from_snapshot(&snap, id);
+            let key = battle_in_game_speed_label_key(pos);
+            let text = resolve_csf_text(csf, key).unwrap_or_else(|| format!("{pos}"));
+            blit_caption_top_left_clipped(&mut page, fnt, &text, cell.x, cell.y, cell.w, cell.h, MENU_TEXT_ENABLED);
+        }
+        for (id, checked, fallback) in [
+            ("check_target_lines", state.target_lines, "Target Lines"),
+            ("check_show_hidden", state.show_hidden, "Show Hidden"),
+            ("check_tooltips", state.tooltips, "Tooltips"),
+        ] {
+            let cell = rect_px_from_snapshot(&snap, id);
+            draw_checkbox(&mut page, cell, checked);
+            blit_text_colored(&mut page, fnt, &label(id, fallback), cell.x + 22, cell.y, MENU_TEXT_ACCENT);
+        }
+    }
+
+    draw_trackbar(&mut page, rect_px_from_snapshot(&snap, "track_game_speed"), state.game_speed, 6);
+    draw_trackbar(&mut page, rect_px_from_snapshot(&snap, "track_scroll_rate"), state.scroll_rate, 6);
+
+    let rects = opts_button_rects(w, h);
+    for (entry_id, cell) in BATTLE_IN_GAME_OPTIONS_BUTTON_IDS.iter().zip(rects.iter()) {
+        let pressed = pressed_entry_id == Some(*entry_id);
+        let hovered = hovered_entry_id == Some(*entry_id);
+        let sprite = pause.and_then(|p| resolve_sidebttn(p, pressed, hovered));
+        if let Some(sprite) = sprite {
+            blit_stretched(&mut page, &sprite.image, *cell);
+        } else {
+            fill_rect(&mut page, *cell, [16, 24, 48, 255]);
+            stroke_rect(&mut page, *cell, [80, 120, 180, 255]);
+        }
+        if let Some(fnt) = fnt {
+            let caption = label(entry_id, battle_in_game_options_fallback_label(entry_id));
+            let (tx, ty, tw, th) = owner_draw_caption_rect(*cell, pressed);
+            blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, MENU_TEXT_ENABLED);
+        }
+    }
+
+    if let (Some(fnt), Some(notice)) = (fnt, stub_notice.filter(|s| !s.is_empty())) {
+        let footer = rect_px_from_snapshot(&snap, "footer");
+        blit_caption_top_left_clipped(&mut page, fnt, notice, footer.x, footer.y, footer.w, footer.h, MENU_TEXT_SECTION);
+    }
+
+    Some(page)
+}

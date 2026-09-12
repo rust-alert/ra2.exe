@@ -333,6 +333,74 @@ pub fn battle_pause_menu_fallback_label(entry_id: &str) -> &str {
     }
 }
 
+/// 放弃确认钮 → CSF。
+pub fn battle_abort_confirm_csf_label(entry_id: &str) -> Option<&'static str> {
+    match entry_id {
+        "leave" => Some("GUI:Leave"),
+        "cancel" => Some("GUI:Cancel"),
+        _ => None,
+    }
+}
+
+/// 放弃确认无 CSF 回退。
+pub fn battle_abort_confirm_fallback_label(entry_id: &str) -> &str {
+    match entry_id {
+        "leave" => "离开",
+        "cancel" => "取消",
+        _ => "确定",
+    }
+}
+
+/// 放弃确认提示 CSF。
+pub fn battle_abort_confirm_prompt_csf_key() -> &'static str {
+    "GUI:ConfirmAbortMission"
+}
+
+/// 局内选项钮 / 控件 → CSF。
+pub fn battle_in_game_options_csf_label(entry_id: &str) -> Option<&'static str> {
+    match entry_id {
+        "back" => Some("GUI:Back"),
+        "sound" => Some("GUI:Sound"),
+        "keyboard" => Some("GUI:Keyboard"),
+        "title" => Some("GUI:GameOptions"),
+        "caption_game_speed" => Some("GUI:GameSpeed"),
+        "caption_scroll_rate" => Some("GUI:ScrollRate"),
+        "check_target_lines" => Some("GUI:TargetLines"),
+        "check_show_hidden" => Some("GUI:ShowHidden"),
+        "check_tooltips" => Some("GUI:ToolTips"),
+        _ => None,
+    }
+}
+
+/// 局内选项无 CSF 回退。
+pub fn battle_in_game_options_fallback_label(entry_id: &str) -> &str {
+    match entry_id {
+        "back" => "返回",
+        "sound" => "声音",
+        "keyboard" => "键盘",
+        "title" => "游戏选项",
+        "caption_game_speed" => "游戏速度",
+        "caption_scroll_rate" => "滚屏速率",
+        "check_target_lines" => "目标线",
+        "check_show_hidden" => "显示隐藏",
+        "check_tooltips" => "提示",
+        _ => "选项",
+    }
+}
+
+/// 局内选项速度档位 CSF（滑条位置 0..=6）。
+pub fn battle_in_game_speed_label_key(pos: u8) -> &'static str {
+    match pos.min(6) {
+        0 => "TXT_SLOWEST",
+        1 => "TXT_SLOWER",
+        2 => "TXT_SLOW",
+        3 => "TXT_MEDIUM",
+        4 => "TXT_FAST",
+        5 => "TXT_FASTER",
+        _ => "TXT_FASTEST",
+    }
+}
+
 /// 遭遇战积分页按钮 / 标题 → CSF。
 pub fn skirmish_score_csf_label(entry_id: &str) -> Option<&'static str> {
     match entry_id {
