@@ -86,12 +86,3 @@ pub fn parse_mode_row(id: u32, category: &str, value: &str) -> Result<MpMode, St
         random_maps_allowed: row.random_maps_allowed,
     })
 }
-
-#[doc(hidden)]
-pub fn parse_ini_bool(raw: &str) -> Result<bool, String> {
-    match raw.trim().to_ascii_lowercase().as_str() {
-        "true" | "yes" | "1" => Ok(true),
-        "false" | "no" | "0" => Ok(false),
-        other => Err(format!("无法解析布尔值 `{other}`")),
-    }
-}
