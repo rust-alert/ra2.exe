@@ -378,7 +378,7 @@ pub fn living_structure_type_keys(world: &BattleState, house: &str) -> Vec<Arc<s
 pub fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<SuperWeaponCapabilityItem> {
     use ra_map::MapEntityKind;
 
-    let mut keys: Vec<String> = Vec::new();
+    let mut keys: Vec<ra_types::SuperWeaponName> = Vec::new();
     for e in &world.entities {
         let id = e.id;
         if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
@@ -401,11 +401,11 @@ pub fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<Super
         let Some(def) = structure
             .super_weapon_id
             .and_then(|id| world.definitions.super_weapons.get_by_id(id))
-            .or_else(|| structure.super_weapon.as_ref().and_then(|k| world.definitions.super_weapons.get(k)))
+            .or_else(|| structure.super_weapon.as_ref().and_then(|k| world.definitions.super_weapons.get_name(k)))
         else {
             continue;
         };
-        let key = def.type_key.as_str().to_string();
+        let key = def.type_key.clone();
         if !keys.iter().any(|k| k == &key) {
             keys.push(key);
         }
@@ -413,7 +413,7 @@ pub fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<Super
     keys.sort();
     let mut out = Vec::with_capacity(keys.len());
     for key in keys {
-        let Some(def) = world.definitions.super_weapons.get(&key)
+        let Some(def) = world.definitions.super_weapons.get_name(&key)
         else {
             continue;
         };
@@ -436,7 +436,7 @@ pub fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<Super
             (true, None)
         };
         out.push(SuperWeaponCapabilityItem {
-            type_id: Arc::<str>::from(key),
+            type_id: Arc::<str>::from(key.as_str()),
             ui_name: Arc::<str>::from(def.ui_name.as_str()),
             sidebar_image: Arc::<str>::from(def.sidebar_image.as_str()),
             kind: Arc::<str>::from(def.kind.as_str()),

@@ -13,7 +13,7 @@ use super::{ImageName, UiName, WeaponName};
 
 
 /// 超级武器类型名（`SuperWeapon=`）；空 = 未配置。
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct SuperWeaponName {
     /// 规范化键（装载期大写）。
     pub name: String,
@@ -46,6 +46,12 @@ impl Deref for SuperWeaponName {
 
 impl AsRef<str> for SuperWeaponName {
     fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl std::borrow::Borrow<str> for SuperWeaponName {
+    fn borrow(&self) -> &str {
         &self.name
     }
 }
@@ -313,18 +319,23 @@ pub struct SuperWeaponDefinition {
 /// 超级武器定义表（按外部 type_key 查询）。
 #[derive(Debug, Clone, Default)]
 pub struct SuperWeaponDefinitions {
-    by_key: BTreeMap<String, SuperWeaponDefinition>,
+    by_key: BTreeMap<SuperWeaponName, SuperWeaponDefinition>,
 }
 
 impl SuperWeaponDefinitions {
     /// 插入一条定义。
     pub fn insert(&mut self, def: SuperWeaponDefinition) {
-        self.by_key.insert(def.type_key.as_str().to_string(), def);
+        self.by_key.insert(def.type_key.clone(), def);
     }
 
     /// 按外部类型键查找（大小写不敏感）。
     pub fn get(&self, type_key: &str) -> Option<&SuperWeaponDefinition> {
-        self.by_key.get(&type_key.to_ascii_uppercase())
+        self.by_key.get(&SuperWeaponName::parse(type_key))
+    }
+
+    /// 按已规范化的类型键查找。
+    pub fn get_name(&self, type_key: &SuperWeaponName) -> Option<&SuperWeaponDefinition> {
+        self.by_key.get(type_key)
     }
 
     /// 按稳定 id 查找。

@@ -123,8 +123,8 @@ pub const SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT: u32 = 90;
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[doc(hidden)]
 pub struct SuperWeaponCharge {
-    /// `[SuperWeaponTypes]` 类型键（大写）。
-    pub type_key: String,
+    /// `[SuperWeaponTypes]` 类型键。
+    pub type_key: ra_types::SuperWeaponName,
     /// 已累计充能 tick。
     pub charge_ticks: u32,
     /// 就绪所需 tick（来自 `RechargeTime` × 换算）。
@@ -148,19 +148,16 @@ pub struct SuperWeaponRuntime {
 
 impl SuperWeaponRuntime {
     /// 查询某 house 某超武充能进度。
-    pub fn charge(&self, house: &str, type_key: &str) -> Option<&SuperWeaponCharge> {
-        let key = type_key.to_ascii_uppercase();
-        self.by_house.get(house).and_then(|list| list.iter().find(|c| c.type_key == key))
+    pub fn charge(&self, house: &str, type_key: &ra_types::SuperWeaponName) -> Option<&SuperWeaponCharge> {
+        self.by_house.get(house).and_then(|list| list.iter().find(|c| &c.type_key == type_key))
     }
 
-    fn charge_mut(&mut self, house: &str, type_key: &str) -> Option<&mut SuperWeaponCharge> {
-        let key = type_key.to_ascii_uppercase();
-        self.by_house.get_mut(house).and_then(|list| list.iter_mut().find(|c| c.type_key == key))
+    fn charge_mut(&mut self, house: &str, type_key: &ra_types::SuperWeaponName) -> Option<&mut SuperWeaponCharge> {
+        self.by_house.get_mut(house).and_then(|list| list.iter_mut().find(|c| &c.type_key == type_key))
     }
 
-    fn ensure_slot(&mut self, house: &str, type_key: &str, required_ticks: u32) {
+    fn ensure_slot(&mut self, house: &str, type_key: ra_types::SuperWeaponName, required_ticks: u32) {
         let house_key = house.to_string();
-        let type_key = type_key.to_ascii_uppercase();
         let list = self.by_house.entry(house_key).or_default();
         if let Some(slot) = list.iter_mut().find(|c| c.type_key == type_key) {
             slot.required_ticks = required_ticks.max(1);
@@ -170,7 +167,7 @@ impl SuperWeaponRuntime {
     }
 
     /// 释放成功后清零充能。
-    pub fn reset_charge(&mut self, house: &str, type_key: &str) {
+    pub fn reset_charge(&mut self, house: &str, type_key: &ra_types::SuperWeaponName) {
         if let Some(slot) = self.charge_mut(house, type_key) {
             slot.charge_ticks = 0;
         }
@@ -189,7 +186,7 @@ pub fn tick_super_weapon_charges(world: &mut BattleState) {
     use ra_map::MapEntityKind;
 
     let defs = std::sync::Arc::clone(&world.definitions);
-    let mut active: Vec<(String, String, u32)> = Vec::new();
+    let mut active: Vec<(String, ra_types::SuperWeaponName, u32)> = Vec::new();
     for e in &world.entities {
         let id = e.id;
         if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
@@ -209,7 +206,7 @@ pub fn tick_super_weapon_charges(world: &mut BattleState) {
         let Some(sw_def) = structure
             .super_weapon_id
             .and_then(|id| defs.super_weapons.get_by_id(id))
-            .or_else(|| structure.super_weapon.as_ref().and_then(|k| defs.super_weapons.get(k)))
+            .or_else(|| structure.super_weapon.as_ref().and_then(|k| defs.super_weapons.get_name(k)))
         else {
             continue;
         };
@@ -217,11 +214,11 @@ pub fn tick_super_weapon_charges(world: &mut BattleState) {
         else {
             continue;
         };
-        active.push((owner, sw_def.type_key.as_str().to_string(), required_ticks_for_sw(sw_def)));
+        active.push((owner, sw_def.type_key.clone(), required_ticks_for_sw(sw_def)));
     }
 
     for (house, sw_key, required) in active {
-        world.super_weapon_runtime.ensure_slot(&house, &sw_key, required);
+        world.super_weapon_runtime.ensure_slot(&house, sw_key.clone(), required);
         if let Some(slot) = world.super_weapon_runtime.charge_mut(&house, &sw_key) {
             if slot.charge_ticks < slot.required_ticks {
                 slot.charge_ticks = slot.charge_ticks.saturating_add(1);
@@ -235,8 +232,8 @@ pub fn try_fire_super_weapon(world: &mut BattleState, house: &str, type_key: &st
     use crate::state::components::{Health, Identity, Owner};
     use ra_map::MapEntityKind;
 
-    let type_key_up = type_key.to_ascii_uppercase();
-    let Some(sw_def) = world.definitions.super_weapons.get(&type_key_up)
+    let type_key = ra_types::SuperWeaponName::parse(type_key);
+    let Some(sw_def) = world.definitions.super_weapons.get_name(&type_key)
     else {
         return Err(FireSuperWeaponError::UnknownType);
     };
@@ -259,12 +256,12 @@ pub fn try_fire_super_weapon(world: &mut BattleState, house: &str, type_key: &st
             .definitions
             .structures
             .get(identity.type_id.as_ref())
-            .is_some_and(|s| s.super_weapon_id == Some(sw_def.id) || s.super_weapon.as_ref().is_some_and(|k| k.eq_ignore_ascii_case(&type_key_up)))
+            .is_some_and(|s| s.super_weapon_id == Some(sw_def.id) || s.super_weapon.as_ref() == Some(&type_key))
     });
     if !has_provider {
         return Err(FireSuperWeaponError::NoProvider);
     }
-    let ready = world.super_weapon_runtime.charge(house, &type_key_up).is_some_and(SuperWeaponCharge::is_ready);
+    let ready = world.super_weapon_runtime.charge(house, &type_key).is_some_and(SuperWeaponCharge::is_ready);
     if !ready {
         return Err(FireSuperWeaponError::NotReady);
     }
@@ -280,7 +277,7 @@ pub fn try_fire_super_weapon(world: &mut BattleState, house: &str, type_key: &st
             return Err(FireSuperWeaponError::UnsupportedKind);
         }
     }
-    world.super_weapon_runtime.reset_charge(house, &type_key_up);
+    world.super_weapon_runtime.reset_charge(house, &type_key);
     Ok(())
 }
 

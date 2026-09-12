@@ -204,18 +204,23 @@ pub struct HouseDefinition {
 /// 阵营 / 房屋定义表。
 #[derive(Debug, Clone, Default)]
 pub struct HouseDefinitions {
-    by_key: BTreeMap<String, HouseDefinition>,
+    by_key: BTreeMap<HouseName, HouseDefinition>,
 }
 
 impl HouseDefinitions {
     /// 插入。
     pub fn insert(&mut self, def: HouseDefinition) {
-        self.by_key.insert(def.type_key.as_str().to_string(), def);
+        self.by_key.insert(def.type_key.clone(), def);
     }
 
     /// 按外部键查找（大小写不敏感）。
     pub fn get(&self, type_key: &str) -> Option<&HouseDefinition> {
-        self.by_key.get(&type_key.to_ascii_uppercase())
+        self.by_key.get(&HouseName::parse(type_key))
+    }
+
+    /// 按已规范化的房屋键查找。
+    pub fn get_name(&self, type_key: &HouseName) -> Option<&HouseDefinition> {
+        self.by_key.get(type_key)
     }
 
     /// 按稳定 id 查找。
