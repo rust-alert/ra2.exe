@@ -248,21 +248,29 @@ fn sequence_triples_from_section(art: &IniDocument, seq_section: &str) -> (Optio
         .section(seq_section)
         .and_then(|s| s.deserialize::<MobileSequenceSectionFields>().ok())
         .unwrap_or_default();
-    let walk_triple = fields.walk.or(fields.panic).as_deref().and_then(parse_sequence_triple);
-    let ready_triple = fields.ready.or(fields.guard).as_deref().and_then(parse_sequence_triple);
+    let walk_triple = fields.walk.or(fields.panic);
+    let ready_triple = fields.ready.or(fields.guard);
     (walk_triple, ready_triple)
 }
 
 #[derive(Debug, Default, Deserialize)]
 struct MobileSequenceSectionFields {
-    #[serde(rename = "Walk")]
-    walk: Option<String>,
-    #[serde(rename = "Panic")]
-    panic: Option<String>,
-    #[serde(rename = "Ready")]
-    ready: Option<String>,
-    #[serde(rename = "Guard")]
-    guard: Option<String>,
+    #[serde(rename = "Walk", default, deserialize_with = "de_opt_sequence_triple")]
+    walk: Option<(u16, u16, u16)>,
+    #[serde(rename = "Panic", default, deserialize_with = "de_opt_sequence_triple")]
+    panic: Option<(u16, u16, u16)>,
+    #[serde(rename = "Ready", default, deserialize_with = "de_opt_sequence_triple")]
+    ready: Option<(u16, u16, u16)>,
+    #[serde(rename = "Guard", default, deserialize_with = "de_opt_sequence_triple")]
+    guard: Option<(u16, u16, u16)>,
+}
+
+fn de_opt_sequence_triple<'de, D>(deserializer: D) -> Result<Option<(u16, u16, u16)>, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    let raw = String::deserialize(deserializer)?;
+    Ok(parse_sequence_triple(&raw))
 }
 
 /// 由姿态与 art 序列解析 SHP 帧；无序列时回退到朝向桶。
