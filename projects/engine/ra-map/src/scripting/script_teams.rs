@@ -207,5 +207,9 @@ fn list_ids(doc: &IniDocument, section: &str) -> Vec<String> {
     else {
         return Vec::new();
     };
-    sec.pairs().map(|(_, v)| v.trim().to_string()).filter(|s| !s.is_empty()).collect()
+    numbered_pairs(sec)
+        .into_iter()
+        .map(|(_, v)| v.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect()
 }
