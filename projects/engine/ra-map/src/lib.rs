@@ -13,6 +13,7 @@ pub mod mobile_paint;
 mod overlay;
 mod overlay_paint;
 mod overlay_pass;
+mod packed_cell;
 mod pass_grid;
 mod placements;
 pub mod playfield;

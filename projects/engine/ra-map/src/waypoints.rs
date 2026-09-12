@@ -2,6 +2,8 @@
 
 use ra_assets::IniDocument;
 
+use crate::packed_cell::parse_packed_cell;
+
 /// 一个航点。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[doc(hidden)]
@@ -22,16 +24,14 @@ pub fn parse_waypoints(doc: &IniDocument) -> Vec<Waypoint> {
     };
     let mut out = Vec::new();
     for (key, value) in section.pairs() {
-        let Ok(index) = key.parse::<u32>()
+        let Ok(index) = key.trim().parse::<u32>()
         else {
             continue;
         };
-        let Ok(pos) = value.trim().parse::<u32>()
+        let Some((x, y)) = parse_packed_cell(value)
         else {
             continue;
         };
-        let y = (pos / 1000) as u16;
-        let x = (pos % 1000) as u16;
         out.push(Waypoint { index, x, y });
     }
     out.sort_by_key(|w| w.index);
