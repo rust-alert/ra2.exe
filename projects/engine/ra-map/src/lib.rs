@@ -380,18 +380,20 @@ impl MapInfo {
         }
     }
 
-    /// 提取 [`ra_types::PreparedMap`] 骨架：冻结定义 + 由 [`PassGrid::from_map`] 灌入的通行层。
+    /// 提取 [`ra_types::PreparedMap`] 骨架：冻结定义 + 由 [`PassGrid::from_map`] 灌入的通行层 + 锚点粗占格。
     ///
-    /// 不含 overlay 陆地封格、渲染清单或规则绑定；对局路径仍可继续用 `PassGrid` 直至准备层收口。
+    /// 不含 overlay 陆地封格、Foundation 展开、渲染清单或规则绑定；对局路径仍可继续用 `PassGrid` 直至准备层收口。
     pub fn to_prepared_map_skeleton(&self) -> ra_types::PreparedMap {
         let definition = self.to_map_definition();
         let (pass_width, pass_height, passable, cell_heights) = PassGrid::from_map(self).to_prepared_pass_layers();
+        let occupancy = prepared_occupancy_from_map(self);
         ra_types::PreparedMap {
             definition,
             pass_width,
             pass_height,
             passable,
             cell_heights,
+            occupancy,
         }
     }
 
@@ -510,6 +512,33 @@ fn parse_map_digest(doc: &IniDocument) -> String {
         .filter(|value| !value.is_empty())
         .collect::<Vec<_>>()
         .join("")
+}
+
+/// 建筑锚点=`1`、地形物件=`2`；同格建筑优先。尺寸与 [`MapInfo::width`] / [`MapInfo::height`] 对齐。
+fn prepared_occupancy_from_map(map: &MapInfo) -> Vec<u8> {
+    let width = map.width.max(1) as usize;
+    let height = map.height.max(1) as usize;
+    let mut occupancy = vec![0u8; width.saturating_mul(height)];
+    let mark = |occ: &mut [u8], x: u16, y: u16, kind: u8| {
+        let xi = usize::from(x);
+        let yi = usize::from(y);
+        if xi >= width || yi >= height {
+            return;
+        }
+        let i = yi * width + xi;
+        if occ[i] == 0 || kind == 1 {
+            occ[i] = kind;
+        }
+    };
+    for ent in &map.entities {
+        if ent.kind == MapEntityKind::Structure {
+            mark(&mut occupancy, ent.x, ent.y, 1);
+        }
+    }
+    for obj in &map.terrain_objects {
+        mark(&mut occupancy, obj.x, obj.y, 2);
+    }
+    occupancy
 }
 
 /// `Size=x,y,width,height` 行（前两列原点，后两列宽高）。
