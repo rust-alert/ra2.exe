@@ -1,8 +1,8 @@
 //! 对局内暂停菜单（原版 Esc 菜单）。
 //!
 //! 几何权威为 [`ra_layout::solve_battle_pause_at`]（专属 layout，**不是** battle HUD，
-//! **也不是**主菜单 shell）。合成只消费 snapshot：全屏 `dim` + 右缘 `sidebttn` 四钮。
-//! 禁止再画主菜单 `sdtp` / `sdbtnanm`，禁止把 `radar.shp` 放大成中心徽。
+//! **也不是**主菜单 shell，**也不是** `0xBBB` 右缘 `SIDEBTTN`）。
+//! 合成只消费 snapshot：全屏 `dim` + 居中 `card` + 竖排主钮。
 
 use ra_assets::{Palette, ShpFile};
 use ra_layout::{BATTLE_PAUSE_MENU_BUTTON_IDS, LayoutSnapshot, RectPx, rect_px_from_snapshot, solve_battle_pause_at};
@@ -202,7 +202,17 @@ pub fn dim_rect(viewport_w: u32, viewport_h: u32) -> RectPx {
     rect_px_from_snapshot(&pause_snapshot(viewport_w, viewport_h), "dim")
 }
 
-/// 暂停四钮在窗口像素中的矩形（来自专属 layout snapshot）。
+/// 居中卡片外框。
+pub fn card_rect(viewport_w: u32, viewport_h: u32) -> RectPx {
+    rect_px_from_snapshot(&pause_snapshot(viewport_w, viewport_h), "card")
+}
+
+/// 标题区。
+pub fn title_rect(viewport_w: u32, viewport_h: u32) -> RectPx {
+    rect_px_from_snapshot(&pause_snapshot(viewport_w, viewport_h), "title")
+}
+
+/// 暂停主钮在窗口像素中的矩形（来自专属 layout snapshot）。
 pub fn button_rects(viewport_w: u32, viewport_h: u32) -> [RectPx; 4] {
     let snap = pause_snapshot(viewport_w, viewport_h);
     let mut rects = [RectPx::new(0, 0, 1, 1); 4];

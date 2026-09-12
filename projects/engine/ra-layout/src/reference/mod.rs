@@ -23,7 +23,8 @@ pub use battle_hud::{
 pub use battle_in_game_options::{BATTLE_IN_GAME_OPTIONS_BUTTON_IDS, solve_battle_in_game_options, solve_battle_in_game_options_at};
 pub use battle_pause::{
     BATTLE_PAUSE_BASE_H, BATTLE_PAUSE_BASE_W, BATTLE_PAUSE_BUTTON_H, BATTLE_PAUSE_BUTTON_RIGHT_INSET, BATTLE_PAUSE_BUTTON_W,
-    battle_sidebttn_rect, solve_battle_pause, solve_battle_pause_at,
+    BATTLE_PAUSE_CARD_W, BATTLE_PAUSE_SIDEBTTN_H, BATTLE_PAUSE_SIDEBTTN_W, battle_sidebttn_rect, solve_battle_pause,
+    solve_battle_pause_at,
 };
 pub use campaign_page::solve_campaign;
 pub use dlu::{DluRect, FontBaseUnits, MS_SANS_SERIF_8PT, mul_div_round};

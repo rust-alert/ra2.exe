@@ -4,7 +4,7 @@ use ra_layout::{SHELL_BASE_H, SHELL_BASE_W};
 use ra_widgets::RenderPlan;
 
 #[test]
-fn battle_pause_placeholders_rasterize_opaque_rail_pixel() {
+fn battle_pause_placeholders_rasterize_opaque_card_button_pixel() {
     let plan = RenderPlan::battle_pause_placeholders();
     let page = plan.rasterize_solids(SHELL_BASE_W as u32, SHELL_BASE_H as u32).expect("page");
     let resume = plan.rect_of("resume").expect("resume");

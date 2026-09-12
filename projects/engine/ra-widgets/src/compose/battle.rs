@@ -219,11 +219,11 @@ fn paint_command_tip(page: &mut RgbaImage, fnt: &FntFile, tip: &str, cell: RectP
     }
 }
 
-/// 合成对局暂停菜单叠加层（窗口像素，叠在已画好的对局 HUD 之上）。
+/// 合成对局暂停菜单叠加层（窗口像素；暂停时应单独作为 UI 层，不要叠在 HUD 侧栏上）。
 ///
-/// 几何只认 [`ra_layout::solve_battle_pause_at`]：全屏 `dim` + 右缘四钮。
+/// 几何只认 [`ra_layout::solve_battle_pause_at`]：全屏 `dim` + 居中 `card` + 竖排主钮。
 /// **禁止**再画主菜单 `sdtp` / `sdbtnanm`，**禁止**放大 `radar` 做中心徽，
-/// **禁止**用手写 HUD cameo/side1 坐标排钮。
+/// **禁止**把 `SIDEBTTN` 钉在 HUD 侧栏上冒充暂停菜单。
 pub fn compose_battle_pause_menu_overlay(
     viewport_w: u32,
     viewport_h: u32,
@@ -231,40 +231,51 @@ pub fn compose_battle_pause_menu_overlay(
     hovered_entry_id: Option<&str>,
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
-    pause: Option<&BattlePauseChrome>,
+    _pause: Option<&BattlePauseChrome>,
 ) -> Option<RgbaImage> {
+    use crate::battle_pause_menu::{card_rect, title_rect};
+
     let w = viewport_w.max(1);
     let h = viewport_h.max(1);
     let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
 
     let dim = dim_rect(w, h);
-    fill_rect(&mut page, dim, [0, 0, 0, 160]);
+    fill_rect(&mut page, dim, [0, 0, 0, 140]);
+
+    let card = card_rect(w, h);
+    fill_rect(&mut page, card, [18, 18, 22, 240]);
+    stroke_rect(&mut page, card, [180, 160, 80, 255]);
+
+    if let Some(fnt) = fnt {
+        let title = title_rect(w, h);
+        let caption = {
+            let from = resolve_caption(csf, "options", Some("GUI:Options"));
+            if from == "options" { "选项".to_string() } else { from }
+        };
+        blit_caption_in_cell(&mut page, fnt, &caption, title.x, title.y, title.w, title.h, MENU_TEXT_SECTION);
+    }
 
     let rects = button_rects(w, h);
     for (entry_id, cell) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().zip(rects.iter()) {
         let pressed = pressed_entry_id == Some(*entry_id);
         let hovered = hovered_entry_id == Some(*entry_id);
-        let sprite = pause.and_then(|p| resolve_sidebttn(p, pressed, hovered));
-        if let Some(sprite) = sprite {
-            blit_stretched(&mut page, &sprite.image, *cell);
-        }
-        else {
-            let fill = if pressed {
-                [40, 40, 80, 255]
-            }
-            else if hovered {
-                [30, 30, 60, 255]
-            }
-            else {
-                [16, 24, 48, 255]
-            };
-            fill_rect(&mut page, *cell, fill);
-            stroke_rect(&mut page, *cell, [80, 120, 180, 255]);
-        }
+        let fill = if pressed {
+            [80, 28, 28, 255]
+        } else if hovered {
+            [48, 32, 24, 255]
+        } else {
+            [28, 24, 20, 255]
+        };
+        fill_rect(&mut page, *cell, fill);
+        stroke_rect(&mut page, *cell, [200, 80, 80, 255]);
         if let Some(fnt) = fnt {
             let caption = {
                 let from_csf = resolve_caption(csf, entry_id, battle_pause_menu_csf_label(entry_id));
-                if from_csf == entry_id.replace('_', " ") { battle_pause_menu_fallback_label(entry_id).to_string() } else { from_csf }
+                if from_csf == entry_id.replace('_', " ") {
+                    battle_pause_menu_fallback_label(entry_id).to_string()
+                } else {
+                    from_csf
+                }
             };
             let (tx, ty, tw, th) = owner_draw_caption_rect(*cell, pressed);
             blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, MENU_TEXT_ENABLED);
@@ -274,7 +285,7 @@ pub fn compose_battle_pause_menu_overlay(
     Some(page)
 }
 
-/// 合成放弃确认叠层（dim + Leave / Cancel）。
+/// 合成放弃确认叠层（dim + 居中卡片 Leave / Cancel）。
 pub fn compose_battle_abort_confirm_overlay(
     viewport_w: u32,
     viewport_h: u32,
@@ -282,21 +293,27 @@ pub fn compose_battle_abort_confirm_overlay(
     hovered_entry_id: Option<&str>,
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
-    pause: Option<&BattlePauseChrome>,
+    _pause: Option<&BattlePauseChrome>,
 ) -> Option<RgbaImage> {
     use crate::{
         battle_abort_confirm::{button_rects as abort_button_rects, dim_rect as abort_dim, prompt_rect},
         skin::text::{battle_abort_confirm_csf_label, battle_abort_confirm_fallback_label, battle_abort_confirm_prompt_csf_key},
     };
-    use ra_layout::BATTLE_ABORT_CONFIRM_BUTTON_IDS;
+    use ra_layout::{BATTLE_ABORT_CONFIRM_BUTTON_IDS, rect_px_from_snapshot};
 
     let w = viewport_w.max(1);
     let h = viewport_h.max(1);
     let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
+    let snap = crate::battle_abort_confirm::abort_snapshot(w, h);
 
-    fill_rect(&mut page, abort_dim(w, h), [0, 0, 0, 160]);
+    fill_rect(&mut page, abort_dim(w, h), [0, 0, 0, 140]);
+    let card = rect_px_from_snapshot(&snap, "card");
+    fill_rect(&mut page, card, [18, 18, 22, 240]);
+    stroke_rect(&mut page, card, [180, 80, 80, 255]);
 
     if let Some(fnt) = fnt {
+        let title = rect_px_from_snapshot(&snap, "title");
+        blit_caption_in_cell(&mut page, fnt, "放弃任务", title.x, title.y, title.w, title.h, MENU_TEXT_SECTION);
         let prompt = prompt_rect(w, h);
         let text = {
             let from = resolve_caption(csf, "prompt", Some(battle_abort_confirm_prompt_csf_key()));
@@ -313,20 +330,15 @@ pub fn compose_battle_abort_confirm_overlay(
     for (entry_id, cell) in BATTLE_ABORT_CONFIRM_BUTTON_IDS.iter().zip(rects.iter()) {
         let pressed = pressed_entry_id == Some(*entry_id);
         let hovered = hovered_entry_id == Some(*entry_id);
-        let sprite = pause.and_then(|p| resolve_sidebttn(p, pressed, hovered));
-        if let Some(sprite) = sprite {
-            blit_stretched(&mut page, &sprite.image, *cell);
+        let fill = if pressed {
+            [80, 24, 24, 255]
+        } else if hovered {
+            [48, 24, 24, 255]
         } else {
-            let fill = if pressed {
-                [80, 24, 24, 255]
-            } else if hovered {
-                [48, 24, 24, 255]
-            } else {
-                [32, 16, 16, 255]
-            };
-            fill_rect(&mut page, *cell, fill);
-            stroke_rect(&mut page, *cell, [180, 80, 80, 255]);
-        }
+            [32, 16, 16, 255]
+        };
+        fill_rect(&mut page, *cell, fill);
+        stroke_rect(&mut page, *cell, [180, 80, 80, 255]);
         if let Some(fnt) = fnt {
             let caption = {
                 let from_csf = resolve_caption(csf, entry_id, battle_abort_confirm_csf_label(entry_id));

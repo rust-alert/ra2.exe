@@ -18,7 +18,7 @@ use ra_widgets::{
     battle_hud::BattleCameoPaint,
     battle_pause_layer::BattlePauseLayer,
     compose::{
-        BattleHudModel, blit_rgba, compose_battle_abort_confirm_overlay, compose_battle_hud_overlay,
+        BattleHudModel, compose_battle_abort_confirm_overlay, compose_battle_hud_overlay,
         compose_battle_in_game_options_overlay, compose_battle_pause_menu_overlay,
     },
     fs_source::GameAssetSource,
@@ -555,50 +555,51 @@ impl BattleController {
             cameos: if show_pause_banner { &[] } else { &cameos },
         };
         // 与命中 / `world_viewport` 同口径：按窗口像素合成，避免 800×600 letterbox 错位。
+        if show_pause_banner {
+            // 暂停族是覆盖战场的模态：不要再画 HUD 侧栏，否则钮会像钉在 cameo 槽上。
+            let overlay = match self.pause_layer {
+                BattlePauseLayer::Menu => compose_battle_pause_menu_overlay(
+                    w,
+                    h,
+                    self.pause_pressed,
+                    self.pause_hover,
+                    fnt,
+                    csf,
+                    self.pause_menu_chrome.as_ref(),
+                ),
+                BattlePauseLayer::AbortConfirm => compose_battle_abort_confirm_overlay(
+                    w,
+                    h,
+                    self.pause_pressed,
+                    self.pause_hover,
+                    fnt,
+                    csf,
+                    self.pause_menu_chrome.as_ref(),
+                ),
+                BattlePauseLayer::InGameOptions => compose_battle_in_game_options_overlay(
+                    w,
+                    h,
+                    &self.in_game_options,
+                    self.pause_pressed,
+                    self.pause_hover,
+                    fnt,
+                    csf,
+                    self.pause_menu_chrome.as_ref(),
+                    self.pause_stub_notice,
+                ),
+            };
+            if let Some(page) = overlay {
+                let page = present::present_ui_page(page, present);
+                renderer.set_ui_overlay(page);
+            }
+            return;
+        }
         if let Some(mut page) = compose_battle_hud_overlay(w, h, fnt, paint, self.hud_chrome.as_ref()) {
             if let Some(rect) = self.left_gesture.marquee_rect() {
                 stroke_marquee_rect(&mut page, rect);
             }
-            if !show_pause_banner {
-                if let Some(type_id) = self.place_mode.clone() {
-                    self.paint_placement_ghost(&mut page, renderer, w, h, &type_id);
-                }
-            }
-            if show_pause_banner {
-                let overlay = match self.pause_layer {
-                    BattlePauseLayer::Menu => compose_battle_pause_menu_overlay(
-                        w,
-                        h,
-                        self.pause_pressed,
-                        self.pause_hover,
-                        fnt,
-                        csf,
-                        self.pause_menu_chrome.as_ref(),
-                    ),
-                    BattlePauseLayer::AbortConfirm => compose_battle_abort_confirm_overlay(
-                        w,
-                        h,
-                        self.pause_pressed,
-                        self.pause_hover,
-                        fnt,
-                        csf,
-                        self.pause_menu_chrome.as_ref(),
-                    ),
-                    BattlePauseLayer::InGameOptions => compose_battle_in_game_options_overlay(
-                        w,
-                        h,
-                        &self.in_game_options,
-                        self.pause_pressed,
-                        self.pause_hover,
-                        fnt,
-                        csf,
-                        self.pause_menu_chrome.as_ref(),
-                        self.pause_stub_notice,
-                    ),
-                };
-                if let Some(pause) = overlay {
-                    blit_rgba(&mut page, &pause, 0, 0);
-                }
+            if let Some(type_id) = self.place_mode.clone() {
+                self.paint_placement_ghost(&mut page, renderer, w, h, &type_id);
             }
             // 与壳层菜单同走 `[present]`，避免对局侧栏仍以满 8-bit 显得过亮。
             let page = present::present_ui_page(page, present);
