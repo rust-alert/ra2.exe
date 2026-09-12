@@ -210,7 +210,7 @@ impl<'a> LayeredSectionView<'a> {
         };
         for &(layer, sec) in layers {
             for (k, v) in sec.pairs() {
-                let Ok(index) = k.parse::<u32>()
+                let Some(index) = super::numbered::parse_numbered_key(k)
                 else {
                     continue;
                 };
