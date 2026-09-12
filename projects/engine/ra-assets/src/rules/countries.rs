@@ -173,31 +173,50 @@ pub fn parse_countries(view: LayeredIniView<'_>) -> Vec<CountryDef> {
 
 #[doc(hidden)]
 pub fn parse_country(view: LayeredIniView<'_>, list_index: u32, id: &str) -> CountryDef {
-    let get = |key: &str| {
-        view.get(id, key)
-            .map(|v| v.trimmed().raw.to_string())
-            .unwrap_or_default()
-    };
-    let multiplay = view.get(id, "Multiplay").map(|v| parse_ini_bool_loose(v.trimmed().raw)).unwrap_or(false);
-    let multiplay_obsolete = view
-        .get(id, "MultiplayObsolete")
-        .map(|v| parse_ini_bool_loose(v.trimmed().raw))
-        .unwrap_or(false);
+    let fields = view
+        .section(id)
+        .and_then(|s| s.deserialize::<CountrySectionFields>().ok())
+        .unwrap_or_default();
     CountryDef {
         id: id.to_string(),
         list_index,
-        ui_name: get("UIName"),
-        prefix: get("Prefix"),
-        color: get("Color"),
-        side: get("Side"),
-        multiplay,
-        multiplay_obsolete,
+        ui_name: fields.ui_name.unwrap_or_default().trim().to_string(),
+        prefix: fields.prefix.unwrap_or_default().trim().to_string(),
+        color: fields.color.unwrap_or_default().trim().to_string(),
+        side: fields.side.unwrap_or_default().trim().to_string(),
+        multiplay: fields.multiplay.unwrap_or(false),
+        multiplay_obsolete: fields.multiplay_obsolete.unwrap_or(false),
         special_ui_name: String::new(),
-        load_screen: get("File.LoadScreen"),
-        load_screen_pal: get("File.LoadScreenPAL"),
-        flag: get("File.Flag"),
-        load_brief: get("LoadScreenText.Brief"),
+        load_screen: fields.load_screen.unwrap_or_default().trim().to_string(),
+        load_screen_pal: fields.load_screen_pal.unwrap_or_default().trim().to_string(),
+        flag: fields.flag.unwrap_or_default().trim().to_string(),
+        load_brief: fields.load_brief.unwrap_or_default().trim().to_string(),
     }
+}
+
+/// 国家节字段（一次 Serde）。
+#[derive(Debug, Default, Deserialize)]
+struct CountrySectionFields {
+    #[serde(rename = "UIName")]
+    ui_name: Option<String>,
+    #[serde(rename = "Prefix")]
+    prefix: Option<String>,
+    #[serde(rename = "Color")]
+    color: Option<String>,
+    #[serde(rename = "Side")]
+    side: Option<String>,
+    #[serde(rename = "Multiplay")]
+    multiplay: Option<bool>,
+    #[serde(rename = "MultiplayObsolete")]
+    multiplay_obsolete: Option<bool>,
+    #[serde(rename = "File.LoadScreen")]
+    load_screen: Option<String>,
+    #[serde(rename = "File.LoadScreenPAL")]
+    load_screen_pal: Option<String>,
+    #[serde(rename = "File.Flag")]
+    flag: Option<String>,
+    #[serde(rename = "LoadScreenText.Brief")]
+    load_brief: Option<String>,
 }
 
 /// 解析该国装载页特色兵种 CSF 键（`RequiredHouses` → 类型/`SuperWeapon` 的 `UIName`）。
@@ -386,9 +405,4 @@ pub fn fill_country_ui_gaps(countries: &mut [CountryDef], stock: &[CountryDef]) 
             dst.load_brief = src.load_brief.clone();
         }
     }
-}
-
-#[doc(hidden)]
-pub fn parse_ini_bool_loose(raw: &str) -> bool {
-    matches!(raw.trim().to_ascii_lowercase().as_str(), "true" | "yes" | "1")
 }
