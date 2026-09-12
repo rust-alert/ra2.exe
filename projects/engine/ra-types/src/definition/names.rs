@@ -193,3 +193,9 @@ ini_name!(
     UiName,
     "UIName= CSF label"
 );
+
+ini_name!(
+    /// 房屋 / 阵营 `Color=` 方案名（装载期大写，对齐 rules `[Colors]` 键）；空 = 未写。
+    ColorName,
+    "Color= scheme name"
+);

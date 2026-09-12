@@ -300,8 +300,8 @@ pub struct MapHouse {
     pub edge: crate::MapEdge,
     /// `PlayerControl=`。
     pub player_control: bool,
-    /// `Color=`。
-    pub color: String,
+    /// `Color=`（装载期一次解码为大写方案名）。
+    pub color: crate::ColorName,
     /// `Allies=` 逗号列表。
     pub allies: Vec<String>,
 }
