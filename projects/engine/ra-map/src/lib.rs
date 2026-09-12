@@ -262,8 +262,8 @@ impl MapInfo {
         let scripting = parse_map_scripting(&doc);
         let (preview_width, preview_height) = doc
             .section("Preview")
-            .and_then(|s| s.deserialize::<PreviewSizeSectionFields>().ok())
-            .and_then(|f| f.size.as_deref().and_then(parse_preview_size))
+            .and_then(|s| s.deserialize::<crate::preview_pack::PreviewSectionFields>().ok())
+            .and_then(|f| f.size)
             .unwrap_or((0, 0));
         let digest = parse_map_digest(&doc);
         Ok(Self {
@@ -518,13 +518,6 @@ struct BasicSectionFields {
     alternate_next_mission: Option<String>,
     #[serde(rename = "StartingCredits")]
     starting_credits: Option<i32>,
-}
-
-/// `[Preview]` 尺寸字段（一次 Serde；像素包仍走 PreviewPack 解码）。
-#[derive(Debug, Default, Deserialize)]
-struct PreviewSizeSectionFields {
-    #[serde(rename = "Size")]
-    size: Option<String>,
 }
 
 /// `[Digest]` 编号键按序拼接；缺节或全空为 `""`。

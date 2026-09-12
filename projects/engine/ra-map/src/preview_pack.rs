@@ -4,6 +4,7 @@ use image::RgbaImage;
 use ra_assets::{IniDocument, from_csv_row, parse_westwood_csv_line};
 use ra_types::{RaError, RaResult};
 use serde::Deserialize;
+use serde::de::Deserializer;
 
 use crate::{base64, lzo, numbered_pack::try_decode_numbered_base64_pack};
 
@@ -39,11 +40,19 @@ struct PreviewSizeXywh {
     height: u32,
 }
 
-/// `[Preview]` 节字段。
+/// `[Preview]` 节字段（`Size` 在反序列化时解码为宽高）。
 #[derive(Debug, Default, Deserialize)]
-struct PreviewSectionFields {
-    #[serde(rename = "Size")]
-    size: Option<String>,
+pub(crate) struct PreviewSectionFields {
+    #[serde(rename = "Size", default, deserialize_with = "de_opt_preview_size")]
+    pub size: Option<(u32, u32)>,
+}
+
+fn de_opt_preview_size<'de, D>(deserializer: D) -> Result<Option<(u32, u32)>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = String::deserialize(deserializer)?;
+    Ok(parse_preview_size(&raw))
 }
 
 /// 解析 `[Preview] Size=`：`w,h` 或 `x,y,w,h`（取宽高）。
@@ -96,11 +105,11 @@ pub fn decode_preview_pack_bytes(compressed: &[u8], width: u32, height: u32) -> 
 
 /// 从场景 INI 文档解码预览；无 `[Preview]` / `[PreviewPack]` 时返回 `Ok(None)`。
 pub fn decode_preview_from_ini(doc: &IniDocument) -> RaResult<Option<MapPreviewImage>> {
-    let fields = doc
-        .section("Preview")
-        .and_then(|s| s.deserialize::<PreviewSectionFields>().ok())
-        .unwrap_or_default();
-    let Some(size_raw) = fields.size.as_deref()
+    let Some(sec) = doc.section("Preview")
+    else {
+        return Ok(None);
+    };
+    let Some(size_raw) = sec.get("Size")
     else {
         return Ok(None);
     };
