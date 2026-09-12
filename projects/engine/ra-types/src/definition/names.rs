@@ -223,3 +223,9 @@ ini_name!(
     TaskForceName,
     "TaskForces id"
 );
+
+ini_name!(
+    /// 地图 `Team=` / `[TeamTypes]` 引用名（装载期大写）；空 = 未写。
+    TeamTypeName,
+    "TeamTypes id"
+);

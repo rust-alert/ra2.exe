@@ -43,7 +43,7 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
     }
 
     for at in triggers {
-        if at.team.trim().is_empty() {
+        if at.team.is_empty() {
             continue;
         }
         if !at.owner_house.is_empty() && world.ai_trigger_runtime.disabled_houses.iter().any(|h| h.eq_ignore_ascii_case(&at.owner_house)) {
@@ -60,7 +60,7 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
         if *rem > 0 {
             continue;
         }
-        world.trigger_runtime.pending_team_spawns.push(at.team.clone());
+        world.trigger_runtime.pending_team_spawns.push(at.team.to_string());
         *rem = AI_TRIGGER_COOLDOWN_TICKS;
     }
 }

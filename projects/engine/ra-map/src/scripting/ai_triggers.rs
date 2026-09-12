@@ -1,7 +1,7 @@
 //! `[AITriggerTypes]` 解析（引擎侧 `tick_ai_triggers` 最小执行产队）。
 
 use ra_assets::{IniDocument, from_csv_row, parse_westwood_csv_line};
-use ra_types::HouseName;
+use ra_types::{HouseName, TeamTypeName};
 use serde::Deserialize;
 
 /// 一条 AI 触发（装载解析中间态；投影进 `ra_types::MapAiTrigger`）。
@@ -11,8 +11,8 @@ pub struct MapAiTrigger {
     pub id: String,
     /// 显示名。
     pub name: String,
-    /// 关联 TeamType。
-    pub team: String,
+    /// 关联 TeamType（装载期一次解码为大写 TeamTypes 键）。
+    pub team: TeamTypeName,
     /// 所属 House（装载期一次解码为大写）。
     pub owner_house: HouseName,
     /// 科技等级门槛。
@@ -23,7 +23,7 @@ pub struct MapAiTrigger {
 struct AiTriggerCsvRow {
     name: String,
     #[serde(default)]
-    team: String,
+    team: TeamTypeName,
     #[serde(default)]
     owner_house: HouseName,
     #[serde(default)]
@@ -34,10 +34,10 @@ struct AiTriggerCsvRow {
 struct AiTriggerSectionFields {
     #[serde(rename = "Name")]
     name: Option<String>,
-    #[serde(rename = "Team1")]
-    team1: Option<String>,
-    #[serde(rename = "Team")]
-    team: Option<String>,
+    #[serde(rename = "Team1", default)]
+    team1: TeamTypeName,
+    #[serde(rename = "Team", default)]
+    team: TeamTypeName,
     #[serde(rename = "OwnerHouse", default)]
     owner_house: HouseName,
     #[serde(rename = "House", default)]
@@ -86,7 +86,7 @@ pub fn parse_ai_triggers(doc: &IniDocument) -> Vec<MapAiTrigger> {
             out.push(MapAiTrigger {
                 id: id.clone(),
                 name: fields.name.unwrap_or(id).trim().to_string(),
-                team: first_nonempty(fields.team1.or(fields.team)).unwrap_or_default(),
+                team: first_team(fields.team1, fields.team),
                 owner_house,
                 tech_level: fields.tech_level.unwrap_or(0),
             });
@@ -95,7 +95,7 @@ pub fn parse_ai_triggers(doc: &IniDocument) -> Vec<MapAiTrigger> {
             out.push(MapAiTrigger {
                 id,
                 name: String::new(),
-                team: String::new(),
+                team: TeamTypeName::default(),
                 owner_house: HouseName::default(),
                 tech_level: 0,
             });
@@ -104,6 +104,6 @@ pub fn parse_ai_triggers(doc: &IniDocument) -> Vec<MapAiTrigger> {
     out
 }
 
-fn first_nonempty(raw: Option<String>) -> Option<String> {
-    raw.map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+fn first_team(primary: TeamTypeName, fallback: TeamTypeName) -> TeamTypeName {
+    if !primary.is_empty() { primary } else { fallback }
 }
