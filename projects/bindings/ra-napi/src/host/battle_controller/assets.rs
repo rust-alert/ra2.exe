@@ -72,15 +72,10 @@ impl BattleController {
         }
     }
 
-    /// 从已缓存 rules 刷新 `ConditionYellow` / `ConditionRed`。
+    /// 从已缓存受损规则刷新 `ConditionYellow` / `ConditionRed`。
     pub(super) fn refresh_condition_thresholds(&mut self, _assets: Option<&GameAssetSource>) {
-        let Some(doc) = self.paint_ini.rules.as_ref()
-        else {
-            return;
-        };
-        let damage = ra_map::StructureDamageRules::from_rules_doc(doc);
-        self.condition_yellow = damage.yellow;
-        self.condition_red = damage.red;
+        self.condition_yellow = self.paint_ini.damage.yellow;
+        self.condition_red = self.paint_ini.damage.red;
     }
 
     /// 按本地阵营解码侧栏/底栏 chrome（仅在缺失或换边时重解）。
