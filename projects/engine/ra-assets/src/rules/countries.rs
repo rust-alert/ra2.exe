@@ -3,7 +3,7 @@
 use std::fmt;
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
-use ra_types::HouseAllowList;
+use ra_types::{HouseAllowList, UiName};
 use serde::Deserialize;
 use serde::de::{self, Deserializer, Visitor};
 
@@ -15,8 +15,8 @@ pub struct CountryDef {
     pub id: String,
     /// `[Countries]` 列表下标。
     pub list_index: u32,
-    /// `UIName=` CSF 键（如 `Name:Americans`）；缺省为空。
-    pub ui_name: String,
+    /// `UIName=` CSF 键（装载期一次解码为大写）；缺省为空。
+    pub ui_name: UiName,
     /// `Prefix=`（旗标 / 装载艺术常用前缀，如 `USA`）；缺省为空。
     pub prefix: String,
     /// `Color=` 方案名（如 `Gold`）；缺省为空。
@@ -32,7 +32,7 @@ pub struct CountryDef {
     /// 取自 rules：`RequiredHouses` 恰为本国的类型之 `UIName`；建筑若挂
     /// `SuperWeapon=` 则改用该超武的 `UIName`（如美军空降）。
     /// 空串表示无特色可画——原版/模组均允许缺失，装载页应跳过该行。
-    pub special_ui_name: String,
+    pub special_ui_name: UiName,
     /// `File.LoadScreen=` 装载背景 SHP（完整文件名）；空串由 edition adaptor 补。
     pub load_screen: String,
     /// `File.LoadScreenPAL=` 装载调色板；空串由 edition adaptor 补。
@@ -184,13 +184,13 @@ pub fn parse_country(view: LayeredIniView<'_>, list_index: u32, id: &str) -> Cou
     CountryDef {
         id: id.to_string(),
         list_index,
-        ui_name: fields.ui_name.unwrap_or_default().trim().to_string(),
+        ui_name: fields.ui_name,
         prefix: fields.prefix.unwrap_or_default().trim().to_string(),
         color: fields.color.unwrap_or_default().trim().to_string(),
         side: fields.side.unwrap_or_default().trim().to_string(),
         multiplay: fields.multiplay.unwrap_or(false),
         multiplay_obsolete: fields.multiplay_obsolete.unwrap_or(false),
-        special_ui_name: String::new(),
+        special_ui_name: UiName::default(),
         load_screen: fields.load_screen.unwrap_or_default().trim().to_string(),
         load_screen_pal: fields.load_screen_pal.unwrap_or_default().trim().to_string(),
         flag: fields.flag.unwrap_or_default().trim().to_string(),
@@ -201,8 +201,8 @@ pub fn parse_country(view: LayeredIniView<'_>, list_index: u32, id: &str) -> Cou
 /// 国家节字段（一次 Serde）。
 #[derive(Debug, Default, Deserialize)]
 struct CountrySectionFields {
-    #[serde(rename = "UIName")]
-    ui_name: Option<String>,
+    #[serde(rename = "UIName", default)]
+    ui_name: UiName,
     #[serde(rename = "Prefix")]
     prefix: Option<String>,
     #[serde(rename = "Color")]
@@ -227,13 +227,13 @@ struct CountrySectionFields {
 ///
 /// 扫描顺序：步兵 → 飞行器 → 载具 → 建筑（与常见「特色兵种」优先级一致；同国多条时取先命中）。
 /// 未命中返回空串：调用方不得回退到写死表，装载页不画特色名即可。
-pub fn resolve_country_special_ui_name(rules: &IniDocument, country_id: &str) -> String {
+pub fn resolve_country_special_ui_name(rules: &IniDocument, country_id: &str) -> UiName {
     let policy = IniMergePolicy::last_wins();
     let docs = std::slice::from_ref(rules);
     resolve_country_special_ui_name_layered(LayeredIniView::new(docs, &policy), country_id)
 }
 
-fn resolve_country_special_ui_name_layered(view: LayeredIniView<'_>, country_id: &str) -> String {
+fn resolve_country_special_ui_name_layered(view: LayeredIniView<'_>, country_id: &str) -> UiName {
     for list in ["InfantryTypes", "AircraftTypes", "VehicleTypes", "BuildingTypes"] {
         let Some(sec) = view.section(list)
         else {
@@ -259,21 +259,25 @@ fn resolve_country_special_ui_name_layered(view: LayeredIniView<'_>, country_id:
             // 建筑特色常是「空指部挂空降」：优先超武 UIName，避免画出建筑名。
             if list == "BuildingTypes" {
                 if let Some(sw) = techno.get("SuperWeapon").map(|v| v.trimmed().raw).filter(|s| !s.is_empty()) {
-                    if let Some(sw_ui) = view
+                    let sw_ui = view
                         .get(sw, "UIName")
-                        .map(|v| v.trimmed().raw.to_string())
-                        .filter(|s| !s.is_empty())
-                    {
+                        .map(|v| UiName::parse(v.trimmed().raw))
+                        .unwrap_or_default();
+                    if !sw_ui.is_empty() {
                         return sw_ui;
                     }
                 }
             }
-            if let Some(ui) = techno.get("UIName").map(|v| v.trimmed().raw.to_string()).filter(|s| !s.is_empty()) {
+            let ui = techno
+                .get("UIName")
+                .map(|v| UiName::parse(v.trimmed().raw))
+                .unwrap_or_default();
+            if !ui.is_empty() {
                 return ui;
             }
         }
     }
-    String::new()
+    UiName::default()
 }
 
 #[doc(hidden)]

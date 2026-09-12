@@ -1,7 +1,7 @@
 //! edition 库存壳层 UI：填 rules 缺键，不进引擎苏盟分类。
 
 use ra_assets::{CountryDef, SideChromeDef, fill_country_ui_gaps, fill_side_chrome_gaps};
-use ra_types::GameEdition;
+use ra_types::{GameEdition, UiName};
 
 use crate::ResourceChain;
 
@@ -30,13 +30,13 @@ fn country_from_stock(s: &ra_adaptor_ra2::stock_ui::StockCountryUi) -> CountryDe
     CountryDef {
         id: s.id.to_string(),
         list_index: 0,
-        ui_name: String::new(),
+        ui_name: UiName::default(),
         prefix: String::new(),
         color: String::new(),
         side: String::new(),
         multiplay: false,
         multiplay_obsolete: false,
-        special_ui_name: String::new(),
+        special_ui_name: UiName::default(),
         load_screen: s.load_screen.to_string(),
         load_screen_pal: s.load_screen_pal.to_string(),
         flag: s.flag.to_string(),

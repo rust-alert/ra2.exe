@@ -199,6 +199,6 @@ UIName=Name:PARA
 "#;
     let doc = IniDocument::parse(RULES.as_bytes()).unwrap();
     let reg = CountryRegistry::from_rules(&doc);
-    assert_eq!(reg.get("Confederation").unwrap().special_ui_name, "Name:TERROR");
-    assert_eq!(reg.get("Americans").unwrap().special_ui_name, "Name:PARA");
+    assert_eq!(reg.get("Confederation").unwrap().special_ui_name, "NAME:TERROR");
+    assert_eq!(reg.get("Americans").unwrap().special_ui_name, "NAME:PARA");
 }
