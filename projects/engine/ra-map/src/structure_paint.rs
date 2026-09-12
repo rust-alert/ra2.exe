@@ -86,7 +86,7 @@ fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocum
         bib_new_theater,
         tech_level: structure_tech_level(rules, type_id),
         turret_voxel: structure_turret_voxel_hints(rules, type_id),
-        fire_offsets: structure_damage_fire_offsets(art, type_id, &art_section),
+        fire_offsets: structure_damage_fire_offsets(&body),
         buildup: structure_buildup_hints(art, body.buildup.as_deref(), body_new_theater),
         loop_anims: structure_loop_anim_names(&body),
     }
@@ -123,6 +123,14 @@ fn structure_body_art_fields(art: Option<&IniDocument>, type_id: &str, art_secti
         idle_anim_damaged: type_fields.idle_anim_damaged.or(section_fields.idle_anim_damaged),
         idle_anim_two: type_fields.idle_anim_two.or(section_fields.idle_anim_two),
         idle_anim_two_damaged: type_fields.idle_anim_two_damaged.or(section_fields.idle_anim_two_damaged),
+        damage_fire_offset0: type_fields.damage_fire_offset0.or(section_fields.damage_fire_offset0),
+        damage_fire_offset1: type_fields.damage_fire_offset1.or(section_fields.damage_fire_offset1),
+        damage_fire_offset2: type_fields.damage_fire_offset2.or(section_fields.damage_fire_offset2),
+        damage_fire_offset3: type_fields.damage_fire_offset3.or(section_fields.damage_fire_offset3),
+        damage_fire_offset4: type_fields.damage_fire_offset4.or(section_fields.damage_fire_offset4),
+        damage_fire_offset5: type_fields.damage_fire_offset5.or(section_fields.damage_fire_offset5),
+        damage_fire_offset6: type_fields.damage_fire_offset6.or(section_fields.damage_fire_offset6),
+        damage_fire_offset7: type_fields.damage_fire_offset7.or(section_fields.damage_fire_offset7),
     }
 }
 
@@ -154,6 +162,22 @@ struct StructureBodyArtFields {
     idle_anim_two: Option<String>,
     #[serde(rename = "IdleAnimTwoDamaged")]
     idle_anim_two_damaged: Option<String>,
+    #[serde(rename = "DamageFireOffset0")]
+    damage_fire_offset0: Option<String>,
+    #[serde(rename = "DamageFireOffset1")]
+    damage_fire_offset1: Option<String>,
+    #[serde(rename = "DamageFireOffset2")]
+    damage_fire_offset2: Option<String>,
+    #[serde(rename = "DamageFireOffset3")]
+    damage_fire_offset3: Option<String>,
+    #[serde(rename = "DamageFireOffset4")]
+    damage_fire_offset4: Option<String>,
+    #[serde(rename = "DamageFireOffset5")]
+    damage_fire_offset5: Option<String>,
+    #[serde(rename = "DamageFireOffset6")]
+    damage_fire_offset6: Option<String>,
+    #[serde(rename = "DamageFireOffset7")]
+    damage_fire_offset7: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -212,18 +236,26 @@ struct BuildupSectionFields {
     rate_ms: Option<u32>,
 }
 
-fn structure_damage_fire_offsets(art: Option<&IniDocument>, type_id: &str, art_section: &str) -> Vec<(u8, i32, i32)> {
+fn structure_damage_fire_offsets(body: &StructureBodyArtFields) -> Vec<(u8, i32, i32)> {
+    let raws = [
+        body.damage_fire_offset0.as_deref(),
+        body.damage_fire_offset1.as_deref(),
+        body.damage_fire_offset2.as_deref(),
+        body.damage_fire_offset3.as_deref(),
+        body.damage_fire_offset4.as_deref(),
+        body.damage_fire_offset5.as_deref(),
+        body.damage_fire_offset6.as_deref(),
+        body.damage_fire_offset7.as_deref(),
+    ];
     let mut out = Vec::new();
-    for i in 0..8u8 {
-        let Some(raw) = art_get_building(art, type_id, art_section, &format!("DamageFireOffset{i}"))
-        else {
+    for (i, raw) in raws.into_iter().enumerate() {
+        let Some(raw) = raw else {
             continue;
         };
-        let Some((ox, oy)) = parse_damage_fire_offset(raw)
-        else {
+        let Some((ox, oy)) = parse_damage_fire_offset(raw) else {
             continue;
         };
-        out.push((i, ox, oy));
+        out.push((i as u8, ox, oy));
     }
     out
 }
@@ -897,12 +929,6 @@ fn resolve_art_section(art: Option<&IniDocument>, type_id: &str) -> String {
         }
     })
     .unwrap_or_else(|| type_id.to_ascii_uppercase())
-}
-
-/// 建筑键优先读类型节，再回退 `Image=` 目标节（`DamageFireOffset*` 等挂在类型节）。
-fn art_get_building<'a>(art: Option<&'a IniDocument>, type_id: &str, art_section: &str, key: &str) -> Option<&'a str> {
-    let art = art?;
-    art.get(type_id, key).or_else(|| if art_section.eq_ignore_ascii_case(type_id) { None } else { art.get(art_section, key) })
 }
 
 fn load_shp<'a>(
