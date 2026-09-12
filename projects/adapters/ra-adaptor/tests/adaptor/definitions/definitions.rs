@@ -14,11 +14,13 @@ fn rules_from_with_art(rules_text: &[u8], art_text: &[u8]) -> RulesSystem {
     let art = if art_text.is_empty() { IniDocument::default() } else { IniDocument::parse(art_text).expect("test art ini") };
     let mut techno_types = TechnoTypeRegistry::from_rules(&rules);
     techno_types.apply_art_geometry(&art);
+    let super_weapons = SuperWeaponTypeRegistry::from_rules(&rules);
     let warheads = WarheadRegistry::from_names(
         &rules,
         techno_types
             .iter()
-            .flat_map(|t| [t.warhead.as_str(), t.secondary_warhead.as_str()]),
+            .flat_map(|t| [t.warhead.as_str(), t.secondary_warhead.as_str()])
+            .chain(super_weapons.iter().map(|sw| sw.weapon_warhead.as_str())),
     );
     RulesSystem {
         edition: GameEdition::Ra2,
@@ -29,7 +31,7 @@ fn rules_from_with_art(rules_text: &[u8], art_text: &[u8]) -> RulesSystem {
         countries: CountryRegistry::from_rules(&rules),
         techno_types,
         warheads,
-        super_weapons: SuperWeaponTypeRegistry::from_rules(&rules),
+        super_weapons,
     }
 }
 
@@ -47,7 +49,7 @@ fn build_runtime_definitions_reads_general_repair_keys() {
 [BuildingTypes]\n0=GAPOWR\n\
 [GAPOWR]\nCost=600\nStrength=600\n",
     );
-    let defs = build_runtime_definitions(&rules);
+    let defs = build_runtime_definitions(&rules).expect("freeze");
     assert_eq!(defs.repair_percent, 25);
     assert_eq!(defs.repair_step, 16);
     assert_eq!(defs.repair_interval_ticks, 28);
@@ -56,7 +58,7 @@ fn build_runtime_definitions_reads_general_repair_keys() {
 #[test]
 fn build_runtime_definitions_falls_back_to_stock_repair_defaults() {
     let rules = rules_from(b"[BuildingTypes]\n0=GAPOWR\n[GAPOWR]\nCost=1\nStrength=1\n");
-    let defs = build_runtime_definitions(&rules);
+    let defs = build_runtime_definitions(&rules).expect("freeze");
     assert_eq!(defs.repair_percent, 15);
     assert_eq!(defs.repair_step, 8);
     assert_eq!(defs.repair_interval_ticks, 14);
@@ -73,7 +75,7 @@ fn build_runtime_definitions_parses_super_weapon_types_and_building_link() {
 [GACNST]\nConstructionYard=yes\nCost=2500\nStrength=1000\n\
 [GATECH]\nCost=1500\nStrength=600\nSuperWeapon=LightningStorm\n",
     );
-    let defs = build_runtime_definitions(&rules);
+    let defs = build_runtime_definitions(&rules).expect("freeze");
     let sw = defs.super_weapons.get("LightningStorm").expect("SW");
     assert_eq!(sw.ui_name, "NAME:LIGHTNINGSTORM");
     assert_eq!(sw.kind, "LIGHTNINGSTORM");
@@ -103,7 +105,7 @@ fn build_runtime_definitions_reads_foundation_from_art() {
 [NAWEAP]\nCost=2000\nStrength=1000\nOwner=Russians\n",
         b"[NAWEAP]\nFoundation=5x3\nHeight=6\n",
     );
-    let defs = build_runtime_definitions(&rules);
+    let defs = build_runtime_definitions(&rules).expect("freeze");
     let s = defs.structures.get("NAWEAP").expect("NAWEAP");
     assert_eq!((s.foundation.width, s.foundation.height), (5, 3));
     assert_eq!(s.height, 6);
@@ -117,7 +119,7 @@ fn build_runtime_definitions_foundation_follows_art_image() {
         b"[NAWEAP2]\nImage=NAWEAP\n\
 [NAWEAP]\nFoundation=5x3\nHeight=6\n",
     );
-    let defs = build_runtime_definitions(&rules);
+    let defs = build_runtime_definitions(&rules).expect("freeze");
     let s = defs.structures.get("NAWEAP2").expect("NAWEAP2");
     assert_eq!((s.foundation.width, s.foundation.height), (5, 3));
     assert_eq!(s.height, 6);
@@ -129,7 +131,7 @@ fn build_runtime_definitions_rules_foundation_fallback_without_art() {
         b"[BuildingTypes]\n0=GAPOWR\n\
 [GAPOWR]\nCost=600\nStrength=600\nFoundation=2x2\nHeight=4\n",
     );
-    let defs = build_runtime_definitions(&rules);
+    let defs = build_runtime_definitions(&rules).expect("freeze");
     let s = defs.structures.get("GAPOWR").expect("GAPOWR");
     assert_eq!((s.foundation.width, s.foundation.height), (2, 2));
     assert_eq!(s.height, 4);
@@ -143,7 +145,7 @@ fn build_runtime_definitions_binds_primary_weapon_and_warhead_ids() {
 [90mm]\nDamage=50\nROF=8\nRange=6\nWarhead=SA\n\
 [SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
     );
-    let defs = build_runtime_definitions(&rules);
+    let defs = build_runtime_definitions(&rules).expect("freeze");
     let mtnk = defs.techno.get("MTNK").expect("MTNK");
     assert_eq!(mtnk.primary, "90MM");
     assert_ne!(mtnk.primary_id, ra_types::WeaponId(0));
@@ -172,7 +174,7 @@ fn build_runtime_definitions_binds_projectile_id() {
 [90mm]\nDamage=50\nROF=8\nRange=6\nWarhead=SA\nProjectile=Invisible\n\
 [SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
     );
-    let defs = build_runtime_definitions(&rules);
+    let defs = build_runtime_definitions(&rules).expect("freeze");
     let weapon = defs.weapons.get("90MM").expect("weapon");
     assert_eq!(weapon.projectile, "INVISIBLE");
     assert_ne!(weapon.projectile_id, ra_types::ProjectileId(0));
@@ -189,7 +191,7 @@ fn build_runtime_definitions_binds_secondary_weapon_id() {
 [Repair]\nDamage=0\nROF=20\nRange=3\nWarhead=SA\n\
 [SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
     );
-    let defs = build_runtime_definitions(&rules);
+    let defs = build_runtime_definitions(&rules).expect("freeze");
     let fv = defs.techno.get("FV").expect("FV");
     assert_eq!(fv.secondary, "REPAIR");
     assert_ne!(fv.secondary_id, ra_types::WeaponId(0));
@@ -208,7 +210,7 @@ fn build_runtime_definitions_projects_techno_fields_without_rescanning_section()
 [FV]\nCost=600\nStrength=200\nPrerequisite=GAWEAP,POWER\nBuildLimit=2\nDeploysInto=GAPOWR\n\
 [GAPOWR]\nCost=600\nStrength=600\nPower=150\nConstructionYard=yes\nFactory=BuildingType\nCapturable=yes\n",
     );
-    let defs = build_runtime_definitions(&rules);
+    let defs = build_runtime_definitions(&rules).expect("freeze");
     let fv = defs.techno.get("FV").expect("FV");
     assert_eq!(
         fv.prerequisite,
@@ -234,7 +236,7 @@ fn build_runtime_definitions_freezes_countries_into_house_table() {
 [Americans]\nUIName=Name:Americans\nSide=GDI\nMultiplay=yes\n\
 [Russians]\nUIName=Name:Russians\nSide=Nod\nMultiplay=yes\nMultiplayObsolete=yes\n",
     );
-    let defs = build_runtime_definitions(&rules);
+    let defs = build_runtime_definitions(&rules).expect("freeze");
     assert_eq!(defs.houses.len(), 2);
     let usa = defs.houses.get("Americans").expect("Americans");
     assert_ne!(usa.id, ra_types::HouseId(0));
@@ -254,11 +256,25 @@ fn build_runtime_definitions_freezes_structure_light_profiles() {
 [GALITE]\nCost=200\nStrength=400\nLightIntensity=0.5\nLightVisibility=2500\nLightRedTint=1\nLightGreenTint=0.5\nLightBlueTint=0.25\n\
 [GAPOWR]\nCost=600\nStrength=600\nPower=150\n",
     );
-    let defs = build_runtime_definitions(&rules);
+    let defs = build_runtime_definitions(&rules).expect("freeze");
     let lite = defs.structures.get("GALITE").expect("GALITE");
     let light = lite.light.expect("light profile");
     assert_eq!(light.intensity, 500);
     assert_eq!(light.radius_leptons, 2500);
     assert_eq!(light.tint, [1000, 500, 250]);
     assert!(defs.structures.get("GAPOWR").expect("GAPOWR").light.is_none());
+}
+
+
+#[test]
+fn build_runtime_definitions_rejects_unknown_warhead_reference() {
+    let rules = rules_from(
+        b"[VehicleTypes]\n0=MTNK\n\
+[MTNK]\nStrength=200\nCost=800\nPrimary=90mm\nWarhead=MISSINGWH\n\
+[90mm]\nDamage=50\nROF=8\nRange=6\nWarhead=MISSINGWH\n",
+    );
+    let err = build_runtime_definitions(&rules).expect_err("missing warhead must fail freeze");
+    let msg = err.to_string();
+    assert!(msg.contains("warhead"), "{msg}");
+    assert!(msg.contains("MISSINGWH"), "{msg}");
 }

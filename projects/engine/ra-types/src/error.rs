@@ -26,6 +26,16 @@ pub enum RaError {
     /// 字节 / INI / 地图等解析失败。
     #[error("解析错误: {0}")]
     Parse(String),
+    /// 规则引用了不存在的名称（非空可选引用不得静默成零 ID）。
+    #[error("未知{kind}引用 `{name}`（来自 `{owner}`）")]
+    UnknownReference {
+        /// 引用种类（如 `weapon` / `warhead` / `projectile`）。
+        kind: &'static str,
+        /// 未命中的名称。
+        name: String,
+        /// 引用方（类型键或装载步骤）。
+        owner: String,
+    },
     /// 文件系统或其它 I/O 失败。
     #[error("读写错误: {0}")]
     Io(String),
