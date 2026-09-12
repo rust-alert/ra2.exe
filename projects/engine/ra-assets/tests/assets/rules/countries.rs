@@ -75,7 +75,10 @@ fn parses_countries_and_sides_in_list_order() {
     assert!(!reg.countries()[3].multiplay);
     assert_eq!(reg.sides().len(), 4);
     assert_eq!(reg.sides()[0].id, "GDI");
-    assert_eq!(reg.sides()[0].countries, vec!["Americans", "French"]);
+    assert_eq!(
+        reg.sides()[0].countries,
+        vec![ra_types::HouseName::parse("Americans"), ra_types::HouseName::parse("French")]
+    );
     let gdi = reg.side_chrome("GDI").unwrap();
     assert_eq!(gdi.mix_file_index, Some(1));
     assert!(gdi.yuri_file_names);

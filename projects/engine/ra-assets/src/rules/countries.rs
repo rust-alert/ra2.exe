@@ -3,7 +3,7 @@
 use std::fmt;
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
-use ra_types::{HouseAllowList, UiName};
+use ra_types::{HouseAllowList, HouseName, UiName};
 use serde::Deserialize;
 use serde::de::{self, Deserializer, Visitor};
 
@@ -56,8 +56,8 @@ impl CountryDef {
 pub struct SideGroup {
     /// 势力 id（节内键，如 `GDI` / `Nod` / `ThirdSide`）。
     pub id: String,
-    /// 成员国家 id（保序）。
-    pub countries: Vec<String>,
+    /// 成员国家 id（装载期一次解码为大写；保序）。
+    pub countries: Vec<HouseName>,
 }
 
 /// 势力壳层 chrome（Side 段键；任意势力 id，不限制阵营数量）。
@@ -302,10 +302,9 @@ pub fn parse_sides(view: LayeredIniView<'_>) -> Vec<SideGroup> {
         else {
             continue;
         };
-        let countries: Vec<String> = crate::from_row::<Vec<String>>(value.raw)
+        let countries: Vec<HouseName> = crate::from_row::<Vec<HouseName>>(value.raw)
             .unwrap_or_default()
             .into_iter()
-            .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
             .collect();
         out.push(SideGroup { id: id.to_string(), countries });
