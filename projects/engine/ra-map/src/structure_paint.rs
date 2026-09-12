@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use ra_assets::{HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, rasterize_vxl_layer_poses, shp_body_frame_count};
 use ra_types::AssetSource;
 use serde::Deserialize;
+use serde::de::Deserializer;
 
 use crate::{
     MapEntity, MapEntityKind, MapInfo,
@@ -162,22 +163,22 @@ struct StructureBodyArtFields {
     idle_anim_two: Option<String>,
     #[serde(rename = "IdleAnimTwoDamaged")]
     idle_anim_two_damaged: Option<String>,
-    #[serde(rename = "DamageFireOffset0")]
-    damage_fire_offset0: Option<String>,
-    #[serde(rename = "DamageFireOffset1")]
-    damage_fire_offset1: Option<String>,
-    #[serde(rename = "DamageFireOffset2")]
-    damage_fire_offset2: Option<String>,
-    #[serde(rename = "DamageFireOffset3")]
-    damage_fire_offset3: Option<String>,
-    #[serde(rename = "DamageFireOffset4")]
-    damage_fire_offset4: Option<String>,
-    #[serde(rename = "DamageFireOffset5")]
-    damage_fire_offset5: Option<String>,
-    #[serde(rename = "DamageFireOffset6")]
-    damage_fire_offset6: Option<String>,
-    #[serde(rename = "DamageFireOffset7")]
-    damage_fire_offset7: Option<String>,
+    #[serde(rename = "DamageFireOffset0", default, deserialize_with = "de_opt_damage_fire_offset")]
+    damage_fire_offset0: Option<(i32, i32)>,
+    #[serde(rename = "DamageFireOffset1", default, deserialize_with = "de_opt_damage_fire_offset")]
+    damage_fire_offset1: Option<(i32, i32)>,
+    #[serde(rename = "DamageFireOffset2", default, deserialize_with = "de_opt_damage_fire_offset")]
+    damage_fire_offset2: Option<(i32, i32)>,
+    #[serde(rename = "DamageFireOffset3", default, deserialize_with = "de_opt_damage_fire_offset")]
+    damage_fire_offset3: Option<(i32, i32)>,
+    #[serde(rename = "DamageFireOffset4", default, deserialize_with = "de_opt_damage_fire_offset")]
+    damage_fire_offset4: Option<(i32, i32)>,
+    #[serde(rename = "DamageFireOffset5", default, deserialize_with = "de_opt_damage_fire_offset")]
+    damage_fire_offset5: Option<(i32, i32)>,
+    #[serde(rename = "DamageFireOffset6", default, deserialize_with = "de_opt_damage_fire_offset")]
+    damage_fire_offset6: Option<(i32, i32)>,
+    #[serde(rename = "DamageFireOffset7", default, deserialize_with = "de_opt_damage_fire_offset")]
+    damage_fire_offset7: Option<(i32, i32)>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -237,27 +238,32 @@ struct BuildupSectionFields {
 }
 
 fn structure_damage_fire_offsets(body: &StructureBodyArtFields) -> Vec<(u8, i32, i32)> {
-    let raws = [
-        body.damage_fire_offset0.as_deref(),
-        body.damage_fire_offset1.as_deref(),
-        body.damage_fire_offset2.as_deref(),
-        body.damage_fire_offset3.as_deref(),
-        body.damage_fire_offset4.as_deref(),
-        body.damage_fire_offset5.as_deref(),
-        body.damage_fire_offset6.as_deref(),
-        body.damage_fire_offset7.as_deref(),
+    let offsets = [
+        body.damage_fire_offset0,
+        body.damage_fire_offset1,
+        body.damage_fire_offset2,
+        body.damage_fire_offset3,
+        body.damage_fire_offset4,
+        body.damage_fire_offset5,
+        body.damage_fire_offset6,
+        body.damage_fire_offset7,
     ];
     let mut out = Vec::new();
-    for (i, raw) in raws.into_iter().enumerate() {
-        let Some(raw) = raw else {
-            continue;
-        };
-        let Some((ox, oy)) = parse_damage_fire_offset(raw) else {
+    for (i, offset) in offsets.into_iter().enumerate() {
+        let Some((ox, oy)) = offset else {
             continue;
         };
         out.push((i as u8, ox, oy));
     }
     out
+}
+
+fn de_opt_damage_fire_offset<'de, D>(deserializer: D) -> Result<Option<(i32, i32)>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = String::deserialize(deserializer)?;
+    Ok(parse_damage_fire_offset(&raw))
 }
 
 fn structure_turret_voxel_hints(rules: Option<&IniDocument>, type_id: &str) -> Option<StructureTurretVoxelHints> {
