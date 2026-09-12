@@ -214,12 +214,10 @@ pub fn parse_cell_tags(doc: &IniDocument) -> Vec<MapCellTag> {
     };
     let mut out = Vec::new();
     for (packed, tag_id) in sec.pairs() {
-        let Ok(n) = packed.parse::<u32>()
+        let Some((x, y)) = crate::packed_cell::parse_packed_cell(packed)
         else {
             continue;
         };
-        let y = (n / 1000) as u16;
-        let x = (n % 1000) as u16;
         out.push(MapCellTag { x, y, tag_id: tag_id.trim().to_string() });
     }
     out
