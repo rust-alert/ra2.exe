@@ -278,7 +278,7 @@ impl MapInfo {
         if trimmed.is_empty() { None } else { Some(trimmed) }
     }
 
-    /// 提取冻结 [`MapDefinition`] 骨架（含航点 / 地形物件 / 预放实体 / 地形与覆盖层格 / 地图房屋；不含完整脚本载荷）。
+    /// 提取冻结 [`MapDefinition`] 骨架（含航点 / 地形 / 预放 / 房屋 / Tags；不含完整 Triggers 载荷）。
     pub fn to_map_definition(&self) -> MapDefinition {
         MapDefinition {
             name: self.name.clone(),
@@ -333,6 +333,8 @@ impl MapInfo {
                 })
                 .collect(),
             houses: self.scripting.houses.iter().map(map_house_to_definition).collect(),
+            tags: self.scripting.tags.iter().map(map_tag_to_definition).collect(),
+            cell_tags: self.scripting.cell_tags.iter().map(map_cell_tag_to_definition).collect(),
         }
     }
 
@@ -472,6 +474,19 @@ fn map_house_to_definition(house: &crate::scripting::MapHouse) -> ra_types::MapH
         color: house.color.clone(),
         allies: house.allies.clone(),
     }
+}
+
+fn map_tag_to_definition(tag: &crate::scripting::MapTag) -> ra_types::MapTag {
+    ra_types::MapTag {
+        id: tag.id.clone(),
+        persistence: tag.persistence,
+        name: tag.name.clone(),
+        trigger_id: tag.trigger_id.clone(),
+    }
+}
+
+fn map_cell_tag_to_definition(cell: &crate::scripting::MapCellTag) -> ra_types::MapCellTag {
+    ra_types::MapCellTag { x: cell.x, y: cell.y, tag_id: cell.tag_id.clone() }
 }
 
 fn map_lighting_from_config(cfg: &LightingConfig) -> MapLighting {

@@ -46,6 +46,10 @@ pub struct MapDefinition {
     pub overlays: Vec<MapOverlayCell>,
     /// `[Houses]` 地图各方。
     pub houses: Vec<MapHouse>,
+    /// `[Tags]` 触发器绑定标签。
+    pub tags: Vec<MapTag>,
+    /// `[CellTags]` 格子绑定的 Tag。
+    pub cell_tags: Vec<MapCellTag>,
 }
 
 impl Default for MapDefinition {
@@ -70,6 +74,8 @@ impl Default for MapDefinition {
             cells: Vec::new(),
             overlays: Vec::new(),
             houses: Vec::new(),
+            tags: Vec::new(),
+            cell_tags: Vec::new(),
         }
     }
 }
@@ -228,6 +234,30 @@ pub struct MapHouse {
     pub color: String,
     /// `Allies=` 逗号列表。
     pub allies: Vec<String>,
+}
+
+/// `[Tags]` 一行（规则绑定前仍用 Trigger id 字符串）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapTag {
+    /// Tag id。
+    pub id: String,
+    /// 持久性：0 volatile / 1 semi / 2 persistent。
+    pub persistence: u8,
+    /// 编辑器名。
+    pub name: String,
+    /// 关联 Trigger id。
+    pub trigger_id: String,
+}
+
+/// `[CellTags]`：格子绑定 Tag。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapCellTag {
+    /// 格子 X。
+    pub x: u16,
+    /// 格子 Y。
+    pub y: u16,
+    /// Tag id。
+    pub tag_id: String,
 }
 
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。

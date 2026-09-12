@@ -23,8 +23,8 @@ pub use command::{CommandBody, CommandId, CommandKind, CommandTarget, ScheduledC
 pub use definition::{
     ARMOR_ORDER, AnimationDefinitions, ArmorKind, BuildCat, BuiltinCapability, CapabilitySet, ContentFingerprint, DeployableDefinition,
     DeployableDefinitions, DeploymentPlacement, Foundation, HouseAllowList, HouseDefinition, HouseDefinitions, HouseName, HouseStolenTechMap,
-    ImageName, LocomotorDefinitions, MapDefinition, MapHouse, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity,
-    MapPlacedEntityKind, MapTerrainObject, MapWaypoint, OverlayTypeRegistry, PowerProfile, PrerequisiteGroupKind, PrerequisiteGroups,
+    ImageName, LocomotorDefinitions, MapCellTag, MapDefinition, MapHouse, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity,
+    MapPlacedEntityKind, MapTag, MapTerrainObject, MapWaypoint, OverlayTypeRegistry, PowerProfile, PrerequisiteGroupKind, PrerequisiteGroups,
     PrerequisiteList, PrerequisiteToken, PreparedMap, ProductionCategory, ProductionDefinitions, ProductionProfile, ProjectileDefinition,
     ProjectileDefinitions, ProjectileName, RuntimeDefinitions, SoundDefinitions, StolenTechKind, StructureDefinition, StructureDefinitions,
     StructureLightProfile, SuperWeaponActionName, SuperWeaponDefinition, SuperWeaponDefinitions, SuperWeaponKindName, SuperWeaponName,
