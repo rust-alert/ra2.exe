@@ -66,7 +66,10 @@ Description=DESC:MP01T4\n\
     let listed = list_parseable_maps_from_missions_pkt(GameEdition::Ra2, &source, pkt);
     assert_eq!(listed.iter().map(|m| m.file_name.as_str()).collect::<Vec<_>>(), vec!["mp02t2.map", "mp06t2.map"]);
     assert_eq!(listed[0].name_csf, "DESC:MP02T2");
-    assert_eq!(listed[1].game_modes, vec!["standard".to_string(), "meatgrind".to_string()]);
+    assert_eq!(
+        listed[1].game_modes,
+        vec![ra_types::GameModeName::parse("standard"), ra_types::GameModeName::parse("meatgrind")]
+    );
 }
 
 #[test]

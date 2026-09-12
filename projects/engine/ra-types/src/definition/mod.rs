@@ -53,9 +53,9 @@ pub use map::{
 };
 pub use map_edge::MapEdge;
 pub use names::{
-    AiTriggerName, CampaignName, ColorName, HouseName, ImageName, MapFileName, ProjectileName, ScriptTypeName, SmudgeName, SuperWeaponActionName,
-    SuperWeaponKindName, SuperWeaponName, TagName, TaskForceName, TeamTypeName, TechnoName, TerrainName, TriggerName, UiName, WarheadName,
-    WeaponName,
+    AiTriggerName, CampaignName, ColorName, GameModeName, HouseName, ImageName, MapFileName, ProjectileName, ScriptTypeName, SmudgeName,
+    SuperWeaponActionName, SuperWeaponKindName, SuperWeaponName, TagName, TaskForceName, TeamTypeName, TechnoName, TerrainName, TriggerName, UiName,
+    WarheadName, WeaponName,
 };
 pub use overlay::OverlayTypeRegistry;
 pub use production::{ProductionCategory, ProductionDefinitions, ProductionProfile, deserialize_optional_factory};

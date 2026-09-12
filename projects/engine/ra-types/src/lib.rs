@@ -21,7 +21,7 @@ mod vga_expand;
 pub use asset_source::AssetSource;
 pub use command::{CommandBody, CommandId, CommandKind, CommandTarget, ScheduledCommand};
 pub use definition::{
-    ARMOR_ORDER, AnimationDefinitions, ArmorKind, AiTriggerName, BuildCat, BuiltinCapability, CapabilitySet, CampaignName, ColorName,
+    ARMOR_ORDER, AnimationDefinitions, ArmorKind, AiTriggerName, BuildCat, BuiltinCapability, CapabilitySet, CampaignName, ColorName, GameModeName,
     ContentFingerprint, DeployableDefinition,
     DeployableDefinitions, DeploymentPlacement, Foundation, HouseAllowList, HouseDefinition, HouseDefinitions, HouseName, HouseStolenTechMap,
     ImageName, LandType, LocomotorDefinitions, MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapDefinition, MapEvent, MapEventCondition,

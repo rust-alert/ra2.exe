@@ -44,7 +44,7 @@ pub mod lzo;
 
 use ra_assets::{IniDocument, numbered_pairs};
 use ra_types::{
-    GameEdition, MapDefinition, MapFileName, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind,
+    GameEdition, GameModeName, MapDefinition, MapFileName, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind,
     MapTerrainObject, MapWeatherKind, MapWaypoint, RaError, RaResult,
 };
 use serde::Deserialize;
@@ -138,8 +138,8 @@ pub struct MapInfo {
     pub height: u32,
     /// 剧院。
     pub theater: Theater,
-    /// `[Basic] GameModes` 标签（逗号分隔解析；空表示仅匹配 `standard`）。
-    pub game_modes: Vec<String>,
+    /// `[Basic] GameModes` 标签（装载期一次解码为大写；空表示仅匹配 `standard`）。
+    pub game_modes: Vec<GameModeName>,
     /// `[Basic] Description` CSF 键（装载期一次解码为大写；可空；官方遭遇图常省略）。
     pub description_csf: ra_types::UiName,
     /// `[Basic] NextMission`：战役胜利后下一关地图文件名（装载期只修剪，保留盘上大小写；可空）。
@@ -473,29 +473,29 @@ impl MapInfo {
     }
 }
 
-/// 解析逗号分隔的游戏模式标签（去空白、丢空段）。
+/// 解析逗号分隔的游戏模式标签（去空白、丢空段、一次解码为大写）。
 ///
 /// 地图 `[Basic] GameModes` 已由节 Serde 直接落到 `Vec`；本函数供 missions.pkt 等外层字符串入口复用。
-pub fn parse_game_modes(raw: Option<&str>) -> Vec<String> {
+pub fn parse_game_modes(raw: Option<&str>) -> Vec<GameModeName> {
     let Some(raw) = raw
     else {
         return Vec::new();
     };
-    raw.split(',').map(str::trim).filter(|s| !s.is_empty()).map(str::to_string).collect()
+    raw.split(',').map(str::trim).filter(|s| !s.is_empty()).map(GameModeName::parse).collect()
 }
 
 /// 地图是否匹配模式表中的 `map_filter`。
 ///
 /// 空 `game_modes` 只接受过滤标签 `standard`（大小写不敏感）。
-pub fn map_matches_game_mode_filter(game_modes: &[String], filter: &str) -> bool {
-    let filter = filter.trim();
+pub fn map_matches_game_mode_filter(game_modes: &[GameModeName], filter: &str) -> bool {
+    let filter = GameModeName::parse(filter);
     if filter.is_empty() {
         return false;
     }
     if game_modes.is_empty() {
-        return filter.eq_ignore_ascii_case("standard");
+        return filter == "STANDARD";
     }
-    game_modes.iter().any(|m| m.eq_ignore_ascii_case(filter))
+    game_modes.iter().any(|m| m == &filter)
 }
 
 /// 由 `[Map] Size` 宽高得到方形游戏格网边长。
@@ -521,7 +521,7 @@ struct MapSectionFields {
 #[derive(Debug, Default, Deserialize)]
 struct BasicSectionFields {
     #[serde(rename = "GameModes", default)]
-    game_modes: Vec<String>,
+    game_modes: Vec<GameModeName>,
     #[serde(rename = "Description", default)]
     description: ra_types::UiName,
     #[serde(rename = "NextMission", default)]

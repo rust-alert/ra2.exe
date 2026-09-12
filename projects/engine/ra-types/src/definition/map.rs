@@ -29,8 +29,8 @@ pub struct MapDefinition {
     pub theater: crate::Theater,
     /// `[Basic] Description` CSF 键（装载期一次解码为大写；可空）。
     pub description_csf: crate::UiName,
-    /// `[Basic] GameModes` 标签。
-    pub game_modes: Vec<String>,
+    /// `[Basic] GameModes` 标签（装载期一次解码为大写）。
+    pub game_modes: Vec<crate::GameModeName>,
     /// `[Basic] NextMission`（装载期只修剪，保留盘上大小写；可空）。
     pub next_mission: crate::MapFileName,
     /// `[Basic] AlternateNextMission`（装载期只修剪，保留盘上大小写；可空）。
