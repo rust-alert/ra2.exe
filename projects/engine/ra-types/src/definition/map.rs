@@ -63,6 +63,8 @@ pub struct MapDefinition {
     pub actions: Vec<MapAction>,
     /// `[CellTags]` 格子绑定的 Tag。
     pub cell_tags: Vec<MapCellTag>,
+    /// `[TaskForces]` 编队成员表。
+    pub task_forces: Vec<MapTaskForce>,
 }
 
 impl Default for MapDefinition {
@@ -92,6 +94,7 @@ impl Default for MapDefinition {
             events: Vec::new(),
             actions: Vec::new(),
             cell_tags: Vec::new(),
+            task_forces: Vec::new(),
         }
     }
 }
@@ -343,6 +346,30 @@ pub struct MapCellTag {
     pub y: u16,
     /// Tag id。
     pub tag_id: String,
+}
+
+/// TaskForce 成员槽（运行契约；规则绑定前仍用类型名字符串）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapTaskForceEntry {
+    /// 数量。
+    pub count: u16,
+    /// 类型 id。
+    pub type_id: String,
+}
+
+/// TaskForce 编队（运行契约；来自 `[TaskForces]` 语义）。
+///
+/// 可改为稳定 type id / 稠密成员表；装载侧见 `ra-map::MapTaskForce`。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapTaskForce {
+    /// id。
+    pub id: String,
+    /// 名称。
+    pub name: String,
+    /// 成员（最多 6）。
+    pub entries: Vec<MapTaskForceEntry>,
+    /// `Group=`。
+    pub group: i32,
 }
 
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。

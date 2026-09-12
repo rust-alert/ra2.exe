@@ -278,7 +278,7 @@ impl MapInfo {
         if trimmed.is_empty() { None } else { Some(trimmed) }
     }
 
-    /// 提取冻结 [`MapDefinition`] 骨架（含航点 / 地形 / 预放 / 房屋 / Tags / Triggers / Events / Actions；不含队伍与 AI 载荷）。
+    /// 提取冻结 [`MapDefinition`] 骨架（含触发链与 TaskForces；不含 ScriptTypes / TeamTypes / AI 载荷）。
     pub fn to_map_definition(&self) -> MapDefinition {
         MapDefinition {
             name: self.name.clone(),
@@ -338,6 +338,7 @@ impl MapInfo {
             events: self.scripting.events.iter().map(map_event_to_definition).collect(),
             actions: self.scripting.actions.iter().map(map_action_to_definition).collect(),
             cell_tags: self.scripting.cell_tags.iter().map(map_cell_tag_to_definition).collect(),
+            task_forces: self.scripting.task_forces.iter().map(map_task_force_to_definition).collect(),
         }
     }
 
@@ -531,6 +532,22 @@ fn map_action_to_definition(action: &crate::scripting::MapAction) -> ra_types::M
 
 fn map_cell_tag_to_definition(cell: &crate::scripting::MapCellTag) -> ra_types::MapCellTag {
     ra_types::MapCellTag { x: cell.x, y: cell.y, tag_id: cell.tag_id.clone() }
+}
+
+fn map_task_force_to_definition(tf: &crate::scripting::MapTaskForce) -> ra_types::MapTaskForce {
+    ra_types::MapTaskForce {
+        id: tf.id.clone(),
+        name: tf.name.clone(),
+        entries: tf
+            .entries
+            .iter()
+            .map(|e| ra_types::MapTaskForceEntry {
+                count: e.count,
+                type_id: e.type_id.clone(),
+            })
+            .collect(),
+        group: tf.group,
+    }
 }
 
 fn map_lighting_from_config(cfg: &LightingConfig) -> MapLighting {

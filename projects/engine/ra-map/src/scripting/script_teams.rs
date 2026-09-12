@@ -3,7 +3,7 @@
 use ra_assets::{IniDocument, from_csv_row, numbered_pairs, parse_westwood_csv_line};
 use serde::Deserialize;
 
-/// TaskForce 成员槽。
+/// TaskForce 成员槽（装载解析中间态；投影进 `ra_types::MapTaskForceEntry`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTaskForceEntry {
     /// 数量。
@@ -12,7 +12,7 @@ pub struct MapTaskForceEntry {
     pub type_id: String,
 }
 
-/// `[TaskForces]` 一项。
+/// `[TaskForces]` 一项（装载解析中间态；投影进 `ra_types::MapTaskForce`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTaskForce {
     /// id。
