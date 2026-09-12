@@ -23,8 +23,8 @@ pub struct MapHouse {
     pub player_control: bool,
     /// `Color=`（装载期一次解码为大写方案名）。
     pub color: ColorName,
-    /// `Allies=` 逗号列表。
-    pub allies: Vec<String>,
+    /// `Allies=` 逗号列表（装载期一次解码为大写房屋键）。
+    pub allies: Vec<HouseName>,
 }
 
 /// 单方 House 节字段（一次 Serde）。
@@ -45,7 +45,7 @@ struct MapHouseSectionFields {
     #[serde(rename = "Color", default)]
     color: ColorName,
     #[serde(rename = "Allies", default)]
-    allies: Vec<String>,
+    allies: Vec<HouseName>,
 }
 
 impl MapHouseSectionFields {
@@ -59,12 +59,7 @@ impl MapHouseSectionFields {
             edge: self.edge,
             player_control: self.player_control.unwrap_or(false),
             color: self.color,
-            allies: self
-                .allies
-                .into_iter()
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .collect(),
+            allies: self.allies.into_iter().filter(|s| !s.is_empty()).collect(),
         }
     }
 }

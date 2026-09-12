@@ -302,8 +302,8 @@ pub struct MapHouse {
     pub player_control: bool,
     /// `Color=`（装载期一次解码为大写方案名）。
     pub color: crate::ColorName,
-    /// `Allies=` 逗号列表。
-    pub allies: Vec<String>,
+    /// `Allies=` 逗号列表（装载期一次解码为大写房屋键）。
+    pub allies: Vec<crate::HouseName>,
 }
 
 /// Tag 绑定（运行契约；来自地图 `[Tags]` 语义，非 INI 行镜像）。
