@@ -4,9 +4,11 @@ use std::collections::HashMap;
 
 use super::house_remap::Hsv;
 use crate::{
+    from_row,
     image::pal::Palette,
     ini::{IniDocument, IniMergePolicy, LayeredIniView},
 };
+use serde::Deserialize;
 
 /// 零售 `[Colors]` 表，以及装载期绑定的阵营 / 矿石呈现 HSV。
 #[derive(Debug, Clone, Default)]
@@ -162,10 +164,14 @@ impl ColorSchemes {
     }
 }
 
+#[derive(Debug, Deserialize)]
+struct HsvCsvRow {
+    h: u8,
+    s: u8,
+    v: u8,
+}
+
 fn parse_hsv(value: &str) -> Option<Hsv> {
-    let mut parts = value.split(',').map(str::trim);
-    let h: u8 = parts.next()?.parse().ok()?;
-    let s: u8 = parts.next()?.parse().ok()?;
-    let v: u8 = parts.next()?.parse().ok()?;
-    Some(Hsv { h, s, v })
+    let row: HsvCsvRow = from_row(value).ok()?;
+    Some(Hsv { h: row.h, s: row.s, v: row.v })
 }
