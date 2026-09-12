@@ -64,7 +64,7 @@ pub enum BattleNav {
     ToResults,
     /// 离开对局/结算：战役回选边，遭遇战回大厅。
     ToMainMenu,
-    /// 暂停菜单打开选项页（对局保持暂停，接受/取消后回到对局）。
+    /// 暂停菜单打开选项页（历史路径；局内现改走暂停子层 `InGameOptions`）。
     OpenOptions,
     /// 切换无边框全屏。
     ToggleFullscreen,
@@ -130,6 +130,12 @@ pub struct BattleController {
     pub(super) pause_hover: Option<&'static str>,
     /// 暂停菜单按下入口 id。
     pub(super) pause_pressed: Option<&'static str>,
+    /// 暂停子层（Menu / AbortConfirm / InGameOptions）。
+    pub(super) pause_layer: ra_widgets::battle_pause_layer::BattlePauseLayer,
+    /// 局内选项 `0xBBB` 草稿。
+    pub(super) in_game_options: ra_widgets::battle_in_game_options::BattleInGameOptionsState,
+    /// 未实现子页提示（如 Sound / Keyboard），叠在局内选项脚注区。
+    pub(super) pause_stub_notice: Option<&'static str>,
     /// 标题用版本短名。
     pub(super) title_base: String,
     /// 测试状态旁路文件。
@@ -262,6 +268,9 @@ impl BattleController {
             pause_menu_tried_side: None,
             pause_hover: None,
             pause_pressed: None,
+            pause_layer: ra_widgets::battle_pause_layer::BattlePauseLayer::Menu,
+            in_game_options: ra_widgets::battle_in_game_options::BattleInGameOptionsState::default(),
+            pause_stub_notice: None,
             title_base: format!("ra2 ({edition})"),
             status_path,
             test_scene,
@@ -408,6 +417,9 @@ impl BattleController {
         self.pause_menu_tried_side = None;
         self.pause_hover = None;
         self.pause_pressed = None;
+        self.pause_layer = ra_widgets::battle_pause_layer::BattlePauseLayer::Menu;
+        self.in_game_options = ra_widgets::battle_in_game_options::BattleInGameOptionsState::default();
+        self.pause_stub_notice = None;
         self.last_pump = Instant::now();
         self.hud_chrome = None;
         self.order_icons_loaded = false;

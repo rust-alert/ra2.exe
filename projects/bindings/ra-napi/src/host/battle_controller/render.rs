@@ -16,7 +16,11 @@ use ra_renderer::{Renderer, RgbaImage};
 use ra_types::PresentFeel;
 use ra_widgets::{
     battle_hud::BattleCameoPaint,
-    compose::{BattleHudModel, blit_rgba, compose_battle_hud_overlay, compose_battle_pause_menu_overlay},
+    battle_pause_layer::BattlePauseLayer,
+    compose::{
+        BattleHudModel, blit_rgba, compose_battle_abort_confirm_overlay, compose_battle_hud_overlay,
+        compose_battle_in_game_options_overlay, compose_battle_pause_menu_overlay,
+    },
     fs_source::GameAssetSource,
     render::present,
     skin::text::{command_button_csf_tooltip, resolve_csf_text},
@@ -561,15 +565,38 @@ impl BattleController {
                 }
             }
             if show_pause_banner {
-                if let Some(pause) = compose_battle_pause_menu_overlay(
-                    w,
-                    h,
-                    self.pause_pressed,
-                    self.pause_hover,
-                    fnt,
-                    csf,
-                    self.pause_menu_chrome.as_ref(),
-                ) {
+                let overlay = match self.pause_layer {
+                    BattlePauseLayer::Menu => compose_battle_pause_menu_overlay(
+                        w,
+                        h,
+                        self.pause_pressed,
+                        self.pause_hover,
+                        fnt,
+                        csf,
+                        self.pause_menu_chrome.as_ref(),
+                    ),
+                    BattlePauseLayer::AbortConfirm => compose_battle_abort_confirm_overlay(
+                        w,
+                        h,
+                        self.pause_pressed,
+                        self.pause_hover,
+                        fnt,
+                        csf,
+                        self.pause_menu_chrome.as_ref(),
+                    ),
+                    BattlePauseLayer::InGameOptions => compose_battle_in_game_options_overlay(
+                        w,
+                        h,
+                        &self.in_game_options,
+                        self.pause_pressed,
+                        self.pause_hover,
+                        fnt,
+                        csf,
+                        self.pause_menu_chrome.as_ref(),
+                        self.pause_stub_notice,
+                    ),
+                };
+                if let Some(pause) = overlay {
                     blit_rgba(&mut page, &pause, 0, 0);
                 }
             }

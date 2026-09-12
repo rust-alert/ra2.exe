@@ -426,6 +426,7 @@ impl BattleController {
                 if battle_paused {
                     self.left_gesture = LeftGesture::Idle;
                     self.refresh_pause_hover(window);
+                    self.handle_pause_layer_drag(window);
                 }
                 else {
                     // 建造放置模式只认点选，拖拽不升为框选。
@@ -545,14 +546,10 @@ impl BattleController {
                     };
                 }
 
-                // 暂停中：仅 `Options`（默认 Esc）关菜单。
+                // 暂停中：Esc / Options 热键走暂停子层路由（选项回 Menu，确认/主菜单恢复对局）。
                 if battle_paused {
                     if matches!(hotkey, Some(super::super::battle_hotkeys::HotkeyAction::Options)) {
-                        if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                            game.toggle_pause();
-                        }
-                        self.clear_pause_menu_input();
-                        tracing::info!("继续");
+                        return self.handle_pause_layer_escape();
                     }
                     return BattleNav::None;
                 }
@@ -582,8 +579,10 @@ impl BattleController {
                     return BattleNav::None;
                 }
                 if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                    game.toggle_pause();
-                    self.clear_pause_menu_input();
+                    if !game.paused {
+                        game.toggle_pause();
+                    }
+                    self.open_pause_menu_layer();
                     tracing::info!("暂停菜单");
                 }
                 BattleNav::None
