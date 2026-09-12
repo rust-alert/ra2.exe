@@ -3,6 +3,7 @@
 //! `[Battles]` 列出战役 id；各节含 `Scenario` / `Description` 等字段。
 
 use ra_types::RaResult;
+use serde::Deserialize;
 
 use crate::IniDocument;
 
@@ -20,6 +21,18 @@ pub struct BattleCampaign {
     pub cd: i32,
     /// 是否仅调试战役（`DebugOnly=yes`）。
     pub debug_only: bool,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct BattleSectionFields {
+    #[serde(rename = "Scenario")]
+    scenario: Option<String>,
+    #[serde(rename = "Description")]
+    description: Option<String>,
+    #[serde(rename = "CD")]
+    cd: Option<i32>,
+    #[serde(rename = "DebugOnly")]
+    debug_only: Option<bool>,
 }
 
 /// 从 `battle.ini` 字节解析战役表。
@@ -46,14 +59,14 @@ pub fn parse_battle_campaigns(bytes: &[u8]) -> RaResult<Vec<BattleCampaign>> {
         else {
             continue;
         };
-        let scenario = section.get("Scenario").unwrap_or("").trim().to_string();
+        let fields = section.deserialize::<BattleSectionFields>().unwrap_or_default();
+        let scenario = fields.scenario.unwrap_or_default().trim().to_string();
         if scenario.is_empty() {
             continue;
         }
-        let description_csf = section.get("Description").unwrap_or("").trim().to_string();
-        let cd = section.get("CD").and_then(|s| s.trim().parse::<i32>().ok()).unwrap_or(-1);
-        let debug_only =
-            section.get("DebugOnly").map(|s| matches!(s.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1")).unwrap_or(false);
+        let description_csf = fields.description.unwrap_or_default().trim().to_string();
+        let cd = fields.cd.unwrap_or(-1);
+        let debug_only = fields.debug_only.unwrap_or(false);
         out.push(BattleCampaign { id, scenario, description_csf, cd, debug_only });
     }
     Ok(out)
