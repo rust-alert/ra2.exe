@@ -32,6 +32,8 @@ pub struct MapDefinition {
     pub starting_credits: i32,
     /// `[Waypoints]` 格子锚点（编号已排序）。
     pub waypoints: Vec<MapWaypoint>,
+    /// `[Terrain]` 静态地形物件。
+    pub terrain_objects: Vec<MapTerrainObject>,
 }
 
 /// 冻结地图航点（任务 / 出生点等格子锚点）。
@@ -56,6 +58,17 @@ pub struct MapLocalSize {
     pub width: i32,
     /// 可见高。
     pub height: i32,
+}
+
+/// `[Terrain]` 静态地形物件占位。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapTerrainObject {
+    /// 格子 X。
+    pub x: u16,
+    /// 格子 Y。
+    pub y: u16,
+    /// 物件类型名（通常已大写）。
+    pub name: String,
 }
 
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。

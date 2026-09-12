@@ -42,7 +42,7 @@ pub mod lcw;
 pub mod lzo;
 
 use ra_assets::{IniDocument, from_row};
-use ra_types::{GameEdition, MapDefinition, MapLocalSize, MapWaypoint, RaError, RaResult};
+use ra_types::{GameEdition, MapDefinition, MapLocalSize, MapTerrainObject, MapWaypoint, RaError, RaResult};
 use serde::Deserialize;
 
 pub use base64::{base64_decode, base64_encode};
@@ -298,6 +298,11 @@ impl MapInfo {
                 .waypoints
                 .iter()
                 .map(|w| MapWaypoint { index: w.index, x: w.x, y: w.y })
+                .collect(),
+            terrain_objects: self
+                .terrain_objects
+                .iter()
+                .map(|t| MapTerrainObject { x: t.x, y: t.y, name: t.name.clone() })
                 .collect(),
         }
     }
