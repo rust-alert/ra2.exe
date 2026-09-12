@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use ra_adaptor::{ResourceChain, RulesSystem, build_runtime_definitions, detect_edition, load_rules_chain};
+use ra_adaptor::{RulesSystem, build_runtime_definitions, detect_edition, load_rules_chain};
 use ra_assets::{
     CountryRegistry, IniDocument, Palette, Rgba, find_battle_campaign, parse_battle_campaigns, parse_mpmodes, tiberium_overlay_display_hsv_bound,
 };
@@ -60,6 +60,8 @@ pub struct BootResult {
     pub art_ini: &'static str,
     /// 资源链 rules INI 逻辑名。
     pub rules_ini: &'static str,
+    /// 叠画用 art/rules 文档（装载期解析一次，对局热路径复用）。
+    pub paint_ini: PaintIniDocs,
     /// 已解析规则（房屋色调 / 部署叠画）。
     pub rules: Option<RulesSystem>,
     /// 大厅行色 → house 主色。
@@ -90,6 +92,7 @@ impl BootResult {
             preview_origin: (0, 0),
             art_ini: "art.ini",
             rules_ini: "rules.ini",
+            paint_ini: PaintIniDocs::default(),
             rules: None,
             lobby_primaries: HashMap::new(),
             hotkeys: super::battle_hotkeys::HotkeyMap::stock_ra2(),
@@ -113,6 +116,7 @@ impl BootResult {
             preview_origin: (0, 0),
             art_ini: "art.ini",
             rules_ini: "rules.ini",
+            paint_ini: PaintIniDocs::default(),
             rules: None,
             lobby_primaries: HashMap::new(),
             hotkeys: super::battle_hotkeys::HotkeyMap::stock_ra2(),
@@ -123,16 +127,15 @@ impl BootResult {
 fn load_map_terrain_preview(
     source: &GameAssetSource,
     map: &MapInfo,
-    chain: &ResourceChain,
+    docs: &PaintIniDocs,
     rules: &RulesSystem,
     structure_lights: &StructureLightTable,
     lobby_primaries: Option<&HashMap<String, Rgba>>,
 ) -> Option<(String, RgbaImage, RgbaImage, RgbaImage, StructureAnimBank, TerrainAnimBank, TerrainAnimBank, i32, i32)> {
-    let docs = PaintIniDocs::load(source, chain.art_ini, chain.rules_ini);
     let preview = compose_boot_preview(
         source,
         map,
-        &docs,
+        docs,
         structure_lights,
         &|id| rules.overlay_types.name(id).map(str::to_owned),
         &|id| rules.overlay_types.is_harvestable(id),
@@ -197,7 +200,7 @@ pub(crate) fn remap_owner_palette(
 /// 将会话里已有的移动单位（含航点播种 MCV）叠画到启动预览底图。
 fn paint_session_mobiles_onto_preview(
     source: &GameAssetSource,
-    chain: &ResourceChain,
+    docs: &PaintIniDocs,
     rules: &RulesSystem,
     session: &Session,
     image: &mut RgbaImage,
@@ -245,14 +248,13 @@ fn paint_session_mobiles_onto_preview(
     if paint_map.entities.is_empty() {
         return 0;
     }
-    let docs = PaintIniDocs::load(source, chain.art_ini, chain.rules_ini);
     paint_mobiles_onto_preview_rgba(
         source,
         &paint_map,
         image,
         origin.0,
         origin.1,
-        &docs,
+        docs,
         &|base, owner| remap_owner_palette(rules, Some(lobby_primaries), base, owner),
         &|_| MobilePaintPose::default(),
     )
@@ -519,6 +521,7 @@ pub fn boot_world_with_progress(
 
     report(0.70, "地形预览");
     let lobby_primaries = lobby_house_primaries(request);
+    let paint_ini = PaintIniDocs::load(&source, chain.art_ini, chain.rules_ini);
     let definitions = rules.as_ref().map(|rules| Arc::new(build_runtime_definitions(rules)));
     let structure_lights = definitions
         .as_ref()
@@ -531,7 +534,7 @@ pub fn boot_world_with_progress(
     let mut terrain_anims = TerrainAnimBank::default();
     let mut ore_tree_anims = TerrainAnimBank::default();
     let mut preview = match rules.as_ref().and_then(|rules| {
-        load_map_terrain_preview(&source, &map, chain, rules, &structure_lights, Some(&lobby_primaries))
+        load_map_terrain_preview(&source, &map, &paint_ini, rules, &structure_lights, Some(&lobby_primaries))
     }) {
         Some((name, image, base, underlay, bank, terrain_bank, ore_bank, ox, oy)) => {
             note = format!("{note} · preview:{name}");
@@ -633,7 +636,7 @@ pub fn boot_world_with_progress(
             if let (Some(base), Some(rules)) = (preview_base.as_mut(), rules.as_ref()) {
                 preview_clean = Some(base.clone());
                 let painted =
-                    paint_session_mobiles_onto_preview(&source, chain, rules, &opened.session, base, preview_origin, &lobby_primaries);
+                    paint_session_mobiles_onto_preview(&source, &paint_ini, rules, &opened.session, base, preview_origin, &lobby_primaries);
                 if painted > 0 {
                     note = format!("{note} · start_mobile_shp#{painted}");
                 } else {
@@ -674,6 +677,7 @@ pub fn boot_world_with_progress(
         preview_origin,
         art_ini: chain.art_ini,
         rules_ini: chain.rules_ini,
+        paint_ini,
         rules,
         lobby_primaries,
         hotkeys: {

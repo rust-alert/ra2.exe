@@ -8,7 +8,7 @@ use ra_layout::{
     BattleHudChromeMetrics, MapViewport, SIDEBAR_TAB_COUNT, cameo_visible_slot_count, rect_px_from_snapshot, solve_battle_hud_with_metrics,
 };
 use ra_map::{
-    MapEntity, MapEntityKind, OverlayLayerFilter, PaintIniDocs, TILE_HEIGHT, TILE_WIDTH, collect_structure_anim_bank, iso_to_screen,
+    MapEntity, MapEntityKind, OverlayLayerFilter, TILE_HEIGHT, TILE_WIDTH, collect_structure_anim_bank, iso_to_screen,
     paint_ore_tree_frames_onto_rgba, paint_overlays_onto_preview_rgba, paint_structure_anims_onto_rgba, paint_structures_onto_rgba,
     paint_terrain_anims_onto_rgba,
 };
@@ -189,15 +189,14 @@ impl BattleController {
 
         if let Some(underlay) = self.preview_ore_underlay.as_ref() {
             let mut clean = underlay.clone();
-            let docs = PaintIniDocs::load(assets, self.art_ini, self.rules_ini);
-            let (shp, mark) = paint_overlays_onto_preview_rgba(
+                        let (shp, mark) = paint_overlays_onto_preview_rgba(
                 assets,
                 &map,
                 &harvestable,
                 &mut clean,
                 self.preview_origin.0,
                 self.preview_origin.1,
-                &docs,
+                &self.paint_ini,
                 &|id| overlay_types.name(id).map(str::to_owned),
                 &|id| overlay_types.is_harvestable(id),
                 &tib_hsv,
@@ -217,15 +216,14 @@ impl BattleController {
         else {
             return false;
         };
-        let docs = PaintIniDocs::load(assets, self.art_ini, self.rules_ini);
-        let (shp, mark) = paint_overlays_onto_preview_rgba(
+                let (shp, mark) = paint_overlays_onto_preview_rgba(
             assets,
             &map,
             &cells,
             clean,
             self.preview_origin.0,
             self.preview_origin.1,
-            &docs,
+            &self.paint_ini,
             &|id| overlay_types.name(id).map(str::to_owned),
             &|id| overlay_types.is_harvestable(id),
             &tib_hsv,
@@ -272,7 +270,6 @@ impl BattleController {
         if jobs.is_empty() {
             return false;
         }
-        let art_ini = self.art_ini;
         let origin = self.preview_origin;
         let lobby = self.lobby_primaries.clone();
         let mut any = false;
@@ -296,17 +293,16 @@ impl BattleController {
                 tag: Default::default(),
             });
             let remap = |base: &ra_assets::Palette, own: &str| remap_owner_palette(rules, Some(&lobby), base, own);
-            let docs = PaintIniDocs::load(assets, art_ini, self.rules_ini);
-            if let Some(clean) = self.preview_clean.as_mut() {
-                let n = paint_structures_onto_rgba(assets, &one, clean, origin.0, origin.1, &docs, &remap);
+                        if let Some(clean) = self.preview_clean.as_mut() {
+                let n = paint_structures_onto_rgba(assets, &one, clean, origin.0, origin.1, &self.paint_ini, &remap);
                 any |= n > 0;
             }
             if let Some(underlay) = self.preview_ore_underlay.as_mut() {
-                let n = paint_structures_onto_rgba(assets, &one, underlay, origin.0, origin.1, &docs, &remap);
+                let n = paint_structures_onto_rgba(assets, &one, underlay, origin.0, origin.1, &self.paint_ini, &remap);
                 any |= n > 0;
             }
             self.structure_anims.layers.retain(|layer| !(layer.x == *x && layer.y == *y));
-            let bank = collect_structure_anim_bank(assets, &one, &docs, &remap);
+            let bank = collect_structure_anim_bank(assets, &one, &self.paint_ini, &remap);
             self.structure_anims.layers.extend(bank.layers);
         }
         if any {

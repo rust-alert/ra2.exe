@@ -3,7 +3,7 @@
 use std::{collections::HashMap, time::Instant};
 
 use ra_map::{
-    MapEntity, MapEntityKind, MobilePaintPose, PaintIniDocs, StructureBuildupClip, collect_structure_anim_bank, load_structure_buildup_clip,
+    MapEntity, MapEntityKind, MobilePaintPose, StructureBuildupClip, collect_structure_anim_bank, load_structure_buildup_clip,
     paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba,
     paint_terrain_anims_onto_rgba,
 };
@@ -200,8 +200,7 @@ impl BattleController {
                 return;
             };
             let lobby = &self.lobby_primaries;
-            let docs = PaintIniDocs::load(assets, self.art_ini, self.rules_ini);
-            load_structure_buildup_clip(assets, &game.world.map, &docs, &job.type_id, &job.owner, job.x, job.y, &|base, owner| {
+                        load_structure_buildup_clip(assets, &game.world.map, &self.paint_ini, &job.type_id, &job.owner, job.x, job.y, &|base, owner| {
                 remap_owner_palette(rules, Some(lobby), base, owner)
             })
         };
@@ -241,7 +240,6 @@ impl BattleController {
         if local_house.as_deref().is_some_and(|house| owner.eq_ignore_ascii_case(house)) {
             self.queue_battle_sfx_once("EVA_ConstructionComplete");
         }
-        let art_ini = self.art_ini;
         let origin = self.preview_origin;
         let painted = {
             let Some(rules) = self.rules.as_ref()
@@ -271,8 +269,7 @@ impl BattleController {
                 tag: Default::default(),
             });
             let lobby = &self.lobby_primaries;
-            let docs = PaintIniDocs::load(assets, art_ini, self.rules_ini);
-            let mut n = paint_structures_onto_rgba(assets, &one, clean, origin.0, origin.1, &docs, &|base, own| {
+                        let mut n = paint_structures_onto_rgba(assets, &one, clean, origin.0, origin.1, &self.paint_ini, &|base, own| {
                 remap_owner_palette(rules, Some(lobby), base, own)
             });
             if n == 0 {
@@ -291,7 +288,7 @@ impl BattleController {
                 tracing::warn!("定格失败 · {} 无主体也无 Buildup 帧，保留原预览", type_id);
                 return;
             }
-            let bank = collect_structure_anim_bank(assets, &one, &docs, &|base, own| {
+            let bank = collect_structure_anim_bank(assets, &one, &self.paint_ini, &|base, own| {
                 remap_owner_palette(rules, Some(lobby), base, own)
             });
             (n, bank)
@@ -315,8 +312,7 @@ impl BattleController {
                     tag: Default::default(),
                 });
                 let lobby = &self.lobby_primaries;
-                let docs = PaintIniDocs::load(assets, art_ini, self.rules_ini);
-                let mut n = paint_structures_onto_rgba(assets, &one, underlay, origin.0, origin.1, &docs, &|base, own| {
+                                let mut n = paint_structures_onto_rgba(assets, &one, underlay, origin.0, origin.1, &self.paint_ini, &|base, own| {
                     remap_owner_palette(rules, Some(lobby), base, own)
                 });
                 if n == 0 {
@@ -393,14 +389,13 @@ impl BattleController {
         }
         let mut base = clean.clone();
         let lobby = &self.lobby_primaries;
-        let docs = PaintIniDocs::load(assets, self.art_ini, self.rules_ini);
-        paint_mobiles_onto_preview_rgba(
+                paint_mobiles_onto_preview_rgba(
             assets,
             &mobile_map,
             &mut base,
             self.preview_origin.0,
             self.preview_origin.1,
-            &docs,
+            &self.paint_ini,
             &|pal, owner| remap_owner_palette(rules, Some(lobby), pal, owner),
             &|ent| poses.get(&(ent.x, ent.y, ent.type_id.clone(), ent.owner.clone())).copied().unwrap_or_default(),
         );
@@ -463,14 +458,13 @@ impl BattleController {
         }
         let lobby = self.lobby_primaries.clone();
         let mut composed = clean.clone();
-        let docs = PaintIniDocs::load(assets, self.art_ini, self.rules_ini);
-        paint_mobiles_onto_preview_rgba(
+                paint_mobiles_onto_preview_rgba(
             assets,
             &mobile_map,
             &mut composed,
             self.preview_origin.0,
             self.preview_origin.1,
-            &docs,
+            &self.paint_ini,
             &|pal, owner| remap_owner_palette(rules, Some(&lobby), pal, owner),
             &|ent| poses.get(&(ent.x, ent.y, ent.type_id.clone(), ent.owner.clone())).copied().unwrap_or_default(),
         );
