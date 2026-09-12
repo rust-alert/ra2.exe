@@ -72,8 +72,19 @@ struct RadiationLightSectionFields {
     light_factor: Option<f32>,
     #[serde(rename = "RadTintFactor")]
     tint_factor: Option<f32>,
-    #[serde(rename = "RadColor")]
-    color: Option<String>,
+    #[serde(rename = "RadColor", default, deserialize_with = "deserialize_optional_rgb")]
+    color: Option<(u8, u8, u8)>,
+}
+
+fn deserialize_optional_rgb<'de, D>(deserializer: D) -> Result<Option<(u8, u8, u8)>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let Some(raw) = Option::<String>::deserialize(deserializer)?
+    else {
+        return Ok(None);
+    };
+    Ok(parse_rgb_triplet(&raw))
 }
 
 /// 从 rules INI 解析 `[Radiation]` 光相关键。
@@ -96,10 +107,8 @@ pub fn parse_radiation_light_rules(doc: &IniDocument) -> RadiationLightRules {
     if let Some(v) = fields.tint_factor {
         rules.tint_factor = v;
     }
-    if let Some(raw) = fields.color.as_deref() {
-        if let Some(rgb) = parse_rgb_triplet(raw) {
-            rules.color = rgb;
-        }
+    if let Some(rgb) = fields.color {
+        rules.color = rgb;
     }
     rules
 }
