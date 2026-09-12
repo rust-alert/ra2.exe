@@ -44,10 +44,7 @@ fn mobile_type_paint_hints(rules: Option<&IniDocument>, art: Option<&IniDocument
         .filter(|s| !s.is_empty())
         .map(|s| s.to_ascii_uppercase());
     let (walk_triple, ready_triple) = match (art, sequence_section.as_deref()) {
-        (Some(art), Some(seq)) => (
-            sequence_value(art, seq, &["Walk", "Panic"]).and_then(parse_sequence_triple),
-            sequence_value(art, seq, &["Ready", "Guard"]).and_then(parse_sequence_triple),
-        ),
+        (Some(art), Some(seq)) => sequence_triples_from_section(art, seq),
         _ => (None, None),
     };
     MobileTypePaintHints {
@@ -246,6 +243,28 @@ pub fn sequence_value<'a>(art: &'a IniDocument, seq_section: &str, keys: &[&str]
     None
 }
 
+fn sequence_triples_from_section(art: &IniDocument, seq_section: &str) -> (Option<(u16, u16, u16)>, Option<(u16, u16, u16)>) {
+    let fields = art
+        .section(seq_section)
+        .and_then(|s| s.deserialize::<MobileSequenceSectionFields>().ok())
+        .unwrap_or_default();
+    let walk_triple = fields.walk.or(fields.panic).as_deref().and_then(parse_sequence_triple);
+    let ready_triple = fields.ready.or(fields.guard).as_deref().and_then(parse_sequence_triple);
+    (walk_triple, ready_triple)
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct MobileSequenceSectionFields {
+    #[serde(rename = "Walk")]
+    walk: Option<String>,
+    #[serde(rename = "Panic")]
+    panic: Option<String>,
+    #[serde(rename = "Ready")]
+    ready: Option<String>,
+    #[serde(rename = "Guard")]
+    guard: Option<String>,
+}
+
 /// 由姿态与 art 序列解析 SHP 帧；无序列时回退到朝向桶。
 pub fn resolve_mobile_shp_frame(art: Option<&IniDocument>, image_key: &str, ent: &MapEntity, pose: MobilePaintPose) -> u16 {
     let hints = MobileTypePaintHints {
@@ -254,11 +273,11 @@ pub fn resolve_mobile_shp_frame(art: Option<&IniDocument>, image_key: &str, ent:
         new_theater: false,
         walk_triple: art.and_then(|a| {
             let seq = sequence_section_name(a, image_key)?;
-            sequence_value(a, &seq, &["Walk", "Panic"]).and_then(parse_sequence_triple)
+            sequence_triples_from_section(a, &seq).0
         }),
         ready_triple: art.and_then(|a| {
             let seq = sequence_section_name(a, image_key)?;
-            sequence_value(a, &seq, &["Ready", "Guard"]).and_then(parse_sequence_triple)
+            sequence_triples_from_section(a, &seq).1
         }),
     };
     resolve_mobile_shp_frame_from_hints(&hints, ent, pose)
