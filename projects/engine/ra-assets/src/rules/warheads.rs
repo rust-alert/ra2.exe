@@ -139,11 +139,11 @@ where
         {
             let mut out = WarheadVerses::default();
             let mut i = 0usize;
-            while let Some(part) = seq.next_element::<String>()? {
+            while let Some(part) = seq.next_element::<&str>()? {
                 if i >= 11 {
                     break;
                 }
-                if let Some(v) = parse_verse_token(&part) {
+                if let Some(v) = parse_verse_token(part) {
                     out.0[i] = v;
                 }
                 i += 1;
