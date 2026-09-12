@@ -34,6 +34,8 @@ pub struct MapDefinition {
     pub waypoints: Vec<MapWaypoint>,
     /// `[Terrain]` 静态地形物件。
     pub terrain_objects: Vec<MapTerrainObject>,
+    /// 预放实体（Structures / Units / Infantry / Aircraft）。
+    pub entities: Vec<MapPlacedEntity>,
 }
 
 /// 冻结地图航点（任务 / 出生点等格子锚点）。
@@ -69,6 +71,44 @@ pub struct MapTerrainObject {
     pub y: u16,
     /// 物件类型名（通常已大写）。
     pub name: String,
+}
+
+/// 预放实体类别。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MapPlacedEntityKind {
+    /// 建筑。
+    Structure,
+    /// 载具。
+    Unit,
+    /// 步兵。
+    Infantry,
+    /// 飞行器。
+    Aircraft,
+}
+
+/// 场景预放实体（装载期快照；规则绑定前仍用类型名字符串）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapPlacedEntity {
+    /// 放置类别。
+    pub kind: MapPlacedEntityKind,
+    /// 所属方名称。
+    pub owner: String,
+    /// 类型 id（通常已大写）。
+    pub type_id: String,
+    /// 0..=256；原版常写 256 表示满血。
+    pub health: u16,
+    /// 格子 X。
+    pub x: u16,
+    /// 格子 Y。
+    pub y: u16,
+    /// 朝向。
+    pub facing: u8,
+    /// 步兵子格 0..=4；其它为 0。
+    pub sub_cell: u8,
+    /// 初始任务（如 `Guard`）；空表示未指定。
+    pub mission: String,
+    /// 绑定的 Tag id；空表示无。
+    pub tag: String,
 }
 
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。

@@ -42,7 +42,9 @@ pub mod lcw;
 pub mod lzo;
 
 use ra_assets::{IniDocument, from_row};
-use ra_types::{GameEdition, MapDefinition, MapLocalSize, MapTerrainObject, MapWaypoint, RaError, RaResult};
+use ra_types::{
+    GameEdition, MapDefinition, MapLocalSize, MapPlacedEntity, MapPlacedEntityKind, MapTerrainObject, MapWaypoint, RaError, RaResult,
+};
 use serde::Deserialize;
 
 pub use base64::{base64_decode, base64_encode};
@@ -275,7 +277,7 @@ impl MapInfo {
         if trimmed.is_empty() { None } else { Some(trimmed) }
     }
 
-    /// 提取冻结 [`MapDefinition`] 骨架（不含格子 / 实体 / 脚本载荷）。
+    /// 提取冻结 [`MapDefinition`] 骨架（含航点 / 地形物件 / 预放实体；不含格子与脚本载荷）。
     pub fn to_map_definition(&self) -> MapDefinition {
         MapDefinition {
             name: self.name.clone(),
@@ -304,6 +306,7 @@ impl MapInfo {
                 .iter()
                 .map(|t| MapTerrainObject { x: t.x, y: t.y, name: t.name.clone() })
                 .collect(),
+            entities: self.entities.iter().map(map_entity_to_placed).collect(),
         }
     }
 
@@ -409,6 +412,26 @@ struct MapSizeRow {
     _origin_y: i32,
     width: u32,
     height: u32,
+}
+
+fn map_entity_to_placed(ent: &MapEntity) -> MapPlacedEntity {
+    MapPlacedEntity {
+        kind: match ent.kind {
+            MapEntityKind::Structure => MapPlacedEntityKind::Structure,
+            MapEntityKind::Unit => MapPlacedEntityKind::Unit,
+            MapEntityKind::Infantry => MapPlacedEntityKind::Infantry,
+            MapEntityKind::Aircraft => MapPlacedEntityKind::Aircraft,
+        },
+        owner: ent.owner.clone(),
+        type_id: ent.type_id.clone(),
+        health: ent.health,
+        x: ent.x,
+        y: ent.y,
+        facing: ent.facing,
+        sub_cell: ent.sub_cell,
+        mission: ent.mission.clone(),
+        tag: ent.tag.clone(),
+    }
 }
 
 /// `LocalSize=left,top,width,height` 行。
