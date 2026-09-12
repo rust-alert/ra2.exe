@@ -25,7 +25,7 @@ pub use definition::{
     ContentFingerprint, DeployableDefinition,
     DeployableDefinitions, DeploymentPlacement, Foundation, HouseAllowList, HouseDefinition, HouseDefinitions, HouseName, HouseStolenTechMap,
     ImageName, LandType, LocomotorDefinitions, MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapDefinition, MapEvent, MapEventCondition,
-    MapHouse, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapScriptStep, MapScriptType,
+    MapFileName, MapHouse, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapScriptStep, MapScriptType,
     MapSmudge, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, MapWeatherKind, MapEdge, OverlayTypeRegistry,
     PowerProfile,
     PrerequisiteGroupKind, PrerequisiteGroups, PrerequisiteList, PrerequisiteToken, PreparedMap, ProductionCategory, ProductionDefinitions,

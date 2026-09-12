@@ -53,7 +53,7 @@ pub use map::{
 };
 pub use map_edge::MapEdge;
 pub use names::{
-    AiTriggerName, CampaignName, ColorName, HouseName, ImageName, ProjectileName, ScriptTypeName, SmudgeName, SuperWeaponActionName,
+    AiTriggerName, CampaignName, ColorName, HouseName, ImageName, MapFileName, ProjectileName, ScriptTypeName, SmudgeName, SuperWeaponActionName,
     SuperWeaponKindName, SuperWeaponName, TagName, TaskForceName, TeamTypeName, TechnoName, TerrainName, TriggerName, UiName, WarheadName,
     WeaponName,
 };

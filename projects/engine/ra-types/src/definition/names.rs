@@ -253,3 +253,127 @@ ini_name!(
     CampaignName,
     "battle campaign id"
 );
+
+/// 地图 / 战役 scenario 文件名（装载期只修剪，保留盘上大小写）。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct MapFileName(String);
+
+impl MapFileName {
+    /// 修剪空白；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self(raw.trim().to_string())
+    }
+
+    /// 底层文件名文本。
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl std::ops::Deref for MapFileName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<str> for MapFileName {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for MapFileName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl From<&str> for MapFileName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for MapFileName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for MapFileName {
+    fn eq(&self, other: &str) -> bool {
+        self.0 == other
+    }
+}
+
+impl PartialEq<&str> for MapFileName {
+    fn eq(&self, other: &&str) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<MapFileName> for str {
+    fn eq(&self, other: &MapFileName) -> bool {
+        self == other.0.as_str()
+    }
+}
+
+impl PartialEq<MapFileName> for &str {
+    fn eq(&self, other: &MapFileName) -> bool {
+        *self == other.0.as_str()
+    }
+}
+
+impl<'de> Deserialize<'de> for MapFileName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct FileVisitor;
+
+        impl<'de> Visitor<'de> for FileVisitor {
+            type Value = MapFileName;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("map / scenario file name")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(MapFileName::parse(v))
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(MapFileName::parse(&v))
+            }
+
+            fn visit_none<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(MapFileName::default())
+            }
+
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(MapFileName::default())
+            }
+        }
+
+        deserializer.deserialize_any(FileVisitor)
+    }
+}

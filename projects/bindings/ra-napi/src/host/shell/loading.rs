@@ -101,7 +101,7 @@ impl Shell {
         } else {
             Some(camp.description_csf.to_string())
         };
-        self.begin_campaign_scenario_load(&camp.scenario, Some(camp.id.as_str()));
+        self.begin_campaign_scenario_load(camp.scenario.as_str(), Some(camp.id.as_str()));
     }
 
     /// 按指定 scenario 装载战役局（重开当前关 / 进入 NextMission）。
