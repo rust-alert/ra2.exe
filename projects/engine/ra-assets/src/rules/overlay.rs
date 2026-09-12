@@ -2,7 +2,7 @@
 
 use serde::Deserialize;
 
-use ra_types::OverlayTypeRegistry;
+use ra_types::{LandType, OverlayTypeRegistry};
 
 use crate::{
     ini::{IniDocument, IniMergePolicy, LayeredIniView},
@@ -107,7 +107,7 @@ struct OverlayTypeSectionFields {
     #[serde(rename = "SpawnsTiberium")]
     spawns_tiberium: Option<bool>,
     #[serde(rename = "Land", default)]
-    land: String,
+    land: LandType,
     #[serde(rename = "NoUseTileLandType")]
     no_use_tile_land_type: Option<bool>,
 }
@@ -125,22 +125,14 @@ fn overlay_land_pass_override(fields: &OverlayTypeSectionFields) -> Option<bool>
     if !fields.no_use_tile_land_type.unwrap_or(false) {
         return None;
     }
-    let land = if fields.land.trim().is_empty() {
-        "clear"
-    } else {
-        fields.land.trim()
-    };
-    Some(match land.to_ascii_lowercase().as_str() {
-        "water" | "rock" | "wall" => false,
-        _ => true,
-    })
+    Some(ra_types::land_passable(fields.land))
 }
 
 fn overlay_type_is_harvestable(fields: &OverlayTypeSectionFields, name: &str) -> bool {
     if fields.tiberium.unwrap_or(false) || fields.spawns_tiberium.unwrap_or(false) {
         return true;
     }
-    if matches!(fields.land.trim().to_ascii_lowercase().as_str(), "tiberium" | "ore" | "gems") {
+    if fields.land == LandType::Tiberium {
         return true;
     }
     harvestable_overlay_name(name)

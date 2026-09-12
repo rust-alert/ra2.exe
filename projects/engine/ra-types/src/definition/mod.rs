@@ -15,6 +15,7 @@ mod deployable;
 mod fingerprint;
 pub mod foundation;
 mod house_list;
+mod land;
 mod locomotor;
 mod map;
 mod names;
@@ -41,6 +42,7 @@ pub use deployable::{DeployableDefinition, DeployableDefinitions, DeploymentPlac
 pub use fingerprint::ContentFingerprint;
 pub use foundation::Foundation;
 pub use house_list::HouseAllowList;
+pub use land::{LandType, TMP_TERRAIN_TO_LAND, ground_passable, land_passable, tmp_terrain_to_land_type};
 pub use locomotor::LocomotorDefinitions;
 pub use map::{
     MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapDefinition, MapEvent, MapEventCondition, MapHouse, MapIsoCell, MapLighting,
