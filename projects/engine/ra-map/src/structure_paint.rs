@@ -725,15 +725,15 @@ pub fn buildup_frame_index(elapsed_ms: u64, rate_ms: u32, frame_count: usize) ->
 pub fn load_structure_buildup_clip(
     source: &dyn AssetSource,
     map: &MapInfo,
-    art_ini: &str,
+    docs: &crate::PaintIniDocs,
     type_id: &str,
     owner: &str,
     x: u16,
     y: u16,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<StructureBuildupClip> {
-    let art = crate::read_optional_ini(source, art_ini)?;
-    let hints = structure_type_paint_hints(Some(&art), None, type_id);
+    let art = docs.art.as_ref()?;
+    let hints = structure_type_paint_hints(Some(art), docs.rules.as_ref(), type_id);
     let buildup = hints.buildup?;
     let remapable = hints.remapable;
     let obj_pal = load_object_palette(source, map)?;
@@ -787,13 +787,11 @@ pub fn paint_structures_onto_rgba(
     image: &mut image::RgbaImage,
     origin_x: i32,
     origin_y: i32,
-    art_ini: &str,
-    rules_ini: &str,
+    docs: &crate::PaintIniDocs,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> usize {
-    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
     let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
-    let (n, _) = paint_map_structures(source, map, &mut terrain, &docs, remap_owner, StructureAnimMode::BodyOnly);
+    let (n, _) = paint_map_structures(source, map, &mut terrain, docs, remap_owner, StructureAnimMode::BodyOnly);
     *image = terrain.image;
     n
 }

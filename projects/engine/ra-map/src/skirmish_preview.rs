@@ -75,8 +75,7 @@ pub struct BootPreviewResult {
 pub fn compose_skirmish_preview(
     source: &dyn AssetSource,
     map: &MapInfo,
-    art_ini: &str,
-    rules_ini: &str,
+    docs: &crate::PaintIniDocs,
     structure_lights: &StructureLightTable,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     is_tiberium: &dyn Fn(u8) -> bool,
@@ -94,13 +93,12 @@ pub fn compose_skirmish_preview(
     let mut map_ore = map.clone();
     map_ore.overlays.retain(|c| is_tiberium(c.overlay_id));
 
-    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
     let mut image = compose_terrain_preview(source, map)?;
     let (ground_non_ore_shp, ground_non_ore_mark) = paint_map_overlays(
         source,
         &map_non_ore,
         &mut image,
-        &docs,
+        docs,
         overlay_type_name,
         is_tiberium,
         tiberium_hsv,
@@ -111,24 +109,24 @@ pub fn compose_skirmish_preview(
         source,
         &map_ore,
         &mut image,
-        &docs,
+        docs,
         overlay_type_name,
         is_tiberium,
         tiberium_hsv,
         OverlayLayerFilter::Ground,
     );
-    let terrain_objects = paint_map_terrain_objects(source, map, &mut image, &docs, TerrainPaintMode::StaticOnly);
-    let _ = paint_map_terrain_objects(source, map, &mut underlay, &docs, TerrainPaintMode::StaticOnly);
-    let terrain_anim_bank = collect_terrain_anim_bank(source, map, &docs);
-    let ore_tree_anim_bank = collect_ore_tree_anim_bank(source, map, &docs);
+    let terrain_objects = paint_map_terrain_objects(source, map, &mut image, docs, TerrainPaintMode::StaticOnly);
+    let _ = paint_map_terrain_objects(source, map, &mut underlay, docs, TerrainPaintMode::StaticOnly);
+    let terrain_anim_bank = collect_terrain_anim_bank(source, map, docs);
+    let ore_tree_anim_bank = collect_ore_tree_anim_bank(source, map, docs);
     let (structures, structure_mark) =
-        paint_map_structures(source, map, &mut image, &docs, remap_owner, StructureAnimMode::BodyOnly);
-    let _ = paint_map_structures(source, map, &mut underlay, &docs, remap_owner, StructureAnimMode::BodyOnly);
+        paint_map_structures(source, map, &mut image, docs, remap_owner, StructureAnimMode::BodyOnly);
+    let _ = paint_map_structures(source, map, &mut underlay, docs, remap_owner, StructureAnimMode::BodyOnly);
     let (bridge_shp, bridge_mark) = paint_map_overlays(
         source,
         map,
         &mut image,
-        &docs,
+        docs,
         overlay_type_name,
         is_tiberium,
         tiberium_hsv,
@@ -138,15 +136,15 @@ pub fn compose_skirmish_preview(
         source,
         map,
         &mut underlay,
-        &docs,
+        docs,
         overlay_type_name,
         is_tiberium,
         tiberium_hsv,
         OverlayLayerFilter::Bridge,
     );
     let ore_underlay = underlay.image;
-    let anim_bank = collect_structure_anim_bank(source, map, &docs, remap_owner);
-    let mobiles = paint_map_mobiles(source, map, &mut image, &docs, remap_owner, &|_| MobilePaintPose::default());
+    let anim_bank = collect_structure_anim_bank(source, map, docs, remap_owner);
+    let mobiles = paint_map_mobiles(source, map, &mut image, docs, remap_owner, &|_| MobilePaintPose::default());
     let base_without_anims = image.image.clone();
     // 旗帜等常循环地形在刷新时叠在建筑主体之上。
     let terrain_anim_n = paint_terrain_anim_bank(&mut image, &terrain_anim_bank, anim_clock_ms);
@@ -181,14 +179,12 @@ pub fn paint_mobiles_onto_preview_rgba(
     image: &mut RgbaImage,
     origin_x: i32,
     origin_y: i32,
-    art_ini: &str,
-    rules_ini: &str,
+    docs: &crate::PaintIniDocs,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     pose_of: &dyn Fn(&crate::MapEntity) -> MobilePaintPose,
 ) -> usize {
-    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
     let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
-    let n = paint_map_mobiles(source, entities_map, &mut terrain, &docs, remap_owner, pose_of);
+    let n = paint_map_mobiles(source, entities_map, &mut terrain, docs, remap_owner, pose_of);
     *image = terrain.image;
     n
 }
@@ -200,8 +196,7 @@ pub fn paint_mobiles_onto_preview_rgba(
 pub fn compose_boot_preview(
     source: &dyn AssetSource,
     map: &MapInfo,
-    art_ini: &str,
-    rules_ini: &str,
+    docs: &crate::PaintIniDocs,
     structure_lights: &StructureLightTable,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     is_tiberium: &dyn Fn(u8) -> bool,
@@ -209,7 +204,7 @@ pub fn compose_boot_preview(
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<BootPreviewResult> {
     let (image, base_without_anims, ore_underlay, stats, anim_bank, terrain_anim_bank, ore_tree_anim_bank) =
-        compose_skirmish_preview(source, map, art_ini, rules_ini, structure_lights, overlay_type_name, is_tiberium, tiberium_hsv, remap_owner, 0)?;
+        compose_skirmish_preview(source, map, docs, structure_lights, overlay_type_name, is_tiberium, tiberium_hsv, remap_owner, 0)?;
     let terrain_hit = terrain_anim_bank
         .layers
         .first()

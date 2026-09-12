@@ -189,6 +189,7 @@ impl BattleController {
 
         if let Some(underlay) = self.preview_ore_underlay.as_ref() {
             let mut clean = underlay.clone();
+            let docs = PaintIniDocs::load(assets, self.art_ini, self.rules_ini);
             let (shp, mark) = paint_overlays_onto_preview_rgba(
                 assets,
                 &map,
@@ -196,8 +197,7 @@ impl BattleController {
                 &mut clean,
                 self.preview_origin.0,
                 self.preview_origin.1,
-                self.art_ini,
-                self.rules_ini,
+                &docs,
                 &|id| overlay_types.name(id).map(str::to_owned),
                 &|id| overlay_types.is_harvestable(id),
                 &tib_hsv,
@@ -217,6 +217,7 @@ impl BattleController {
         else {
             return false;
         };
+        let docs = PaintIniDocs::load(assets, self.art_ini, self.rules_ini);
         let (shp, mark) = paint_overlays_onto_preview_rgba(
             assets,
             &map,
@@ -224,8 +225,7 @@ impl BattleController {
             clean,
             self.preview_origin.0,
             self.preview_origin.1,
-            self.art_ini,
-            self.rules_ini,
+            &docs,
             &|id| overlay_types.name(id).map(str::to_owned),
             &|id| overlay_types.is_harvestable(id),
             &tib_hsv,
@@ -296,16 +296,16 @@ impl BattleController {
                 tag: Default::default(),
             });
             let remap = |base: &ra_assets::Palette, own: &str| remap_owner_palette(rules, Some(&lobby), base, own);
+            let docs = PaintIniDocs::load(assets, art_ini, self.rules_ini);
             if let Some(clean) = self.preview_clean.as_mut() {
-                let n = paint_structures_onto_rgba(assets, &one, clean, origin.0, origin.1, art_ini, self.rules_ini, &remap);
+                let n = paint_structures_onto_rgba(assets, &one, clean, origin.0, origin.1, &docs, &remap);
                 any |= n > 0;
             }
             if let Some(underlay) = self.preview_ore_underlay.as_mut() {
-                let n = paint_structures_onto_rgba(assets, &one, underlay, origin.0, origin.1, art_ini, self.rules_ini, &remap);
+                let n = paint_structures_onto_rgba(assets, &one, underlay, origin.0, origin.1, &docs, &remap);
                 any |= n > 0;
             }
             self.structure_anims.layers.retain(|layer| !(layer.x == *x && layer.y == *y));
-            let docs = PaintIniDocs::load(assets, art_ini, self.rules_ini);
             let bank = collect_structure_anim_bank(assets, &one, &docs, &remap);
             self.structure_anims.layers.extend(bank.layers);
         }

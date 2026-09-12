@@ -9,10 +9,11 @@ use ra_assets::{
 };
 use ra_engine::{Engine, Session, open_campaign_session, open_skirmish_session};
 use ra_map::{
-    MapEntity, MapEntityKind, MapInfo, MobilePaintPose, StructureAnimBank, StructureLightTable, TerrainAnimBank, campaign_blocking_capability_message,
-    compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes, find_boot_map, list_parseable_maps_from_missions_pkt,
-    list_parseable_maps_from_names, map_scripting_capability_gaps, mount_theater_mixes, ore_tree_frame_count_hints,
-    paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba, paint_structure_anims_onto_rgba, paint_terrain_anims_onto_rgba,
+    MapEntity, MapEntityKind, MapInfo, MobilePaintPose, PaintIniDocs, StructureAnimBank, StructureLightTable, TerrainAnimBank,
+    campaign_blocking_capability_message, compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes, find_boot_map,
+    list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names, map_scripting_capability_gaps, mount_theater_mixes,
+    ore_tree_frame_count_hints, paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba, paint_structure_anims_onto_rgba,
+    paint_terrain_anims_onto_rgba,
 };
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition, HouseName, RaResult, TechnoName};
@@ -127,11 +128,11 @@ fn load_map_terrain_preview(
     structure_lights: &StructureLightTable,
     lobby_primaries: Option<&HashMap<String, Rgba>>,
 ) -> Option<(String, RgbaImage, RgbaImage, RgbaImage, StructureAnimBank, TerrainAnimBank, TerrainAnimBank, i32, i32)> {
+    let docs = PaintIniDocs::load(source, chain.art_ini, chain.rules_ini);
     let preview = compose_boot_preview(
         source,
         map,
-        chain.art_ini,
-        chain.rules_ini,
+        &docs,
         structure_lights,
         &|id| rules.overlay_types.name(id).map(str::to_owned),
         &|id| rules.overlay_types.is_harvestable(id),
@@ -244,14 +245,14 @@ fn paint_session_mobiles_onto_preview(
     if paint_map.entities.is_empty() {
         return 0;
     }
+    let docs = PaintIniDocs::load(source, chain.art_ini, chain.rules_ini);
     paint_mobiles_onto_preview_rgba(
         source,
         &paint_map,
         image,
         origin.0,
         origin.1,
-        chain.art_ini,
-        chain.rules_ini,
+        &docs,
         &|base, owner| remap_owner_palette(rules, Some(lobby_primaries), base, owner),
         &|_| MobilePaintPose::default(),
     )

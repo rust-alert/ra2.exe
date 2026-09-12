@@ -200,7 +200,8 @@ impl BattleController {
                 return;
             };
             let lobby = &self.lobby_primaries;
-            load_structure_buildup_clip(assets, &game.world.map, self.art_ini, &job.type_id, &job.owner, job.x, job.y, &|base, owner| {
+            let docs = PaintIniDocs::load(assets, self.art_ini, self.rules_ini);
+            load_structure_buildup_clip(assets, &game.world.map, &docs, &job.type_id, &job.owner, job.x, job.y, &|base, owner| {
                 remap_owner_palette(rules, Some(lobby), base, owner)
             })
         };
@@ -270,7 +271,8 @@ impl BattleController {
                 tag: Default::default(),
             });
             let lobby = &self.lobby_primaries;
-            let mut n = paint_structures_onto_rgba(assets, &one, clean, origin.0, origin.1, art_ini, self.rules_ini, &|base, own| {
+            let docs = PaintIniDocs::load(assets, art_ini, self.rules_ini);
+            let mut n = paint_structures_onto_rgba(assets, &one, clean, origin.0, origin.1, &docs, &|base, own| {
                 remap_owner_palette(rules, Some(lobby), base, own)
             });
             if n == 0 {
@@ -289,7 +291,6 @@ impl BattleController {
                 tracing::warn!("定格失败 · {} 无主体也无 Buildup 帧，保留原预览", type_id);
                 return;
             }
-            let docs = PaintIniDocs::load(assets, art_ini, self.rules_ini);
             let bank = collect_structure_anim_bank(assets, &one, &docs, &|base, own| {
                 remap_owner_palette(rules, Some(lobby), base, own)
             });
@@ -314,7 +315,8 @@ impl BattleController {
                     tag: Default::default(),
                 });
                 let lobby = &self.lobby_primaries;
-                let mut n = paint_structures_onto_rgba(assets, &one, underlay, origin.0, origin.1, art_ini, self.rules_ini, &|base, own| {
+                let docs = PaintIniDocs::load(assets, art_ini, self.rules_ini);
+                let mut n = paint_structures_onto_rgba(assets, &one, underlay, origin.0, origin.1, &docs, &|base, own| {
                     remap_owner_palette(rules, Some(lobby), base, own)
                 });
                 if n == 0 {
@@ -391,14 +393,14 @@ impl BattleController {
         }
         let mut base = clean.clone();
         let lobby = &self.lobby_primaries;
+        let docs = PaintIniDocs::load(assets, self.art_ini, self.rules_ini);
         paint_mobiles_onto_preview_rgba(
             assets,
             &mobile_map,
             &mut base,
             self.preview_origin.0,
             self.preview_origin.1,
-            self.art_ini,
-            self.rules_ini,
+            &docs,
             &|pal, owner| remap_owner_palette(rules, Some(lobby), pal, owner),
             &|ent| poses.get(&(ent.x, ent.y, ent.type_id.clone(), ent.owner.clone())).copied().unwrap_or_default(),
         );
@@ -461,14 +463,14 @@ impl BattleController {
         }
         let lobby = self.lobby_primaries.clone();
         let mut composed = clean.clone();
+        let docs = PaintIniDocs::load(assets, self.art_ini, self.rules_ini);
         paint_mobiles_onto_preview_rgba(
             assets,
             &mobile_map,
             &mut composed,
             self.preview_origin.0,
             self.preview_origin.1,
-            self.art_ini,
-            self.rules_ini,
+            &docs,
             &|pal, owner| remap_owner_palette(rules, Some(&lobby), pal, owner),
             &|ent| poses.get(&(ent.x, ent.y, ent.type_id.clone(), ent.owner.clone())).copied().unwrap_or_default(),
         );
