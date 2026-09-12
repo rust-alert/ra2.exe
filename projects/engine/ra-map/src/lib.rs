@@ -44,9 +44,8 @@ pub mod lzo;
 
 use ra_assets::{IniDocument, numbered_pairs};
 use ra_types::{
-    GameEdition, MapDefinition, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapTerrainObject,
-    MapWeatherKind,
-    MapWaypoint, RaError, RaResult,
+    GameEdition, MapDefinition, MapFileName, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind,
+    MapTerrainObject, MapWeatherKind, MapWaypoint, RaError, RaResult,
 };
 use serde::Deserialize;
 use serde::de::Deserializer;
@@ -143,10 +142,10 @@ pub struct MapInfo {
     pub game_modes: Vec<String>,
     /// `[Basic] Description` CSF 键（装载期一次解码为大写；可空；官方遭遇图常省略）。
     pub description_csf: ra_types::UiName,
-    /// `[Basic] NextMission`：战役胜利后下一关地图文件名（可空）。
-    pub next_mission: String,
-    /// `[Basic] AlternateNextMission`：战役失败后下一关 / 分支地图文件名（可空）。
-    pub alternate_next_mission: String,
+    /// `[Basic] NextMission`：战役胜利后下一关地图文件名（装载期只修剪，保留盘上大小写；可空）。
+    pub next_mission: MapFileName,
+    /// `[Basic] AlternateNextMission`：战役失败后下一关 / 分支地图文件名（装载期只修剪，保留盘上大小写；可空）。
+    pub alternate_next_mission: MapFileName,
     /// `[Basic] StartingCredits`：开局资金；`0` 表示节内未写或显式为 0。
     pub starting_credits: i32,
     /// `[Lighting]` 全局环境光（缺节用零售缺省，含 `Ground=0.20`）。
@@ -197,8 +196,8 @@ impl MapInfo {
             theater: Theater::Temperate,
             game_modes: Vec::new(),
             description_csf: ra_types::UiName::default(),
-            next_mission: String::new(),
-            alternate_next_mission: String::new(),
+            next_mission: MapFileName::default(),
+            alternate_next_mission: MapFileName::default(),
             starting_credits: 0,
             lighting: LightingConfig::default(),
             ion_lighting: LightingConfig::ion_default(),
@@ -244,8 +243,8 @@ impl MapInfo {
             .unwrap_or_default();
         let game_modes = basic.game_modes;
         let description_csf = basic.description;
-        let next_mission = basic.next_mission.unwrap_or_default().trim().to_string();
-        let alternate_next_mission = basic.alternate_next_mission.unwrap_or_default().trim().to_string();
+        let next_mission = basic.next_mission;
+        let alternate_next_mission = basic.alternate_next_mission;
         let starting_credits = basic.starting_credits.unwrap_or(0).max(0);
         let profiles = parse_map_lighting(&doc);
         let cells = match decode_iso_map_pack(&doc) {
@@ -303,8 +302,7 @@ impl MapInfo {
     /// 战役结算后续关 scenario：胜用 `NextMission`，败用 `AlternateNextMission`；空则 `None`。
     pub fn campaign_continue_scenario(&self, victory: bool) -> Option<&str> {
         let raw = if victory { self.next_mission.as_str() } else { self.alternate_next_mission.as_str() };
-        let trimmed = raw.trim();
-        if trimmed.is_empty() { None } else { Some(trimmed) }
+        if raw.is_empty() { None } else { Some(raw) }
     }
 
     /// 提取冻结 [`MapDefinition`] 骨架（含触发链 / 队伍脚本 / AI / Preview 尺寸 / Digest / Smudge / 天气种类；不含预览像素与粒子场）。
@@ -526,10 +524,10 @@ struct BasicSectionFields {
     game_modes: Vec<String>,
     #[serde(rename = "Description", default)]
     description: ra_types::UiName,
-    #[serde(rename = "NextMission")]
-    next_mission: Option<String>,
-    #[serde(rename = "AlternateNextMission")]
-    alternate_next_mission: Option<String>,
+    #[serde(rename = "NextMission", default)]
+    next_mission: MapFileName,
+    #[serde(rename = "AlternateNextMission", default)]
+    alternate_next_mission: MapFileName,
     #[serde(rename = "StartingCredits")]
     starting_credits: Option<i32>,
 }
