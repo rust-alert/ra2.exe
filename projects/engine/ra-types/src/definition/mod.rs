@@ -18,6 +18,7 @@ mod house_list;
 mod land;
 mod locomotor;
 mod map;
+mod map_edge;
 mod names;
 mod overlay;
 mod production;
@@ -49,6 +50,7 @@ pub use map::{
     MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapScriptStep, MapScriptType, MapSmudge, MapTag, MapTaskForce,
     MapTaskForceEntry, MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, MapWeatherKind, PreparedMap, occupancy_kind,
 };
+pub use map_edge::MapEdge;
 pub use names::{
     HouseName, ImageName, ProjectileName, SuperWeaponActionName, SuperWeaponKindName, SuperWeaponName, TechnoName, UiName, WarheadName,
     WeaponName,

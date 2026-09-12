@@ -296,8 +296,8 @@ pub struct MapHouse {
     pub credits: i32,
     /// `IQ=`。
     pub iq: i32,
-    /// `Edge=`。
-    pub edge: String,
+    /// `Edge=`（装载期一次解码）。
+    pub edge: crate::MapEdge,
     /// `PlayerControl=`。
     pub player_control: bool,
     /// `Color=`。

@@ -145,7 +145,7 @@ Allies=GDI, Allies\n\
     assert_eq!(usa.tech_level, 10);
     assert_eq!(usa.credits, 100);
     assert_eq!(usa.iq, 5);
-    assert_eq!(usa.edge, "North");
+    assert_eq!(usa.edge, ra_types::MapEdge::North);
     assert!(usa.player_control);
     assert_eq!(usa.color, "Gold");
     assert_eq!(usa.allies, vec!["GDI".to_string(), "Allies".to_string()]);

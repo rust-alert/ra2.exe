@@ -1,7 +1,7 @@
 //! `[Houses]` 与各方 House 节。
 
 use ra_assets::{IniDocument, numbered_pairs};
-use ra_types::HouseName;
+use ra_types::{HouseName, MapEdge};
 use serde::Deserialize;
 
 /// 地图一方（装载解析中间态；投影进 `ra_types::MapHouse` 后由运行契约消费）。
@@ -17,8 +17,8 @@ pub struct MapHouse {
     pub credits: i32,
     /// `IQ=`。
     pub iq: i32,
-    /// `Edge=`。
-    pub edge: String,
+    /// `Edge=`（装载期一次解码）。
+    pub edge: MapEdge,
     /// `PlayerControl=`。
     pub player_control: bool,
     /// `Color=`。
@@ -39,7 +39,7 @@ struct MapHouseSectionFields {
     #[serde(rename = "IQ")]
     iq: Option<i32>,
     #[serde(rename = "Edge", default)]
-    edge: String,
+    edge: MapEdge,
     #[serde(rename = "PlayerControl")]
     player_control: Option<bool>,
     #[serde(rename = "Color", default)]
@@ -56,7 +56,7 @@ impl MapHouseSectionFields {
             tech_level: self.tech_level.unwrap_or(0),
             credits: self.credits.unwrap_or(0),
             iq: self.iq.unwrap_or(0),
-            edge: self.edge.trim().to_string(),
+            edge: self.edge,
             player_control: self.player_control.unwrap_or(false),
             color: self.color.trim().to_string(),
             allies: self
