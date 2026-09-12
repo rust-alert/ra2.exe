@@ -6,13 +6,58 @@ use ra_assets::{HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLay
 use ra_types::AssetSource;
 
 use crate::{
-    MapEntityKind, MapInfo,
+    MapEntity, MapEntityKind, MapInfo,
     compose::{TerrainImage, TileBlit, paint_cell_sprites},
     iso_math::TILE_WIDTH,
     lighting::{PointLight, apply_rgba_tint, cell_tint_with_lights},
     structure_damage::{StructureDamageRules, damaged_body_frame, parse_damage_fire_offset, structure_tech_level},
     theater::{new_theater_shp_name, theater_palette},
 };
+
+/// 建筑类型叠画主体提示（按 `type_id` 去重一次）。
+#[derive(Debug, Clone)]
+struct StructureTypePaintHints {
+    art_section: String,
+    remapable: bool,
+    body_key: String,
+    body_new_theater: bool,
+    bib_key: Option<String>,
+    bib_new_theater: bool,
+    tech_level: i32,
+}
+
+fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocument>, type_id: &str) -> StructureTypePaintHints {
+    let art_section = resolve_art_section(art, type_id);
+    let remapable = is_remapable(art, &art_section, true);
+    let body_new_theater = art.and_then(|a| a.get(&art_section, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+    let bib_key = art_get_building(art, type_id, &art_section, "BibShape").map(str::to_ascii_uppercase);
+    let bib_new_theater = match bib_key.as_ref() {
+        Some(bib) => art.and_then(|a| a.get(bib, "NewTheater")).map(|v| v.eq_ignore_ascii_case("yes")).unwrap_or(body_new_theater),
+        None => body_new_theater,
+    };
+    let body_key = art.and_then(|a| a.get(&art_section, "Image")).unwrap_or(art_section.as_str()).to_ascii_uppercase();
+    StructureTypePaintHints {
+        art_section,
+        remapable,
+        body_key,
+        body_new_theater,
+        bib_key,
+        bib_new_theater,
+        tech_level: structure_tech_level(rules, type_id),
+    }
+}
+
+fn collect_structure_type_paint_hints(
+    art: Option<&IniDocument>,
+    rules: Option<&IniDocument>,
+    structures: &[&MapEntity],
+) -> HashMap<String, StructureTypePaintHints> {
+    let mut out = HashMap::new();
+    for ent in structures {
+        out.entry(ent.type_id.clone()).or_insert_with(|| structure_type_paint_hints(art, rules, &ent.type_id));
+    }
+    out
+}
 
 /// 建筑循环活动层键：常态 / 受损 / ZAdjust。含 `IdleAnim`（科技前哨收回臂等）。
 const STRUCTURE_LOOP_ANIM_KEYS: &[(&str, &str, &str)] = &[
@@ -448,6 +493,7 @@ fn paint_map_structures_inner(
 
     let art = docs.art.as_ref();
     let rules_doc = docs.rules.as_ref();
+    let type_hints = collect_structure_type_paint_hints(art, rules_doc, &structures);
     let damage = rules_doc.map(StructureDamageRules::from_rules_doc).unwrap_or_default();
     let Some(obj_pal) = load_object_palette(source, map)
     else {
@@ -465,30 +511,31 @@ fn paint_map_structures_inner(
     let mut missing: Vec<(u16, u16)> = Vec::new();
 
     for ent in structures {
-        let art_section = resolve_art_section(art, &ent.type_id);
-        let remapable = is_remapable(art, &art_section, true);
+        let Some(hint) = type_hints.get(&ent.type_id)
+        else {
+            continue;
+        };
+        let art_section = hint.art_section.as_str();
+        let remapable = hint.remapable;
         let pal = if remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
 
         if paint_body {
-            let body_new_theater = art.and_then(|a| a.get(&art_section, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+            let body_new_theater = hint.body_new_theater;
             // Bib 垫在主体下（同格、帧 0）；科技前哨等靠它补齐地基。
-            if let Some(bib_key) = art_get_building(art, &ent.type_id, &art_section, "BibShape").map(str::to_ascii_uppercase) {
-                let bib_new_theater =
-                    art.and_then(|a| a.get(&bib_key, "NewTheater")).map(|v| v.eq_ignore_ascii_case("yes")).unwrap_or(body_new_theater);
+            if let Some(bib_key) = hint.bib_key.as_ref() {
                 if let Some(mut blit) =
-                    load_structure_blit(source, map, &bib_key, bib_new_theater, 0, 0, &pal, &mut shp_cache, &mut blit_cache, &ent.owner)
+                    load_structure_blit(source, map, bib_key, hint.bib_new_theater, 0, 0, &pal, &mut shp_cache, &mut blit_cache, &ent.owner)
                 {
                     apply_rgba_tint(&mut blit.rgba, map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y)));
                     items.push((ent.x, ent.y, blit));
                 }
             }
-            let body_key = art.and_then(|a| a.get(&art_section, "Image")).unwrap_or(art_section.as_str()).to_ascii_uppercase();
+            let body_key = hint.body_key.as_str();
             let body_frames =
-                load_shp(source, map, &body_key, body_new_theater, &mut shp_cache).map(|shp| shp_body_frame_count(&shp.frames)).unwrap_or(1);
-            let tech = structure_tech_level(rules_doc, &ent.type_id);
-            let frame_idx = damaged_body_frame(ent.health, damage.yellow, damage.red, tech, body_frames);
+                load_shp(source, map, body_key, body_new_theater, &mut shp_cache).map(|shp| shp_body_frame_count(&shp.frames)).unwrap_or(1);
+            let frame_idx = damaged_body_frame(ent.health, damage.yellow, damage.red, hint.tech_level, body_frames);
             if let Some(mut blit) =
-                load_structure_blit(source, map, &body_key, body_new_theater, frame_idx, 0, &pal, &mut shp_cache, &mut blit_cache, &ent.owner)
+                load_structure_blit(source, map, body_key, body_new_theater, frame_idx, 0, &pal, &mut shp_cache, &mut blit_cache, &ent.owner)
             {
                 apply_rgba_tint(&mut blit.rgba, map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y)));
                 items.push((ent.x, ent.y, blit));
@@ -508,7 +555,7 @@ fn paint_map_structures_inner(
         };
         let yellow = damage.is_yellow(ent.health);
         for &(anim_key, damaged_key, z_key) in STRUCTURE_LOOP_ANIM_KEYS {
-            let Some(anim_name) = resolve_structure_anim_name(art, &ent.type_id, &art_section, anim_key, damaged_key, yellow)
+            let Some(anim_name) = resolve_structure_anim_name(art, &ent.type_id, art_section, anim_key, damaged_key, yellow)
             else {
                 continue;
             };
