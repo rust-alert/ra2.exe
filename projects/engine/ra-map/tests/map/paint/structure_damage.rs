@@ -26,7 +26,14 @@ fn damage_fire_types_read_from_general() {
     )
     .unwrap();
     let rules = StructureDamageRules::from_rules_doc(&doc);
-    assert_eq!(rules.fire_types, vec!["FIRE01", "FIRE02", "FIRE03"]);
+    assert_eq!(
+        rules.fire_types,
+        vec![
+            ra_types::ImageName::parse("FIRE01"),
+            ra_types::ImageName::parse("FIRE02"),
+            ra_types::ImageName::parse("FIRE03"),
+        ]
+    );
     assert_eq!(rules.yellow, 0.5);
     assert_eq!(rules.red, 0.25);
 }
