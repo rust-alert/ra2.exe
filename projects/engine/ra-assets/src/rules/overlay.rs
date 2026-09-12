@@ -1,5 +1,7 @@
 //! 从 `rules.ini` 的 `[OverlayTypes]` 建立 id → 名称表，并标记可采矿格。
 
+use serde::Deserialize;
+
 use ra_types::OverlayTypeRegistry;
 
 use crate::{
@@ -36,8 +38,9 @@ pub fn overlay_types_from_layered(view: LayeredIniView<'_>) -> OverlayTypeRegist
             continue;
         }
         let name_up = name.to_ascii_uppercase();
-        let can_harvest = overlay_type_is_harvestable(view, &name_up);
-        let pass_override = overlay_land_pass_override(view, &name_up);
+        let fields = overlay_type_fields(view, &name_up);
+        let can_harvest = overlay_type_is_harvestable(&fields, &name_up);
+        let pass_override = overlay_land_pass_override(&fields);
         names.push(name_up);
         harvestable.push(can_harvest);
         land_pass_override.push(pass_override);
@@ -96,41 +99,48 @@ pub fn tiberium_overlay_display_hsv_bound(colors: &ColorSchemes, overlay_name: &
     colors.tiberium_display_hsv(tib_type)
 }
 
+/// overlay 类型节字段（一次 Serde）。
+#[derive(Debug, Default, Deserialize)]
+struct OverlayTypeSectionFields {
+    #[serde(rename = "Tiberium")]
+    tiberium: Option<bool>,
+    #[serde(rename = "SpawnsTiberium")]
+    spawns_tiberium: Option<bool>,
+    #[serde(rename = "Land", default)]
+    land: String,
+    #[serde(rename = "NoUseTileLandType")]
+    no_use_tile_land_type: Option<bool>,
+}
+
+fn overlay_type_fields(view: LayeredIniView<'_>, name: &str) -> OverlayTypeSectionFields {
+    view.section(name)
+        .and_then(|s| s.deserialize::<OverlayTypeSectionFields>().ok())
+        .unwrap_or_default()
+}
+
 /// `NoUseTileLandType=yes` 时按 `Land=` 得到通行覆盖；否则不改 TMP 封格。
 ///
 /// 通行粗判与 `ra-map` 的 `land_passable` 对齐：水 / 岩 / 墙不可走，缺键按 Clear（可走）。
-fn overlay_land_pass_override(view: LayeredIniView<'_>, name: &str) -> Option<bool> {
-    let no_use = view.get(name, "NoUseTileLandType").is_some_and(|v| {
-        let t = v.trimmed().raw;
-        t.eq_ignore_ascii_case("yes") || t == "1"
-    });
-    if !no_use {
+fn overlay_land_pass_override(fields: &OverlayTypeSectionFields) -> Option<bool> {
+    if !fields.no_use_tile_land_type.unwrap_or(false) {
         return None;
     }
-    let land = view
-        .get(name, "Land")
-        .map(|v| v.trimmed().raw.to_string())
-        .unwrap_or_else(|| "Clear".into());
-    Some(match land.trim().to_ascii_lowercase().as_str() {
+    let land = if fields.land.trim().is_empty() {
+        "clear"
+    } else {
+        fields.land.trim()
+    };
+    Some(match land.to_ascii_lowercase().as_str() {
         "water" | "rock" | "wall" => false,
         _ => true,
     })
 }
 
-fn overlay_type_is_harvestable(view: LayeredIniView<'_>, name: &str) -> bool {
-    if view.get(name, "Tiberium").is_some_and(|v| matches!(v.trimmed().raw.to_ascii_lowercase().as_str(), "yes" | "true" | "1")) {
+fn overlay_type_is_harvestable(fields: &OverlayTypeSectionFields, name: &str) -> bool {
+    if fields.tiberium.unwrap_or(false) || fields.spawns_tiberium.unwrap_or(false) {
         return true;
     }
-    if view
-        .get(name, "SpawnsTiberium")
-        .is_some_and(|v| matches!(v.trimmed().raw.to_ascii_lowercase().as_str(), "yes" | "true" | "1"))
-    {
-        return true;
-    }
-    if view
-        .get(name, "Land")
-        .is_some_and(|v| matches!(v.trimmed().raw.to_ascii_lowercase().as_str(), "tiberium" | "ore" | "gems"))
-    {
+    if matches!(fields.land.trim().to_ascii_lowercase().as_str(), "tiberium" | "ore" | "gems") {
         return true;
     }
     harvestable_overlay_name(name)
