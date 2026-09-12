@@ -2,6 +2,7 @@
 
 use ra_assets::IniDocument;
 use ra_types::{AssetSource, GameEdition};
+use serde::Deserialize;
 
 use crate::{MapInfo, Theater, parse_game_modes, theater::theater_mix_names};
 
@@ -135,7 +136,7 @@ pub fn list_parseable_maps_from_missions_pkt(edition: GameEdition, source: &dyn 
     };
     let mut out = Vec::new();
     for (key, stem) in multimaps.pairs() {
-        if key.parse::<u32>().is_err() {
+        if !is_numbered_multimap_key(key) {
             continue;
         }
         let stem = stem.trim();
@@ -151,11 +152,31 @@ pub fn list_parseable_maps_from_missions_pkt(edition: GameEdition, source: &dyn 
         else {
             continue;
         };
-        let pkt_desc = pkt.get(stem, "Description").or_else(|| pkt.get(stem, "DescriptionText"));
-        let pkt_modes = pkt.get(stem, "GameMode");
+        let meta = pkt
+            .section(stem)
+            .and_then(|s| s.deserialize::<MissionsPktMapFields>().ok())
+            .unwrap_or_default();
+        let pkt_desc = meta.description.as_deref().or(meta.description_text.as_deref());
+        let pkt_modes = meta.game_mode.as_deref();
         out.push(candidate_from_parsed_map(&file_name, &map, pkt_desc, pkt_modes));
     }
     out
+}
+
+/// `[MultiMaps]` 编号键（非数字行忽略）。
+fn is_numbered_multimap_key(key: &str) -> bool {
+    key.trim().parse::<u32>().is_ok()
+}
+
+/// 选图表中单图小节字段。
+#[derive(Debug, Default, Deserialize)]
+struct MissionsPktMapFields {
+    #[serde(rename = "Description")]
+    description: Option<String>,
+    #[serde(rename = "DescriptionText")]
+    description_text: Option<String>,
+    #[serde(rename = "GameMode")]
+    game_mode: Option<String>,
 }
 
 fn candidate_from_parsed_map(file_name: &str, map: &MapInfo, pkt_description: Option<&str>, pkt_game_mode: Option<&str>) -> BootMapCandidate {
