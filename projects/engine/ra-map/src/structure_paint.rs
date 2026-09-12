@@ -24,6 +24,16 @@ struct StructureTypePaintHints {
     bib_key: Option<String>,
     bib_new_theater: bool,
     tech_level: i32,
+    /// rules `TurretAnimIsVoxel` 炮塔体素（缺则跳过）。
+    turret_voxel: Option<StructureTurretVoxelHints>,
+}
+
+/// 建筑炮塔体素叠画提示。
+#[derive(Debug, Clone)]
+struct StructureTurretVoxelHints {
+    stem: String,
+    anim_x: i32,
+    anim_y: i32,
 }
 
 fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocument>, type_id: &str) -> StructureTypePaintHints {
@@ -44,7 +54,25 @@ fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocum
         bib_key,
         bib_new_theater,
         tech_level: structure_tech_level(rules, type_id),
+        turret_voxel: structure_turret_voxel_hints(rules, type_id),
     }
+}
+
+fn structure_turret_voxel_hints(rules: Option<&IniDocument>, type_id: &str) -> Option<StructureTurretVoxelHints> {
+    let rules = rules?;
+    let is_voxel = rules.get(type_id, "TurretAnimIsVoxel").is_some_and(|v| v.eq_ignore_ascii_case("yes") || v == "1");
+    if !is_voxel {
+        return None;
+    }
+    let stem = rules.get(type_id, "TurretAnim")?.trim().to_ascii_lowercase();
+    if stem.is_empty() {
+        return None;
+    }
+    Some(StructureTurretVoxelHints {
+        stem,
+        anim_x: rules.get(type_id, "TurretAnimX").and_then(parse_i32).unwrap_or(0),
+        anim_y: rules.get(type_id, "TurretAnimY").and_then(parse_i32).unwrap_or(0),
+    })
 }
 
 fn collect_structure_type_paint_hints(
@@ -612,7 +640,7 @@ fn paint_map_structures_inner(
             else {
                 missing.push((ent.x, ent.y));
             }
-            if let Some(mut blit) = load_structure_turret_vxl(source, rules_doc, &ent.type_id, ent.facing, &pal) {
+            if let Some(mut blit) = load_structure_turret_vxl(source, hint.turret_voxel.as_ref(), ent.facing, &pal) {
                 apply_rgba_tint(&mut blit.rgba, map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y)));
                 items.push((ent.x, ent.y, blit));
             }
@@ -801,22 +829,14 @@ fn load_structure_blit(
 /// rules `TurretAnim` 体素炮塔（如科技前哨 `OUTP`）；非体素 / 缺资源时跳过。
 fn load_structure_turret_vxl(
     source: &dyn AssetSource,
-    rules: Option<&IniDocument>,
-    type_id: &str,
+    turret: Option<&StructureTurretVoxelHints>,
     facing: u8,
     pal: &Palette,
 ) -> Option<TileBlit> {
-    let rules = rules?;
-    let is_voxel = rules.get(type_id, "TurretAnimIsVoxel").is_some_and(|v| v.eq_ignore_ascii_case("yes") || v == "1");
-    if !is_voxel {
-        return None;
-    }
-    let stem = rules.get(type_id, "TurretAnim")?.trim().to_ascii_lowercase();
-    if stem.is_empty() {
-        return None;
-    }
-    let anim_x = rules.get(type_id, "TurretAnimX").and_then(parse_i32).unwrap_or(0);
-    let anim_y = rules.get(type_id, "TurretAnimY").and_then(parse_i32).unwrap_or(0);
+    let turret = turret?;
+    let stem = turret.stem.as_str();
+    let anim_x = turret.anim_x;
+    let anim_y = turret.anim_y;
     // `TurretAnimZAdjust` 同 ActiveAnim：原版 Z 排序字段，不计入像素。
     let vpl = source.read("voxels.vpl").ok().and_then(|b| VplFile::parse(&b).ok());
     let body_bytes = source.read(&format!("{stem}.vxl")).ok()?;
