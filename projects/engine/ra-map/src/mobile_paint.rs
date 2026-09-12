@@ -3,9 +3,11 @@
 use std::collections::HashMap;
 
 use ra_assets::{
-    HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, rasterize_vxl_layer_poses, rasterize_vxl_shadow_layer_poses,
+    HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, from_row, rasterize_vxl_layer_poses,
+    rasterize_vxl_shadow_layer_poses,
 };
 use ra_types::AssetSource;
+use serde::Deserialize;
 
 use crate::{
     MapEntity, MapEntityKind, MapInfo,
@@ -174,14 +176,15 @@ pub fn infantry_facing_slot(facing: u8) -> u16 {
 
 /// 解析 art 序列值 `Start,Count,FacingsOrMultiplier`；第三字段为朝向步长。
 pub fn parse_sequence_triple(raw: &str) -> Option<(u16, u16, u16)> {
-    let parts: Vec<&str> = raw.split(',').map(str::trim).collect();
-    if parts.len() < 3 {
-        return None;
-    }
-    let start: u16 = parts[0].parse().ok()?;
-    let count: u16 = parts[1].parse().ok()?;
-    let multiplier: u16 = parts[2].parse().ok()?;
-    Some((start, count, multiplier))
+    let row: SequenceTripleRow = from_row(raw).ok()?;
+    Some((row.start, row.count, row.multiplier))
+}
+
+#[derive(Debug, Deserialize)]
+struct SequenceTripleRow {
+    start: u16,
+    count: u16,
+    multiplier: u16,
 }
 
 #[doc(hidden)]
