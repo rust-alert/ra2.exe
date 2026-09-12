@@ -14,6 +14,14 @@ use crate::{
     theater::{new_theater_shp_name, theater_palette},
 };
 
+/// 建筑循环活动层键：常态 / 受损 / ZAdjust。含 `IdleAnim`（科技前哨收回臂等）。
+const STRUCTURE_LOOP_ANIM_KEYS: &[(&str, &str, &str)] = &[
+    ("ActiveAnim", "ActiveAnimDamaged", "ActiveAnimZAdjust"),
+    ("ActiveAnimTwo", "ActiveAnimTwoDamaged", "ActiveAnimTwoZAdjust"),
+    ("IdleAnim", "IdleAnimDamaged", "IdleAnimZAdjust"),
+    ("IdleAnimTwo", "IdleAnimTwoDamaged", "IdleAnimTwoZAdjust"),
+];
+
 /// 建筑类型叠画主体提示（按 `type_id` 去重一次）。
 #[derive(Debug, Clone)]
 struct StructureTypePaintHints {
@@ -30,6 +38,8 @@ struct StructureTypePaintHints {
     fire_offsets: Vec<(u8, i32, i32)>,
     /// art `Buildup=` 一次性展开序列（缺则 `None`）。
     buildup: Option<StructureBuildupHints>,
+    /// 与 [`STRUCTURE_LOOP_ANIM_KEYS`] 对齐：`(normal, damaged)` 活动层节名。
+    loop_anims: Vec<(Option<String>, Option<String>)>,
 }
 
 /// 建筑炮塔体素叠画提示。
@@ -69,6 +79,27 @@ fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocum
         turret_voxel: structure_turret_voxel_hints(rules, type_id),
         fire_offsets: structure_damage_fire_offsets(art, type_id, &art_section),
         buildup: structure_buildup_hints(art, &art_section, body_new_theater),
+        loop_anims: structure_loop_anim_names(art, type_id, &art_section),
+    }
+}
+
+fn structure_loop_anim_names(art: Option<&IniDocument>, type_id: &str, art_section: &str) -> Vec<(Option<String>, Option<String>)> {
+    STRUCTURE_LOOP_ANIM_KEYS
+        .iter()
+        .map(|&(anim_key, damaged_key, _)| {
+            (
+                art_get_building(art, type_id, art_section, anim_key).map(str::to_ascii_uppercase),
+                art_get_building(art, type_id, art_section, damaged_key).map(str::to_ascii_uppercase),
+            )
+        })
+        .collect()
+}
+
+fn pick_structure_loop_anim_name(slot: &(Option<String>, Option<String>), yellow: bool) -> Option<&str> {
+    if yellow {
+        slot.1.as_deref().or(slot.0.as_deref())
+    } else {
+        slot.0.as_deref()
     }
 }
 
@@ -170,14 +201,6 @@ fn cached_anim_section_hint<'a>(
     }
     cache.get(anim_name).expect("just inserted")
 }
-
-/// 建筑循环活动层键：常态 / 受损 / ZAdjust。含 `IdleAnim`（科技前哨收回臂等）。
-const STRUCTURE_LOOP_ANIM_KEYS: &[(&str, &str, &str)] = &[
-    ("ActiveAnim", "ActiveAnimDamaged", "ActiveAnimZAdjust"),
-    ("ActiveAnimTwo", "ActiveAnimTwoDamaged", "ActiveAnimTwoZAdjust"),
-    ("IdleAnim", "IdleAnimDamaged", "IdleAnimZAdjust"),
-    ("IdleAnimTwo", "IdleAnimTwoDamaged", "IdleAnimTwoZAdjust"),
-];
 
 /// 建筑活动层绘制模式。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -317,19 +340,18 @@ pub fn collect_structure_anim_bank(
         else {
             continue;
         };
-        let art_section = type_hint.art_section.as_str();
         let remapable = type_hint.remapable;
         let cell_z = z_lookup.get(&(ent.x, ent.y)).copied().unwrap_or(0);
         let yellow = damage.is_yellow(ent.health);
 
-        for &(anim_key, damaged_key, z_key) in STRUCTURE_LOOP_ANIM_KEYS {
-            let Some(anim_name) = resolve_structure_anim_name(art, &ent.type_id, art_section, anim_key, damaged_key, yellow)
+        for (slot, &(_, _, z_key)) in type_hint.loop_anims.iter().zip(STRUCTURE_LOOP_ANIM_KEYS.iter()) {
+            let Some(anim_name) = pick_structure_loop_anim_name(slot, yellow)
             else {
                 continue;
             };
             // `*ZAdjust` 是原版 Z 缓冲排序偏移，不是屏幕像素。预览叠画已分主体/活动两遍，忽略即可。
             let _ = z_key;
-            let hint = cached_anim_section_hint(&mut anim_hints, art, &anim_name, 300).clone();
+            let hint = cached_anim_section_hint(&mut anim_hints, art, anim_name, 300).clone();
             let anim_remapable = hint.remapable_override.unwrap_or(remapable);
             let anim_pal = if anim_remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
 
@@ -639,7 +661,6 @@ fn paint_map_structures_inner(
         else {
             continue;
         };
-        let art_section = hint.art_section.as_str();
         let remapable = hint.remapable;
         let pal = if remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
 
@@ -678,14 +699,14 @@ fn paint_map_structures_inner(
             continue;
         };
         let yellow = damage.is_yellow(ent.health);
-        for &(anim_key, damaged_key, z_key) in STRUCTURE_LOOP_ANIM_KEYS {
-            let Some(anim_name) = resolve_structure_anim_name(art, &ent.type_id, art_section, anim_key, damaged_key, yellow)
+        for (slot, &(_, _, z_key)) in hint.loop_anims.iter().zip(STRUCTURE_LOOP_ANIM_KEYS.iter()) {
+            let Some(anim_name) = pick_structure_loop_anim_name(slot, yellow)
             else {
                 continue;
             };
             // `*ZAdjust` 仅影响原版 Z 排序，勿当屏幕 Y 像素（医院 `ActiveAnimZAdjust=-200` 会漂到水上）。
             let _ = z_key;
-            let anim_hint = cached_anim_section_hint(&mut anim_hints, art, &anim_name, 300).clone();
+            let anim_hint = cached_anim_section_hint(&mut anim_hints, art, anim_name, 300).clone();
             let frame_idx = structure_anim_frame(clock_ms, anim_hint.rate_ms, anim_hint.loop_start, anim_hint.loop_end);
             let anim_remapable = anim_hint.remapable_override.unwrap_or(remapable);
             let anim_pal = if anim_remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
@@ -745,23 +766,6 @@ fn resolve_art_section(art: Option<&IniDocument>, type_id: &str) -> String {
 fn art_get_building<'a>(art: Option<&'a IniDocument>, type_id: &str, art_section: &str, key: &str) -> Option<&'a str> {
     let art = art?;
     art.get(type_id, key).or_else(|| if art_section.eq_ignore_ascii_case(type_id) { None } else { art.get(art_section, key) })
-}
-
-/// 黄血时优先 `ActiveAnimDamaged` / `ActiveAnimTwoDamaged`，否则用正常活动层。
-fn resolve_structure_anim_name(
-    art: Option<&IniDocument>,
-    type_id: &str,
-    art_section: &str,
-    anim_key: &str,
-    damaged_key: &str,
-    yellow: bool,
-) -> Option<String> {
-    if yellow {
-        if let Some(name) = art_get_building(art, type_id, art_section, damaged_key) {
-            return Some(name.to_ascii_uppercase());
-        }
-    }
-    art_get_building(art, type_id, art_section, anim_key).map(str::to_ascii_uppercase)
 }
 
 fn is_remapable(art: Option<&IniDocument>, section: &str, default_yes: bool) -> bool {
