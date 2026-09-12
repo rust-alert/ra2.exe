@@ -213,15 +213,7 @@ pub fn infantry_facing_slot(facing: u8) -> u16 {
 
 /// 解析 art 序列值 `Start,Count,FacingsOrMultiplier`；第三字段为朝向步长。
 pub fn parse_sequence_triple(raw: &str) -> Option<(u16, u16, u16)> {
-    let row: SequenceTripleRow = from_row(raw).ok()?;
-    Some((row.start, row.count, row.multiplier))
-}
-
-#[derive(Debug, Deserialize)]
-struct SequenceTripleRow {
-    start: u16,
-    count: u16,
-    multiplier: u16,
+    from_row::<(u16, u16, u16)>(raw).ok()
 }
 
 #[doc(hidden)]
