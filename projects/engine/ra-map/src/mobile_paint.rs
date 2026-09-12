@@ -269,8 +269,10 @@ fn de_opt_sequence_triple<'de, D>(deserializer: D) -> Result<Option<(u16, u16, u
 where
     D: serde::de::Deserializer<'de>,
 {
-    let raw = String::deserialize(deserializer)?;
-    Ok(parse_sequence_triple(&raw))
+    match <(u16, u16, u16)>::deserialize(deserializer) {
+        Ok(triple) => Ok(Some(triple)),
+        Err(_) => Ok(None),
+    }
 }
 
 /// 由姿态与 art 序列解析 SHP 帧；无序列时回退到朝向桶。
