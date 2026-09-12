@@ -405,6 +405,19 @@ impl MapInfo {
         self.prepared_map_from_pass_grid(PassGrid::from_map_with_structures(self, Some(structures)), Some(structures))
     }
 
+    /// 绑定 overlay 通行覆写与建筑 `Foundation=` 的准备骨架（产品装载主入口候选）。
+    ///
+    /// 仍不含渲染清单或 name→稳定 id 绑定。
+    pub fn to_prepared_map_skeleton_bound(
+        &self,
+        overlays: &ra_types::OverlayTypeRegistry,
+        structures: &ra_types::StructureDefinitions,
+    ) -> ra_types::PreparedMap {
+        let mut grid = PassGrid::from_map_with_structures(self, Some(structures));
+        apply_overlay_land_to_pass_grid(self, overlays, &mut grid);
+        self.prepared_map_from_pass_grid(grid, Some(structures))
+    }
+
     fn prepared_map_from_pass_grid(
         &self,
         grid: PassGrid,
