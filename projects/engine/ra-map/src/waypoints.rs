@@ -1,6 +1,6 @@
 //! 地图 `[Waypoints]`：任务 / 出生点等格子锚点。
 
-use ra_assets::IniDocument;
+use ra_assets::{IniDocument, numbered_pairs};
 
 use crate::packed_cell::parse_packed_cell;
 
@@ -16,25 +16,20 @@ pub struct Waypoint {
     pub y: u16,
 }
 
-/// 解析 `[Waypoints]`：值为 `y * 1000 + x`（十进制）。
+/// 解析 `[Waypoints]`：键为编号，值为 `y * 1000 + x`（十进制）。
 pub fn parse_waypoints(doc: &IniDocument) -> Vec<Waypoint> {
     let Some(section) = doc.section("Waypoints")
     else {
         return Vec::new();
     };
     let mut out = Vec::new();
-    for (key, value) in section.pairs() {
-        let Ok(index) = key.trim().parse::<u32>()
-        else {
-            continue;
-        };
+    for (index, value) in numbered_pairs(section) {
         let Some((x, y)) = parse_packed_cell(value)
         else {
             continue;
         };
         out.push(Waypoint { index, x, y });
     }
-    out.sort_by_key(|w| w.index);
     out
 }
 
