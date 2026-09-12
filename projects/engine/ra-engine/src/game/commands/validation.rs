@@ -6,7 +6,7 @@ use super::types::GameCommand;
 
 impl crate::state::BattleState {
     pub(crate) fn apply_commands(&mut self, cmds: &[ScheduledCommand]) {
-                use ra_map::MapEntityKind;
+        use ra_map::MapEntityKind;
         use ra_types::TechnoClass;
 
         use crate::{
@@ -49,7 +49,7 @@ impl crate::state::BattleState {
                         continue;
                     }
                     let _ = self.with_identity_mut(id, |identity| {
-                        identity.mission.clear();
+                        identity.mission = ra_types::MissionName::default();
                     });
                     let _ = self.with_attack_mut(id, |attack| {
                         attack.target = None;
@@ -91,7 +91,7 @@ impl crate::state::BattleState {
                     };
                     let rest: Vec<(u16, u16)> = points.iter().skip(1).copied().collect();
                     let _ = self.with_identity_mut(id, |identity| {
-                        identity.mission.clear();
+                        identity.mission = ra_types::MissionName::default();
                     });
                     let _ = self.with_attack_mut(id, |attack| {
                         attack.target = None;
@@ -146,7 +146,7 @@ impl crate::state::BattleState {
                         continue;
                     };
                     let _ = self.with_identity_mut(attacker_id, |identity| {
-                        identity.mission.clear();
+                        identity.mission = ra_types::MissionName::default();
                     });
                     let _ = self.with_attack_mut(attacker_id, |attack| {
                         attack.target = Some(target);
@@ -192,7 +192,7 @@ impl crate::state::BattleState {
                     let _ = self.with_identity_mut(dirty_id, |identity| {
                         identity.kind = MapEntityKind::Structure;
                         identity.type_id = Arc::clone(&building_type);
-                        identity.mission.clear();
+                        identity.mission = ra_types::MissionName::default();
                     });
                     let _ = self.with_locomotor_mut(dirty_id, |loco| {
                         loco.speed = 0;
@@ -277,7 +277,7 @@ impl crate::state::BattleState {
                         if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                             return None;
                         }
-                        if !self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house.as_ref()).unwrap_or(false) {
+                        if !self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house.as_ref())).unwrap_or(false) {
                             return None;
                         }
                         if !self
@@ -318,7 +318,7 @@ impl crate::state::BattleState {
                             entity_id: id,
                             type_id: Arc::<str>::from(type_id.to_ascii_uppercase()),
                             kind: MapEntityKind::Structure,
-                            mission: String::new(),
+                            mission: ra_types::MissionName::default(),
                             tag: ra_types::TagName::default(),
                         },
                         owner: Owner { house },
@@ -396,8 +396,7 @@ impl crate::state::BattleState {
                         let has_busy = self.find_factory(&house, kind).is_some();
                         if has_busy {
                             self.reject(command_index, CommandRejectReason::QueueFull);
-                        }
-                        else {
+                        } else {
                             self.reject(command_index, CommandRejectReason::MissingPrerequisite);
                         }
                         continue;
@@ -434,7 +433,7 @@ impl crate::state::BattleState {
                         if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                             return None;
                         }
-                        if !self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house.as_ref()).unwrap_or(false) {
+                        if !self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house.as_ref())).unwrap_or(false) {
                             return None;
                         }
                         let Some(queue) = self.ecs_get::<ProductionQueue>(id)
@@ -571,7 +570,7 @@ impl crate::state::BattleState {
                         foundation.height,
                     );
                     let _ = self.with_identity_mut(agent_id, |identity| {
-                        identity.mission.clear();
+                        identity.mission = ra_types::MissionName::default();
                     });
                     let _ = self.with_attack_mut(agent_id, |attack| {
                         attack.target = None;
@@ -668,7 +667,7 @@ impl crate::state::BattleState {
                         foundation.height,
                     );
                     let _ = self.with_identity_mut(engineer_id, |identity| {
-                        identity.mission.clear();
+                        identity.mission = ra_types::MissionName::default();
                     });
                     let _ = self.with_attack_mut(engineer_id, |attack| {
                         attack.target = None;
@@ -811,8 +810,7 @@ impl crate::state::BattleState {
                     // 原版扳手：再点同一建筑则取消修理，否则挂上持续修理。
                     if self.ecs.world().get::<crate::state::components::Repairing>(handle).is_some() {
                         let _ = self.ecs.world_mut().remove::<crate::state::components::Repairing>(handle);
-                    }
-                    else {
+                    } else {
                         let _ = self.ecs.world_mut().insert(handle, crate::state::components::Repairing);
                     }
                     self.mark_entity_dirty(building_id);

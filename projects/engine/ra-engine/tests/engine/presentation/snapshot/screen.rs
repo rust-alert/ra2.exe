@@ -1,6 +1,6 @@
 //! 快照画面：对局中 / 结算。
 
-use crate::common::{defs_with_mtnk, test_engine, battle_from_defs};
+use crate::common::{battle_from_defs, defs_with_mtnk, test_engine};
 use ra_engine::{BattleOutcome, GameCommand, Session, SessionScreen};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
@@ -14,26 +14,26 @@ fn snapshot_screen_moves_to_results_on_victory() {
     map.height = 16;
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Soviets".into(),
+        owner: "SOVIETS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 5,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "screen");

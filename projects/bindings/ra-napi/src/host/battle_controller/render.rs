@@ -13,7 +13,7 @@ use ra_map::{
     paint_terrain_anims_onto_rgba,
 };
 use ra_renderer::{Renderer, RgbaImage};
-use ra_types::{HouseName, PresentFeel};
+use ra_types::{HouseName, PresentFeel, TechnoName};
 use ra_widgets::{
     battle_hud::BattleCameoPaint,
     battle_pause_layer::BattlePauseLayer,
@@ -70,8 +70,7 @@ impl BattleController {
                 let hud = game.snapshot_hud();
                 let _ = game.world.take_presentation_dirty();
                 (hud, PendingDraw::Full(snap))
-            }
-            else {
+            } else {
                 let dirty = game.world.take_presentation_dirty();
                 let units = game.project_units(&dirty);
                 let tick = game.world.tick;
@@ -111,8 +110,7 @@ impl BattleController {
                     self.rebuild_preview_base_with_mobiles(assets);
                     self.present_preview_base(renderer);
                 }
-            }
-            else {
+            } else {
                 self.refresh_structure_anims(renderer);
             }
         }
@@ -134,9 +132,9 @@ impl BattleController {
         dirty.iter().any(|&id| {
             game.world.ecs_health(id).is_some_and(|(_, _, dead)| !dead)
                 && game
-                    .world
-                    .ecs_identity(id)
-                    .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
+                .world
+                .ecs_identity(id)
+                .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
         })
     }
 
@@ -288,13 +286,13 @@ impl BattleController {
             one.entities.push(MapEntity {
                 kind: MapEntityKind::Structure,
                 owner: HouseName::parse(owner),
-                type_id: type_id.clone(),
+                type_id: TechnoName::parse(type_id),
                 health: 256,
                 x: *x,
                 y: *y,
                 facing: 0,
                 sub_cell: 0,
-                mission: String::new(),
+                mission: Default::default(),
                 tag: Default::default(),
             });
             let remap = |base: &ra_assets::Palette, own: &str| remap_owner_palette(rules, Some(&lobby), base, own);
@@ -499,11 +497,9 @@ impl BattleController {
                     .map(|q| {
                         if q.remaining_ticks == 0 {
                             1.0
-                        }
-                        else if q.total_ticks == 0 {
+                        } else if q.total_ticks == 0 {
                             0.0
-                        }
-                        else {
+                        } else {
                             1.0 - (q.remaining_ticks as f32 / q.total_ticks as f32)
                         }
                     })
@@ -514,7 +510,7 @@ impl BattleController {
                     enabled: item.enabled,
                     selected: matches!(self.sidebar_tab, 0 | 1)
                         && (self.place_mode.as_deref() == Some(key)
-                            || self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.is_local_ready_to_place(key))),
+                        || self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.is_local_ready_to_place(key))),
                     progress,
                 }
             })
@@ -534,13 +530,11 @@ impl BattleController {
             pause_reason: None,
             command_pressed: if show_pause_banner {
                 None
-            }
-            else {
+            } else {
                 self.command_pressed.or_else(|| {
                     if self.planning_mode {
                         ra_widgets::skin::text::SKIRMISH_COMMAND_BAR.iter().position(|&n| n == "PlanningMode")
-                    }
-                    else {
+                    } else {
                         None
                     }
                 })
@@ -630,11 +624,9 @@ impl BattleController {
                 let place = self.place_mode.as_deref().unwrap_or("-");
                 if screen_label == "results" {
                     format!("{} · [results] · t{} · Enter确认 Esc离开", self.title_base, hud.tick)
-                }
-                else if hud.paused {
+                } else if hud.paused {
                     format!("{} · [{screen_label}] · t{} · 暂停菜单 · Esc/回到游戏 · 放弃回大厅", self.title_base, hud.tick)
-                }
-                else if self.place_mode.is_some() {
+                } else if self.place_mode.is_some() {
                     let nsel = self.local.selected.len();
                     let sel = self.local.selected.first().copied();
                     let sel_part = match (sel, nsel) {
@@ -647,8 +639,7 @@ impl BattleController {
                         "{} · [{screen_label}] · t{} · {econ} · {queue} · 建:{place} · {reject} · {sel_part} · diff={diff} · Esc取消建造 · z{:.2}",
                         self.title_base, hud.tick, zoom
                     )
-                }
-                else {
+                } else {
                     let nsel = self.local.selected.len();
                     let sel = self.local.selected.first().copied();
                     let sel_part = match (sel, nsel) {
@@ -662,8 +653,7 @@ impl BattleController {
                         self.title_base, hud.tick, zoom
                     )
                 }
-            }
-            else {
+            } else {
                 format!("{} · [{screen_label}] · z{:.2}", self.title_base, zoom)
             };
             window.set_title(&title);
@@ -745,8 +735,7 @@ fn fill_screen_diamond(page: &mut RgbaImage, vp: &MapViewport, corners: [(i32, i
                 let xi = x.round() as i32;
                 xs[0] = xs[0].min(xi);
                 xs[1] = xs[1].max(xi);
-            }
-            else if y0 == y && y1 == y {
+            } else if y0 == y && y1 == y {
                 xs[0] = xs[0].min(x0.min(x1));
                 xs[1] = xs[1].max(x0.max(x1));
             }

@@ -5,7 +5,7 @@
 use std::fmt;
 
 use ra_assets::{IniDocument, from_row};
-use ra_types::{HouseName, TagName};
+use ra_types::{HouseName, MissionName, TagName, TechnoName};
 use serde::Deserialize;
 use serde::de::{self, Deserializer, Visitor};
 
@@ -29,8 +29,8 @@ pub struct MapEntity {
     pub kind: MapEntityKind,
     /// 所属方名称（装载期一次解码为大写）。
     pub owner: HouseName,
-    /// 类型 id（通常已大写）。
-    pub type_id: String,
+    /// 类型 id（装载期一次解码为大写）。
+    pub type_id: TechnoName,
     /// 0..=256，零售常用 256 表示满血。
     pub health: u16,
     /// 格子 X。
@@ -41,8 +41,8 @@ pub struct MapEntity {
     pub facing: u8,
     /// 仅步兵：子格 0..=4；其它为 0。
     pub sub_cell: u8,
-    /// 初始任务（如 `Guard`）；空表示未指定。
-    pub mission: String,
+    /// 初始任务（装载期一次解码为大写）；空表示未指定。
+    pub mission: MissionName,
     /// 绑定的 Tag id（装载期一次解码为大写 Tags 键；空表示无）。
     pub tag: TagName,
 }
@@ -52,7 +52,7 @@ impl MapEntity {
     pub fn plain(
         kind: MapEntityKind,
         owner: impl Into<HouseName>,
-        type_id: impl Into<String>,
+        type_id: impl Into<TechnoName>,
         health: u16,
         x: u16,
         y: u16,
@@ -68,7 +68,7 @@ impl MapEntity {
             y,
             facing,
             sub_cell,
-            mission: String::new(),
+            mission: MissionName::default(),
             tag: TagName::default(),
         }
     }
@@ -104,7 +104,7 @@ fn parse_line(kind: MapEntityKind, value: &str) -> Option<MapEntity> {
             Some(MapEntity {
                 kind,
                 owner: row.owner,
-                type_id: row.type_id.to_ascii_uppercase(),
+                type_id: row.type_id,
                 health: row.health,
                 x: row.x,
                 y: row.y,
@@ -120,7 +120,7 @@ fn parse_line(kind: MapEntityKind, value: &str) -> Option<MapEntity> {
             Some(MapEntity {
                 kind,
                 owner: row.owner,
-                type_id: row.type_id.to_ascii_uppercase(),
+                type_id: row.type_id,
                 health: row.health,
                 x: row.x,
                 y: row.y,
@@ -136,13 +136,13 @@ fn parse_line(kind: MapEntityKind, value: &str) -> Option<MapEntity> {
             Some(MapEntity {
                 kind,
                 owner: row.owner,
-                type_id: row.type_id.to_ascii_uppercase(),
+                type_id: row.type_id,
                 health: row.health,
                 x: row.x,
                 y: row.y,
                 facing: row.facing,
                 sub_cell: 0,
-                mission: String::new(),
+                mission: MissionName::default(),
                 tag: row.tag,
             })
         }
@@ -152,14 +152,15 @@ fn parse_line(kind: MapEntityKind, value: &str) -> Option<MapEntity> {
 #[derive(Debug, Deserialize)]
 struct InfantryRow {
     owner: HouseName,
-    type_id: String,
+    type_id: TechnoName,
     #[serde(deserialize_with = "placement_health")]
     health: u16,
     x: u16,
     y: u16,
     #[serde(deserialize_with = "placement_sub_cell")]
     sub_cell: u8,
-    mission: String,
+    #[serde(default)]
+    mission: MissionName,
     #[serde(deserialize_with = "placement_facing")]
     facing: u8,
     #[serde(default)]
@@ -169,7 +170,7 @@ struct InfantryRow {
 #[derive(Debug, Deserialize)]
 struct MobileRow {
     owner: HouseName,
-    type_id: String,
+    type_id: TechnoName,
     #[serde(deserialize_with = "placement_health")]
     health: u16,
     x: u16,
@@ -177,7 +178,7 @@ struct MobileRow {
     #[serde(deserialize_with = "placement_facing")]
     facing: u8,
     #[serde(default)]
-    mission: String,
+    mission: MissionName,
     #[serde(default)]
     tag: TagName,
 }
@@ -185,7 +186,7 @@ struct MobileRow {
 #[derive(Debug, Deserialize)]
 struct StructureRow {
     owner: HouseName,
-    type_id: String,
+    type_id: TechnoName,
     #[serde(deserialize_with = "placement_health")]
     health: u16,
     x: u16,

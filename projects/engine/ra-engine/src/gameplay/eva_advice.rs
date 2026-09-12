@@ -54,7 +54,7 @@ impl crate::state::BattleState {
             if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return false;
             }
-            if !self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false) {
+            if !self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false) {
                 return false;
             }
             if !self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false) {

@@ -46,17 +46,17 @@ pub use category::TechnoCategory;
 pub use deployable::{DeployableDefinition, DeployableDefinitions, DeploymentPlacement};
 pub use fingerprint::ContentFingerprint;
 pub use foundation::Foundation;
-pub use house_list::{ColorName, HouseAllowList, HouseName};
+pub use house_list::{ColorName, HouseAllowList, HouseName, SideName};
 pub use land::{LandType, TMP_TERRAIN_TO_LAND, ground_passable, land_passable, tmp_terrain_to_land_type};
 pub use locomotor::LocomotorDefinitions;
 pub use map::{
-    AiTriggerName, GameModeName, MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapDefinition, MapEvent, MapEventCondition, MapFileName,
+    AiTriggerName, GameModeName, MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapDefinition, MapEvent, MapEventCondition, MapFileName, MissionName,
     MapHouse, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapScriptStep, MapScriptType, MapSmudge, MapTag,
     MapTaskForce, MapTaskForceEntry, MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, MapWeatherKind, PreparedMap, ScriptTypeName, SmudgeName,
     TagName, TaskForceName, TeamTypeName, TerrainName, TriggerName, occupancy_kind,
 };
 pub use map_edge::MapEdge;
-pub use overlay::OverlayTypeRegistry;
+pub use overlay::{OverlayName, OverlayTypeRegistry};
 pub use production::{ProductionCategory, ProductionDefinitions, ProductionProfile, deserialize_optional_factory};
 pub use projectile::{ProjectileDefinition, ProjectileDefinitions, ProjectileName};
 pub use runtime::RuntimeDefinitions;

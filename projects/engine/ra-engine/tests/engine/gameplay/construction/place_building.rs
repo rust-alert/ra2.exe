@@ -18,18 +18,18 @@ fn yard_world() -> BattleState {
     map.height = 16;
     map.entities = vec![MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "GACNST".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     }];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
-    assert!(world.set_house_funds("Americans", 10_000));
+    assert!(world.set_house_funds("AMERICANS", 10_000));
     world
 }
 
@@ -39,7 +39,7 @@ fn queue_until_ready(world: &mut BattleState, type_id: &str) {
     world.advance_tick();
     assert!(world.last_rejects().is_empty(), "Produce {type_id} should start: {:?}", world.last_rejects());
     for _ in 0..=PRODUCE_TICKS {
-        if world.house_ready_building("Americans").is_some_and(|r| r.as_ref().eq_ignore_ascii_case(type_id)) {
+        if world.house_ready_building("AMERICANS").is_some_and(|r| r.as_ref().eq_ignore_ascii_case(type_id)) {
             return;
         }
         world.advance_tick();
@@ -51,26 +51,26 @@ fn queue_until_ready(world: &mut BattleState, type_id: &str) {
 fn place_power_deducts_funds_and_spawns_structure() {
     let mut world = yard_world();
     queue_until_ready(&mut world, "GAPOWR");
-    assert_eq!(world.house_funds("Americans"), Some(10_000 - 600));
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 600));
     assert_eq!(world.entity_count(), 1);
     world.push_command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: "GAPOWR".into(), x: 6, y: 4 });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
-    assert_eq!(world.house_funds("Americans"), Some(10_000 - 600));
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 600));
     assert_eq!(world.entity_count(), 2);
     let power = world.entity_id_at(1).expect("entity");
     assert_eq!(power, EntityId(2));
     let identity = world.ecs_identity(power).expect("id");
     assert_eq!(identity.1, MapEntityKind::Structure);
     assert_eq!(identity.0.as_ref(), "GAPOWR");
-    assert_eq!(world.ecs_owner(power).expect("owner").as_ref(), "Americans");
+    assert_eq!(world.ecs_owner(power).expect("owner").as_ref(), "AMERICANS");
     assert_eq!(world.ecs_transform(power).map(|t| (t.0, t.1)), Some((6, 4)));
     assert!(!world.pass_grid.is_passable(6, 4));
     assert!(!world.pass_grid.is_passable(7, 4));
     assert!(!world.pass_grid.is_passable(6, 5));
     assert!(!world.pass_grid.is_passable(7, 5));
     assert_eq!(world.players[0].power_output, 200);
-    assert!(world.house_ready_building("Americans").is_none());
+    assert!(world.house_ready_building("AMERICANS").is_none());
     let paint = world.take_structure_buildup_dirty();
     assert!(paint.contains(&power), "PlaceBuilding must dirty structure buildup for host preview");
 }
@@ -82,7 +82,7 @@ fn place_building_rejects_without_ready_queue() {
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::MissingPrerequisite);
     assert_eq!(world.entity_count(), 1);
-    assert_eq!(world.house_funds("Americans"), Some(10_000));
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000));
 }
 
 #[test]
@@ -95,14 +95,14 @@ fn map_seeded_structure_seals_full_foundation() {
     map.height = 16;
     map.entities = vec![MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "GACNST".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     }];
     let world = battle_from_defs(GameEdition::Ra2, defs, map);
@@ -120,8 +120,8 @@ fn place_building_rejects_when_footprint_overlaps_obstacle() {
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidPlacement);
     assert_eq!(world.entity_count(), 1);
-    assert_eq!(world.house_funds("Americans"), Some(10_000 - 600));
-    assert!(world.house_ready_building("Americans").is_some());
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 600));
+    assert!(world.house_ready_building("AMERICANS").is_some());
 }
 
 #[test]
@@ -146,12 +146,12 @@ fn place_building_rejects_overlap_even_if_pass_grid_unsealed() {
 #[test]
 fn produce_building_rejects_insufficient_funds() {
     let mut world = yard_world();
-    assert!(world.set_house_funds("Americans", 100));
+    assert!(world.set_house_funds("AMERICANS", 100));
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "GAPOWR".into() });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InsufficientFunds);
     assert_eq!(world.entity_count(), 1);
-    assert_eq!(world.house_funds("Americans"), Some(100));
+    assert_eq!(world.house_funds("AMERICANS"), Some(100));
 }
 
 #[test]
@@ -174,7 +174,7 @@ fn place_building_rejects_occupied_cell() {
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidPlacement);
     assert_eq!(world.entity_count(), 1);
-    assert_eq!(world.house_funds("Americans"), Some(10_000 - 600));
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 600));
 }
 
 #[test]
@@ -184,7 +184,7 @@ fn produce_refinery_rejects_without_power_plant() {
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InsufficientPower);
     assert_eq!(world.entity_count(), 1);
-    assert_eq!(world.house_funds("Americans"), Some(10_000));
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000));
 }
 
 #[test]
@@ -197,7 +197,7 @@ fn place_refinery_after_power_deducts_and_drains() {
     world.push_command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: "GAREFN".into(), x: 8, y: 4 });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
-    assert_eq!(world.house_funds("Americans"), Some(10_000 - 600 - 2000));
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 600 - 2000));
     assert_eq!(world.ecs_identity(world.entity_id_at(2).expect("entity")).expect("id").0.as_ref(), "GAREFN");
     assert_eq!(world.players[0].power_output, 200);
     assert_eq!(world.players[0].power_drain, 50);
@@ -220,7 +220,7 @@ fn place_building_rejects_envelope_player_mismatch() {
     assert_eq!(world.last_rejects().len(), 1);
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::WrongOwner);
     assert_eq!(world.entity_count(), before);
-    assert_eq!(world.house_funds("Americans"), Some(10_000 - 600));
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 600));
 }
 
 #[test]
@@ -235,7 +235,7 @@ fn push_command_cannot_spoof_place_building_player_via_body() {
     assert_eq!(world.last_rejects().len(), 1);
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::WrongOwner);
     assert_eq!(world.entity_count(), before);
-    assert_eq!(world.house_funds("Americans"), Some(10_000 - 600));
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 600));
     let frame = world.last_input_frame();
     assert_eq!(frame.commands.len(), 1);
     assert_eq!(frame.commands[0].player, PlayerId(0));

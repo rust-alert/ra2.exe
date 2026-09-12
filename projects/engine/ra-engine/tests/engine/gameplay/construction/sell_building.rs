@@ -17,22 +17,22 @@ fn yard_with_power() -> BattleState {
     map.height = 16;
     map.entities = vec![MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "GACNST".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     }];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
-    assert!(world.set_house_funds("Americans", 10_000));
+    assert!(world.set_house_funds("AMERICANS", 10_000));
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "GAPOWR".into() });
     world.advance_tick();
     for _ in 0..=PRODUCE_TICKS {
-        if world.house_ready_building("Americans").is_some() {
+        if world.house_ready_building("AMERICANS").is_some() {
             break;
         }
         world.advance_tick();
@@ -47,7 +47,7 @@ fn yard_with_power() -> BattleState {
 fn sell_building_refunds_half_cost_and_frees_footprint() {
     let mut world = yard_with_power();
     let power = world.entity_id_at(1).expect("power");
-    assert_eq!(world.house_funds("Americans"), Some(10_000 - 600));
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 600));
     assert_eq!(world.players[0].power_output, 200);
     assert!(!world.pass_grid.is_passable(6, 4));
     assert!(!world.pass_grid.is_passable(7, 5));
@@ -56,7 +56,7 @@ fn sell_building_refunds_half_cost_and_frees_footprint() {
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
     assert!(world.ecs_health(power).expect("health").2);
-    assert_eq!(world.house_funds("Americans"), Some(10_000 - 600 + 300));
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 600 + 300));
     assert_eq!(world.players[0].power_output, 0);
     assert!(world.pass_grid.is_passable(6, 4));
     assert!(world.pass_grid.is_passable(7, 4));

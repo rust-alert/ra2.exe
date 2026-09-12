@@ -1,9 +1,9 @@
 //! AI 经 GameCommand 自动攻击。
 
-use crate::common::{test_engine, battle_from_defs, defs_from_rules_ini};
+use crate::common::{battle_from_defs, defs_from_rules_ini, test_engine};
 use ra_engine::Session;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{GameEdition};
+use ra_types::GameEdition;
 
 fn duel_session() -> Session {
     let defs = defs_from_rules_ini(b"[VehicleTypes]\n0=MTNK\n\
@@ -12,56 +12,56 @@ fn duel_session() -> Session {
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
 [NACNST]\nConstructionYard=yes\nOwner=Soviets\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
 [Gun]\nDamage=40\nROF=2\nRange=6\nWarhead=SA\n\
-[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",);
+[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n", );
     let mut map = MapInfo::empty(GameEdition::Ra2, "ai-duel");
     map.width = 16;
     map.height = 16;
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "GACNST".into(),
         health: 256,
         x: 1,
         y: 1,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Soviets".into(),
+        owner: "SOVIETS".into(),
         type_id: "NACNST".into(),
         health: 256,
         x: 14,
         y: 1,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Soviets".into(),
+        owner: "SOVIETS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 6,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs, map), "ai");
@@ -73,8 +73,8 @@ fn duel_session() -> Session {
 fn ai_issues_attack_via_commands() {
     let engine = test_engine();
     let mut session = duel_session();
-    let ally = session.expect_battle().world.find_entity_id_by_owner_type("Americans", "MTNK").expect("ally tank");
-    let enemy = session.expect_battle().world.find_entity_id_by_owner_type("Soviets", "MTNK").expect("enemy tank");
+    let ally = session.expect_battle().world.find_entity_id_by_owner_type("AMERICANS", "MTNK").expect("ally tank");
+    let enemy = session.expect_battle().world.find_entity_id_by_owner_type("SOVIETS", "MTNK").expect("enemy tank");
     let before = session.expect_battle().world.ecs_health(ally).expect("health").0;
     for _ in 0..30 {
         session.tick(&engine.runtime());
@@ -89,32 +89,32 @@ fn ambient_house_does_not_auto_attack() {
     let defs = defs_from_rules_ini(b"[VehicleTypes]\n0=MTNK\n\
 [MTNK]\nStrength=200\nSpeed=64\nSight=6\nCost=800\nArmor=none\nPrimary=Gun\n\
 [Gun]\nDamage=40\nROF=2\nRange=6\nWarhead=SA\n\
-[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",);
+[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n", );
     let mut map = MapInfo::empty(GameEdition::Ra2, "ambient-ai");
     map.width = 16;
     map.height = 16;
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Neutral".into(),
+        owner: "NEUTRAL".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 6,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs, map), "ambient");
@@ -139,37 +139,37 @@ fn guard_mission_skips_ai_auto_attack() {
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
 [NACNST]\nConstructionYard=yes\nOwner=Soviets\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
 [Gun]\nDamage=40\nROF=2\nRange=6\nWarhead=SA\n\
-[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",);
+[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n", );
     let mut map = MapInfo::empty(GameEdition::Ra2, "guard-ai");
     map.width = 16;
     map.height = 16;
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "GACNST".into(),
         health: 256,
         x: 1,
         y: 1,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Soviets".into(),
+        owner: "SOVIETS".into(),
         type_id: "NACNST".into(),
         health: 256,
         x: 14,
         y: 1,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 4,
@@ -181,21 +181,21 @@ fn guard_mission_skips_ai_auto_attack() {
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Soviets".into(),
+        owner: "SOVIETS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 6,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs, map), "guard");
     session.expect_battle_mut().ai_enabled = true;
     let engine = test_engine();
-    let guard = session.expect_battle().world.find_entity_id_by_owner_type("Americans", "MTNK").expect("guard tank");
-    assert_eq!(session.expect_battle().world.ecs_mission(guard).as_deref(), Some("Guard"));
+    let guard = session.expect_battle().world.find_entity_id_by_owner_type("AMERICANS", "MTNK").expect("guard tank");
+    assert_eq!(session.expect_battle().world.ecs_mission(guard).as_deref(), Some("GUARD"));
     for _ in 0..30 {
         session.tick(&engine.runtime());
     }

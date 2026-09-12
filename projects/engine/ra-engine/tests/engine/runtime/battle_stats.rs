@@ -1,6 +1,6 @@
 //! 胜负时锁定 BattleStats。
 
-use crate::common::{defs_with_mtnk, test_engine, battle_from_defs};
+use crate::common::{battle_from_defs, defs_with_mtnk, test_engine};
 use ra_engine::{BattleOutcome, GameCommand, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
@@ -14,26 +14,26 @@ fn victory_locks_battle_stats() {
     map.height = 16;
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Soviets".into(),
+        owner: "SOVIETS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 5,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "stats");
@@ -55,7 +55,7 @@ fn victory_locks_battle_stats() {
     assert_eq!(stats.units_lost, 1);
     assert_eq!(stats.buildings_lost, 0);
     assert_eq!(stats.funds_spent, 1200);
-    let americans = stats.players.iter().find(|p| p.house.eq_ignore_ascii_case("Americans")).expect("Americans row");
+    let americans = stats.players.iter().find(|p| p.house.eq_ignore_ascii_case("AMERICANS")).expect("Americans row");
     assert_eq!(americans.kills, 1);
     assert_eq!(americans.losses, 0);
     assert_eq!(session.expect_battle().snapshot(&[]).battle_stats.as_ref().map(|s| s.funds_spent), Some(1200));

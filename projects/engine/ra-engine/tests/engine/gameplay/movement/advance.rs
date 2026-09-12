@@ -1,9 +1,9 @@
 //! 移动命令推进。
 
-use crate::common::{map_with_size, defs_with_mtnk, battle_from_defs};
+use crate::common::{battle_from_defs, defs_with_mtnk, map_with_size};
 use ra_engine::GameCommand;
 use ra_map::{MapEntity, MapEntityKind, Waypoint};
-use ra_types::{GameEdition, EntityId};
+use ra_types::{EntityId, GameEdition};
 
 #[test]
 fn advances_when_ordered_to_move() {
@@ -11,14 +11,14 @@ fn advances_when_ordered_to_move() {
     let mut map = map_with_size();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 10,
         y: 20,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);
@@ -42,14 +42,14 @@ fn move_path_queues_remaining_waypoints_and_advances() {
     let mut map = map_with_size();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 10,
         y: 20,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);
@@ -74,14 +74,14 @@ fn turret_chases_body_facing() {
     map.waypoints.push(Waypoint { index: 0, x: 12, y: 20 });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 10,
         y: 20,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);

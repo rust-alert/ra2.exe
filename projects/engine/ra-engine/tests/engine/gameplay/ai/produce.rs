@@ -1,9 +1,9 @@
 //! AI 放置兵营并生产步兵。
 
-use crate::common::{test_engine, battle_from_defs, defs_from_rules_ini};
+use crate::common::{battle_from_defs, defs_from_rules_ini, test_engine};
 use ra_engine::{PRODUCE_TICKS, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{GameEdition};
+use ra_types::GameEdition;
 
 #[test]
 fn ai_places_barracks_and_produces_infantry() {
@@ -14,60 +14,60 @@ fn ai_places_barracks_and_produces_infantry() {
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nTechLevel=1\n\
 [NACNST]\nConstructionYard=yes\nOwner=Soviets\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nTechLevel=1\n\
 [NAPOWR]\nPower=200\nOwner=Soviets\nStrength=600\nSight=4\nCost=600\nArmor=wood\nTechLevel=1\n\
-[NAHAND]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Soviets\nStrength=500\nSight=5\nCost=500\nArmor=wood\nTechLevel=1\n",);
+[NAHAND]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Soviets\nStrength=500\nSight=5\nCost=500\nArmor=wood\nTechLevel=1\n", );
     let mut map = MapInfo::empty(GameEdition::Ra2, "ai-barracks");
     map.width = 16;
     map.height = 16;
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "GACNST".into(),
         health: 256,
         x: 1,
         y: 1,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Soviets".into(),
+        owner: "SOVIETS".into(),
         type_id: "NACNST".into(),
         health: 256,
         x: 8,
         y: 8,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Soviets".into(),
+        owner: "SOVIETS".into(),
         type_id: "NAPOWR".into(),
         health: 256,
         x: 9,
         y: 8,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
-    assert!(world.set_house_funds("Soviets", 10_000));
+    assert!(world.set_house_funds("SOVIETS", 10_000));
     let mut session = Session::from_state(world, "ai-barracks");
     session.expect_battle_mut().ai_enabled = true;
     for _ in 0..(PRODUCE_TICKS + 4) {
         session.tick(&engine.runtime());
-        if session.expect_battle().world.find_entity_id_by_owner_type("Soviets", "NAHAND").is_some() {
+        if session.expect_battle().world.find_entity_id_by_owner_type("SOVIETS", "NAHAND").is_some() {
             break;
         }
     }
-    assert!(session.expect_battle_mut().world.find_entity_id_by_owner_type("Soviets", "NAHAND").is_some(), "AI should place barracks");
+    assert!(session.expect_battle_mut().world.find_entity_id_by_owner_type("SOVIETS", "NAHAND").is_some(), "AI should place barracks");
     // 下一 tick 兵营空闲后排队生产。
     session.tick(&engine.runtime());
-    let hand = session.expect_battle().world.find_entity_id_by_owner_type("Soviets", "NAHAND").expect("barracks");
+    let hand = session.expect_battle().world.find_entity_id_by_owner_type("SOVIETS", "NAHAND").expect("barracks");
     assert_eq!(session.expect_battle().world.ecs_produce_item(hand).expect("queue").as_ref().map(|(id, _)| id.as_ref()), Some("E2"));
 }
 
@@ -86,79 +86,79 @@ fn ai_skips_dog_and_naval_when_picking_produce() {
 [NACNST]\nConstructionYard=yes\nOwner=Soviets\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nTechLevel=1\n\
 [GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nArmor=wood\nTechLevel=1\n\
 [GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nArmor=wood\nTechLevel=1\n\
-[GAWEAP]\nPower=-30\nPowered=yes\nFactory=UnitType\nOwner=Americans\nStrength=1000\nSight=5\nCost=2000\nArmor=wood\nTechLevel=1\n",);
+[GAWEAP]\nPower=-30\nPowered=yes\nFactory=UnitType\nOwner=Americans\nStrength=1000\nSight=5\nCost=2000\nArmor=wood\nTechLevel=1\n", );
     let mut map = MapInfo::empty(GameEdition::Ra2, "ai-filter");
     map.width = 20;
     map.height = 20;
     // 本地苏联，对手美军吃 AI。
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Soviets".into(),
+        owner: "SOVIETS".into(),
         type_id: "NACNST".into(),
         health: 256,
         x: 1,
         y: 1,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "GACNST".into(),
         health: 256,
         x: 10,
         y: 10,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "GAPOWR".into(),
         health: 256,
         x: 11,
         y: 10,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "GAPILE".into(),
         health: 256,
         x: 12,
         y: 10,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "GAWEAP".into(),
         health: 256,
         x: 13,
         y: 10,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
-    assert!(world.set_house_funds("Americans", 20_000));
-    assert!(world.prefer_local_house("Soviets"));
+    assert!(world.set_house_funds("AMERICANS", 20_000));
+    assert!(world.prefer_local_house("SOVIETS"));
     let mut session = Session::from_state(world, "ai-filter");
     session.expect_battle_mut().ai_enabled = true;
     session.tick(&engine.runtime());
-    let pile = session.expect_battle().world.find_entity_id_by_owner_type("Americans", "GAPILE").expect("barracks");
-    let weap = session.expect_battle().world.find_entity_id_by_owner_type("Americans", "GAWEAP").expect("war factory");
+    let pile = session.expect_battle().world.find_entity_id_by_owner_type("AMERICANS", "GAPILE").expect("barracks");
+    let weap = session.expect_battle().world.find_entity_id_by_owner_type("AMERICANS", "GAWEAP").expect("war factory");
     assert_eq!(
         session.expect_battle().world.ecs_produce_item(pile).expect("inf queue").as_ref().map(|(id, _)| id.as_ref()),
         Some("E1"),

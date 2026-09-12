@@ -373,7 +373,10 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             world.trigger_runtime.record_unsupported(cmd.kind);
         }
         MapActionKind::Win => {
-            let house = action_house_param(cmd).unwrap_or_else(|| local_house.to_string());
+            let house = action_house_param(cmd)
+                .unwrap_or_else(|| local_house.to_string())
+                .trim()
+                .to_ascii_uppercase();
             if world.trigger_runtime.win_blockers > 0 {
                 // 仍有 Allow Win 阻塞：延后胜利，待阻塞清零。
                 world.trigger_runtime.deferred_victory_house = Some(house);

@@ -13,8 +13,8 @@ use ra_types::{
 /// 步兵 / 载具 / 飞行器 / 建筑的共用类型字段。
 #[derive(Debug, Clone, PartialEq)]
 pub struct TechnoType {
-    /// 类型 id（大写）。
-    pub id: String,
+    /// 类型 id（装载期一次解码为大写）。
+    pub id: TechnoName,
     /// 所属大类。
     pub kind: TechnoKind,
     /// `Strength` 生命值。
@@ -210,7 +210,7 @@ impl TechnoTypeRegistry {
     }
 
     /// 遍历已解析类型。
-    pub fn iter(&self) -> impl Iterator<Item = &TechnoType> {
+    pub fn iter(&self) -> impl Iterator<Item=&TechnoType> {
         self.by_id.values()
     }
 
@@ -373,7 +373,7 @@ fn parse_techno(
         fields.image
     };
     Some(TechnoType {
-        id: id.to_string(),
+        id: TechnoName::parse(id),
         kind,
         strength: fields.strength.unwrap_or(1),
         armor: fields.armor,

@@ -1,6 +1,6 @@
 //! 会话 tick、命令、快照与联机摘要集成测试。
 
-use crate::common::{defs_with_mtnk, test_engine, battle_from_defs};
+use crate::common::{battle_from_defs, defs_with_mtnk, test_engine};
 use ra_engine::{BattleOutcome, GameCommand, MAX_TICKS_PER_PUMP, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
 use ra_types::{EntityId, GameEdition};
@@ -15,14 +15,14 @@ fn session_tick_and_snapshot() {
     map.waypoints.push(Waypoint { index: 0, x: 12, y: 10 });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 10,
         y: 10,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);
@@ -44,26 +44,26 @@ fn order_attack_and_detects_victor() {
     map.height = 30;
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 10,
         y: 10,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Russians".into(),
+        owner: "RUSSIANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 12,
         y: 10,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "t");
@@ -115,14 +115,14 @@ fn snapshot_includes_screen_coords_and_selection() {
     map.height = 30;
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 5,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "t");

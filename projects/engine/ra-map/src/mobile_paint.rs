@@ -6,7 +6,7 @@ use ra_assets::{
     HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, from_row, rasterize_vxl_layer_poses,
     rasterize_vxl_shadow_layer_poses,
 };
-use ra_types::{AssetSource, HouseName, ImageName};
+use ra_types::{AssetSource, HouseName, ImageName, TechnoName};
 use serde::Deserialize;
 
 use crate::{
@@ -77,10 +77,10 @@ fn collect_mobile_type_paint_hints(
     rules: Option<&IniDocument>,
     art: Option<&IniDocument>,
     mobiles: &[&MapEntity],
-) -> HashMap<String, MobileTypePaintHints> {
+) -> HashMap<TechnoName, MobileTypePaintHints> {
     let mut out = HashMap::new();
     for ent in mobiles {
-        out.entry(ent.type_id.clone()).or_insert_with(|| mobile_type_paint_hints(rules, art, &ent.type_id));
+        out.entry(ent.type_id.clone()).or_insert_with(|| mobile_type_paint_hints(rules, art, ent.type_id.as_str()));
     }
     out
 }
@@ -169,8 +169,7 @@ pub fn paint_map_mobiles(
         let blit = if prefer_voxel {
             load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, ent.facing)
                 .or_else(|| load_mobile_shp(source, hint.new_theater, &image_key, map, &pal, frame_index, &mut shp_cache))
-        }
-        else {
+        } else {
             load_mobile_shp(source, hint.new_theater, &image_key, map, &pal, frame_index, &mut shp_cache)
                 .or_else(|| load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, ent.facing))
         };
@@ -374,8 +373,7 @@ pub fn load_mobile_shp(
 ) -> Option<TileBlit> {
     let candidates = if new_theater {
         vec![new_theater_shp_name(image_key, map.theater), format!("{}.shp", image_key.to_ascii_lowercase())]
-    }
-    else {
+    } else {
         vec![format!("{}.shp", image_key.to_ascii_lowercase()), new_theater_shp_name(image_key, map.theater)]
     };
 

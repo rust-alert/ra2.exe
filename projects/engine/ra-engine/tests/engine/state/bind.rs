@@ -11,14 +11,14 @@ fn binds_strength_and_speed() {
     let mut map = map_with_size();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 10,
         y: 20,
         facing: 64,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let world = battle_from_defs(GameEdition::Ra2, defs, map);
@@ -42,14 +42,14 @@ fn unbound_techno_gets_zero_combat_stats() {
     let mut map = map_with_size();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "NOSUCH".into(),
         health: 256,
         x: 10,
         y: 20,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let world = battle_from_defs(GameEdition::Ra2, defs, map);
@@ -72,14 +72,14 @@ fn seeds_structure_health_from_map_ratio() {
     let mut map = map_with_size();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Neutral".into(),
+        owner: "NEUTRAL".into(),
         type_id: "CAGAS01".into(),
         health: 64,
         x: 8,
         y: 8,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let world = battle_from_defs(GameEdition::Ra2, defs, map);

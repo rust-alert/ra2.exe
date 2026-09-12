@@ -139,8 +139,7 @@ impl BattleState {
         if let Some(p) = self.players.iter().find(|p| p.house.eq_ignore_ascii_case(house)) {
             self.local_player = p.id;
             true
-        }
-        else {
+        } else {
             false
         }
     }
@@ -209,7 +208,7 @@ impl BattleState {
             TechnoClass::Building => MapEntityKind::Structure,
         };
         self.spawn_from_bundle(EntitySpawnBundle {
-            identity: Identity { entity_id: id, type_id: Arc::<str>::from(type_key), kind, mission: String::new(), tag: ra_types::TagName::default() },
+            identity: Identity { entity_id: id, type_id: Arc::<str>::from(type_key), kind, mission: Default::default(), tag: ra_types::TagName::default() },
             owner: Owner { house: Arc::<str>::from(house) },
             transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
             health: Health { current: max_health, maximum: max_health, dead: false },

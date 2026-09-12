@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use ra_assets::{HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, rasterize_vxl_layer_poses, shp_body_frame_count};
-use ra_types::{AssetSource, ImageName};
+use ra_types::{AssetSource, ImageName, TechnoName};
 use serde::Deserialize;
 use serde::de::Deserializer;
 
@@ -309,10 +309,10 @@ fn collect_structure_type_paint_hints(
     art: Option<&IniDocument>,
     rules: Option<&IniDocument>,
     structures: &[&MapEntity],
-) -> HashMap<String, StructureTypePaintHints> {
+) -> HashMap<TechnoName, StructureTypePaintHints> {
     let mut out = HashMap::new();
     for ent in structures {
-        out.entry(ent.type_id.clone()).or_insert_with(|| structure_type_paint_hints(art, rules, &ent.type_id));
+        out.entry(ent.type_id.clone()).or_insert_with(|| structure_type_paint_hints(art, rules, ent.type_id.as_str()));
     }
     out
 }
@@ -864,8 +864,7 @@ fn paint_map_structures_inner(
             {
                 apply_rgba_tint(&mut blit.rgba, map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y)));
                 items.push((ent.x, ent.y, blit));
-            }
-            else {
+            } else {
                 missing.push((ent.x, ent.y));
             }
             if let Some(mut blit) = load_structure_turret_vxl(source, hint.turret_voxel.as_ref(), ent.facing, &pal) {
@@ -942,7 +941,7 @@ fn resolve_art_section(art: Option<&IniDocument>, type_id: &str) -> String {
             None
         }
     })
-    .unwrap_or_else(|| type_id.to_ascii_uppercase())
+        .unwrap_or_else(|| type_id.to_ascii_uppercase())
 }
 
 fn load_shp<'a>(
@@ -954,8 +953,7 @@ fn load_shp<'a>(
 ) -> Option<&'a ShpFile> {
     let candidates = if new_theater {
         vec![new_theater_shp_name(image_key, map.theater), format!("{}.shp", image_key.to_ascii_lowercase())]
-    }
-    else {
+    } else {
         vec![format!("{}.shp", image_key.to_ascii_lowercase()), new_theater_shp_name(image_key, map.theater)]
     };
     let mut loaded: Option<String> = None;

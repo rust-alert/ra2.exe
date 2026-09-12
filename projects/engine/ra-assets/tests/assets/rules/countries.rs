@@ -132,7 +132,7 @@ fn skirmish_filter_drops_non_multiplay() {
     let doc = IniDocument::parse(SAMPLE.as_bytes()).unwrap();
     let reg = CountryRegistry::from_rules(&doc);
     let ids: Vec<_> = reg.skirmish_countries().iter().map(|c| c.id.as_str()).collect();
-    assert_eq!(ids, vec!["Americans", "French", "Russians", "YuriCountry"]);
+    assert_eq!(ids, vec!["AMERICANS", "FRENCH", "RUSSIANS", "YURICOUNTRY"]);
 }
 
 #[test]
@@ -143,12 +143,12 @@ fn from_layered_overrides_country_fields() {
 [Sides]\nGDI=Americans\n\
 [GDI]\nSidebar.MixFileIndex=1\n",
     )
-    .unwrap();
+        .unwrap();
     let top = IniDocument::parse(
         b"[Americans]\nColor=LightBlue\nMultiplay=no\n\
 [GDI]\nSidebar.MixFileIndex=9\nSidebar.YuriFileNames=yes\n",
     )
-    .unwrap();
+        .unwrap();
     let policy = IniMergePolicy {
         default_entry: EntryMergePolicy::MergeSection,
     };

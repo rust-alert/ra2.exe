@@ -127,7 +127,7 @@ pub fn standard_duel() -> HeadlessCase {
             y: 8,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
         MapEntity {
@@ -139,7 +139,7 @@ pub fn standard_duel() -> HeadlessCase {
             y: 8,
             facing: 128,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
     ];
@@ -169,7 +169,7 @@ pub fn mcv_deploy_open() -> HeadlessCase {
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     }];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
@@ -202,7 +202,7 @@ pub fn yard_open() -> HeadlessCase {
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     }];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
@@ -243,7 +243,7 @@ pub fn ai_skirmish_open() -> HeadlessCase {
             y: 4,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
         MapEntity {
@@ -255,7 +255,7 @@ pub fn ai_skirmish_open() -> HeadlessCase {
             y: 16,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
         MapEntity {
@@ -267,7 +267,7 @@ pub fn ai_skirmish_open() -> HeadlessCase {
             y: 16,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
     ];

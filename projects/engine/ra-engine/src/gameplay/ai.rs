@@ -51,7 +51,7 @@ pub fn deploy_mcv_commands(world: &BattleState, house: &str) -> Vec<GameCommand>
         if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
             continue;
         }
-        if !world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false) {
+        if !world.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false) {
             continue;
         }
         let Some(identity) = world.ecs_get::<Identity>(id)
@@ -209,7 +209,7 @@ pub fn auto_attack_commands(world: &BattleState, house: &str) -> Vec<GameCommand
         if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
             continue;
         }
-        if !world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false) {
+        if !world.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false) {
             continue;
         }
         if world.ecs_get::<CombatStats>(id).map(|s| s.attack_damage == 0).unwrap_or(true) {
@@ -243,7 +243,7 @@ where
     F: Fn(&ra_types::StructureDefinition) -> bool,
 {
     let living = living_structure_keys(world, house);
-    let Some(player) = world.players.iter().find(|p| p.house.as_ref() == house)
+    let Some(player) = world.players.iter().find(|p| p.house.eq_ignore_ascii_case(house))
     else {
         return None;
     };
@@ -259,7 +259,7 @@ where
 
 fn pick_techno<'a>(world: &'a BattleState, house: &str, category: ProductionCategory) -> Option<&'a str> {
     let living = living_structure_keys(world, house);
-    let Some(player) = world.players.iter().find(|p| p.house.as_ref() == house)
+    let Some(player) = world.players.iter().find(|p| p.house.eq_ignore_ascii_case(house))
     else {
         return None;
     };
@@ -290,7 +290,7 @@ where
     world.entities.iter().any(|e| {
         let id = e.id;
         !world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
-            && world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
+            && world.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false)
             && world.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure && pred(world, i)).unwrap_or(false)
     })
 }
@@ -303,7 +303,7 @@ fn house_has_idle_yard(world: &BattleState, house: &str) -> bool {
     world.entities.iter().any(|e| {
         let id = e.id;
         !world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
-            && world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
+            && world.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false)
             && world
                 .ecs_get::<Identity>(id)
                 .map(|i| i.kind == MapEntityKind::Structure && is_construction_yard(&world.definitions, &i.type_id))
@@ -324,7 +324,7 @@ fn house_has_idle_factory(world: &BattleState, house: &str, category: Production
     world.entities.iter().any(|e| {
         let id = e.id;
         !world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
-            && world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
+            && world.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false)
             && world.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
             && world.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none()).unwrap_or(true)
             && world.ecs_get::<Identity>(id).map(|i| factory_matches_category(&world.definitions, &i.type_id, category)).unwrap_or(false)
@@ -341,7 +341,7 @@ fn yard_cell(world: &BattleState, house: &str) -> Option<(u16, u16)> {
         if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
             return None;
         }
-        if !world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false) {
+        if !world.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false) {
             return None;
         }
         let identity = world.ecs_get::<Identity>(id)?;
@@ -393,7 +393,7 @@ fn nearest_enemy(world: &BattleState, from: usize, house: &str) -> Option<usize>
         if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
             continue;
         }
-        if world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false) {
+        if world.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false) {
             continue;
         }
         if world.ecs_get::<Owner>(id).map(|o| houses_are_allied(world, house, o.house.as_ref())).unwrap_or(false) {

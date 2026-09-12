@@ -21,31 +21,31 @@ fn mining_world() -> BattleState {
     map.entities = vec![
         MapEntity {
             kind: MapEntityKind::Structure,
-            owner: "Americans".into(),
+            owner: "AMERICANS".into(),
             type_id: "GAREFN".into(),
             health: 256,
             x: 2,
             y: 2,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Unit,
-            owner: "Americans".into(),
+            owner: "AMERICANS".into(),
             type_id: "CMIN".into(),
             health: 256,
             x: 3,
             y: 2,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
     ];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
-    assert!(world.set_house_funds("Americans", 1_000));
+    assert!(world.set_house_funds("AMERICANS", 1_000));
     world
 }
 
@@ -56,29 +56,29 @@ fn harvester_on_ore_delivers_at_adjacent_refinery() {
 
     for _ in 0..(ORE_TRIP_TICKS - 1) {
         world.advance_tick();
-        assert_eq!(world.house_funds("Americans"), Some(1_000));
+        assert_eq!(world.house_funds("AMERICANS"), Some(1_000));
         assert_eq!(world.harvestable_ore_at(3, 2), Some(2));
     }
     // 采集完成：扣密度并装载，本 tick 不卸货。
     world.advance_tick();
     assert_eq!(world.harvestable_ore_at(3, 2), Some(1));
     assert_eq!(world.take_overlay_paint_dirty(), vec![(3, 2)]);
-    assert_eq!(world.house_funds("Americans"), Some(1_000));
+    assert_eq!(world.house_funds("AMERICANS"), Some(1_000));
 
     // 邻接矿场：下一 tick 卸货入账。
     world.advance_tick();
-    assert_eq!(world.house_funds("Americans"), Some(1_000 + ORE_INCOME_PER_TRIP as i32));
+    assert_eq!(world.house_funds("AMERICANS"), Some(1_000 + ORE_INCOME_PER_TRIP as i32));
 
     for _ in 0..(ORE_TRIP_TICKS - 1) {
         world.advance_tick();
-        assert_eq!(world.house_funds("Americans"), Some(1_000 + ORE_INCOME_PER_TRIP as i32));
+        assert_eq!(world.house_funds("AMERICANS"), Some(1_000 + ORE_INCOME_PER_TRIP as i32));
     }
     world.advance_tick();
     assert_eq!(world.harvestable_ore_at(3, 2), None);
     assert_eq!(world.take_overlay_paint_dirty(), vec![(3, 2)]);
-    assert_eq!(world.house_funds("Americans"), Some(1_000 + ORE_INCOME_PER_TRIP as i32));
+    assert_eq!(world.house_funds("AMERICANS"), Some(1_000 + ORE_INCOME_PER_TRIP as i32));
     world.advance_tick();
-    assert_eq!(world.house_funds("Americans"), Some(1_000 + 2 * ORE_INCOME_PER_TRIP as i32));
+    assert_eq!(world.house_funds("AMERICANS"), Some(1_000 + 2 * ORE_INCOME_PER_TRIP as i32));
 }
 
 #[test]
@@ -90,7 +90,7 @@ fn dead_harvester_stops_ore_income() {
     for _ in 0..ORE_TRIP_TICKS {
         world.advance_tick();
     }
-    assert_eq!(world.house_funds("Americans"), Some(1_000));
+    assert_eq!(world.house_funds("AMERICANS"), Some(1_000));
     assert_eq!(world.harvestable_ore_at(3, 2), Some(2));
 }
 
@@ -104,31 +104,31 @@ fn idle_harvester_seeks_ore_then_returns_to_refinery() {
     map.entities = vec![
         MapEntity {
             kind: MapEntityKind::Structure,
-            owner: "Americans".into(),
+            owner: "AMERICANS".into(),
             type_id: "GAREFN".into(),
             health: 256,
             x: 2,
             y: 2,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Unit,
-            owner: "Americans".into(),
+            owner: "AMERICANS".into(),
             type_id: "CMIN".into(),
             health: 256,
             x: 5,
             y: 2,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
     ];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
-    assert!(world.set_house_funds("Americans", 1_000));
+    assert!(world.set_house_funds("AMERICANS", 1_000));
     let id = world.entity_id_at(1).expect("harvester");
 
     world.advance_tick();
@@ -137,9 +137,9 @@ fn idle_harvester_seeks_ore_then_returns_to_refinery() {
     // Speed=4 · CELL_MOVE_COST=64 → 每格 16 tick；两格约 32 tick，再加采集与卸货。
     for _ in 0..200 {
         world.advance_tick();
-        if world.house_funds("Americans") == Some(1_000 + ORE_INCOME_PER_TRIP as i32) {
+        if world.house_funds("AMERICANS") == Some(1_000 + ORE_INCOME_PER_TRIP as i32) {
             return;
         }
     }
-    panic!("expected one ore delivery after auto seek/return, funds={:?} pos={:?}", world.house_funds("Americans"), world.ecs_transform(id));
+    panic!("expected one ore delivery after auto seek/return, funds={:?} pos={:?}", world.house_funds("AMERICANS"), world.ecs_transform(id));
 }

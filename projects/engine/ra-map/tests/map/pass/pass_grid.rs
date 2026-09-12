@@ -17,7 +17,7 @@ fn structures_block_and_bfs_detours() {
         y: 1,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let grid = PassGrid::from_map(&map);
@@ -90,7 +90,7 @@ fn prepared_map_skeleton_seeds_anchor_occupancy() {
         y: 0,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.terrain_objects.push(TerrainObject { x: 2, y: 1, name: "TREE1".into() });
@@ -121,7 +121,7 @@ fn prepared_map_skeleton_expands_structure_foundation() {
         y: 1,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let mut structures = StructureDefinitions::default();
@@ -182,7 +182,7 @@ fn prepared_map_skeleton_bound_applies_overlay_and_foundation() {
         y: 1,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     // 桥面覆盖在 Foundation 外一格，应被 overlay land 重开（若先被封）。
@@ -221,7 +221,7 @@ fn prepared_map_skeleton_bound_applies_overlay_and_foundation() {
         y: 0,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let prepared = map.to_prepared_map_skeleton_bound(&overlays, &structures);

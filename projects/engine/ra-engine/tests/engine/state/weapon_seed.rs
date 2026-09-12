@@ -16,14 +16,14 @@ fn seeds_attack_stats_from_primary_weapon() {
     map.height = 16;
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let world = battle_from_defs(GameEdition::Ra2, defs, map);
@@ -44,14 +44,14 @@ fn weaponless_unit_keeps_zero_attack_damage() {
     map.height = 16;
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Neutral".into(),
+        owner: "NEUTRAL".into(),
         type_id: "TRUCKA".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let world = battle_from_defs(GameEdition::Ra2, defs, map);

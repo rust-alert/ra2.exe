@@ -3,12 +3,12 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
-use serde::de::{self, Deserializer, Visitor};
 use serde::Deserialize;
+use serde::de::{self, Deserializer, Visitor};
 
 use crate::id::{HouseId, TypeId};
 
-use super::{ArmorKind, BuiltinCapability, Foundation, HouseAllowList, ProductionProfile, StolenTechKind, SuperWeaponName};
+use super::{ArmorKind, BuiltinCapability, Foundation, HouseAllowList, ProductionProfile, SideName, StolenTechKind, SuperWeaponName};
 
 /// 建造栏分类（INI `BuildCat=`）。
 ///
@@ -193,8 +193,8 @@ pub struct HouseDefinition {
     pub id: HouseId,
     /// 外部房屋键（国家节名，大写）。
     pub type_key: String,
-    /// `Side=` 原文（大写）；空表示未写。
-    pub side: String,
+    /// `Side=` 势力 id（装载期一次解码为大写）；空表示未写。
+    pub side: SideName,
     /// 由 `Side=` 推导的偷取科技类别；未知 Side 为 `None`。
     pub stolen_tech: Option<StolenTechKind>,
     /// 可出现在多人 / 遭遇战选用表。
@@ -234,7 +234,7 @@ impl HouseDefinitions {
     }
 
     /// 遍历。
-    pub fn iter(&self) -> impl Iterator<Item = &HouseDefinition> {
+    pub fn iter(&self) -> impl Iterator<Item=&HouseDefinition> {
         self.by_key.values()
     }
 }
@@ -268,7 +268,7 @@ impl StructureDefinitions {
     }
 
     /// 遍历。
-    pub fn iter(&self) -> impl Iterator<Item = &StructureDefinition> {
+    pub fn iter(&self) -> impl Iterator<Item=&StructureDefinition> {
         self.by_key.values()
     }
 }

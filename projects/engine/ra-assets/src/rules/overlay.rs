@@ -2,7 +2,7 @@
 
 use serde::Deserialize;
 
-use ra_types::{LandType, OverlayTypeRegistry};
+use ra_types::{LandType, OverlayName, OverlayTypeRegistry};
 
 use crate::{
     ini::{IniDocument, IniMergePolicy, LayeredIniView},
@@ -33,15 +33,15 @@ pub fn overlay_types_from_layered(view: LayeredIniView<'_>) -> OverlayTypeRegist
         else {
             continue;
         };
-        let name = value.trimmed().raw;
+        let name = OverlayName::parse(value.trimmed().raw);
         if name.is_empty() {
             continue;
         }
-        let name_up = name.to_ascii_uppercase();
-        let fields = overlay_type_fields(view, &name_up);
-        let can_harvest = overlay_type_is_harvestable(&fields, &name_up);
+        let name_up = name.as_str();
+        let fields = overlay_type_fields(view, name_up);
+        let can_harvest = overlay_type_is_harvestable(&fields, name_up);
         let pass_override = overlay_land_pass_override(&fields);
-        names.push(name_up);
+        names.push(name);
         harvestable.push(can_harvest);
         land_pass_override.push(pass_override);
     }
@@ -59,11 +59,9 @@ pub fn tiberium_type_for_overlay(name: &str) -> Option<&'static str> {
     let upper = name.to_ascii_uppercase();
     if upper.starts_with("GEM") {
         Some("Cruentus")
-    }
-    else if upper.starts_with("TIB") && !upper.starts_with("TIBTRE") {
+    } else if upper.starts_with("TIB") && !upper.starts_with("TIBTRE") {
         Some("Riparius")
-    }
-    else {
+    } else {
         None
     }
 }

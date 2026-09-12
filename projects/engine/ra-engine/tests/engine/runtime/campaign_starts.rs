@@ -12,7 +12,7 @@ fn mcv_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
 [AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
 [SMCV]\nDeploysInto=NACNST\nOwner=Russians\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n\
-[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\n",)
+[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\n", )
 }
 
 fn campaign_map() -> MapInfo {
@@ -22,38 +22,38 @@ fn campaign_map() -> MapInfo {
     map.waypoints = vec![Waypoint { index: 0, x: 4, y: 4 }, Waypoint { index: 1, x: 20, y: 20 }];
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "GACNST".into(),
         health: 256,
         x: 8,
         y: 8,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Infantry,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "E1".into(),
         health: 256,
         x: 9,
         y: 9,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Russians".into(),
+        owner: "RUSSIANS".into(),
         type_id: "HTNK".into(),
         health: 256,
         x: 12,
         y: 12,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map
@@ -65,8 +65,7 @@ impl AssetSource for RulesBytesSource {
         let chain = ResourceChain::for_edition(GameEdition::Ra2);
         if relative.eq_ignore_ascii_case(chain.rules_ini) {
             Ok(b"[General]\n".to_vec())
-        }
-        else {
+        } else {
             Err(RaError::MissingFile(relative.to_string()))
         }
     }
@@ -76,14 +75,14 @@ impl AssetSource for RulesBytesSource {
 fn open_campaign_keeps_preplaced_mobiles_and_skips_mcv_seed() {
     let chain = ResourceChain::for_edition(GameEdition::Ra2);
     let opened = open_campaign_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(),
-        campaign_map(),
-        "t".into(),
-        (0, 0),
-        Some("Americans"),
-        &["Americans"],
-        0,
+                                       campaign_map(),
+                                       "t".into(),
+                                       (0, 0),
+                                       Some("AMERICANS"),
+                                       &["AMERICANS"],
+                                       0,
     )
-    .expect("战役应成功开局");
+        .expect("战役应成功开局");
     assert!(opened.note.contains("campaign"), "{}", opened.note);
     assert!(!opened.note.contains("strip_mobiles"), "{}", opened.note);
     assert!(!opened.note.contains("starts=["), "{}", opened.note);
@@ -108,25 +107,25 @@ fn open_campaign_seeds_placement_mission_on_identity() {
     let map = MapInfo::parse_ini(GameEdition::Ra2, "mission.map", text).unwrap();
     assert_eq!(map.entities[0].mission, "Guard");
     let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let opened = open_campaign_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(), map, "t".into(), (0, 0), Some("Americans"), &["Americans"], 0)
+    let opened = open_campaign_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(), map, "t".into(), (0, 0), Some("AMERICANS"), &["AMERICANS"], 0)
         .expect("战役应成功开局");
     let world = &opened.session.expect_battle().world;
     let id = world.find_entity_id_by_type("E1").expect("E1");
-    assert_eq!(world.ecs_mission(id).as_deref(), Some("Guard"));
+    assert_eq!(world.ecs_mission(id).as_deref(), Some("GUARD"));
 }
 
 #[test]
 fn open_skirmish_still_strips_when_campaign_path_exists() {
     let chain = ResourceChain::for_edition(GameEdition::Ra2);
     let opened = open_skirmish_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(),
-        campaign_map(),
-        "t".into(),
-        (0, 0),
-        Some("Americans"),
-        &["Americans", "Russians"],
-        0,
+                                       campaign_map(),
+                                       "t".into(),
+                                       (0, 0),
+                                       Some("AMERICANS"),
+                                       &["AMERICANS", "RUSSIANS"],
+                                       0,
     )
-    .expect("遭遇战应成功开局");
+        .expect("遭遇战应成功开局");
     assert!(opened.note.contains("strip_mobiles#2"), "{}", opened.note);
     assert_eq!(opened.session.expect_battle().boot_kind, SessionBootKind::Skirmish);
 }
@@ -142,12 +141,12 @@ fn open_campaign_applies_map_house_credits() {
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "houses.map", text).unwrap();
     let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let opened = open_campaign_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(), map, "t".into(), (0, 0), Some("Americans"), &["Americans"], 0)
+    let opened = open_campaign_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(), map, "t".into(), (0, 0), Some("AMERICANS"), &["AMERICANS"], 0)
         .expect("战役应成功开局");
     assert!(opened.note.contains("map_houses#2"), "{}", opened.note);
     let world = &opened.session.expect_battle().world;
-    assert_eq!(world.house_funds("Americans"), Some(4_000));
-    assert_eq!(world.house_funds("Russians"), Some(2_500));
+    assert_eq!(world.house_funds("AMERICANS"), Some(4_000));
+    assert_eq!(world.house_funds("RUSSIANS"), Some(2_500));
 }
 
 #[test]
@@ -162,12 +161,12 @@ fn open_campaign_applies_basic_starting_credits_when_house_credits_absent() {
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "starting.map", text).unwrap();
     let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let opened = open_campaign_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(), map, "t".into(), (0, 0), Some("Americans"), &["Americans"], 0)
+    let opened = open_campaign_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(), map, "t".into(), (0, 0), Some("AMERICANS"), &["AMERICANS"], 0)
         .expect("战役应成功开局");
     assert!(opened.note.contains("starting_credits=10000"), "{}", opened.note);
     let world = &opened.session.expect_battle().world;
-    assert_eq!(world.house_funds("Americans"), Some(10_000));
-    assert_eq!(world.house_funds("Russians"), Some(2_500));
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000));
+    assert_eq!(world.house_funds("RUSSIANS"), Some(2_500));
 }
 
 #[test]
@@ -181,11 +180,11 @@ fn open_campaign_applies_map_house_tech_level() {
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "houses-tech.map", text).unwrap();
     let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let opened = open_campaign_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(), map, "t".into(), (0, 0), Some("Americans"), &["Americans"], 0)
+    let opened = open_campaign_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(), map, "t".into(), (0, 0), Some("AMERICANS"), &["AMERICANS"], 0)
         .expect("战役应成功开局");
     let world = &opened.session.expect_battle().world;
-    let americans = world.players.iter().find(|p| p.house.eq_ignore_ascii_case("Americans")).expect("Americans");
-    let russians = world.players.iter().find(|p| p.house.eq_ignore_ascii_case("Russians")).expect("Russians");
+    let americans = world.players.iter().find(|p| p.house.eq_ignore_ascii_case("AMERICANS")).expect("AMERICANS");
+    let russians = world.players.iter().find(|p| p.house.eq_ignore_ascii_case("RUSSIANS")).expect("RUSSIANS");
     assert_eq!(americans.tech_level, 5);
     assert_eq!(russians.tech_level, 3);
 }
@@ -202,13 +201,13 @@ fn open_campaign_applies_map_house_allies() {
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "houses-allies.map", text).unwrap();
     let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let opened = open_campaign_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(), map, "t".into(), (0, 0), Some("Americans"), &["Americans"], 0)
+    let opened = open_campaign_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(), map, "t".into(), (0, 0), Some("AMERICANS"), &["AMERICANS"], 0)
         .expect("战役应成功开局");
     let world = &opened.session.expect_battle().world;
-    let americans = world.players.iter().find(|p| p.house.eq_ignore_ascii_case("Americans")).expect("Americans");
+    let americans = world.players.iter().find(|p| p.house.eq_ignore_ascii_case("AMERICANS")).expect("AMERICANS");
     let france = world.players.iter().find(|p| p.house.eq_ignore_ascii_case("France")).expect("France");
     assert!(americans.allies.iter().any(|a| a.eq_ignore_ascii_case("France")), "{:?}", americans.allies);
-    assert!(france.allies.iter().any(|a| a.eq_ignore_ascii_case("Americans")), "{:?}", france.allies);
-    assert!(ra_engine::houses_are_allied(world, "Americans", "France"));
-    assert!(!ra_engine::houses_are_allied(world, "Americans", "Russians"));
+    assert!(france.allies.iter().any(|a| a.eq_ignore_ascii_case("AMERICANS")), "{:?}", france.allies);
+    assert!(ra_engine::houses_are_allied(world, "AMERICANS", "France"));
+    assert!(!ra_engine::houses_are_allied(world, "AMERICANS", "RUSSIANS"));
 }

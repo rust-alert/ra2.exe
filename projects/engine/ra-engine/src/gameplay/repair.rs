@@ -50,7 +50,7 @@ pub(crate) fn tick_repairs(world: &mut BattleState) {
     }
 
     for job in jobs {
-        let Some(player_index) = world.players.iter().position(|p| p.house.as_ref() == job.house)
+        let Some(player_index) = world.players.iter().position(|p| p.house.eq_ignore_ascii_case(&job.house))
         else {
             stop.push(job.id);
             continue;

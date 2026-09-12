@@ -67,13 +67,13 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     for country in rules.countries.countries() {
         let stolen_tech = StolenTechKind::from_side(&country.side);
         if let Some(kind) = stolen_tech {
-            defs.stolen_tech_by_house.insert(&country.id, kind);
+            defs.stolen_tech_by_house.insert(country.id.as_str(), kind);
         }
         let id = alloc_house();
         defs.houses.insert(HouseDefinition {
             id,
-            type_key: country.id.to_ascii_uppercase(),
-            side: country.side.trim().to_ascii_uppercase(),
+            type_key: country.id.as_str().to_string(),
+            side: country.side.clone(),
             stolen_tech,
             multiplay: country.visible_in_skirmish(),
         });
@@ -83,7 +83,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         let id = alloc();
         defs.super_weapons.insert(SuperWeaponDefinition {
             id,
-            type_key: sw.id.clone(),
+            type_key: sw.id.as_str().to_string(),
             ui_name: sw.ui_name.clone(),
             kind: sw.kind.clone(),
             action: sw.action.clone(),

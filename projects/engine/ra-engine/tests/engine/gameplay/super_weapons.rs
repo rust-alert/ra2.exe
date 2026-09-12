@@ -10,7 +10,7 @@ fn sw_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
 [SuperWeaponTypes]\n0=LightningStorm\n\
 [LightningStorm]\nUIName=NAME:LS\nType=LightningStorm\nRechargeTime=1\nSidebarImage=SSWLSICON\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
-[GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nTechLevel=1\nSuperWeapon=LightningStorm\n",)
+[GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nTechLevel=1\nSuperWeapon=LightningStorm\n", )
 }
 
 fn sw_world() -> ra_engine::BattleState {
@@ -20,31 +20,31 @@ fn sw_world() -> ra_engine::BattleState {
     map.entities = vec![
         MapEntity {
             kind: MapEntityKind::Structure,
-            owner: "Americans".into(),
+            owner: "AMERICANS".into(),
             type_id: "GACNST".into(),
             health: 256,
             x: 4,
             y: 4,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Structure,
-            owner: "Americans".into(),
+            owner: "AMERICANS".into(),
             type_id: "GAPILE".into(),
             health: 256,
             x: 5,
             y: 4,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
     ];
     let mut world = battle_from_defs(GameEdition::Ra2, sw_defs(), map);
-    assert!(world.set_house_funds("Americans", 10_000));
+    assert!(world.set_house_funds("AMERICANS", 10_000));
     world
 }
 

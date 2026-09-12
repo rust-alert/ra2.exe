@@ -1,13 +1,13 @@
 //! edition 库存壳层 UI：填 rules 缺键，不进引擎苏盟分类。
 
 use ra_assets::{CountryDef, SideChromeDef, fill_country_ui_gaps, fill_side_chrome_gaps};
-use ra_types::{GameEdition, UiName};
+use ra_types::{ColorName, GameEdition, HouseName, SideName, UiName};
 
 use crate::ResourceChain;
 
 fn side_from_stock(s: &ra_adaptor_ra2::stock_ui::StockSideChrome) -> SideChromeDef {
     SideChromeDef {
-        id: s.id.to_string(),
+        id: SideName::parse(s.id),
         mix_file_index: Some(s.mix_file_index),
         yuri_file_names: s.yuri_file_names,
         score_background: s.score_background.map(str::to_string),
@@ -20,20 +20,18 @@ fn side_from_stock(s: &ra_adaptor_ra2::stock_ui::StockSideChrome) -> SideChromeD
 fn country_from_stock(s: &ra_adaptor_ra2::stock_ui::StockCountryUi) -> CountryDef {
     let brief = if s.load_brief_suffix.is_empty() {
         String::new()
-    }
-    else if s.load_brief_suffix.contains(':') {
+    } else if s.load_brief_suffix.contains(':') {
         s.load_brief_suffix.to_string()
-    }
-    else {
+    } else {
         format!("LOADBRIEF:{}", s.load_brief_suffix)
     };
     CountryDef {
-        id: s.id.to_string(),
+        id: HouseName::parse(s.id),
         list_index: 0,
         ui_name: UiName::default(),
         prefix: String::new(),
-        color: String::new(),
-        side: String::new(),
+        color: ColorName::default(),
+        side: SideName::default(),
         multiplay: false,
         multiplay_obsolete: false,
         special_ui_name: UiName::default(),

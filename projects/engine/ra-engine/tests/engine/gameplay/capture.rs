@@ -3,10 +3,10 @@
 use crate::common::{battle_from_defs, defs_from_rules_ini};
 use ra_engine::{BattleState, CommandRejectReason, GameCommand};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{GameEdition};
+use ra_types::GameEdition;
 
 fn capture_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
-        defs_from_rules_ini(b"[Countries]\n0=Americans\n1=Russians\n\
+    defs_from_rules_ini(b"[Countries]\n0=Americans\n1=Russians\n\
 [Americans]\nSide=GDI\nMultiplay=yes\n\
 [Russians]\nSide=Nod\nMultiplay=yes\n\
 [General]\nPrerequisiteTech=GATECH,NATECH\n\
@@ -21,7 +21,7 @@ fn capture_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
 }
 
 fn capture_world(engineer_x: u16, engineer_y: u16, building_type: &str, bx: u16, by: u16) -> BattleState {
-    capture_world_owned(engineer_x, engineer_y, building_type, bx, by, "Russians")
+    capture_world_owned(engineer_x, engineer_y, building_type, bx, by, "RUSSIANS")
 }
 
 fn capture_world_owned(engineer_x: u16, engineer_y: u16, building_type: &str, bx: u16, by: u16, building_owner: &str) -> BattleState {
@@ -32,14 +32,14 @@ fn capture_world_owned(engineer_x: u16, engineer_y: u16, building_type: &str, bx
     map.entities = vec![
         MapEntity {
             kind: MapEntityKind::Infantry,
-            owner: "Americans".into(),
+            owner: "AMERICANS".into(),
             type_id: "ENGINEER".into(),
             health: 256,
             x: engineer_x,
             y: engineer_y,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
         MapEntity {
@@ -51,29 +51,29 @@ fn capture_world_owned(engineer_x: u16, engineer_y: u16, building_type: &str, bx
             y: by,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Structure,
-            owner: "Americans".into(),
+            owner: "AMERICANS".into(),
             type_id: "GACNST".into(),
             health: 256,
             x: 1,
             y: 1,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
     ];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     world.set_all_players_funds(10_000);
-    if let Some(p) = world.players.iter_mut().find(|p| p.house.as_ref() == "Russians") {
+    if let Some(p) = world.players.iter_mut().find(|p| p.house.as_ref() == "RUSSIANS") {
         p.power_output = 200;
         p.power_drain = 50;
     }
-    if let Some(p) = world.players.iter_mut().find(|p| p.house.as_ref() == "Americans") {
+    if let Some(p) = world.players.iter_mut().find(|p| p.house.as_ref() == "AMERICANS") {
         p.power_output = 0;
         p.power_drain = 0;
     }
@@ -100,15 +100,15 @@ fn engineer_captures_power_plant_and_dies() {
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
     assert!(world.ecs_health(engineer).expect("health").2);
-    assert_eq!(world.ecs_owner(building).expect("owner").as_ref(), "Americans");
-    let ally = world.players.iter().find(|p| p.house.as_ref() == "Americans").expect("ally");
-    let victim = world.players.iter().find(|p| p.house.as_ref() == "Russians").expect("victim");
+    assert_eq!(world.ecs_owner(building).expect("owner").as_ref(), "AMERICANS");
+    let ally = world.players.iter().find(|p| p.house.as_ref() == "AMERICANS").expect("ally");
+    let victim = world.players.iter().find(|p| p.house.as_ref() == "RUSSIANS").expect("victim");
     assert_eq!(ally.power_output, 200);
     assert_eq!(victim.power_output, 0);
     assert_eq!(world.take_structure_paint_dirty(), vec![building]);
     let cues = world.take_eva_cues();
-    assert!(cues.iter().any(|c| c.house.as_ref() == "Americans" && c.event == "EVA_BuildingCaptured"));
-    assert!(cues.iter().any(|c| c.house.as_ref() == "Russians" && c.event == "EVA_BuildingCaptured"));
+    assert!(cues.iter().any(|c| c.house.as_ref() == "AMERICANS" && c.event == "EVA_BuildingCaptured"));
+    assert!(cues.iter().any(|c| c.house.as_ref() == "RUSSIANS" && c.event == "EVA_BuildingCaptured"));
 }
 
 #[test]
@@ -119,9 +119,9 @@ fn engineer_capturing_tech_building_emits_tech_eva() {
     world.push_command(GameCommand::CaptureBuilding { engineer, building });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
-    assert_eq!(world.ecs_owner(building).expect("owner").as_ref(), "Americans");
+    assert_eq!(world.ecs_owner(building).expect("owner").as_ref(), "AMERICANS");
     let cues = world.take_eva_cues();
-    assert!(cues.iter().any(|c| c.house.as_ref() == "Americans" && c.event == "EVA_TechBuildingCaptured"));
+    assert!(cues.iter().any(|c| c.house.as_ref() == "AMERICANS" && c.event == "EVA_TechBuildingCaptured"));
 }
 
 #[test]
@@ -143,20 +143,20 @@ fn engineer_captures_when_adjacent_to_2x2_footprint_edge() {
     world.push_command(GameCommand::CaptureBuilding { engineer, building });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
-    assert_eq!(world.ecs_owner(building).expect("owner").as_ref(), "Americans");
+    assert_eq!(world.ecs_owner(building).expect("owner").as_ref(), "AMERICANS");
     assert!(world.ecs_health(engineer).expect("health").2);
 }
 
 #[test]
 fn engineer_captures_neutral_tech_building_without_victim_eva() {
-    let mut world = capture_world_owned(4, 4, "GATECH", 5, 4, "Neutral");
+    let mut world = capture_world_owned(4, 4, "GATECH", 5, 4, "NEUTRAL");
     let building = world.entity_id_at(1).expect("building");
     let engineer = world.entity_id_at(0).expect("engineer");
     world.push_command(GameCommand::CaptureBuilding { engineer, building });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
-    assert_eq!(world.ecs_owner(building).expect("owner").as_ref(), "Americans");
+    assert_eq!(world.ecs_owner(building).expect("owner").as_ref(), "AMERICANS");
     let cues = world.take_eva_cues();
-    assert!(cues.iter().any(|c| c.house.as_ref() == "Americans" && c.event == "EVA_TechBuildingCaptured"));
-    assert!(!cues.iter().any(|c| c.house.as_ref().eq_ignore_ascii_case("Neutral")));
+    assert!(cues.iter().any(|c| c.house.as_ref() == "AMERICANS" && c.event == "EVA_TechBuildingCaptured"));
+    assert!(!cues.iter().any(|c| c.house.as_ref().eq_ignore_ascii_case("NEUTRAL")));
 }

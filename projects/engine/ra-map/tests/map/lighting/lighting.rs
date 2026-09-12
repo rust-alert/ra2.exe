@@ -122,7 +122,7 @@ fn refresh_point_lights_from_structure_light_table() {
         y: 7,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.refresh_point_lights(&lights);
@@ -163,7 +163,7 @@ fn refresh_radiation_lights_merges_green_glow() {
         y: 1,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.refresh_point_lights(&struct_lights);
@@ -260,7 +260,7 @@ fn collect_structure_lights_from_light_table() {
             y: 4,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
         MapEntity {
@@ -272,7 +272,7 @@ fn collect_structure_lights_from_light_table() {
             y: 1,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
         MapEntity {
@@ -284,7 +284,7 @@ fn collect_structure_lights_from_light_table() {
             y: 9,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
     ];
