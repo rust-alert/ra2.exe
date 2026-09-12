@@ -14,6 +14,8 @@ pub struct MapDefinition {
     pub size_width: u32,
     /// `[Map] Size` 高。
     pub size_height: u32,
+    /// `[Map] LocalSize` 可见区（格）。
+    pub local_size: MapLocalSize,
     /// 游戏格网边长（与 iso / 航点 / 覆盖层同一坐标系）。
     pub cell_side: u32,
     /// 剧院名（大写，如 `TEMPERATE`）。
@@ -41,6 +43,19 @@ pub struct MapWaypoint {
     pub x: u16,
     /// 格子 Y。
     pub y: u16,
+}
+
+/// `[Map] LocalSize=left,top,width,height` 可见区（格）。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MapLocalSize {
+    /// 左缘偏移。
+    pub left: i32,
+    /// 上缘偏移。
+    pub top: i32,
+    /// 可见宽。
+    pub width: i32,
+    /// 可见高。
+    pub height: i32,
 }
 
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。

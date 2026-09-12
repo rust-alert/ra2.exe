@@ -42,7 +42,7 @@ pub mod lcw;
 pub mod lzo;
 
 use ra_assets::{IniDocument, from_row};
-use ra_types::{GameEdition, MapDefinition, MapWaypoint, RaError, RaResult};
+use ra_types::{GameEdition, MapDefinition, MapLocalSize, MapWaypoint, RaError, RaResult};
 use serde::Deserialize;
 
 pub use base64::{base64_decode, base64_encode};
@@ -281,6 +281,12 @@ impl MapInfo {
             name: self.name.clone(),
             size_width: self.size_width,
             size_height: self.size_height,
+            local_size: MapLocalSize {
+                left: self.local_size.left,
+                top: self.local_size.top,
+                width: self.local_size.width,
+                height: self.local_size.height,
+            },
             cell_side: self.width,
             theater: self.theater.as_str().to_ascii_uppercase(),
             description_csf: self.description_csf.clone(),
