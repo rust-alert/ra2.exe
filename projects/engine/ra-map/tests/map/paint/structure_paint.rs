@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use ra_map::{
+use ra_map::{PaintIniDocs, 
     MapEntity, MapEntityKind, MapInfo, StructureAnimMode, TerrainImage, buildup_frame_index, paint_map_structures, structure_anim_frame,
 };
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
@@ -81,7 +81,7 @@ fn empty_structures_noop() {
     let map = MapInfo::empty(GameEdition::Ra2, "t");
     let mut image = TerrainImage::blank(1, 1);
     assert_eq!(
-        paint_map_structures(&EmptySource, &map, &mut image, "art.ini", "rules.ini", &|p, _| p.clone(), StructureAnimMode::BodyOnly),
+        paint_map_structures(&EmptySource, &map, &mut image, &PaintIniDocs::default(), &|p, _| p.clone(), StructureAnimMode::BodyOnly),
         (0, 0)
     );
 }
@@ -148,8 +148,7 @@ Rate=300\n\
         &source,
         &map,
         &mut image,
-        "art.ini",
-        "rules.ini",
+        &PaintIniDocs::load(&source, "art.ini", "rules.ini"),
         &|p, _| p.clone(),
         StructureAnimMode::BodyAndAnims { clock_ms: 300 },
     );
@@ -196,7 +195,7 @@ ConditionRed=25%\n\
         tag: String::new(),
     });
     let source = MapSource { files };
-    let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
+    let bank = collect_structure_anim_bank(&source, &map, &PaintIniDocs::load(&source, "art.ini", "rules.ini"), &|p, _| p.clone());
     assert_eq!(bank.layers.len(), 1, "yellow HP should bake one fire layer");
     assert_eq!(bank.layers[0].frames.len(), 2);
     // frame_to_blit 锚点 (+TILE_W/2, -H/2) 再加 DamageFireOffset。
@@ -259,7 +258,7 @@ ConditionYellow=50%\n\
         tag: String::new(),
     });
     let source = MapSource { files };
-    let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
+    let bank = collect_structure_anim_bank(&source, &map, &PaintIniDocs::load(&source, "art.ini", "rules.ini"), &|p, _| p.clone());
     // 受损活动层 3 帧 + 火焰层。
     assert!(bank.layers.len() >= 2, "expected damaged anim + fire, got {}", bank.layers.len());
     let damaged = bank.layers.iter().find(|l| l.frames.len() == 3).expect("ActiveAnimDamaged 3 frames");
@@ -308,7 +307,7 @@ ConditionYellow=50%\n\
         tag: String::new(),
     });
     let source = MapSource { files };
-    let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
+    let bank = collect_structure_anim_bank(&source, &map, &PaintIniDocs::load(&source, "art.ini", "rules.ini"), &|p, _| p.clone());
     assert_eq!(bank.layers.len(), 1);
     assert_eq!(bank.layers[0].frames[0].offset_x, 30 + 7);
     assert_eq!(bank.layers[0].frames[0].offset_y, -3);
@@ -354,7 +353,7 @@ ConditionYellow=50%\n\
         tag: String::new(),
     });
     let source = MapSource { files };
-    let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
+    let bank = collect_structure_anim_bank(&source, &map, &PaintIniDocs::load(&source, "art.ini", "rules.ini"), &|p, _| p.clone());
     assert_eq!(bank.layers.len(), 1);
     let px = &bank.layers[0].frames[0].rgba;
     assert!(px.len() >= 4, "expected at least one RGBA pixel");
@@ -397,7 +396,7 @@ ConditionYellow=50%\n\
         tag: String::new(),
     });
     let source = MapSource { files };
-    let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
+    let bank = collect_structure_anim_bank(&source, &map, &PaintIniDocs::load(&source, "art.ini", "rules.ini"), &|p, _| p.clone());
     assert!(bank.layers.is_empty());
 }
 
@@ -493,7 +492,7 @@ Rate=300\n\
         tag: String::new(),
     });
     let source = MapSource { files };
-    let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
+    let bank = collect_structure_anim_bank(&source, &map, &PaintIniDocs::load(&source, "art.ini", "rules.ini"), &|p, _| p.clone());
     assert_eq!(bank.layers.len(), 2);
     for layer in &bank.layers {
         let f0 = &layer.frames[0];
@@ -555,15 +554,14 @@ Rate=300\n\
         &source,
         &map,
         &mut TerrainImage::blank(256, 256),
-        "art.ini",
-        "rules.ini",
+        &PaintIniDocs::load(&source, "art.ini", "rules.ini"),
         &|p, _| p.clone(),
         StructureAnimMode::BodyOnly,
     );
     // 主体 + Bib（无体素炮塔资源时仍应至少 2）。
     assert!(painted.0 >= 2, "expected body+bib, got {painted:?}");
 
-    let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
+    let bank = collect_structure_anim_bank(&source, &map, &PaintIniDocs::load(&source, "art.ini", "rules.ini"), &|p, _| p.clone());
     assert!(
         bank.layers.iter().any(|l| l.frames.len() == 1 && l.rate_ms == 200),
         "IdleAnim layer missing: {:?}",
@@ -622,7 +620,7 @@ fn missing_structure_body_paints_magenta_marker() {
         tag: String::new(),
     });
     let mut image = TerrainImage::blank(256, 256);
-    let (shp, mark) = paint_map_structures(&source, &map, &mut image, "art.ini", "rules.ini", &|p, _| p.clone(), StructureAnimMode::BodyOnly);
+    let (shp, mark) = paint_map_structures(&source, &map, &mut image, &PaintIniDocs::load(&source, "art.ini", "rules.ini"), &|p, _| p.clone(), StructureAnimMode::BodyOnly);
     assert_eq!((shp, mark), (0, 1));
     let px = image.image.as_raw();
     let hit = px.chunks_exact(4).find(|c| c[3] > 0).expect("marker");

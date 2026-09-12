@@ -3,7 +3,7 @@
 use std::{collections::HashMap, time::Instant};
 
 use ra_map::{
-    MapEntity, MapEntityKind, MobilePaintPose, StructureBuildupClip, collect_structure_anim_bank, load_structure_buildup_clip,
+    MapEntity, MapEntityKind, MobilePaintPose, PaintIniDocs, StructureBuildupClip, collect_structure_anim_bank, load_structure_buildup_clip,
     paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba,
     paint_terrain_anims_onto_rgba,
 };
@@ -293,7 +293,8 @@ impl BattleController {
                 tracing::warn!("定格失败 · {} 无主体也无 Buildup 帧，保留原预览", type_id);
                 return;
             }
-            let bank = collect_structure_anim_bank(assets, &one, art_ini, self.rules_ini, &|base, own| {
+            let docs = PaintIniDocs::load(assets, art_ini, self.rules_ini);
+            let bank = collect_structure_anim_bank(assets, &one, &docs, &|base, own| {
                 remap_owner_palette(rules, Some(lobby), base, own)
             });
             (n, bank)

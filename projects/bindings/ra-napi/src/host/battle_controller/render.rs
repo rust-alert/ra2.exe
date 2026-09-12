@@ -8,7 +8,7 @@ use ra_layout::{
     BattleHudChromeMetrics, MapViewport, SIDEBAR_TAB_COUNT, cameo_visible_slot_count, rect_px_from_snapshot, solve_battle_hud_with_metrics,
 };
 use ra_map::{
-    MapEntity, MapEntityKind, OverlayLayerFilter, TILE_HEIGHT, TILE_WIDTH, collect_structure_anim_bank, iso_to_screen,
+    MapEntity, MapEntityKind, OverlayLayerFilter, PaintIniDocs, TILE_HEIGHT, TILE_WIDTH, collect_structure_anim_bank, iso_to_screen,
     paint_ore_tree_frames_onto_rgba, paint_overlays_onto_preview_rgba, paint_structure_anims_onto_rgba, paint_structures_onto_rgba,
     paint_terrain_anims_onto_rgba,
 };
@@ -303,7 +303,8 @@ impl BattleController {
                 any |= n > 0;
             }
             self.structure_anims.layers.retain(|layer| !(layer.x == *x && layer.y == *y));
-            let bank = collect_structure_anim_bank(assets, &one, art_ini, self.rules_ini, &remap);
+            let docs = PaintIniDocs::load(assets, art_ini, self.rules_ini);
+            let bank = collect_structure_anim_bank(assets, &one, &docs, &remap);
             self.structure_anims.layers.extend(bank.layers);
         }
         if any {

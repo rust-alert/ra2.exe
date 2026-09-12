@@ -43,8 +43,7 @@ pub fn paint_map_mobiles(
     source: &dyn AssetSource,
     map: &MapInfo,
     image: &mut TerrainImage,
-    art_ini: &str,
-    rules_ini: &str,
+    docs: &crate::PaintIniDocs,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     pose_of: &dyn Fn(&MapEntity) -> MobilePaintPose,
 ) -> usize {
@@ -58,9 +57,8 @@ pub fn paint_map_mobiles(
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
-    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
-    let art = docs.art;
-    let rules = docs.rules;
+    let art = docs.art.as_ref();
+    let rules = docs.rules.as_ref();
     let obj_pal = source
         .read("unittem.pal")
         .ok()
@@ -77,10 +75,10 @@ pub fn paint_map_mobiles(
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
     for ent in mobiles {
-        let image_key = resolve_mobile_image_key(rules.as_ref(), art.as_ref(), &ent.type_id);
-        let prefer_voxel = art.as_ref().and_then(|a| a.get(&image_key, "Voxel")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+        let image_key = resolve_mobile_image_key(rules, art, &ent.type_id);
+        let prefer_voxel = art.and_then(|a| a.get(&image_key, "Voxel")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
         let pose = pose_of(ent);
-        let frame_index = resolve_mobile_shp_frame(art.as_ref(), &image_key, ent, pose);
+        let frame_index = resolve_mobile_shp_frame(art, &image_key, ent, pose);
         let cache_key = (image_key.clone(), frame_index, ent.owner.clone());
         let tint = map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y));
         if let Some(blit) = blit_cache.get(&cache_key) {
@@ -95,10 +93,10 @@ pub fn paint_map_mobiles(
         let pal = remap_owner(&obj_pal, &ent.owner);
         let blit = if prefer_voxel {
             load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, ent.facing)
-                .or_else(|| load_mobile_shp(source, &art, &image_key, map, &pal, frame_index, &mut shp_cache))
+                .or_else(|| load_mobile_shp(source, art, &image_key, map, &pal, frame_index, &mut shp_cache))
         }
         else {
-            load_mobile_shp(source, &art, &image_key, map, &pal, frame_index, &mut shp_cache)
+            load_mobile_shp(source, art, &image_key, map, &pal, frame_index, &mut shp_cache)
                 .or_else(|| load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, ent.facing))
         };
         if let Some(mut blit) = blit {
@@ -247,14 +245,14 @@ pub fn load_mobile_vxl_layers(
 #[doc(hidden)]
 pub fn load_mobile_shp(
     source: &dyn AssetSource,
-    art: &Option<IniDocument>,
+    art: Option<&IniDocument>,
     image_key: &str,
     map: &MapInfo,
     obj_pal: &Palette,
     frame_index: u16,
     shp_cache: &mut HashMap<String, ShpFile>,
 ) -> Option<TileBlit> {
-    let new_theater = art.as_ref().and_then(|a| a.get(image_key, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+    let new_theater = art.and_then(|a| a.get(image_key, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
     let candidates = if new_theater {
         vec![new_theater_shp_name(image_key, map.theater), format!("{}.shp", image_key.to_ascii_lowercase())]
     }

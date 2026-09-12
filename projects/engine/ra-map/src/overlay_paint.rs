@@ -84,8 +84,7 @@ pub fn paint_map_overlays(
     source: &dyn AssetSource,
     map: &MapInfo,
     image: &mut TerrainImage,
-    art_ini: &str,
-    rules_ini: &str,
+    docs: &crate::PaintIniDocs,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     is_tiberium: &dyn Fn(u8) -> bool,
     tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,
@@ -99,9 +98,8 @@ pub fn paint_map_overlays(
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
-    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
-    let art = docs.art;
-    let rules = docs.rules;
+    let art = docs.art.as_ref();
+    let rules = docs.rules.as_ref();
     let unit_pal = source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok());
     let theater_pal = source.read(theater_palette(map.theater)).ok().and_then(|b| Palette::parse(&b).ok());
     let tib_pal = source.read(theater_tiberium_palette(map.theater)).ok().and_then(|b| Palette::parse(&b).ok());
@@ -142,7 +140,7 @@ pub fn paint_map_overlays(
         }
         let tib = is_tiberium(cell.overlay_id);
         let display_name = if tib { flat_tiberium_display_type_name(&type_name, cell.x, cell.y) } else { type_name.clone() };
-        let (image_key, new_theater, theater_yes) = resolve_overlay_art_keys(art.as_ref(), rules.as_ref(), &type_name, &display_name);
+        let (image_key, new_theater, theater_yes) = resolve_overlay_art_keys(art, rules, &type_name, &display_name);
         let pal_kind: u8 = if tib {
             2
         }
@@ -346,10 +344,11 @@ pub fn paint_overlays_onto_preview_rgba(
     if cells.is_empty() {
         return (0, 0);
     }
+    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
     let mut overlay_map = map.clone();
     overlay_map.overlays = cells.to_vec();
     let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
-    let n = paint_map_overlays(source, &overlay_map, &mut terrain, art_ini, rules_ini, overlay_type_name, is_tiberium, tiberium_hsv, layer);
+    let n = paint_map_overlays(source, &overlay_map, &mut terrain, &docs, overlay_type_name, is_tiberium, tiberium_hsv, layer);
     *image = terrain.image;
     n
 }
