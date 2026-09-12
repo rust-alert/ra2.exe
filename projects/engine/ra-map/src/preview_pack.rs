@@ -1,11 +1,11 @@
 //! 地图 `[Preview]` / `[PreviewPack]`：大厅缩略图（LZO 分块 → 行优先 RGB24 → RGBA）。
 
 use image::RgbaImage;
-use ra_assets::{IniDocument, from_csv_row, numbered_section_concat, parse_westwood_csv_line};
+use ra_assets::{IniDocument, from_csv_row, parse_westwood_csv_line};
 use ra_types::{RaError, RaResult};
 use serde::Deserialize;
 
-use crate::{base64, lzo};
+use crate::{base64, lzo, numbered_pack::try_decode_numbered_base64_pack};
 
 /// 从场景 INI 解出的预览缩略图。
 #[derive(Debug, Clone)]
@@ -68,6 +68,12 @@ pub fn decode_preview_pack(pack_b64: &str, width: u32, height: u32) -> RaResult<
     if encoded.is_empty() {
         return Err(RaError::Parse("PreviewPack 为空".into()));
     }
+    let compressed = base64::base64_decode(encoded).map_err(RaError::Parse)?;
+    decode_preview_pack_bytes(&compressed, width, height)
+}
+
+/// 从 PreviewPack 压缩字节解码 RGBA。
+pub fn decode_preview_pack_bytes(compressed: &[u8], width: u32, height: u32) -> RaResult<MapPreviewImage> {
     if width == 0 || height == 0 {
         return Err(RaError::Parse("Preview Size 宽高为 0".into()));
     }
@@ -76,8 +82,7 @@ pub fn decode_preview_pack(pack_b64: &str, width: u32, height: u32) -> RaResult<
         .and_then(|p| p.checked_mul(3))
         .ok_or_else(|| RaError::Parse("Preview 尺寸溢出".into()))?;
 
-    let compressed = base64::base64_decode(encoded).map_err(RaError::Parse)?;
-    let rgb = lzo::decompress_chunks(&compressed).map_err(|e| RaError::Parse(e.to_string()))?;
+    let rgb = lzo::decompress_chunks(compressed).map_err(|e| RaError::Parse(e.to_string()))?;
     if rgb.len() != expected {
         return Err(RaError::Parse(format!("PreviewPack 字节数 {} 与期望 {} 不符", rgb.len(), expected)));
     }
@@ -103,14 +108,11 @@ pub fn decode_preview_from_ini(doc: &IniDocument) -> RaResult<Option<MapPreviewI
     else {
         return Err(RaError::Parse(format!("无效 [Preview] Size: {size_raw}")));
     };
-    let Some(pack) = numbered_section_concat(doc, "PreviewPack")
+    let Some(compressed) = try_decode_numbered_base64_pack(doc, "PreviewPack")?
     else {
         return Ok(None);
     };
-    if pack.chars().all(|c| c.is_whitespace()) {
-        return Ok(None);
-    }
-    decode_preview_pack(&pack, width, height).map(Some)
+    decode_preview_pack_bytes(&compressed, width, height).map(Some)
 }
 
 /// 从 `.map` / `.mpr` 原始字节解码大厅预览图。

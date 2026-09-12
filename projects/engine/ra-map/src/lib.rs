@@ -71,7 +71,9 @@ pub use overlay_pass::apply_overlay_land_to_pass_grid;
 pub use pass_grid::{MAX_GROUND_CLIMB, PassGrid};
 pub use placements::{MapEntity, MapEntityKind, parse_map_entities};
 pub use playfield::{LocalSize, cell_in_local_playfield, local_size_preview_rect};
-pub use preview_pack::{MapPreviewImage, decode_preview_from_ini, decode_preview_from_map_bytes, decode_preview_pack, parse_preview_size};
+pub use preview_pack::{
+    MapPreviewImage, decode_preview_from_ini, decode_preview_from_map_bytes, decode_preview_pack, decode_preview_pack_bytes, parse_preview_size,
+};
 pub use radiation_light::{
     RadiationLightRules, RadiationLightSite, collect_radiation_lights, parse_radiation_light_rules, radiation_light_epoch,
     radiation_site_light, radiation_site_radius_leptons,
