@@ -204,23 +204,44 @@ struct StructureAnimSectionHints {
 }
 
 fn structure_anim_section_hints(art: Option<&IniDocument>, anim_name: &str, default_rate_ms: u32) -> StructureAnimSectionHints {
-    let image_key = art.and_then(|a| a.get(anim_name, "Image")).unwrap_or(anim_name).to_ascii_uppercase();
-    let new_theater = art.and_then(|a| a.get(anim_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-    let loop_start = art
-        .and_then(|a| a.get(anim_name, "LoopStart").or_else(|| a.get(anim_name, "Start")))
-        .and_then(parse_u16)
-        .unwrap_or(0);
-    let loop_end = art.and_then(|a| a.get(anim_name, "LoopEnd")).and_then(parse_u16).unwrap_or(loop_start + 1);
-    let rate_ms = art.and_then(|a| a.get(anim_name, "Rate")).and_then(parse_u32).unwrap_or(default_rate_ms);
-    let remapable_override = art.and_then(|a| a.get(anim_name, "Remapable")).map(|v| !v.eq_ignore_ascii_case("no"));
+    let fields = art
+        .and_then(|a| a.section(anim_name))
+        .and_then(|s| s.deserialize::<AnimSectionFields>().ok())
+        .unwrap_or_default();
+    let image_key = fields
+        .image
+        .as_deref()
+        .unwrap_or(anim_name)
+        .trim()
+        .to_ascii_uppercase();
+    let loop_start = fields.loop_start.or(fields.start).unwrap_or(0);
+    let loop_end = fields.loop_end.unwrap_or(loop_start.saturating_add(1));
     StructureAnimSectionHints {
         image_key,
-        new_theater,
+        new_theater: fields.new_theater.unwrap_or(false),
         loop_start,
         loop_end,
-        rate_ms,
-        remapable_override,
+        rate_ms: fields.rate_ms.unwrap_or(default_rate_ms),
+        remapable_override: fields.remapable,
     }
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct AnimSectionFields {
+    #[serde(rename = "Image")]
+    image: Option<String>,
+    #[serde(rename = "NewTheater")]
+    new_theater: Option<bool>,
+    #[serde(rename = "LoopStart")]
+    loop_start: Option<u16>,
+    #[serde(rename = "Start")]
+    start: Option<u16>,
+    #[serde(rename = "LoopEnd")]
+    loop_end: Option<u16>,
+    #[serde(rename = "Rate")]
+    rate_ms: Option<u32>,
+    #[serde(rename = "Remapable")]
+    remapable: Option<bool>,
 }
 
 fn cached_anim_section_hint<'a>(
@@ -917,12 +938,4 @@ fn load_structure_turret_vxl(
         rgba: sprite.rgba,
         shadow: None,
     })
-}
-
-fn parse_u16(raw: &str) -> Option<u16> {
-    raw.trim().parse().ok()
-}
-
-fn parse_u32(raw: &str) -> Option<u32> {
-    raw.trim().parse().ok()
 }
