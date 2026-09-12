@@ -76,6 +76,7 @@ pub use overlay_paint::{
 };
 pub use overlay_pass::apply_overlay_land_to_pass_grid;
 pub use paint_ini::{PaintIniDocs, read_optional_ini};
+pub use packed_cell::{PackedCellCoords, parse_packed_cell, unpack_packed_cell};
 pub use pass_grid::{MAX_GROUND_CLIMB, PassGrid};
 pub use placements::{MapEntity, MapEntityKind, parse_map_entities};
 pub use playfield::{LocalSize, cell_in_local_playfield, local_size_preview_rect};
