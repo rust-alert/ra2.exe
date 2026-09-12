@@ -290,3 +290,15 @@ fn build_runtime_definitions_rejects_unknown_deploys_into_target() {
     assert!(msg.contains("techno"), "{msg}");
     assert!(msg.contains("MISSINGYARD"), "{msg}");
 }
+
+#[test]
+fn build_runtime_definitions_rejects_unknown_structure_super_weapon() {
+    let rules = rules_from(
+        b"[BuildingTypes]\n0=GATECH\n\
+[GATECH]\nCost=1500\nStrength=600\nSuperWeapon=MissingStorm\n",
+    );
+    let err = build_runtime_definitions(&rules).expect_err("missing SuperWeapon must fail freeze");
+    let msg = err.to_string();
+    assert!(msg.contains("super_weapon"), "{msg}");
+    assert!(msg.contains("MISSINGSTORM") || msg.contains("MissingStorm"), "{msg}");
+}

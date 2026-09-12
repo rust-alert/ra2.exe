@@ -202,7 +202,20 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         } else {
             Some(tt.super_weapon.clone())
         };
-        let super_weapon_id = super_weapon.as_ref().and_then(|k| defs.super_weapons.get(k.as_str()).map(|sw| sw.id));
+        let super_weapon_id = match &super_weapon {
+            None => None,
+            Some(k) => Some(
+                defs
+                    .super_weapons
+                    .get(k.as_str())
+                    .map(|sw| sw.id)
+                    .ok_or_else(|| RaError::UnknownReference {
+                        kind: "super_weapon",
+                        name: k.as_str().to_string(),
+                        owner: key.as_str().to_string(),
+                    })?,
+            ),
+        };
         if super_weapon.is_some() {
             capabilities.push(BuiltinCapability::SuperWeapon);
             if !defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon) {
