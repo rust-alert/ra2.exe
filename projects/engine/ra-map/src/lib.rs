@@ -384,7 +384,7 @@ impl MapInfo {
     ///
     /// 不含 overlay 陆地封格、Foundation 展开、渲染清单或规则绑定；对局路径仍可继续用 `PassGrid` 直至准备层收口。
     pub fn to_prepared_map_skeleton(&self) -> ra_types::PreparedMap {
-        self.prepared_map_from_pass_grid(PassGrid::from_map(self))
+        self.prepared_map_from_pass_grid(PassGrid::from_map(self), None)
     }
 
     /// 在 [`Self::to_prepared_map_skeleton`] 基础上，用 overlay `Land=` / `NoUseTileLandType` 覆写通行层。
@@ -393,13 +393,24 @@ impl MapInfo {
     pub fn to_prepared_map_skeleton_with_overlays(&self, overlays: &ra_types::OverlayTypeRegistry) -> ra_types::PreparedMap {
         let mut grid = PassGrid::from_map(self);
         apply_overlay_land_to_pass_grid(self, overlays, &mut grid);
-        self.prepared_map_from_pass_grid(grid)
+        self.prepared_map_from_pass_grid(grid, None)
     }
 
-    fn prepared_map_from_pass_grid(&self, grid: PassGrid) -> ra_types::PreparedMap {
+    /// 在 [`Self::to_prepared_map_skeleton`] 基础上，按建筑表 `Foundation=` 展开 occupancy 多格占地。
+    ///
+    /// 未知类型回退 `1x1`；通行层仍只封锚点（Foundation 封格另刀）。
+    pub fn to_prepared_map_skeleton_with_structures(&self, structures: &ra_types::StructureDefinitions) -> ra_types::PreparedMap {
+        self.prepared_map_from_pass_grid(PassGrid::from_map(self), Some(structures))
+    }
+
+    fn prepared_map_from_pass_grid(
+        &self,
+        grid: PassGrid,
+        structures: Option<&ra_types::StructureDefinitions>,
+    ) -> ra_types::PreparedMap {
         let definition = self.to_map_definition();
         let (pass_width, pass_height, passable, cell_heights) = grid.to_prepared_pass_layers();
-        let occupancy = prepared_occupancy_from_map(self);
+        let occupancy = prepared_occupancy_from_map(self, structures);
         ra_types::PreparedMap {
             definition,
             pass_width,
@@ -527,8 +538,10 @@ fn parse_map_digest(doc: &IniDocument) -> String {
         .join("")
 }
 
-/// 建筑锚点=`1`、地形物件=`2`、污迹=`3`；同格建筑优先。尺寸与 [`MapInfo::width`] / [`MapInfo::height`] 对齐。
-fn prepared_occupancy_from_map(map: &MapInfo) -> Vec<u8> {
+/// 建筑占地=`1`、地形物件=`2`、污迹=`3`；同格建筑优先。尺寸与 [`MapInfo::width`] / [`MapInfo::height`] 对齐。
+///
+/// 若提供 `structures`，按 `Foundation=` 从锚点向右下展开；缺表或未知类型按 `1x1`。
+fn prepared_occupancy_from_map(map: &MapInfo, structures: Option<&ra_types::StructureDefinitions>) -> Vec<u8> {
     let width = map.width.max(1) as usize;
     let height = map.height.max(1) as usize;
     let mut occupancy = vec![0u8; width.saturating_mul(height)];
@@ -544,8 +557,22 @@ fn prepared_occupancy_from_map(map: &MapInfo) -> Vec<u8> {
         }
     };
     for ent in &map.entities {
-        if ent.kind == MapEntityKind::Structure {
-            mark(&mut occupancy, ent.x, ent.y, 1);
+        if ent.kind != MapEntityKind::Structure {
+            continue;
+        }
+        let (fw, fh) = structures
+            .and_then(|table| table.get(&ent.type_id))
+            .map(|def| (def.foundation.width.max(1), def.foundation.height.max(1)))
+            .unwrap_or((1, 1));
+        for dy in 0..fh {
+            for dx in 0..fw {
+                mark(
+                    &mut occupancy,
+                    ent.x.saturating_add(dx),
+                    ent.y.saturating_add(dy),
+                    1,
+                );
+            }
         }
     }
     for obj in &map.terrain_objects {

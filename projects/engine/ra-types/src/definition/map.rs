@@ -489,7 +489,7 @@ pub struct MapAiTrigger {
 
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。
 ///
-/// 当前为骨架：通行格与粗占格已可由装载侧灌入；Foundation 展开、渲染资源清单等仍待准备层收口。
+/// 当前为骨架：通行格与粗占格已可由装载侧灌入；Foundation 封通行、渲染资源清单等仍待准备层收口。
 /// 与 [`MapDefinition`] 一样，本类型是运行最优形状，可随时改，不绑定磁盘格式。
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct PreparedMap {
@@ -503,8 +503,8 @@ pub struct PreparedMap {
     pub passable: Vec<u8>,
     /// 行优先格高度档，与 [`Self::passable`] 同长或空。
     pub cell_heights: Vec<u8>,
-    /// 行优先粗占格：`0` 空，`1` 建筑锚点，`2` 地形物件，`3` 污迹。空表示尚未填充。
+    /// 行优先粗占格：`0` 空，`1` 建筑占地，`2` 地形物件，`3` 污迹。空表示尚未填充。
     ///
-    /// 不含 Foundation 多格展开或规则绑定；仅装载期锚点 / 污迹占位。
+    /// 绑定 `StructureDefinitions` 时可按 `Foundation=` 多格展开；裸骨架仅锚点 `1x1`。
     pub occupancy: Vec<u8>,
 }

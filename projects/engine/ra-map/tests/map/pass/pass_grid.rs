@@ -102,3 +102,57 @@ fn prepared_map_skeleton_seeds_anchor_occupancy() {
     assert_eq!(prepared.occupancy[1 * 3 + 2], 2);
     assert_eq!(prepared.occupancy[1 * 3], 3);
 }
+
+#[test]
+fn prepared_map_skeleton_expands_structure_foundation() {
+    use ra_types::{
+        ArmorKind, Foundation, HouseAllowList, PowerProfile, StructureDefinition, StructureDefinitions, TypeId,
+    };
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.width = 4;
+    map.height = 3;
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Neutral".into(),
+        type_id: "GAPOWR".into(),
+        health: 256,
+        x: 1,
+        y: 1,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
+    });
+    let mut structures = StructureDefinitions::default();
+    structures.insert(StructureDefinition {
+        id: TypeId(1),
+        type_key: "GAPOWR".into(),
+        power: PowerProfile::default(),
+        cost: 0,
+        strength: 1,
+        armor: ArmorKind::None,
+        construction_yard: false,
+        refinery: false,
+        radar: false,
+        build_cat: Default::default(),
+        capturable: false,
+        production: None,
+        owner: HouseAllowList::empty(),
+        foundation: Foundation::parse("2x2"),
+        height: 2,
+        super_weapon: None,
+        super_weapon_id: None,
+        light: None,
+        capabilities: Vec::new(),
+    });
+    let prepared = map.to_prepared_map_skeleton_with_structures(&structures);
+    assert_eq!(prepared.occupancy[1 * 4 + 1], 1);
+    assert_eq!(prepared.occupancy[1 * 4 + 2], 1);
+    assert_eq!(prepared.occupancy[2 * 4 + 1], 1);
+    assert_eq!(prepared.occupancy[2 * 4 + 2], 1);
+    assert_eq!(prepared.occupancy[1 * 4 + 0], 0);
+    let bare = map.to_prepared_map_skeleton();
+    assert_eq!(bare.occupancy[1 * 4 + 1], 1);
+    assert_eq!(bare.occupancy[1 * 4 + 2], 0);
+}
