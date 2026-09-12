@@ -137,6 +137,16 @@ struct ActionCommandCsvRow {
     p6: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct ChunkCountCsvRow {
+    count: usize,
+}
+
+/// 行首块数（Events / Actions 的 `count, ...`）。
+fn leading_chunk_count(row: &CsvRow) -> usize {
+    from_csv_row::<ChunkCountCsvRow>(&csv_slice(row, 0, 1)).map(|r| r.count).unwrap_or(0)
+}
+
 /// `1` 为真，其余为假。
 fn flag_is_one<'de, D>(deserializer: D) -> Result<bool, D::Error>
 where
@@ -218,7 +228,7 @@ pub fn parse_events(doc: &IniDocument) -> Vec<MapEvent> {
         if row.is_empty() {
             continue;
         }
-        let count: usize = row.get(0).and_then(|s| s.parse().ok()).unwrap_or(0);
+        let count = leading_chunk_count(&row);
         let mut conditions = Vec::new();
         let mut idx = 1usize;
         for _ in 0..count {
@@ -253,7 +263,7 @@ pub fn parse_actions(doc: &IniDocument) -> Vec<MapAction> {
         if row.is_empty() {
             continue;
         }
-        let count: usize = row.get(0).and_then(|s| s.parse().ok()).unwrap_or(0);
+        let count = leading_chunk_count(&row);
         let mut commands = Vec::new();
         let mut idx = 1usize;
         for _ in 0..count {
