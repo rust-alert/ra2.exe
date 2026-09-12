@@ -26,4 +26,4 @@ pub use load_screen::{LOAD_SCREEN_BUTTON_IDS, solve_load_screen};
 pub use network_page::{NETWORK_BUTTON_IDS, solve_network_page};
 pub use options_page::{OPTIONS_CONTENT_IDS, solve_options_page};
 pub use shell_chrome::solve_shell_page;
-pub use skirmish_score::solve_skirmish_score;
+pub use skirmish_score::{SCORE_ROW_SLOTS, solve_skirmish_score};

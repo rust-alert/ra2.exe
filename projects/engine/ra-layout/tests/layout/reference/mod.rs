@@ -10,3 +10,4 @@ mod load_screen;
 mod network_page;
 mod options_page;
 mod shell_chrome;
+mod skirmish_score;
