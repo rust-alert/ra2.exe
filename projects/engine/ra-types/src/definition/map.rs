@@ -411,8 +411,8 @@ pub struct MapTaskForceEntry {
 /// 可改为稳定 type id / 稠密成员表；装载侧见 `ra-map::MapTaskForce`。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTaskForce {
-    /// id。
-    pub id: String,
+    /// id（装载期一次解码为大写 TaskForces 键）。
+    pub id: crate::TaskForceName,
     /// 名称。
     pub name: String,
     /// 成员（最多 6）。

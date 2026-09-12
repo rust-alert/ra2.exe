@@ -16,8 +16,8 @@ pub struct MapTaskForceEntry {
 /// `[TaskForces]` 一项（装载解析中间态；投影进 `ra_types::MapTaskForce`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTaskForce {
-    /// id。
-    pub id: String,
+    /// id（装载期一次解码为大写 TaskForces 键）。
+    pub id: TaskForceName,
     /// 名称。
     pub name: String,
     /// 成员（最多 6）。
@@ -138,7 +138,7 @@ pub fn parse_task_forces(doc: &IniDocument) -> Vec<MapTaskForce> {
             });
         }
         out.push(MapTaskForce {
-            id,
+            id: TaskForceName::parse(&id),
             name: meta.name.unwrap_or_default().trim().to_string(),
             entries,
             group: meta.group.unwrap_or(-1),
