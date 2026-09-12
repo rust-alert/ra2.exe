@@ -56,7 +56,7 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
                 continue;
             }
         }
-        let rem = world.ai_trigger_runtime.cooldowns.entry(at.id.clone()).or_insert(0);
+        let rem = world.ai_trigger_runtime.cooldowns.entry(at.id.to_string()).or_insert(0);
         if *rem > 0 {
             continue;
         }

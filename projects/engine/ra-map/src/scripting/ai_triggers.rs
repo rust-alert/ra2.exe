@@ -1,14 +1,14 @@
 //! `[AITriggerTypes]` 解析（引擎侧 `tick_ai_triggers` 最小执行产队）。
 
 use ra_assets::{IniDocument, from_csv_row, parse_westwood_csv_line};
-use ra_types::{HouseName, TeamTypeName};
+use ra_types::{AiTriggerName, HouseName, TeamTypeName};
 use serde::Deserialize;
 
 /// 一条 AI 触发（装载解析中间态；投影进 `ra_types::MapAiTrigger`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapAiTrigger {
-    /// 触发 id（列表键或节名）。
-    pub id: String,
+    /// 触发 id（装载期一次解码为大写 AITriggerTypes 键）。
+    pub id: AiTriggerName,
     /// 显示名。
     pub name: String,
     /// 关联 TeamType（装载期一次解码为大写 TeamTypes 键）。
@@ -67,7 +67,11 @@ pub fn parse_ai_triggers(doc: &IniDocument) -> Vec<MapAiTrigger> {
                 continue;
             };
             out.push(MapAiTrigger {
-                id: if key.is_empty() { row.name.clone() } else { key.to_string() },
+                id: if key.is_empty() {
+                    AiTriggerName::parse(&row.name)
+                } else {
+                    AiTriggerName::parse(key)
+                },
                 name: row.name,
                 team: row.team,
                 owner_house: row.owner_house,
@@ -75,17 +79,22 @@ pub fn parse_ai_triggers(doc: &IniDocument) -> Vec<MapAiTrigger> {
             });
             continue;
         }
-        let id = value.to_string();
-        if let Some(sec) = doc.section(&id) {
+        let id = AiTriggerName::parse(value);
+        if let Some(sec) = doc.section(id.as_str()) {
             let fields = sec.deserialize::<AiTriggerSectionFields>().unwrap_or_default();
             let owner_house = if !fields.owner_house.is_empty() {
                 fields.owner_house
             } else {
                 fields.house
             };
+            let name = fields
+                .name
+                .unwrap_or_else(|| id.as_str().to_string())
+                .trim()
+                .to_string();
             out.push(MapAiTrigger {
-                id: id.clone(),
-                name: fields.name.unwrap_or(id).trim().to_string(),
+                id,
+                name,
                 team: first_team(fields.team1, fields.team),
                 owner_house,
                 tech_level: fields.tech_level.unwrap_or(0),

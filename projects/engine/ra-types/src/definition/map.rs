@@ -475,8 +475,8 @@ pub struct MapTeamType {
 /// 可改为稳定 team / house id；装载侧见 `ra-map::MapAiTrigger`。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapAiTrigger {
-    /// 触发 id。
-    pub id: String,
+    /// 触发 id（装载期一次解码为大写 AITriggerTypes 键）。
+    pub id: crate::AiTriggerName,
     /// 显示名。
     pub name: String,
     /// 关联 TeamType（装载期一次解码为大写 TeamTypes 键）。
