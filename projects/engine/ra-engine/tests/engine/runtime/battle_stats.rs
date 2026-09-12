@@ -49,13 +49,13 @@ fn victory_locks_battle_stats() {
             break;
         }
     }
-    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "AMERICANS".into() }));
     let stats = session.expect_battle().battle_stats.as_ref().expect("stats");
     assert!(stats.duration_ticks > 0);
     assert_eq!(stats.units_lost, 1);
     assert_eq!(stats.buildings_lost, 0);
     assert_eq!(stats.funds_spent, 1200);
-    let americans = stats.players.iter().find(|p| p.house == "Americans").expect("Americans row");
+    let americans = stats.players.iter().find(|p| p.house.eq_ignore_ascii_case("Americans")).expect("Americans row");
     assert_eq!(americans.kills, 1);
     assert_eq!(americans.losses, 0);
     assert_eq!(session.expect_battle().snapshot(&[]).battle_stats.as_ref().map(|s| s.funds_spent), Some(1200));

@@ -43,7 +43,7 @@ fn living_structure_prevents_sole_victor() {
     assert_eq!(session.expect_battle_mut().world.players.len(), 2);
     assert!(session.expect_battle().sole_victor().is_none());
     assert!(session.expect_battle_mut().world.set_ecs_health(enemy, 0, max, true));
-    assert_eq!(session.expect_battle().sole_victor(), Some("Americans"));
+    assert_eq!(session.expect_battle().sole_victor(), Some("AMERICANS"));
 }
 
 #[test]
@@ -94,5 +94,5 @@ fn ambient_units_do_not_block_sole_victor() {
     let enemy = session.expect_battle().world.entity_id_at(1).expect("entity");
     let max = session.expect_battle().world.ecs_health(enemy).expect("health").1;
     assert!(session.expect_battle_mut().world.set_ecs_health(enemy, 0, max, true));
-    assert_eq!(session.expect_battle().sole_victor(), Some("Americans"));
+    assert_eq!(session.expect_battle().sole_victor(), Some("AMERICANS"));
 }

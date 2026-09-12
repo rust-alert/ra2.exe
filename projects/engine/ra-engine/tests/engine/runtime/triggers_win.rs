@@ -729,10 +729,25 @@ fn change_house_action_reassigns_tagged_entities() {
     let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
 
     let id = session.expect_battle().world.find_entity_id_by_type("E1").expect("tagged infantry");
-    assert_eq!(session.expect_battle().world.ecs_owner(id).as_deref(), Some("Russians"));
+    assert!(
+        session
+            .expect_battle()
+            .world
+            .ecs_owner(id)
+            .as_deref()
+            .is_some_and(|o| o.eq_ignore_ascii_case("Russians"))
+    );
 
     session.tick(&engine.runtime());
-    assert_eq!(session.expect_battle().world.ecs_owner(id).as_deref(), Some("Americans"), "Change House should reassign tagged objects");
+    assert!(
+        session
+            .expect_battle()
+            .world
+            .ecs_owner(id)
+            .as_deref()
+            .is_some_and(|o| o.eq_ignore_ascii_case("Americans")),
+        "Change House should reassign tagged objects"
+    );
 }
 
 #[test]
@@ -909,8 +924,8 @@ fn all_to_hunt_action_orders_house_attack() {
     session.expect_battle_mut().world.ensure_house("Russians");
 
     let snap = session.expect_battle().snapshot(&[]);
-    let russian = snap.units.iter().find(|u| u.owner.as_ref() == "Russians").map(|u| u.id).expect("RU");
-    let american = snap.units.iter().find(|u| u.owner.as_ref() == "Americans").map(|u| u.id).expect("US");
+    let russian = snap.units.iter().find(|u| u.owner.eq_ignore_ascii_case("Russians")).map(|u| u.id).expect("RU");
+    let american = snap.units.iter().find(|u| u.owner.eq_ignore_ascii_case("Americans")).map(|u| u.id).expect("US");
 
     session.tick(&engine.runtime());
     // All to Hunt queues Attack for next tick apply.

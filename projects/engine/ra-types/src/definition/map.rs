@@ -231,8 +231,8 @@ pub enum MapPlacedEntityKind {
 pub struct MapPlacedEntity {
     /// 放置类别。
     pub kind: MapPlacedEntityKind,
-    /// 所属方名称。
-    pub owner: String,
+    /// 所属方名称（装载期一次解码为大写）。
+    pub owner: crate::HouseName,
     /// 类型 id（通常已大写）。
     pub type_id: String,
     /// 0..=256；原版常写 256 表示满血。

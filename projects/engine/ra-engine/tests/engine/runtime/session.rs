@@ -84,9 +84,9 @@ fn order_attack_and_detects_victor() {
             break;
         }
     }
-    assert_eq!(session.expect_battle().sole_victor(), Some("Americans"));
+    assert_eq!(session.expect_battle().sole_victor(), Some("AMERICANS"));
     assert!(session.expect_battle().world.ecs_health(session.expect_battle().world.entity_id_at(1).expect("entity")).expect("health").2);
-    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "AMERICANS".into() }));
     assert!(session.expect_battle().paused);
     assert_eq!(session.pump(&engine.runtime(), 1.0), 0);
 }

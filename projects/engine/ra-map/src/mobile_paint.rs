@@ -6,7 +6,7 @@ use ra_assets::{
     HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, from_row, rasterize_vxl_layer_poses,
     rasterize_vxl_shadow_layer_poses,
 };
-use ra_types::{AssetSource, ImageName};
+use ra_types::{AssetSource, HouseName, ImageName};
 use serde::Deserialize;
 
 use crate::{
@@ -142,7 +142,7 @@ pub fn paint_map_mobiles(
     let vpl = source.read("voxels.vpl").ok().and_then(|b| VplFile::parse(&b).ok());
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
-    let mut blit_cache: HashMap<(String, u16, String), TileBlit> = HashMap::new();
+    let mut blit_cache: HashMap<(String, u16, HouseName), TileBlit> = HashMap::new();
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
     for ent in mobiles {

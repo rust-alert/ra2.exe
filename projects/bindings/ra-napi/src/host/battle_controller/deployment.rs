@@ -8,7 +8,7 @@ use ra_map::{
     paint_terrain_anims_onto_rgba,
 };
 use ra_renderer::Renderer;
-use ra_types::EntityId;
+use ra_types::{EntityId, HouseName};
 use ra_widgets::fs_source::GameAssetSource;
 
 use super::super::boot::remap_owner_palette;
@@ -262,7 +262,7 @@ impl BattleController {
             one.entities.clear();
             one.entities.push(MapEntity {
                 kind: MapEntityKind::Structure,
-                owner: owner.to_string(),
+                owner: HouseName::parse(owner),
                 type_id: type_id.to_string(),
                 health: 256,
                 x,
@@ -307,7 +307,7 @@ impl BattleController {
                 one.entities.clear();
                 one.entities.push(MapEntity {
                     kind: MapEntityKind::Structure,
-                    owner: owner.to_string(),
+                    owner: HouseName::parse(owner),
                     type_id: type_id.to_string(),
                     health: 256,
                     x,
@@ -357,7 +357,7 @@ impl BattleController {
         };
         let mut mobile_map = game.world.map.clone();
         mobile_map.entities.clear();
-        let mut poses: HashMap<(u16, u16, String, String), MobilePaintPose> = HashMap::new();
+        let mut poses: HashMap<(u16, u16, String, HouseName), MobilePaintPose> = HashMap::new();
         for id in game.world.entity_ids() {
             if game.world.ecs_health(id).map(|(_, _, dead)| dead).unwrap_or(true) {
                 continue;
@@ -377,7 +377,7 @@ impl BattleController {
             else {
                 continue;
             };
-            let owner_s = owner.to_string();
+            let owner_s = HouseName::parse(owner.as_ref());
             let type_s = type_id.to_string();
             poses.insert((x, y, type_s.clone(), owner_s.clone()), mobile_paint_pose_for(game, id, x, y, tick_fraction));
             mobile_map.entities.push(MapEntity {
@@ -427,7 +427,7 @@ impl BattleController {
         };
         let mut mobile_map = game.world.map.clone();
         mobile_map.entities.clear();
-        let mut poses: HashMap<(u16, u16, String, String), MobilePaintPose> = HashMap::new();
+        let mut poses: HashMap<(u16, u16, String, HouseName), MobilePaintPose> = HashMap::new();
         for id in game.world.entity_ids() {
             if game.world.ecs_health(id).map(|(_, _, dead)| dead).unwrap_or(true) {
                 continue;
@@ -447,7 +447,7 @@ impl BattleController {
             else {
                 continue;
             };
-            let owner_s = owner.to_string();
+            let owner_s = HouseName::parse(owner.as_ref());
             let type_s = type_id.to_string();
             poses.insert((x, y, type_s.clone(), owner_s.clone()), mobile_paint_pose_for(game, id, x, y, tick_fraction));
             mobile_map.entities.push(MapEntity {
