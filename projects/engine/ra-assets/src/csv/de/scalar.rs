@@ -214,7 +214,7 @@ impl<'de> de::Deserializer<'de> for ScalarDeserializer {
         visitor.visit_unit()
     }
 
-    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
