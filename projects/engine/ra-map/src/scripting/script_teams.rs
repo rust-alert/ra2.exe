@@ -45,7 +45,7 @@ pub struct MapScriptType {
     pub steps: Vec<MapScriptStep>,
 }
 
-/// `[TeamTypes]` 一项（字段子集）。
+/// `[TeamTypes]` 一项（装载解析中间态；投影进 `ra_types::MapTeamType`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTeamType {
     /// id。

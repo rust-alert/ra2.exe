@@ -67,6 +67,8 @@ pub struct MapDefinition {
     pub task_forces: Vec<MapTaskForce>,
     /// `[ScriptTypes]` 脚本步骤表。
     pub script_types: Vec<MapScriptType>,
+    /// `[TeamTypes]` 产队定义。
+    pub team_types: Vec<MapTeamType>,
 }
 
 impl Default for MapDefinition {
@@ -98,6 +100,7 @@ impl Default for MapDefinition {
             cell_tags: Vec::new(),
             task_forces: Vec::new(),
             script_types: Vec::new(),
+            team_types: Vec::new(),
         }
     }
 }
@@ -395,6 +398,33 @@ pub struct MapScriptType {
     pub name: String,
     /// 步骤。
     pub steps: Vec<MapScriptStep>,
+}
+
+/// TeamType 产队（运行契约；来自 `[TeamTypes]` 语义子集）。
+///
+/// 可改为稳定 house / script / task_force id；装载侧见 `ra-map::MapTeamType`。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapTeamType {
+    /// id。
+    pub id: String,
+    /// 名称。
+    pub name: String,
+    /// `House=`。
+    pub house: String,
+    /// `Script=`。
+    pub script: String,
+    /// `TaskForce=`。
+    pub task_force: String,
+    /// `Tag=`（可空）。
+    pub tag: String,
+    /// `Waypoint=`：产队航点编号；`<0` 表示未指定。
+    pub waypoint: i32,
+    /// `Max=`。
+    pub max: i32,
+    /// `Priority=`。
+    pub priority: i32,
+    /// `VeteranLevel=`。
+    pub veteran_level: i32,
 }
 
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。

@@ -44,7 +44,7 @@ pub use house_list::HouseAllowList;
 pub use locomotor::LocomotorDefinitions;
 pub use map::{
     MapAction, MapActionCommand, MapCellTag, MapDefinition, MapEvent, MapEventCondition, MapHouse, MapIsoCell, MapLighting, MapLocalSize,
-    MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapScriptStep, MapScriptType, MapTag, MapTaskForce, MapTaskForceEntry,
+    MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapScriptStep, MapScriptType, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType,
     MapTerrainObject, MapTrigger, MapWaypoint, PreparedMap,
 };
 pub use names::{

@@ -25,13 +25,13 @@ pub use definition::{
     DeployableDefinitions, DeploymentPlacement, Foundation, HouseAllowList, HouseDefinition, HouseDefinitions, HouseName, HouseStolenTechMap,
     ImageName, LocomotorDefinitions, MapAction, MapActionCommand, MapCellTag, MapDefinition, MapEvent, MapEventCondition, MapHouse, MapIsoCell,
     MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapScriptStep, MapScriptType, MapTag, MapTaskForce,
-    MapTaskForceEntry, MapTerrainObject, MapTrigger, MapWaypoint, OverlayTypeRegistry, PowerProfile, PrerequisiteGroupKind, PrerequisiteGroups,
-    PrerequisiteList, PrerequisiteToken, PreparedMap, ProductionCategory, ProductionDefinitions, ProductionProfile, ProjectileDefinition,
-    ProjectileDefinitions, ProjectileName, RuntimeDefinitions, SoundDefinitions, StolenTechKind, StructureDefinition, StructureDefinitions,
-    StructureLightProfile, SuperWeaponActionName, SuperWeaponDefinition, SuperWeaponDefinitions, SuperWeaponKindName, SuperWeaponName,
-    TechnoCategory, TechnoClass, TechnoDefinition, TechnoDefinitions, TechnoName, TerrainSpawnerDefinition, TerrainSpawnerDefinitions,
-    TypeDefinitionId, UiName, WarheadDefinition, WarheadDefinitions, WarheadName, WarheadVerses, WeaponDefinition, WeaponDefinitions,
-    WeaponName, armor_index, deserialize_optional_factory,
+    MapTaskForceEntry, MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, OverlayTypeRegistry, PowerProfile, PrerequisiteGroupKind,
+    PrerequisiteGroups, PrerequisiteList, PrerequisiteToken, PreparedMap, ProductionCategory, ProductionDefinitions, ProductionProfile,
+    ProjectileDefinition, ProjectileDefinitions, ProjectileName, RuntimeDefinitions, SoundDefinitions, StolenTechKind, StructureDefinition,
+    StructureDefinitions, StructureLightProfile, SuperWeaponActionName, SuperWeaponDefinition, SuperWeaponDefinitions, SuperWeaponKindName,
+    SuperWeaponName, TechnoCategory, TechnoClass, TechnoDefinition, TechnoDefinitions, TechnoName, TerrainSpawnerDefinition,
+    TerrainSpawnerDefinitions, TypeDefinitionId, UiName, WarheadDefinition, WarheadDefinitions, WarheadName, WarheadVerses, WeaponDefinition,
+    WeaponDefinitions, WeaponName, armor_index, deserialize_optional_factory,
 };
 pub use display_mode::DisplayMode;
 pub use edition::GameEdition;
