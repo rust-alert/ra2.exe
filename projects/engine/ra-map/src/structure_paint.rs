@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use ra_assets::{HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, rasterize_vxl_layer_poses, shp_body_frame_count};
-use ra_types::AssetSource;
+use ra_types::{AssetSource, ImageName};
 use serde::Deserialize;
 use serde::de::Deserializer;
 
@@ -64,7 +64,11 @@ fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocum
     let body = structure_body_art_fields(art, type_id, &art_section);
     let remapable = body.remapable.unwrap_or(true);
     let body_new_theater = body.new_theater.unwrap_or(false);
-    let bib_key = body.bib_shape.as_deref().map(str::to_ascii_uppercase).filter(|s| !s.is_empty());
+    let bib_key = body
+        .bib_shape
+        .as_ref()
+        .filter(|n| !n.is_empty())
+        .map(|n| n.as_str().to_string());
     let bib_new_theater = match bib_key.as_ref() {
         Some(bib) => art
             .and_then(|a| a.section(bib))
@@ -75,10 +79,10 @@ fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocum
     };
     let body_key = body
         .image
-        .as_deref()
-        .unwrap_or(art_section.as_str())
-        .trim()
-        .to_ascii_uppercase();
+        .as_ref()
+        .filter(|n| !n.is_empty())
+        .map(|n| n.as_str().to_string())
+        .unwrap_or_else(|| art_section.trim().to_ascii_uppercase());
     StructureTypePaintHints {
         remapable,
         body_key,
@@ -88,7 +92,7 @@ fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocum
         tech_level: structure_tech_level(rules, type_id),
         turret_voxel: structure_turret_voxel_hints(rules, type_id),
         fire_offsets: structure_damage_fire_offsets(&body),
-        buildup: structure_buildup_hints(art, body.buildup.as_deref(), body_new_theater),
+        buildup: structure_buildup_hints(art, body.buildup.as_ref().map(|n| n.as_str()), body_new_theater),
         loop_anims: structure_loop_anim_names(&body),
     }
 }
@@ -138,15 +142,15 @@ fn structure_body_art_fields(art: Option<&IniDocument>, type_id: &str, art_secti
 #[derive(Debug, Default, Deserialize)]
 struct StructureBodyArtFields {
     #[serde(rename = "Image")]
-    image: Option<String>,
+    image: Option<ImageName>,
     #[serde(rename = "NewTheater")]
     new_theater: Option<bool>,
     #[serde(rename = "Remapable")]
     remapable: Option<bool>,
     #[serde(rename = "BibShape")]
-    bib_shape: Option<String>,
+    bib_shape: Option<ImageName>,
     #[serde(rename = "Buildup")]
-    buildup: Option<String>,
+    buildup: Option<ImageName>,
     #[serde(rename = "ActiveAnim")]
     active_anim: Option<String>,
     #[serde(rename = "ActiveAnimDamaged")]
@@ -218,10 +222,10 @@ fn structure_buildup_hints(art: Option<&IniDocument>, buildup: Option<&str>, par
     // 无独立 Buildup 段时沿用建筑段的 `NewTheater`，文件名即 `Buildup` 键。
     let image_key = fields
         .image
-        .as_deref()
-        .unwrap_or(buildup_key.as_str())
-        .trim()
-        .to_ascii_uppercase();
+        .as_ref()
+        .filter(|n| !n.is_empty())
+        .map(|n| n.as_str().to_string())
+        .unwrap_or(buildup_key);
     let new_theater = fields.new_theater.unwrap_or(parent_new_theater);
     let rate_ms = fields.rate_ms.unwrap_or(100);
     Some(StructureBuildupHints { image_key, new_theater, rate_ms })
@@ -230,7 +234,7 @@ fn structure_buildup_hints(art: Option<&IniDocument>, buildup: Option<&str>, par
 #[derive(Debug, Default, Deserialize)]
 struct BuildupSectionFields {
     #[serde(rename = "Image")]
-    image: Option<String>,
+    image: Option<ImageName>,
     #[serde(rename = "NewTheater")]
     new_theater: Option<bool>,
     #[serde(rename = "Rate")]
@@ -928,9 +932,10 @@ fn resolve_art_section(art: Option<&IniDocument>, type_id: &str) -> String {
             .section(type_id)
             .and_then(|s| s.deserialize::<StructureBodyArtFields>().ok())
             .and_then(|f| f.image)
-            .unwrap_or_else(|| type_id.to_string());
-        if a.section(&image_key).is_some() {
-            Some(image_key.to_ascii_uppercase())
+            .filter(|n| !n.is_empty())
+            .unwrap_or_else(|| ImageName::parse(type_id));
+        if a.section(image_key.as_str()).is_some() {
+            Some(image_key.as_str().to_string())
         } else if a.section(type_id).is_some() {
             Some(type_id.to_ascii_uppercase())
         } else {
