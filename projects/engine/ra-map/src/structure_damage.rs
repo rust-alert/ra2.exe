@@ -1,6 +1,7 @@
 //! 建筑受损阈值与主体帧 / 燃烧叠画选用。
 
-use ra_assets::IniDocument;
+use ra_assets::{IniDocument, from_row};
+use serde::Deserialize;
 
 /// 规则里的建筑受损阈值与火焰类型名。
 #[derive(Debug, Clone, PartialEq)]
@@ -20,24 +21,69 @@ impl Default for StructureDamageRules {
     }
 }
 
+/// `[AudioVisual]` 受损相关键。
+#[derive(Debug, Default, Deserialize)]
+struct AudioVisualDamageFields {
+    #[serde(rename = "ConditionYellow")]
+    condition_yellow: Option<String>,
+    #[serde(rename = "ConditionRed")]
+    condition_red: Option<String>,
+    #[serde(rename = "DamageFireTypes")]
+    damage_fire_types: Option<String>,
+    #[serde(rename = "DamageFireNames")]
+    damage_fire_names: Option<String>,
+}
+
+/// `[General]` 火焰类型键。
+#[derive(Debug, Default, Deserialize)]
+struct GeneralDamageFireFields {
+    #[serde(rename = "DamageFireTypes")]
+    damage_fire_types: Option<String>,
+    #[serde(rename = "DamageFireNames")]
+    damage_fire_names: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FireOffsetRow {
+    x: i32,
+    y: i32,
+}
+
 impl StructureDamageRules {
     /// 从 rules 文档读取 `[AudioVisual]` 阈值与火焰类型。
     pub fn from_rules_doc(doc: &IniDocument) -> Self {
         let mut out = Self::default();
-        if let Some(v) = doc.get("AudioVisual", "ConditionYellow").and_then(parse_condition_percent) {
-            out.yellow = v;
+        let av = doc
+            .section("AudioVisual")
+            .and_then(|s| s.deserialize::<AudioVisualDamageFields>().ok())
+            .unwrap_or_default();
+        if let Some(raw) = av.condition_yellow.as_deref() {
+            if let Some(v) = parse_condition_percent(raw) {
+                out.yellow = v;
+            }
         }
-        if let Some(v) = doc.get("AudioVisual", "ConditionRed").and_then(parse_condition_percent) {
-            out.red = v;
+        if let Some(raw) = av.condition_red.as_deref() {
+            if let Some(v) = parse_condition_percent(raw) {
+                out.red = v;
+            }
         }
+        let general = doc
+            .section("General")
+            .and_then(|s| s.deserialize::<GeneralDamageFireFields>().ok())
+            .unwrap_or_default();
         // 零售写在 `[General]`；个别模组可能挂在 `[AudioVisual]`。
-        if let Some(raw) = doc
-            .get("General", "DamageFireTypes")
-            .or_else(|| doc.get("General", "DamageFireNames"))
-            .or_else(|| doc.get("AudioVisual", "DamageFireTypes"))
-            .or_else(|| doc.get("AudioVisual", "DamageFireNames"))
-        {
-            out.fire_types = raw.split(',').map(str::trim).filter(|s| !s.is_empty()).map(|s| s.to_ascii_uppercase()).collect();
+        let fire_raw = general
+            .damage_fire_types
+            .or(general.damage_fire_names)
+            .or(av.damage_fire_types)
+            .or(av.damage_fire_names);
+        if let Some(raw) = fire_raw {
+            out.fire_types = raw
+                .split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_ascii_uppercase())
+                .collect();
         }
         out
     }
@@ -91,8 +137,6 @@ pub fn damaged_body_frame(health_256: u16, yellow: f32, red: f32, tech_level: i3
 
 /// 解析 `DamageFireOffsetN=x,y`。
 pub fn parse_damage_fire_offset(raw: &str) -> Option<(i32, i32)> {
-    let mut parts = raw.split(',').map(str::trim);
-    let x: i32 = parts.next()?.parse().ok()?;
-    let y: i32 = parts.next()?.parse().ok()?;
-    Some((x, y))
+    let row: FireOffsetRow = from_row(raw).ok()?;
+    Some((row.x, row.y))
 }
