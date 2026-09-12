@@ -224,7 +224,7 @@ impl MapInfo {
             .section("Basic")
             .and_then(|s| s.deserialize::<BasicSectionFields>().ok())
             .unwrap_or_default();
-        let game_modes = parse_game_modes(basic.game_modes.as_deref());
+        let game_modes = basic.game_modes;
         let description_csf = basic.description.unwrap_or_default().trim().to_string();
         let next_mission = basic.next_mission.unwrap_or_default().trim().to_string();
         let alternate_next_mission = basic.alternate_next_mission.unwrap_or_default().trim().to_string();
@@ -383,7 +383,9 @@ impl MapInfo {
     }
 }
 
-/// 解析 `[Basic] GameModes` 逗号列表（去空白、丢空段）。
+/// 解析逗号分隔的游戏模式标签（去空白、丢空段）。
+///
+/// 地图 `[Basic] GameModes` 已由节 Serde 直接落到 `Vec`；本函数供 missions.pkt 等外层字符串入口复用。
 pub fn parse_game_modes(raw: Option<&str>) -> Vec<String> {
     let Some(raw) = raw
     else {
@@ -428,8 +430,8 @@ struct MapSectionFields {
 /// `[Basic]` 节字段（一次 Serde）。
 #[derive(Debug, Default, Deserialize)]
 struct BasicSectionFields {
-    #[serde(rename = "GameModes")]
-    game_modes: Option<String>,
+    #[serde(rename = "GameModes", default)]
+    game_modes: Vec<String>,
     #[serde(rename = "Description")]
     description: Option<String>,
     #[serde(rename = "NextMission")]
