@@ -42,7 +42,7 @@ pub mod lcw;
 pub mod lzo;
 
 use ra_assets::{IniDocument, from_row};
-use ra_types::{GameEdition, MapDefinition, RaError, RaResult};
+use ra_types::{GameEdition, MapDefinition, MapWaypoint, RaError, RaResult};
 use serde::Deserialize;
 
 pub use base64::{base64_decode, base64_encode};
@@ -288,6 +288,11 @@ impl MapInfo {
             next_mission: self.next_mission.clone(),
             alternate_next_mission: self.alternate_next_mission.clone(),
             starting_credits: self.starting_credits,
+            waypoints: self
+                .waypoints
+                .iter()
+                .map(|w| MapWaypoint { index: w.index, x: w.x, y: w.y })
+                .collect(),
         }
     }
 

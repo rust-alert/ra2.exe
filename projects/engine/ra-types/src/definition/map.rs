@@ -28,6 +28,19 @@ pub struct MapDefinition {
     pub alternate_next_mission: String,
     /// `[Basic] StartingCredits`。
     pub starting_credits: i32,
+    /// `[Waypoints]` 格子锚点（编号已排序）。
+    pub waypoints: Vec<MapWaypoint>,
+}
+
+/// 冻结地图航点（任务 / 出生点等格子锚点）。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MapWaypoint {
+    /// 航点编号。
+    pub index: u32,
+    /// 格子 X。
+    pub x: u16,
+    /// 格子 Y。
+    pub y: u16,
 }
 
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。

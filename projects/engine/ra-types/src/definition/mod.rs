@@ -39,7 +39,7 @@ pub use fingerprint::ContentFingerprint;
 pub use foundation::Foundation;
 pub use house_list::HouseAllowList;
 pub use locomotor::LocomotorDefinitions;
-pub use map::{MapDefinition, PreparedMap};
+pub use map::{MapDefinition, MapWaypoint, PreparedMap};
 pub use names::{
     HouseName, ImageName, ProjectileName, SuperWeaponActionName, SuperWeaponKindName, SuperWeaponName, TechnoName, UiName, WarheadName,
     WeaponName,
