@@ -394,9 +394,13 @@ impl crate::state::BattleState {
                             continue;
                         }
                         let id = self.alloc_entity_id();
-                        // 墙链中间段免费补齐，电力 / 造价仍只按完工件结算一次。
-                        self.players[player_index].power_output = self.players[player_index].power_output.saturating_add(power.output);
-                        self.players[player_index].power_drain = self.players[player_index].power_drain.saturating_add(power.drain);
+                        let is_click = px == x && py == y;
+                        // 墙链中间段免费补齐：造价已在 Produce 扣一次；电力只按完工件（点击格）结算一次。
+                        // `built` 仍按每段落实体计数（中间段也是真实墙段）。
+                        if is_click {
+                            self.players[player_index].power_output = self.players[player_index].power_output.saturating_add(power.output);
+                            self.players[player_index].power_drain = self.players[player_index].power_drain.saturating_add(power.drain);
+                        }
                         self.players[player_index].built = self.players[player_index].built.saturating_add(1);
                         self.seal_structure_footprint(px, py, foundation.width, foundation.height);
                         self.spawn_from_bundle(EntitySpawnBundle {
@@ -430,7 +434,7 @@ impl crate::state::BattleState {
                         self.mark_entity_dirty(id);
                         // 新建筑走 Buildup 再定格，避免瞬现主体 SHP。
                         self.structure_buildup_dirty.push(id);
-                        if px == x && py == y {
+                        if is_click {
                             click_id = Some(id);
                         }
                     }

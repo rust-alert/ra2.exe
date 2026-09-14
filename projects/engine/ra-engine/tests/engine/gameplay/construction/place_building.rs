@@ -538,6 +538,61 @@ fn wall_chain_places_within_guard_range_and_autofills() {
 }
 
 #[test]
+fn wall_chain_autofill_applies_power_once() {
+    let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAWALL\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\nBaseNormal=yes\n\
+[GAWALL]\nWall=yes\nBaseNormal=no\nAdjacent=0\nGuardRange=4\nPower=20\nOwner=Americans\nStrength=100\nSight=1\nCost=50\nTechLevel=1\nFoundation=1x1\nBuildCat=Combat\n";
+    let defs = defs_from_rules_ini(rules_text);
+    let mut map = MapInfo::empty(GameEdition::Ra2, "wall-chain-power");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GACNST".into(),
+            health: 256,
+            x: 4,
+            y: 4,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GAWALL".into(),
+            health: 256,
+            x: 5,
+            y: 4,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+    ];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+    let output_before = world.players[0].power_output;
+    let built_before = world.players[0].built;
+
+    queue_until_ready(&mut world, "GAWALL");
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: world.definitions.techno.get("GAWALL").expect("GAWALL").id,
+        x: 9,
+        y: 4,
+    });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty(), "wall chain rejects: {:?}", world.last_rejects());
+    // 中间 3 + 点击 1 = 4 段实体，但供电只按完工件一次。
+    assert_eq!(world.entity_count(), 6);
+    assert_eq!(world.players[0].power_output, output_before + 20);
+    assert_eq!(world.players[0].built, built_before + 4);
+}
+
+#[test]
 fn wall_chain_rejects_beyond_guard_range_and_diagonal() {
     let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAWALL\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\nBaseNormal=yes\n\
