@@ -14,6 +14,9 @@ use super::{
     TechnoName,
 };
 
+/// rules 未写 `Adjacent=` 时的缺省空隙格数。
+pub const DEFAULT_BUILD_ADJACENT: i32 = 3;
+
 /// 建造栏分类（INI `BuildCat=`）。
 ///
 /// 侧栏 Q/W：非 `Combat` 进建筑页，`Combat` 进防御页。缺省视为建筑页。
@@ -185,6 +188,10 @@ pub struct StructureDefinition {
     pub refinery: bool,
     /// INI `Wall=yes`（围墙 / 闸门等；不计入遭遇战保活）。
     pub wall: bool,
+    /// INI `BaseNormal=`：是否扩展己方建区（缺省 `yes`）。
+    pub base_normal: bool,
+    /// INI `Adjacent=`：相对己方 `BaseNormal` 建筑允许的最大空隙格数（缺省 `3`；负值禁止落位）。
+    pub adjacent: i32,
     /// INI `FreeUnit=`：建筑落位完成后白送的单位稳定 id；`None` = 不送。
     pub free_unit: Option<TypeId>,
     /// INI `Radar=yes`（侧栏雷达开图）。

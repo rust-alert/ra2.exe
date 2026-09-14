@@ -415,10 +415,16 @@ impl BattleController {
         else {
             return;
         };
-        let foundation = game.world.definitions.structures.get(type_id).map(|s| s.foundation.clone()).unwrap_or_default();
-        let water_bound = game.world.definitions.structures.get(type_id).map(|s| s.water_bound).unwrap_or(false);
+        let Some(sdef) = game.world.definitions.structures.get(type_id)
+        else {
+            return;
+        };
+        let foundation = &sdef.foundation;
+        let water_bound = sdef.water_bound;
         let width = foundation.width.max(1);
         let height = foundation.height.max(1);
+        let house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.as_ref());
+        let zone_ok = house.is_some_and(|h| game.world.house_build_zone_allows(h, sdef.adjacent, ox, oy, width, height));
         let cam = renderer.camera();
         let half_w = (TILE_WIDTH / 2) as f32;
         let half_h = (TILE_HEIGHT / 2) as f32;
@@ -432,7 +438,7 @@ impl BattleController {
                 else {
                     continue;
                 };
-                let ok = game.world.cell_ok_for_structure(cx, cy, water_bound);
+                let ok = zone_ok && game.world.cell_ok_for_structure(cx, cy, water_bound);
                 let fill = if ok { [40u8, 220, 70, 90] } else { [220u8, 40, 40, 110] };
                 let stroke = if ok { [80u8, 255, 100, 230] } else { [255u8, 70, 70, 240] };
                 let z = game.world.pass_grid.cell_height(cx, cy);

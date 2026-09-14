@@ -203,6 +203,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         let construction_yard = tt.construction_yard;
         let refinery = tt.refinery;
         let wall = tt.wall;
+        let base_normal = tt.base_normal;
+        let adjacent = tt.adjacent;
         if !tt.free_unit.is_empty() {
             pending_free_units.push((key.clone(), tt.free_unit.clone()));
         }
@@ -275,6 +277,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             construction_yard,
             refinery,
             wall,
+            base_normal,
+            adjacent,
             free_unit: None,
             radar,
             build_cat,

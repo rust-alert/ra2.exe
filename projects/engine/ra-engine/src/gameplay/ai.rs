@@ -254,8 +254,7 @@ fn place_near_yard(world: &BattleState, house: &str, player: PlayerId, structure
     else {
         return Vec::new();
     };
-    let foundation = &structure.foundation;
-    let Some((x, y)) = find_open_near(world, yx, yy, foundation.width, foundation.height, structure.water_bound)
+    let Some((x, y)) = find_open_near(world, house, structure.id, yx, yy)
     else {
         return Vec::new();
     };
@@ -419,9 +418,7 @@ fn yard_cell(world: &BattleState, house: &str) -> Option<(u16, u16)> {
 ///
 /// 旧逻辑只查邻格 `1x1`，真实 `Foundation=2x2` / `3x4` 会在 `PlaceBuilding` 被拒，
 /// 表现为 AI 有钱却造不出建筑、只刷已有兵营的大兵。
-fn find_open_near(world: &BattleState, fx: u16, fy: u16, width: u16, height: u16, water_bound: bool) -> Option<(u16, u16)> {
-    let width = width.max(1);
-    let height = height.max(1);
+fn find_open_near(world: &BattleState, house: &str, type_id: ra_types::TypeId, fx: u16, fy: u16) -> Option<(u16, u16)> {
     const MAX_RADIUS: i32 = 16;
     for radius in 1..=MAX_RADIUS {
         for dx in -radius..=radius {
@@ -435,7 +432,7 @@ fn find_open_near(world: &BattleState, fx: u16, fy: u16, width: u16, height: u16
                     continue;
                 }
                 let (x, y) = (x as u16, y as u16);
-                if world.can_place_structure_footprint(x, y, width, height, water_bound) {
+                if world.can_place_building_for(house, type_id, x, y) {
                     return Some((x, y));
                 }
             }

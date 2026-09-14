@@ -135,10 +135,17 @@ impl BattleController {
             else {
                 return;
             };
-            let foundation = game.world.definitions.structures.get(&type_id).map(|s| s.foundation.clone()).unwrap_or_default();
-            let water_bound = game.world.definitions.structures.get(&type_id).map(|s| s.water_bound).unwrap_or(false);
-            if !game.world.can_place_structure_footprint(cell.0, cell.1, foundation.width, foundation.height, water_bound) {
-                tracing::debug!("放置跳过 · 占地不可用 {type_id} @({},{})", cell.0, cell.1);
+            let Some(sdef) = game.world.definitions.structures.get(&type_id)
+            else {
+                return;
+            };
+            let house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.clone());
+            let Some(house) = house
+            else {
+                return;
+            };
+            if !game.world.can_place_building_for(house.as_ref(), sdef.id, cell.0, cell.1) {
+                tracing::debug!("放置跳过 · 占地或建区不可用 {type_id} @({},{})", cell.0, cell.1);
                 return;
             }
             if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {

@@ -9,8 +9,8 @@ use crate::ini::{
     deserialize_opt_u32,
 };
 use ra_types::{
-    BuildCat, Foundation, HouseAllowList, ImageName, PrerequisiteList, ProductionCategory, ProjectileName, SuperWeaponName, TechnoCategory,
-    TechnoName, WarheadName, WeaponName, deserialize_optional_factory,
+    BuildCat, DEFAULT_BUILD_ADJACENT, Foundation, HouseAllowList, ImageName, PrerequisiteList, ProductionCategory, ProjectileName,
+    SuperWeaponName, TechnoCategory, TechnoName, WarheadName, WeaponName, deserialize_optional_factory,
 };
 
 /// 步兵 / 载具 / 飞行器 / 建筑的共用类型字段。
@@ -116,6 +116,10 @@ pub struct TechnoType {
     pub refinery: bool,
     /// `Wall`（围墙 / 闸门；遭遇战保活不计）。
     pub wall: bool,
+    /// `BaseNormal`：是否扩展玩家建区；缺省 `true`。
+    pub base_normal: bool,
+    /// `Adjacent`：相对己方 `BaseNormal` 建筑的最大空隙格数；缺省 `3`；负值禁止落位。
+    pub adjacent: i32,
     /// `FreeUnit` 目标类型名；空表示建成后不白送单位。
     pub free_unit: TechnoName,
     /// `Radar`。
@@ -347,6 +351,10 @@ struct TechnoSectionFields {
     refinery: Option<bool>,
     #[serde(rename = "Wall", default, deserialize_with = "deserialize_opt_bool")]
     wall: Option<bool>,
+    #[serde(rename = "BaseNormal", default, deserialize_with = "deserialize_opt_bool")]
+    base_normal: Option<bool>,
+    #[serde(rename = "Adjacent", default, deserialize_with = "deserialize_opt_i32")]
+    adjacent: Option<i32>,
     #[serde(rename = "FreeUnit", default)]
     free_unit: TechnoName,
     #[serde(rename = "Radar", default, deserialize_with = "deserialize_opt_bool")]
@@ -469,6 +477,8 @@ fn parse_techno(view: LayeredIniView<'_>, id: &TechnoName, kind: TechnoKind, ove
         construction_yard: fields.construction_yard.unwrap_or(false),
         refinery: fields.refinery.unwrap_or(false),
         wall: fields.wall.unwrap_or(false),
+        base_normal: fields.base_normal.unwrap_or(true),
+        adjacent: fields.adjacent.unwrap_or(DEFAULT_BUILD_ADJACENT),
         free_unit: fields.free_unit,
         radar: fields.radar.unwrap_or(false),
         build_cat: fields.build_cat,

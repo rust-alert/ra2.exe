@@ -337,12 +337,7 @@ fn water_bound_shipyard_places_on_water_rejects_land() {
     let yard_id = world.definitions.techno.get("GAYARD").expect("GAYARD").id;
 
     // 陆地应拒绝。
-    world.push_command(GameCommand::PlaceBuilding {
-        player: PlayerId(0),
-        type_id: yard_id,
-        x: 6,
-        y: 4,
-    });
+    world.push_command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: yard_id, x: 6, y: 4 });
     world.advance_tick();
     assert_eq!(world.last_rejects().len(), 1);
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidPlacement);
@@ -350,12 +345,7 @@ fn water_bound_shipyard_places_on_water_rejects_land() {
     // 完工件仍在，可继续落水。
     assert_eq!(world.house_ready_building("AMERICANS"), Some(yard_id));
 
-    world.push_command(GameCommand::PlaceBuilding {
-        player: PlayerId(0),
-        type_id: yard_id,
-        x: 8,
-        y: 8,
-    });
+    world.push_command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: yard_id, x: 8, y: 8 });
     world.advance_tick();
     assert!(world.last_rejects().is_empty(), "water place rejects: {:?}", world.last_rejects());
     assert_eq!(world.entity_count(), 2);
@@ -366,4 +356,123 @@ fn water_bound_shipyard_places_on_water_rejects_land() {
     assert_eq!(world.ecs_transform(shipyard).map(|t| (t.0, t.1)), Some((8, 8)));
     assert!(!world.pass_grid.is_passable(8, 8));
     assert_eq!(world.pass_grid.land_type(8, 8), LandType::Water);
+}
+
+#[test]
+fn place_building_rejects_outside_base_normal_zone() {
+    let mut world = yard_world();
+    queue_until_ready(&mut world, "GAPOWR");
+    // 建造场在 (4,4)；默认 Adjacent=3 → 最大切比雪夫 4。远处置空地应拒。
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: world.definitions.techno.get("GAPOWR").expect("GAPOWR").id,
+        x: 12,
+        y: 12,
+    });
+    world.advance_tick();
+    assert_eq!(world.last_rejects().len(), 1);
+    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidPlacement);
+    assert_eq!(world.entity_count(), 1);
+    assert!(world.house_ready_building("AMERICANS").is_some());
+}
+
+#[test]
+fn place_building_respects_adjacent_gap() {
+    let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAPOWR\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\nBaseNormal=yes\n\
+[GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\nFoundation=1x1\nAdjacent=0\n";
+    let defs = defs_from_rules_ini(rules_text);
+    let mut map = MapInfo::empty(GameEdition::Ra2, "adjacent-zero");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "AMERICANS".into(),
+        type_id: "GACNST".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    }];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+    assert_eq!(world.definitions.structures.get("GAPOWR").map(|s| s.adjacent), Some(0));
+
+    queue_until_ready(&mut world, "GAPOWR");
+    // Adjacent=0：隔一格应拒。
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: world.definitions.techno.get("GAPOWR").expect("GAPOWR").id,
+        x: 6,
+        y: 4,
+    });
+    world.advance_tick();
+    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidPlacement);
+
+    // 贴边应通过。
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: world.definitions.techno.get("GAPOWR").expect("GAPOWR").id,
+        x: 5,
+        y: 4,
+    });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty(), "touching place rejects: {:?}", world.last_rejects());
+    assert_eq!(world.entity_count(), 2);
+}
+
+#[test]
+fn place_building_ignores_non_base_normal_as_anchor() {
+    let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAPILL\n2=GAPOWR\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\nBaseNormal=yes\n\
+[GAPILL]\nPower=-10\nOwner=Americans\nStrength=400\nSight=5\nCost=500\nTechLevel=1\nFoundation=1x1\nBaseNormal=no\nAdjacent=0\nBuildCat=Combat\n\
+[GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\nFoundation=1x1\nAdjacent=0\n";
+    let defs = defs_from_rules_ini(rules_text);
+    let mut map = MapInfo::empty(GameEdition::Ra2, "base-normal-no");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GACNST".into(),
+            health: 256,
+            x: 4,
+            y: 4,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GAPILL".into(),
+            health: 256,
+            x: 10,
+            y: 10,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+    ];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+    assert_eq!(world.definitions.structures.get("GAPILL").map(|s| s.base_normal), Some(false));
+
+    queue_until_ready(&mut world, "GAPOWR");
+    // 仅挨着 BaseNormal=no 的防御塔、远离建造场 → 应拒。
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: world.definitions.techno.get("GAPOWR").expect("GAPOWR").id,
+        x: 11,
+        y: 10,
+    });
+    world.advance_tick();
+    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidPlacement);
+    assert_eq!(world.entity_count(), 2);
 }
