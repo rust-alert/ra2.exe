@@ -40,7 +40,7 @@ impl BattleState {
 
     /// 占地几何 + 己方建区（`BaseNormal`/`Adjacent`）或墙链（`Wall`/`GuardRange`）。
     ///
-    /// 人类与 AI 落建筑的统一入口。
+    /// 人类玩家落位入口；AI 请用 [`Self::can_place_building_for_ai`]。
     pub fn can_place_building_for(&self, house: &str, type_id: TypeId, x: u16, y: u16) -> bool {
         let Some(sdef) = self.definitions.structures.get_by_id(type_id)
         else {
@@ -57,9 +57,126 @@ impl BattleState {
         sdef.wall && self.wall_chain_anchor(house, type_id, sdef.guard_range, x, y).is_some()
     }
 
+    /// AI 落位：占地几何 + `AIBaseSpacing` 最少空隙（可选优先多一格）+ 船厂最大距。
+    ///
+    /// 不走人类 `Adjacent` 建区；墙仍可用 `GuardRange` 链。`min_gap_cells` 为足迹间最少空隙格数
+    ///（切比雪夫 `d >= min_gap_cells + 1`）。围墙不参与间距锚点，避免墙把基地撑开。
+    pub fn can_place_building_for_ai(&self, house: &str, type_id: TypeId, x: u16, y: u16, min_gap_cells: u32) -> bool {
+        let Some(sdef) = self.definitions.structures.get_by_id(type_id)
+        else {
+            return false;
+        };
+        let foundation = &sdef.foundation;
+        let width = foundation.width.max(1);
+        let height = foundation.height.max(1);
+        if !self.can_place_structure_footprint(x, y, width, height, sdef.water_bound) {
+            return false;
+        }
+        if sdef.water_bound && !self.house_naval_yard_adjacency_allows(house, x, y, width, height) {
+            return false;
+        }
+        if sdef.wall && self.wall_chain_anchor(house, type_id, sdef.guard_range, x, y).is_some() {
+            return true;
+        }
+        self.house_ai_spacing_allows(house, min_gap_cells, x, y, width, height)
+    }
+
+    /// 相对己方非墙建筑是否满足最少空隙（`min_gap_cells`；`0` 表示可贴边）。
+    pub fn house_ai_spacing_allows(&self, house: &str, min_gap_cells: u32, x: u16, y: u16, width: u16, height: u16) -> bool {
+        let Some(house_id) = crate::gameplay::house_id_of(&self.definitions, house)
+        else {
+            return false;
+        };
+        let width = width.max(1);
+        let height = height.max(1);
+        let min_d = min_gap_cells.saturating_add(1);
+        use crate::state::components::{Health, Identity, Owner, Transform};
+
+        // 尚无其它非墙建筑时，只要几何可放即可（开局贴建造场）。
+        let mut saw_anchor = false;
+        for e in &self.entities {
+            let id = e.id;
+            if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                continue;
+            }
+            if !self.ecs_get::<Owner>(id).is_some_and(|o| o.house == house_id) {
+                continue;
+            }
+            let Some(identity) = self.ecs_get::<Identity>(id)
+            else {
+                continue;
+            };
+            if identity.kind != MapEntityKind::Structure {
+                continue;
+            }
+            let Some(anchor) = self.definitions.structures.get_by_id(identity.type_id)
+            else {
+                continue;
+            };
+            if anchor.wall {
+                continue;
+            }
+            let Some(xf) = self.ecs_get::<Transform>(id)
+            else {
+                continue;
+            };
+            saw_anchor = true;
+            let aw = anchor.foundation.width.max(1);
+            let ah = anchor.foundation.height.max(1);
+            let d = min_chebyshev_between_footprints(x, y, width, height, xf.x, xf.y, aw, ah);
+            if d < min_d {
+                return false;
+            }
+        }
+        saw_anchor || min_gap_cells == 0
+    }
+
+    /// AI 船厂是否落在建造场 `AINavalYardAdjacency` 切比雪夫半径内。
+    pub fn house_naval_yard_adjacency_allows(&self, house: &str, x: u16, y: u16, width: u16, height: u16) -> bool {
+        let Some(house_id) = crate::gameplay::house_id_of(&self.definitions, house)
+        else {
+            return false;
+        };
+        let width = width.max(1);
+        let height = height.max(1);
+        let max_d = self.definitions.ai_naval_yard_adjacency.max(1);
+        use crate::state::components::{Health, Identity, Owner, Transform};
+
+        self.entities.iter().any(|e| {
+            let id = e.id;
+            if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                return false;
+            }
+            if !self.ecs_get::<Owner>(id).is_some_and(|o| o.house == house_id) {
+                return false;
+            }
+            let Some(identity) = self.ecs_get::<Identity>(id)
+            else {
+                return false;
+            };
+            if identity.kind != MapEntityKind::Structure {
+                return false;
+            }
+            let Some(anchor) = self.definitions.structures.get_by_id(identity.type_id)
+            else {
+                return false;
+            };
+            if !anchor.construction_yard {
+                return false;
+            }
+            let Some(xf) = self.ecs_get::<Transform>(id)
+            else {
+                return false;
+            };
+            let aw = anchor.foundation.width.max(1);
+            let ah = anchor.foundation.height.max(1);
+            min_chebyshev_between_footprints(x, y, width, height, xf.x, xf.y, aw, ah) <= max_d
+        })
+    }
+
     /// 墙落位时实际生成的格列表（含点击格；中间格为免费补段）。
     ///
-    /// 非墙或无可用锚点时仅返回点击格（调用方仍须先通过 [`Self::can_place_building_for`]）。
+    /// 非墙或无可用锚点时仅返回点击格（调用方仍须先通过放置校验）。
     pub fn wall_placement_cells(&self, house: &str, type_id: TypeId, x: u16, y: u16) -> Vec<(u16, u16)> {
         let Some(sdef) = self.definitions.structures.get_by_id(type_id)
         else {

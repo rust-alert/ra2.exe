@@ -122,6 +122,8 @@ pub struct TechnoType {
     pub adjacent: i32,
     /// `GuardRange`：墙链自动补段最大轴距（格）；缺省取主/副武器 `Range` 较大者。
     pub guard_range: i32,
+    /// `WantsExtraSpace`：AI 落位优先多一格间距。
+    pub wants_extra_space: bool,
     /// `FreeUnit` 目标类型名；空表示建成后不白送单位。
     pub free_unit: TechnoName,
     /// `Radar`。
@@ -132,6 +134,8 @@ pub struct TechnoType {
     pub capturable: bool,
     /// `Unsellable=yes`：禁止侧栏出售。
     pub unsellable: bool,
+    /// `Soylent`：满血出售退款基数；`0` 表示改用 `Cost * RefundPercent`。
+    pub soylent: i32,
     /// `ProduceCashStartup`：自中立占领时的一次性奖金。
     pub produce_cash_startup: i32,
     /// `ProduceCashAmount`：周期发放金额。
@@ -361,6 +365,8 @@ struct TechnoSectionFields {
     adjacent: Option<i32>,
     #[serde(rename = "GuardRange", default, deserialize_with = "deserialize_opt_i32")]
     guard_range: Option<i32>,
+    #[serde(rename = "WantsExtraSpace", default, deserialize_with = "deserialize_opt_bool")]
+    wants_extra_space: Option<bool>,
     #[serde(rename = "FreeUnit", default)]
     free_unit: TechnoName,
     #[serde(rename = "Radar", default, deserialize_with = "deserialize_opt_bool")]
@@ -371,6 +377,8 @@ struct TechnoSectionFields {
     capturable: Option<bool>,
     #[serde(rename = "Unsellable", default, deserialize_with = "deserialize_opt_bool")]
     unsellable: Option<bool>,
+    #[serde(rename = "Soylent", default, deserialize_with = "deserialize_opt_i32")]
+    soylent: Option<i32>,
     #[serde(rename = "ProduceCashStartup", default, deserialize_with = "deserialize_opt_i32")]
     produce_cash_startup: Option<i32>,
     #[serde(rename = "ProduceCashAmount", default, deserialize_with = "deserialize_opt_i32")]
@@ -488,11 +496,13 @@ fn parse_techno(view: LayeredIniView<'_>, id: &TechnoName, kind: TechnoKind, ove
         base_normal: fields.base_normal.unwrap_or(true),
         adjacent: fields.adjacent.unwrap_or(DEFAULT_BUILD_ADJACENT),
         guard_range: fields.guard_range.unwrap_or(primary_w.range.max(secondary_w.range) as i32),
+        wants_extra_space: fields.wants_extra_space.unwrap_or(false),
         free_unit: fields.free_unit,
         radar: fields.radar.unwrap_or(false),
         build_cat: fields.build_cat,
         capturable: fields.capturable.unwrap_or(false),
         unsellable: fields.unsellable.unwrap_or(false),
+        soylent: fields.soylent.unwrap_or(0).max(0),
         produce_cash_startup: fields.produce_cash_startup.unwrap_or(0).max(0),
         produce_cash_amount: fields.produce_cash_amount.unwrap_or(0).max(0),
         produce_cash_delay: fields.produce_cash_delay.unwrap_or(0),

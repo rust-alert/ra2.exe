@@ -62,11 +62,14 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     defs.default_tech_level = g.multiplayer_tech_level.unwrap_or(10).max(0);
     // `[General]` 侧栏扳手：缺键回落原版库存默认。
     defs.repair_percent = g.repair_percent.map(|v| v.max(0) as u32).unwrap_or(15);
+    defs.refund_percent = g.refund_percent.map(|v| v.max(0) as u32).unwrap_or(50);
     defs.repair_step = g.repair_step.map(|v| v.max(1) as u32).unwrap_or(8);
     defs.repair_interval_ticks = g.repair_rate_minutes.map(repair_rate_minutes_to_ticks).unwrap_or(14);
     defs.speak_delay_ticks = speak_delay_minutes_to_ticks(g.speak_delay_minutes.unwrap_or(0.0));
     // 原版构造缺省 0.03 分钟；rules 显式键覆盖。
     defs.savour_delay_ticks = speak_delay_minutes_to_ticks(g.savour_delay_minutes.unwrap_or(0.03));
+    defs.ai_base_spacing = g.ai_base_spacing.map(|v| v.max(0) as u32).unwrap_or(ra_types::DEFAULT_AI_BASE_SPACING);
+    defs.ai_naval_yard_adjacency = g.ai_naval_yard_adjacency.map(|v| v.max(0) as u32).unwrap_or(ra_types::DEFAULT_AI_NAVAL_YARD_ADJACENCY);
     for country in rules.countries.countries() {
         let stolen_tech = StolenTechKind::from_side(&country.side);
         let id = alloc_house();
@@ -206,6 +209,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         let base_normal = tt.base_normal;
         let adjacent = tt.adjacent;
         let guard_range = tt.guard_range;
+        let wants_extra_space = tt.wants_extra_space;
         if !tt.free_unit.is_empty() {
             pending_free_units.push((key.clone(), tt.free_unit.clone()));
         }
@@ -213,6 +217,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         let build_cat = tt.build_cat;
         let capturable = tt.capturable;
         let unsellable = tt.unsellable;
+        let soylent = tt.soylent;
         let water_bound = tt.water_bound;
         let produce_cash =
             ra_types::ProduceCashProfile { startup: tt.produce_cash_startup, amount: tt.produce_cash_amount, delay: tt.produce_cash_delay };
@@ -285,11 +290,13 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             base_normal,
             adjacent,
             guard_range,
+            wants_extra_space,
             free_unit: None,
             radar,
             build_cat,
             capturable,
             unsellable,
+            soylent,
             produce_cash,
             water_bound,
             production,

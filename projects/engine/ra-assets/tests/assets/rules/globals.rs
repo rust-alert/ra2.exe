@@ -57,3 +57,11 @@ PrerequisitePower=GAPOWR,NAPOWR\n\
     assert_eq!(g.multiplayer_tech_level, Some(10));
     assert_eq!(g.prerequisite_power, vec![ra_types::TechnoName::parse("GAPOWR"), ra_types::TechnoName::parse("NAPOWR")]);
 }
+
+#[test]
+fn parse_ai_base_spacing_and_naval_yard_adjacency() {
+    let doc = IniDocument::parse(b"[General]\nAINavalYardAdjacency=20\n[AI]\nAIBaseSpacing=1\n").unwrap();
+    let g = RulesGlobals::from_rules(&doc);
+    assert_eq!(g.ai_base_spacing, Some(1));
+    assert_eq!(g.ai_naval_yard_adjacency, Some(20));
+}

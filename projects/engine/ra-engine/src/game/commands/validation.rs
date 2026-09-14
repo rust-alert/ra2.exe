@@ -369,7 +369,24 @@ impl crate::state::BattleState {
                     };
                     let foundation = self.definitions.structures.get_by_id(tt.id).map(|s| s.foundation.clone()).unwrap_or_default();
                     let water_bound = self.definitions.structures.get_by_id(tt.id).is_some_and(|s| s.water_bound);
-                    if !self.can_place_building_for(house.as_ref(), tt.id, x, y) {
+                    let place_ok = if player == self.local_player {
+                        self.can_place_building_for(house.as_ref(), tt.id, x, y)
+                    }
+                    else {
+                        let sdef = self.definitions.structures.get_by_id(tt.id);
+                        let base_gap = self.definitions.ai_base_spacing;
+                        let min_gap = if sdef.is_some_and(|s| s.wants_extra_space) {
+                            base_gap.saturating_add(1)
+                        }
+                        else {
+                            base_gap
+                        };
+                        // 命令路径：优先 `WantsExtraSpace` 间距，否则回落 `AIBaseSpacing`。
+                        self.can_place_building_for_ai(house.as_ref(), tt.id, x, y, min_gap)
+                            || (sdef.is_some_and(|s| s.wants_extra_space)
+                                && self.can_place_building_for_ai(house.as_ref(), tt.id, x, y, base_gap))
+                    };
+                    if !place_ok {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }

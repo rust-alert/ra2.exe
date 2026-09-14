@@ -20,6 +20,12 @@ pub const DEFAULT_BUILD_ADJACENT: i32 = 3;
 /// 原版 `GuardRange` 墙链 / 警戒扫描的硬上限（格）。
 pub const MAX_GUARD_RANGE_CELLS: i32 = 16;
 
+/// rules `[AI] AIBaseSpacing=` 缺省（零售 `1`）。
+pub const DEFAULT_AI_BASE_SPACING: u32 = 1;
+
+/// rules `[General] AINavalYardAdjacency=` 缺省（零售 `20`）。
+pub const DEFAULT_AI_NAVAL_YARD_ADJACENCY: u32 = 20;
+
 /// 建造栏分类（INI `BuildCat=`）。
 ///
 /// 侧栏 Q/W：非 `Combat` 进建筑页，`Combat` 进防御页。缺省视为建筑页。
@@ -197,6 +203,8 @@ pub struct StructureDefinition {
     pub adjacent: i32,
     /// INI `GuardRange=`：墙链自动补段最大轴距（格）；缺省取主/副武器 `Range` 较大者。
     pub guard_range: i32,
+    /// INI `WantsExtraSpace=yes`：AI 落位优先多留一格间距（仍可回落到 `AIBaseSpacing`）。
+    pub wants_extra_space: bool,
     /// INI `FreeUnit=`：建筑落位完成后白送的单位稳定 id；`None` = 不送。
     pub free_unit: Option<TypeId>,
     /// INI `Radar=yes`（侧栏雷达开图）。
@@ -207,6 +215,8 @@ pub struct StructureDefinition {
     pub capturable: bool,
     /// `Unsellable=yes`（禁止侧栏出售；缺省可售）。
     pub unsellable: bool,
+    /// `Soylent`：满血出售退款基数；`0` 表示改用 `Cost * RefundPercent`。
+    pub soylent: i32,
     /// `ProduceCashStartup` / `ProduceCashAmount` / `ProduceCashDelay`（油田等产钱建筑）。
     pub produce_cash: ProduceCashProfile,
     /// `WaterBound=yes`（须落在水域；船厂等）。

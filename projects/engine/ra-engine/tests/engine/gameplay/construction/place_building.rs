@@ -707,3 +707,106 @@ fn wall_chain_blocked_path_rejects() {
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidPlacement);
     assert_eq!(world.entity_count(), 3);
 }
+
+#[test]
+fn ai_spacing_rejects_touching_when_base_spacing_one() {
+    let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAPOWR\n\
+[General]\nAINavalYardAdjacency=20\n\
+[AI]\nAIBaseSpacing=1\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\nFoundation=1x1\n\
+[GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\nFoundation=1x1\nAdjacent=8\n";
+    let defs = defs_from_rules_ini(rules_text);
+    assert_eq!(defs.ai_base_spacing, 1);
+    assert_eq!(defs.ai_naval_yard_adjacency, 20);
+    let mut map = MapInfo::empty(GameEdition::Ra2, "ai-spacing");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "AMERICANS".into(),
+        type_id: "GACNST".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    }];
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    let power = world.definitions.techno.get("GAPOWR").expect("GAPOWR").id;
+    // 人类 Adjacent=8：可贴建造场旁。
+    assert!(world.can_place_building_for("AMERICANS", power, 5, 4));
+    // AI AIBaseSpacing=1：空隙至少 1 → 切比雪夫 ≥2，贴边拒。
+    assert!(!world.can_place_building_for_ai("AMERICANS", power, 5, 4, 1));
+    assert!(world.can_place_building_for_ai("AMERICANS", power, 6, 4, 1));
+}
+
+#[test]
+fn ai_wants_extra_space_prefers_wider_gap() {
+    let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAWEAP\n\
+[AI]\nAIBaseSpacing=1\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\nFoundation=1x1\n\
+[GAWEAP]\nFactory=UnitType\nWantsExtraSpace=yes\nOwner=Americans\nStrength=1000\nSight=4\nCost=2000\nTechLevel=1\nFoundation=1x1\n";
+    let defs = defs_from_rules_ini(rules_text);
+    assert!(defs.structures.get("GAWEAP").expect("GAWEAP").wants_extra_space);
+    let mut map = MapInfo::empty(GameEdition::Ra2, "ai-extra-space");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "AMERICANS".into(),
+        type_id: "GACNST".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    }];
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    let weap = world.definitions.techno.get("GAWEAP").expect("GAWEAP").id;
+    // 优先间距 2（空隙）→ d≥3；基础间距 1 → d≥2。
+    assert!(!world.can_place_building_for_ai("AMERICANS", weap, 6, 4, 2));
+    assert!(world.can_place_building_for_ai("AMERICANS", weap, 6, 4, 1));
+    assert!(world.can_place_building_for_ai("AMERICANS", weap, 7, 4, 2));
+}
+
+#[test]
+fn ai_naval_yard_rejects_beyond_adjacency() {
+    use ra_map::LandType;
+
+    let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAYARD\n\
+[General]\nAINavalYardAdjacency=4\n\
+[AI]\nAIBaseSpacing=0\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\nFoundation=1x1\n\
+[GAYARD]\nWaterBound=yes\nFactory=UnitType\nOwner=Americans\nStrength=1000\nSight=4\nCost=1000\nTechLevel=1\nFoundation=1x1\n";
+    let defs = defs_from_rules_ini(rules_text);
+    assert_eq!(defs.ai_naval_yard_adjacency, 4);
+    let mut map = MapInfo::empty(GameEdition::Ra2, "ai-naval");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "AMERICANS".into(),
+        type_id: "GACNST".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    }];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    for (x, y) in [(8u16, 4u16), (9, 4)] {
+        world.pass_grid.set_land_type(x, y, LandType::Water);
+        world.pass_grid.set_passable(x, y, false);
+    }
+    world.sync_prepared_pass_layers();
+    let yard = world.definitions.techno.get("GAYARD").expect("GAYARD").id;
+    // 切比雪夫 4：可；5：拒。
+    assert!(world.can_place_building_for_ai("AMERICANS", yard, 8, 4, 0));
+    assert!(!world.can_place_building_for_ai("AMERICANS", yard, 9, 4, 0));
+}

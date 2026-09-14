@@ -71,8 +71,8 @@ pub use projectile::{ProjectileDefinition, ProjectileDefinitions, ProjectileName
 pub use runtime::RuntimeDefinitions;
 pub use sound::SoundDefinitions;
 pub use structure::{
-    BuildCat, DEFAULT_BUILD_ADJACENT, HouseDefinition, HouseDefinitions, MAX_GUARD_RANGE_CELLS, PowerProfile, ProduceCashProfile,
-    StructureDefinition, StructureDefinitions, StructureLightProfile,
+    BuildCat, DEFAULT_AI_BASE_SPACING, DEFAULT_AI_NAVAL_YARD_ADJACENCY, DEFAULT_BUILD_ADJACENT, HouseDefinition, HouseDefinitions,
+    MAX_GUARD_RANGE_CELLS, PowerProfile, ProduceCashProfile, StructureDefinition, StructureDefinitions, StructureLightProfile,
 };
 pub use super_weapon::{SuperWeaponActionName, SuperWeaponDefinition, SuperWeaponDefinitions, SuperWeaponKindName, SuperWeaponName};
 pub use tech_tree::{HouseStolenTechMap, PrerequisiteGroupKind, PrerequisiteGroups, PrerequisiteList, PrerequisiteToken, StolenTechKind};

@@ -51,6 +51,8 @@ pub struct RuntimeDefinitions {
     pub default_tech_level: i32,
     /// `[General] RepairPercent`：完全修好相对造价的百分比（缺省 15）。
     pub repair_percent: u32,
+    /// `[General] RefundPercent`：出售时相对造价的百分比（缺省 50；`Soylent` 优先）。
+    pub refund_percent: u32,
     /// `[General] RepairStep`：每修理脉冲回复生命（缺省 8）。
     pub repair_step: u32,
     /// `[General] RepairRate`（分钟）换算的脉冲间隔 tick：`ftol(rate * 900)`（缺省 14）。
@@ -65,6 +67,10 @@ pub struct RuntimeDefinitions {
     pub overlays: OverlayTypeRegistry,
     /// `[General] BaseUnit`：短局保活载具稳定 id。
     pub base_units: Vec<TypeId>,
+    /// `[AI] AIBaseSpacing`：AI 建筑之间最少空隙格数（零售缺省 1）。
+    pub ai_base_spacing: u32,
+    /// `[General] AINavalYardAdjacency`：AI 船厂相对建造场的最大切比雪夫距离（零售缺省 20）。
+    pub ai_naval_yard_adjacency: u32,
 }
 
 impl Default for RuntimeDefinitions {
@@ -88,6 +94,7 @@ impl Default for RuntimeDefinitions {
             stolen_tech_by_house: HouseStolenTechMap::default(),
             default_tech_level: 10,
             repair_percent: 15,
+            refund_percent: 50,
             repair_step: 8,
             repair_interval_ticks: 14,
             speak_delay_ticks: 0,
@@ -95,6 +102,8 @@ impl Default for RuntimeDefinitions {
             terrain_spawners: TerrainSpawnerDefinitions::default(),
             overlays: OverlayTypeRegistry::default(),
             base_units: Vec::new(),
+            ai_base_spacing: super::structure::DEFAULT_AI_BASE_SPACING,
+            ai_naval_yard_adjacency: super::structure::DEFAULT_AI_NAVAL_YARD_ADJACENCY,
         }
     }
 }

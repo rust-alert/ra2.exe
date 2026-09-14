@@ -416,11 +416,40 @@ fn yard_cell(world: &BattleState, house: &str) -> Option<(u16, u16)> {
 
 /// 在建造场附近按完整占地找可放置格（左上角）。
 ///
-/// 旧逻辑只查邻格 `1x1`，真实 `Foundation=2x2` / `3x4` 会在 `PlaceBuilding` 被拒，
-/// 表现为 AI 有钱却造不出建筑、只刷已有兵营的大兵。
+/// AI 用 `AIBaseSpacing`（及可选 `WantsExtraSpace`）代替人类 `Adjacent`。
+/// 先找优先间距，再回落到基础间距（与零售 `WantsExtraSpace` 注释一致）。
 fn find_open_near(world: &BattleState, house: &str, type_id: ra_types::TypeId, fx: u16, fy: u16) -> Option<(u16, u16)> {
-    const MAX_RADIUS: i32 = 16;
-    for radius in 1..=MAX_RADIUS {
+    let sdef = world.definitions.structures.get_by_id(type_id);
+    let base_gap = world.definitions.ai_base_spacing;
+    let prefer_gap = if sdef.is_some_and(|s| s.wants_extra_space) { base_gap.saturating_add(1) } else { base_gap };
+    let water_bound = sdef.is_some_and(|s| s.water_bound);
+    let max_radius = if water_bound {
+        world.definitions.ai_naval_yard_adjacency.max(1) as i32
+    }
+    else {
+        16
+    };
+    for &gap in &[prefer_gap, base_gap] {
+        if let Some(cell) = find_open_near_with_gap(world, house, type_id, fx, fy, max_radius, gap) {
+            return Some(cell);
+        }
+        if gap == base_gap {
+            break;
+        }
+    }
+    None
+}
+
+fn find_open_near_with_gap(
+    world: &BattleState,
+    house: &str,
+    type_id: ra_types::TypeId,
+    fx: u16,
+    fy: u16,
+    max_radius: i32,
+    min_gap_cells: u32,
+) -> Option<(u16, u16)> {
+    for radius in 1..=max_radius {
         for dx in -radius..=radius {
             for dy in -radius..=radius {
                 if dx.abs() != radius && dy.abs() != radius {
@@ -432,7 +461,7 @@ fn find_open_near(world: &BattleState, house: &str, type_id: ra_types::TypeId, f
                     continue;
                 }
                 let (x, y) = (x as u16, y as u16);
-                if world.can_place_building_for(house, type_id, x, y) {
+                if world.can_place_building_for_ai(house, type_id, x, y, min_gap_cells) {
                     return Some((x, y));
                 }
             }

@@ -12,6 +12,8 @@ pub struct RulesGlobals {
     pub multiplayer_tech_level: Option<i32>,
     /// `[General] RepairPercent`。
     pub repair_percent: Option<i32>,
+    /// `[General] RefundPercent`：出售时相对造价的百分比（缺省 50）。
+    pub refund_percent: Option<i32>,
     /// `[General] RepairStep`。
     pub repair_step: Option<i32>,
     /// `[General] RepairRate`（分钟）。
@@ -36,6 +38,10 @@ pub struct RulesGlobals {
     pub prerequisite_proc_alternate: Vec<TechnoName>,
     /// `[General] BaseUnit`：短局下可替代建筑保活的 MCV 类载具。
     pub base_unit: Vec<TechnoName>,
+    /// `[AI] AIBaseSpacing`：AI 建筑之间最少空隙格数。
+    pub ai_base_spacing: Option<i32>,
+    /// `[General] AINavalYardAdjacency`：AI 船厂相对建造场最大距离（格）。
+    pub ai_naval_yard_adjacency: Option<i32>,
 }
 
 impl RulesGlobals {
@@ -51,10 +57,12 @@ impl RulesGlobals {
         let general = view.section("General").and_then(|s| s.deserialize::<GeneralSectionFields>().ok()).unwrap_or_default();
         let dialog = view.section("MultiplayerDialogSettings").and_then(|s| s.deserialize::<DialogSectionFields>().ok()).unwrap_or_default();
         let audio = view.section("AudioVisual").and_then(|s| s.deserialize::<AudioVisualSectionFields>().ok()).unwrap_or_default();
+        let ai = view.section("AI").and_then(|s| s.deserialize::<AiSectionFields>().ok()).unwrap_or_default();
         let speak_delay_minutes = audio.speak_delay.or(general.speak_delay);
         Self {
             multiplayer_tech_level: dialog.tech_level,
             repair_percent: general.repair_percent,
+            refund_percent: general.refund_percent,
             repair_step: general.repair_step,
             repair_rate_minutes: general.repair_rate,
             speak_delay_minutes,
@@ -67,6 +75,8 @@ impl RulesGlobals {
             prerequisite_proc: filter_techno_names(general.prerequisite_proc),
             prerequisite_proc_alternate: filter_techno_names(general.prerequisite_proc_alternate),
             base_unit: filter_techno_names(general.base_unit),
+            ai_base_spacing: ai.ai_base_spacing,
+            ai_naval_yard_adjacency: general.ai_naval_yard_adjacency,
         }
     }
 }
@@ -76,6 +86,8 @@ struct GeneralSectionFields {
     /// 非法文本回落 `None`，不拖垮整节其它键。
     #[serde(rename = "RepairPercent", default, deserialize_with = "deserialize_opt_i32")]
     repair_percent: Option<i32>,
+    #[serde(rename = "RefundPercent", default, deserialize_with = "deserialize_opt_i32")]
+    refund_percent: Option<i32>,
     #[serde(rename = "RepairStep", default, deserialize_with = "deserialize_opt_i32")]
     repair_step: Option<i32>,
     #[serde(rename = "RepairRate", default, deserialize_with = "deserialize_opt_f64")]
@@ -98,6 +110,8 @@ struct GeneralSectionFields {
     prerequisite_proc_alternate: Vec<TechnoName>,
     #[serde(rename = "BaseUnit", default)]
     base_unit: Vec<TechnoName>,
+    #[serde(rename = "AINavalYardAdjacency", default, deserialize_with = "deserialize_opt_i32")]
+    ai_naval_yard_adjacency: Option<i32>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -112,6 +126,12 @@ struct AudioVisualSectionFields {
     speak_delay: Option<f64>,
     #[serde(rename = "SavourDelay", default, deserialize_with = "deserialize_opt_f64")]
     savour_delay: Option<f64>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct AiSectionFields {
+    #[serde(rename = "AIBaseSpacing", default, deserialize_with = "deserialize_opt_i32")]
+    ai_base_spacing: Option<i32>,
 }
 
 fn filter_techno_names(items: Vec<TechnoName>) -> Vec<TechnoName> {
