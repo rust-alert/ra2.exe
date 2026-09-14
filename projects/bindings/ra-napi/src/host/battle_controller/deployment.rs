@@ -42,7 +42,7 @@ impl BattleController {
         else {
             return;
         };
-        let Some(&id) = selected.iter().find(|&&eid| game.deploy_target_of(eid).is_some())
+        let Some(&id) = selected.iter().find(|&&eid| game.entity_can_deploy(eid))
         else {
             tracing::info!("部署 · 选中无可部署单位 · {:?}", selected);
             return;

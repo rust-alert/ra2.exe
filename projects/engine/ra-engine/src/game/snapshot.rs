@@ -198,8 +198,8 @@ impl BattleSession {
         let hva_frame = self.world.ecs_get::<AnimationState>(id).map(|a| a.hva_frame).unwrap_or(0);
         let z = self.world.pass_grid.cell_height(xf.x, xf.y);
         let (sx, sy) = iso_to_screen(i32::from(xf.x), i32::from(xf.y), z);
-        let deployable = !matches!(identity.kind, MapEntityKind::Structure)
-            && crate::gameplay::deploy_into_type(&self.world.definitions, identity.type_id).is_some();
+        let deployable =
+            !matches!(identity.kind, MapEntityKind::Structure) && crate::gameplay::type_can_deploy(&self.world.definitions, identity.type_id);
         let movement = self.world.ecs_get::<MovementState>(id);
         let queue = self.world.ecs_get::<ProductionQueue>(id);
         let is_primary = queue.is_some_and(|q| q.is_primary);

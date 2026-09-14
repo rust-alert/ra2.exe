@@ -110,6 +110,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     }
 
     let mut pending_deploys: Vec<(TypeId, TechnoName, TechnoName)> = Vec::new();
+    let mut pending_undeploys: Vec<(TypeId, TechnoName, TechnoName)> = Vec::new();
     // FreeUnit 目标可能后于建筑入库（与 DeploysInto 同理），第二遍再绑 TypeId。
     let mut pending_free_units: Vec<(TechnoName, TechnoName)> = Vec::new();
 
@@ -159,6 +160,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             requires_stolen_soviet_tech: tt.requires_stolen_soviet_tech,
             requires_stolen_third_tech: tt.requires_stolen_third_tech,
             pixel_selection_bracket_delta: tt.pixel_selection_bracket_delta,
+            deployer: tt.deployer,
+            undeploys_into_id: None,
         });
 
         if tt.harvester {
@@ -173,9 +176,20 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         }
 
         if tt.kind != TechnoKind::Building {
-            // 部署关系可挂在载具上；目标 TypeId 在 techno 全表入库后绑定。
+            // 部署关系可挂在载具 / 步兵上；目标 TypeId 在 techno 全表入库后绑定。
             if !tt.deploys_into.is_empty() {
                 pending_deploys.push((id, key.clone(), tt.deploys_into.clone()));
+                if !defs.capabilities.builtins.contains(&BuiltinCapability::Deployable) {
+                    defs.capabilities.builtins.push(BuiltinCapability::Deployable);
+                }
+            }
+            if tt.deployer {
+                if !defs.capabilities.builtins.contains(&BuiltinCapability::Deployable) {
+                    defs.capabilities.builtins.push(BuiltinCapability::Deployable);
+                }
+            }
+            if !tt.undeploys_into.is_empty() {
+                pending_undeploys.push((id, key.clone(), tt.undeploys_into.clone()));
                 if !defs.capabilities.builtins.contains(&BuiltinCapability::Deployable) {
                     defs.capabilities.builtins.push(BuiltinCapability::Deployable);
                 }
@@ -280,6 +294,28 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             });
         };
         defs.deployables.insert(DeployableDefinition { source, source_key, target: t.id, target_key, placement: DeploymentPlacement::InPlace });
+    }
+
+    // 第二遍：绑定 UndeploysInto 目标 TypeId。
+    for (source, source_key, target_key) in pending_undeploys {
+        let Some(t) = defs.techno.get_name(&target_key)
+        else {
+            return Err(RaError::UnknownReference {
+                kind: "techno",
+                name: target_key.as_str().to_string(),
+                owner: format!("UndeploysInto:{}", source_key.as_str()),
+            });
+        };
+        let target_id = t.id;
+        let Some(src) = defs.techno.iter_mut().find(|tt| tt.id == source)
+        else {
+            return Err(RaError::UnknownReference {
+                kind: "techno",
+                name: source_key.as_str().to_string(),
+                owner: format!("UndeploysInto:{}", target_key.as_str()),
+            });
+        };
+        src.undeploys_into_id = Some(target_id);
     }
 
     // 第二遍：绑定建筑 `FreeUnit=` → 单位 TypeId；未知目标为装载错误。

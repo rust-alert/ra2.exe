@@ -295,6 +295,10 @@ pub struct TechnoDefinition {
     pub requires_stolen_third_tech: bool,
     /// INI `PixelSelectionBracketDelta`：选中血条竖直像素偏移（负值上移）。
     pub pixel_selection_bracket_delta: i32,
+    /// `Deployer=yes`：可在部署 / 收起形态间切换。
+    pub deployer: bool,
+    /// `UndeploysInto` 绑定后的目标类型；`None` 表示未配置。
+    pub undeploys_into_id: Option<TypeId>,
 }
 
 /// Techno 定义表。

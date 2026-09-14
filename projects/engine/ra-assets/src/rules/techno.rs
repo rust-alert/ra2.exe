@@ -100,6 +100,10 @@ pub struct TechnoType {
     pub pixel_selection_bracket_delta: i32,
     /// `DeploysInto` 目标类型名；空表示无。
     pub deploys_into: TechnoName,
+    /// `Deployer=yes`：就地蹲姿 / 展开姿态切换（如美国大兵）。
+    pub deployer: bool,
+    /// `UndeploysInto` 目标类型名；空表示无（部署形态解除时回到该类型）。
+    pub undeploys_into: TechnoName,
     /// `Power` 原始值（正产电、负耗电）。
     pub power: i32,
     /// `Powered`；缺省时由耗电推导。
@@ -317,6 +321,10 @@ struct TechnoSectionFields {
     pixel_selection_bracket_delta: Option<i32>,
     #[serde(rename = "DeploysInto", default)]
     deploys_into: TechnoName,
+    #[serde(rename = "Deployer", default, deserialize_with = "deserialize_opt_bool")]
+    deployer: Option<bool>,
+    #[serde(rename = "UndeploysInto", default)]
+    undeploys_into: TechnoName,
     #[serde(rename = "Power", default, deserialize_with = "deserialize_opt_i32")]
     power: Option<i32>,
     #[serde(rename = "Powered", default, deserialize_with = "deserialize_opt_bool")]
@@ -433,6 +441,8 @@ fn parse_techno(view: LayeredIniView<'_>, id: &TechnoName, kind: TechnoKind, ove
         requires_stolen_third_tech: fields.requires_stolen_third_tech.unwrap_or(false),
         pixel_selection_bracket_delta: fields.pixel_selection_bracket_delta.unwrap_or(0),
         deploys_into: fields.deploys_into,
+        deployer: fields.deployer.unwrap_or(false),
+        undeploys_into: fields.undeploys_into,
         power: fields.power.unwrap_or(0),
         powered: fields.powered,
         construction_yard: fields.construction_yard.unwrap_or(false),

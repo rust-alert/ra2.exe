@@ -8,8 +8,8 @@ use crate::{
     state::{
         ATTACK_COOLDOWN_TICKS, BUILD_TIME_TICKS_PER_UNIT, PRODUCE_TICKS,
         components::{
-            AnimationState, AttackState, CombatStats, EntitySpawnBundle, HarvesterState, Health, Identity, Locomotor, MovementState, Owner,
-            ProductionQueue, Transform,
+            AnimationState, AttackState, CombatStats, DeployStance, EntitySpawnBundle, HarvesterState, Health, Identity, Locomotor,
+            MovementState, Owner, ProductionQueue, Transform,
         },
     },
 };
@@ -199,6 +199,7 @@ impl crate::state::BattleState {
             production: ProductionQueue::empty(),
             harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
             animation: AnimationState { hva_frame: 0, hit_flash: 0, fire_flash: 0 },
+            deploy_stance: DeployStance { deployed: false },
         });
         self.mark_entity_dirty(id);
         if let Some(player) =

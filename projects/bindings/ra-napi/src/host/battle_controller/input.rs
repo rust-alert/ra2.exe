@@ -78,7 +78,7 @@ impl BattleController {
 
         // 悬停已选可部署单位 → Deploy（先于攻击 / 移动，避免被友军格 Move 盖住）。
         if let Some(id) = game.pick_local_mobile_near_image(wx, wy, 72.0) {
-            if selected.contains(&id) && game.deploy_target_of(id).is_some() {
+            if selected.contains(&id) && game.entity_can_deploy(id) {
                 return BattlePointer::Deploy;
             }
         }
@@ -247,7 +247,7 @@ impl BattleController {
             if let Some(id) = local_picked {
                 let cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
                 // 西木：左键点已选可部署单位 → 立即部署（非 Shift 加选）。
-                if !add && self.local.selected.contains(&id) && game.deploy_target_of(id).is_some() {
+                if !add && self.local.selected.contains(&id) && game.entity_can_deploy(id) {
                     let tick = game.world.tick;
                     self.deploy_selection();
                     self.pulse_action_lines_at(tick);

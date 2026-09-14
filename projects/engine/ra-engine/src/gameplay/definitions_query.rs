@@ -115,9 +115,14 @@ pub(crate) struct PowerProfileOrZero {
     pub drain: i32,
 }
 
-/// 部署目标稳定 [`TypeId`]。
+/// 部署目标稳定 [`TypeId`]（`DeploysInto`）。
 pub(crate) fn deploy_into_type(defs: &RuntimeDefinitions, source: TypeId) -> Option<TypeId> {
     defs.deployables.get_by_source(source).map(|d| d.target)
+}
+
+/// 解除部署目标稳定 [`TypeId`]（`UndeploysInto`）。
+pub(crate) fn undeploys_into_type(defs: &RuntimeDefinitions, source: TypeId) -> Option<TypeId> {
+    defs.techno.get_by_id(source).and_then(|t| t.undeploys_into_id)
 }
 
 /// `Owner=` 名单是否允许该阵营使用（优先稳定 id；无 id 时回退名名单，供无 `[Countries]` 的测试夹具）。

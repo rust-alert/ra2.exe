@@ -207,6 +207,13 @@ pub struct AnimationState {
     pub fire_flash: u32,
 }
 
+/// `Deployer` 就地姿态：美国大兵等蹲姿 / 展开；与 `DeploysInto` 建筑展开无关。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct DeployStance {
+    /// 是否处于已部署姿态。
+    pub deployed: bool,
+}
+
 /// 生成时一次性写入的 ECS 组件包（权威），随后投影到 `WorldEntity` 槽位。
 #[derive(Debug, Clone)]
 pub struct EntitySpawnBundle {
@@ -232,4 +239,6 @@ pub struct EntitySpawnBundle {
     pub harvester: HarvesterState,
     /// 动画桥接。
     pub animation: AnimationState,
+    /// 就地部署姿态。
+    pub deploy_stance: DeployStance,
 }

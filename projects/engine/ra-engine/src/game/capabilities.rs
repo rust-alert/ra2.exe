@@ -181,7 +181,20 @@ impl BattleSession {
         if self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
             return None;
         }
-        let into = self.deploy_target_of(id)?;
+        if !self.entity_can_deploy(id) {
+            return None;
+        }
+        let into = self.deploy_target_of(id).unwrap_or("").to_string();
+        let into = if into.is_empty() {
+            self.world
+                .ecs_get::<Identity>(id)
+                .and_then(|identity| crate::gameplay::undeploys_into_type(&self.world.definitions, identity.type_id))
+                .map(|tid| crate::gameplay::type_key_of(&self.world.definitions, tid).to_string())
+                .unwrap_or_default()
+        }
+        else {
+            into
+        };
         Some(DeployCapability { entity: id, into_type: Arc::<str>::from(into), enabled: true, disabled_reason: None })
     }
 }
@@ -242,9 +255,9 @@ fn house_holds_structure_in_progress(world: &BattleState, house: &str, type_id: 
         if world.ecs_get::<Owner>(id).is_none_or(|o| crate::gameplay::house_id_of(&world.definitions, house) != Some(o.house)) {
             return false;
         }
-        world.ecs_get::<ProductionQueue>(id).is_some_and(|q| {
-            q.item.is_some_and(|(queued, _)| queued == type_id) || q.defense_item.is_some_and(|(queued, _)| queued == type_id)
-        })
+        world
+            .ecs_get::<ProductionQueue>(id)
+            .is_some_and(|q| q.item.is_some_and(|(queued, _)| queued == type_id) || q.defense_item.is_some_and(|(queued, _)| queued == type_id))
     })
 }
 
@@ -317,8 +330,7 @@ pub fn project_produce_items(
         .map(|t| {
             let limit_hit = build_limit_reached(world, player.house, t);
             // 已在队列中的类型仍保持可点（宿主左键加队 / 右键取消）。
-            let (enabled, disabled_reason) =
-                evaluate_produce_availability(has_factory, factory_can_enqueue, funds, t.cost, limit_hit);
+            let (enabled, disabled_reason) = evaluate_produce_availability(has_factory, factory_can_enqueue, funds, t.cost, limit_hit);
             CapabilityItem { type_id: Arc::<str>::from(t.type_key.as_str()), cost: t.cost, enabled, disabled_reason }
         })
         .collect();
@@ -343,14 +355,7 @@ fn project_house_produce_queues(world: &BattleState, house: &str) -> Vec<Snapsho
         let push_slot = |out: &mut Vec<SnapshotProduceQueue>, type_id: ra_types::TypeId, remaining_ticks: u32| {
             let total_ticks = world.definitions.techno.get_by_id(type_id).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
             let key = std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&world.definitions, type_id));
-            out.push(SnapshotProduceQueue {
-                factory: id,
-                type_id: key,
-                remaining_ticks,
-                total_ticks,
-                rally_x,
-                rally_y,
-            });
+            out.push(SnapshotProduceQueue { factory: id, type_id: key, remaining_ticks, total_ticks, rally_x, rally_y });
         };
         if let Some((type_id, remaining_ticks)) = queue.item {
             push_slot(&mut out, type_id, remaining_ticks);

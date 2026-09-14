@@ -75,6 +75,8 @@ pub(crate) struct WorldEntity {
     pub fire_flash: u32,
     /// 生命归零后为真。
     pub dead: bool,
+    /// `Deployer` 就地蹲姿是否已部署。
+    pub deployed: bool,
 }
 
 impl WorldEntity {
@@ -113,6 +115,7 @@ impl WorldEntity {
             hit_flash: 0,
             fire_flash: 0,
             dead: false,
+            deployed: false,
         }
     }
 }

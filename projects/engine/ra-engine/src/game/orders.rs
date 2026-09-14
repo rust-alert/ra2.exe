@@ -103,13 +103,13 @@ impl BattleSession {
             .is_some_and(|i| i.kind == MapEntityKind::Structure && crate::gameplay::is_capturable(&self.world.definitions, i.type_id))
     }
 
-    /// 部署指定可展开单位（如 MCV）。
+    /// 部署选中可部署单位（`DeploysInto` / `Deployer` / `UndeploysInto`）。
     pub fn order_deploy(&mut self, selected: &[EntityId]) {
         if self.outcome.is_some() {
             return;
         }
         for &id in selected {
-            if self.world.entity_index(id).is_some() {
+            if self.entity_can_deploy(id) {
                 self.push_command(GameCommand::Deploy { entity: id });
             }
         }
@@ -190,7 +190,19 @@ impl BattleSession {
         }
     }
 
-    /// 若实体可部署，返回目标建筑类型键（如 `GACNST` / `NACNST`）。
+    /// 实体是否可接受部署命令（`DeploysInto` / `Deployer` / `UndeploysInto`）。
+    pub fn entity_can_deploy(&self, id: EntityId) -> bool {
+        let Some(identity) = self.world.ecs_get::<crate::state::components::Identity>(id)
+        else {
+            return false;
+        };
+        if matches!(identity.kind, MapEntityKind::Structure) {
+            return false;
+        }
+        crate::gameplay::type_can_deploy(&self.world.definitions, identity.type_id)
+    }
+
+    /// 若实体为 `DeploysInto` 载具，返回目标建筑类型键（如 `GACNST`）；蹲姿部署无目标键。
     pub fn deploy_target_of(&self, id: EntityId) -> Option<&str> {
         let identity = self.world.ecs_get::<crate::state::components::Identity>(id)?;
         let target = crate::gameplay::deploy_into_type(&self.world.definitions, identity.type_id)?;

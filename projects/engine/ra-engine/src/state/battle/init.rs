@@ -5,8 +5,8 @@ use ra_types::{AssetSource, EntityId, GameEdition, HouseId, PlayerId, PreparedMa
 
 use super::super::{
     components::{
-        AnimationState, AttackState, CombatStats, EntitySpawnBundle, HarvesterState, Health, Identity, Locomotor, MovementState, Owner,
-        ProductionQueue, Transform,
+        AnimationState, AttackState, CombatStats, DeployStance, EntitySpawnBundle, HarvesterState, Health, Identity, Locomotor, MovementState,
+        Owner, ProductionQueue, Transform,
     },
     ecs_registry::EcsRegistry,
     players::PlayerState,
@@ -87,6 +87,7 @@ impl BattleState {
                 production: ProductionQueue::empty(),
                 harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
                 animation: AnimationState { hva_frame: 0, hit_flash: 0, fire_flash: 0 },
+                deploy_stance: DeployStance { deployed: false },
             });
         }
         let default_tech = definitions.default_tech_level;
@@ -282,6 +283,7 @@ impl BattleState {
             production: ProductionQueue::empty(),
             harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
             animation: AnimationState { hva_frame: 0, hit_flash: 0, fire_flash: 0 },
+            deploy_stance: DeployStance { deployed: false },
         });
         self.mark_entity_dirty(id);
         if let Some(index) = self.entity_index(id) {

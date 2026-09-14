@@ -41,6 +41,7 @@ impl BattleState {
         let queue = self.ecs.world().get::<crate::state::components::ProductionQueue>(handle).cloned();
         let harvester = self.ecs.world().get::<crate::state::components::HarvesterState>(handle).copied();
         let anim = self.ecs.world().get::<crate::state::components::AnimationState>(handle).copied();
+        let deploy_stance = self.ecs.world().get::<crate::state::components::DeployStance>(handle).copied();
 
         let type_key = identity
             .as_ref()
@@ -104,6 +105,9 @@ impl BattleState {
             entity.hva_frame = anim.hva_frame;
             entity.hit_flash = anim.hit_flash;
             entity.fire_flash = anim.fire_flash;
+        }
+        if let Some(stance) = deploy_stance {
+            entity.deployed = stance.deployed;
         }
     }
 
@@ -215,6 +219,33 @@ impl BattleState {
         f: impl FnOnce(&mut crate::state::components::AnimationState) -> R,
     ) -> Option<R> {
         self.with_component_mut(id, f)
+    }
+
+    /// 以 ECS 为权威修改就地部署姿态，并立即投影回 `WorldEntity`。
+    pub(crate) fn with_deploy_stance_mut<R>(
+        &mut self,
+        id: EntityId,
+        f: impl FnOnce(&mut crate::state::components::DeployStance) -> R,
+    ) -> Option<R> {
+        self.with_component_mut(id, f)
+    }
+
+    /// 若处于 `Deployer` 蹲姿则解除，恢复定义速度（移动 / 散开等下令前调用）。
+    pub(crate) fn clear_deploy_stance_for_move(&mut self, id: EntityId) {
+        let deployed = self.ecs_get::<crate::state::components::DeployStance>(id).is_some_and(|s| s.deployed);
+        if !deployed {
+            return;
+        }
+        let speed = self
+            .ecs_get::<crate::state::components::Identity>(id)
+            .and_then(|i| self.definitions.techno.get_by_id(i.type_id).map(|t| t.speed))
+            .unwrap_or(0);
+        let _ = self.with_deploy_stance_mut(id, |stance| {
+            stance.deployed = false;
+        });
+        let _ = self.with_locomotor_mut(id, |loco| {
+            loco.speed = speed;
+        });
     }
 
     /// 测试 / 调试：写入 ECS 炮塔朝向并投影。

@@ -11,13 +11,13 @@ impl crate::state::BattleState {
             game::CommandRejectReason,
             gameplay::{
                 TechTreePlayer, build_limit_reached, building_power, deploy_into_type, full_verses, is_agent, is_capturable,
-                is_construction_yard, is_engineer, is_production_factory, is_type_eligible_id, living_structure_keys, produce_ticks_for,
-                requires_power_plant,
+                is_construction_yard, is_deployer, is_engineer, is_production_factory, is_type_eligible_id, living_structure_keys,
+                produce_ticks_for, requires_power_plant, undeploys_into_type,
             },
             spatial::{is_mobile, nearest_adjacent_to_footprint},
             state::components::{
-                AnimationState, AttackState, CombatStats, EntitySpawnBundle, HarvesterState, Health, Identity, Locomotor, MovementState, Owner,
-                ProductionQueue, Transform,
+                AnimationState, AttackState, CombatStats, DeployStance, EntitySpawnBundle, HarvesterState, Health, Identity, Locomotor,
+                MovementState, Owner, ProductionQueue, Transform,
             },
         };
 
@@ -46,6 +46,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::NotMobile);
                         continue;
                     }
+                    self.clear_deploy_stance_for_move(id);
                     let _ = self.with_identity_mut(id, |identity| {
                         identity.mission = None;
                     });
@@ -83,6 +84,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::NotMobile);
                         continue;
                     }
+                    self.clear_deploy_stance_for_move(id);
                     let Some(&(x, y)) = points.first()
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
@@ -183,51 +185,139 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::CannotDeploy);
                         continue;
                     };
-                    let Some(building_def_id) = deploy_into_type(&self.definitions, type_id)
-                    else {
+                    if matches!(self.ecs_get::<Identity>(dirty_id).map(|i| i.kind), Some(MapEntityKind::Structure)) {
                         self.reject(command_index, CommandRejectReason::CannotDeploy);
                         continue;
-                    };
-                    let armor = self.definitions.techno.get_by_id(building_def_id).map(|t| t.armor).unwrap_or(ra_types::ArmorKind::None);
-                    let _ = self.with_identity_mut(dirty_id, |identity| {
-                        identity.kind = MapEntityKind::Structure;
-                        identity.type_id = building_def_id;
-                        identity.mission = None;
-                    });
-                    let _ = self.with_locomotor_mut(dirty_id, |loco| {
-                        loco.speed = 0;
-                    });
-                    let _ = self.with_combat_stats_mut(dirty_id, |stats| {
-                        stats.attack_range = 0;
-                        stats.attack_damage = 0;
-                        stats.attack_verses = full_verses();
-                        stats.armor = armor;
-                        stats.techno_class = Some(TechnoClass::Building);
-                    });
-                    let _ = self.with_animation_mut(dirty_id, |anim| {
-                        anim.hva_frame = 0;
-                    });
-                    let _ = self.with_attack_mut(dirty_id, |attack| {
-                        attack.target = None;
-                        attack.cooldown = 0;
-                    });
-                    let _ = self.with_movement_mut(dirty_id, |movement| {
-                        movement.destination_x = None;
-                        movement.destination_y = None;
-                        movement.waypoints.clear();
-                        movement.path.clear();
-                        movement.move_accum = 0;
-                    });
-                    // 展开后按建造场 Foundation 封通行，否则邻格仍可走/可放，后续建筑会叠进院子。
-                    if let Some(xf) = self.ecs_get::<Transform>(dirty_id).copied() {
-                        let foundation =
-                            self.definitions.structures.get_by_id(building_def_id).map(|s| s.foundation.clone()).unwrap_or_default();
-                        self.seal_structure_footprint(xf.x, xf.y, foundation.width, foundation.height);
                     }
-                    self.mark_entity_dirty(dirty_id);
-                    // 展开后离开移动单位层，经 Buildup 定格进建筑底图（含 AI 部署）。
-                    self.structure_buildup_dirty.push(dirty_id);
-                    self.maybe_assign_primary_factory(dirty_id);
+                    // 1) `DeploysInto`：载具就地变为建筑（MCV → 建造场）。
+                    if let Some(building_def_id) = deploy_into_type(&self.definitions, type_id) {
+                        let armor = self.definitions.techno.get_by_id(building_def_id).map(|t| t.armor).unwrap_or(ra_types::ArmorKind::None);
+                        let _ = self.with_identity_mut(dirty_id, |identity| {
+                            identity.kind = MapEntityKind::Structure;
+                            identity.type_id = building_def_id;
+                            identity.mission = None;
+                        });
+                        let _ = self.with_locomotor_mut(dirty_id, |loco| {
+                            loco.speed = 0;
+                        });
+                        let _ = self.with_combat_stats_mut(dirty_id, |stats| {
+                            stats.attack_range = 0;
+                            stats.attack_damage = 0;
+                            stats.attack_verses = full_verses();
+                            stats.armor = armor;
+                            stats.techno_class = Some(TechnoClass::Building);
+                        });
+                        let _ = self.with_animation_mut(dirty_id, |anim| {
+                            anim.hva_frame = 0;
+                        });
+                        let _ = self.with_attack_mut(dirty_id, |attack| {
+                            attack.target = None;
+                            attack.cooldown = 0;
+                        });
+                        let _ = self.with_movement_mut(dirty_id, |movement| {
+                            movement.destination_x = None;
+                            movement.destination_y = None;
+                            movement.waypoints.clear();
+                            movement.path.clear();
+                            movement.move_accum = 0;
+                        });
+                        let _ = self.with_deploy_stance_mut(dirty_id, |stance| {
+                            stance.deployed = false;
+                        });
+                        // 展开后按建造场 Foundation 封通行，否则邻格仍可走/可放，后续建筑会叠进院子。
+                        if let Some(xf) = self.ecs_get::<Transform>(dirty_id).copied() {
+                            let foundation =
+                                self.definitions.structures.get_by_id(building_def_id).map(|s| s.foundation.clone()).unwrap_or_default();
+                            self.seal_structure_footprint(xf.x, xf.y, foundation.width, foundation.height);
+                        }
+                        self.mark_entity_dirty(dirty_id);
+                        // 展开后离开移动单位层，经 Buildup 定格进建筑底图（含 AI 部署）。
+                        self.structure_buildup_dirty.push(dirty_id);
+                        self.maybe_assign_primary_factory(dirty_id);
+                        continue;
+                    }
+                    // 2) `UndeploysInto`：已展开形态切回机动类型。
+                    if let Some(mobile_def_id) = undeploys_into_type(&self.definitions, type_id) {
+                        let Some(tt) = self.definitions.techno.get_by_id(mobile_def_id).cloned()
+                        else {
+                            self.reject(command_index, CommandRejectReason::CannotDeploy);
+                            continue;
+                        };
+                        let kind = match tt.class {
+                            TechnoClass::Infantry => MapEntityKind::Infantry,
+                            TechnoClass::Aircraft => MapEntityKind::Aircraft,
+                            TechnoClass::Building => {
+                                self.reject(command_index, CommandRejectReason::CannotDeploy);
+                                continue;
+                            }
+                            TechnoClass::Vehicle => MapEntityKind::Unit,
+                        };
+                        let _ = self.with_identity_mut(dirty_id, |identity| {
+                            identity.kind = kind;
+                            identity.type_id = mobile_def_id;
+                            identity.mission = None;
+                        });
+                        let _ = self.with_locomotor_mut(dirty_id, |loco| {
+                            loco.speed = tt.speed;
+                        });
+                        let _ = self.with_combat_stats_mut(dirty_id, |stats| {
+                            stats.armor = tt.armor;
+                            stats.techno_class = Some(tt.class);
+                        });
+                        let _ = self.with_attack_mut(dirty_id, |attack| {
+                            attack.target = None;
+                            attack.cooldown = 0;
+                        });
+                        let _ = self.with_movement_mut(dirty_id, |movement| {
+                            movement.destination_x = None;
+                            movement.destination_y = None;
+                            movement.waypoints.clear();
+                            movement.path.clear();
+                            movement.move_accum = 0;
+                        });
+                        let _ = self.with_deploy_stance_mut(dirty_id, |stance| {
+                            stance.deployed = false;
+                        });
+                        self.mark_entity_dirty(dirty_id);
+                        continue;
+                    }
+                    // 3) `Deployer=yes`：同类型就地蹲姿切换（GI 等）。
+                    if is_deployer(&self.definitions, type_id) {
+                        let was_deployed = self.ecs_get::<DeployStance>(dirty_id).is_some_and(|s| s.deployed);
+                        let speed = self.definitions.techno.get_by_id(type_id).map(|t| t.speed).unwrap_or(0);
+                        if was_deployed {
+                            let _ = self.with_deploy_stance_mut(dirty_id, |stance| {
+                                stance.deployed = false;
+                            });
+                            let _ = self.with_locomotor_mut(dirty_id, |loco| {
+                                loco.speed = speed;
+                            });
+                        }
+                        else {
+                            let _ = self.with_deploy_stance_mut(dirty_id, |stance| {
+                                stance.deployed = true;
+                            });
+                            let _ = self.with_locomotor_mut(dirty_id, |loco| {
+                                loco.speed = 0;
+                            });
+                            let _ = self.with_movement_mut(dirty_id, |movement| {
+                                movement.destination_x = None;
+                                movement.destination_y = None;
+                                movement.waypoints.clear();
+                                movement.path.clear();
+                                movement.move_accum = 0;
+                            });
+                            let _ = self.with_attack_mut(dirty_id, |attack| {
+                                attack.follow_target = None;
+                            });
+                        }
+                        let _ = self.with_identity_mut(dirty_id, |identity| {
+                            identity.mission = None;
+                        });
+                        self.mark_entity_dirty(dirty_id);
+                        continue;
+                    }
+                    self.reject(command_index, CommandRejectReason::CannotDeploy);
                 }
                 GameCommand::PlaceBuilding { player, type_id, x, y } => {
                     if player != scheduled.player {
@@ -325,6 +415,7 @@ impl crate::state::BattleState {
                         production: ProductionQueue::empty(),
                         harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
                         animation: AnimationState { hva_frame: 0, hit_flash: 0, fire_flash: 0 },
+                        deploy_stance: DeployStance { deployed: false },
                     });
                     self.mark_entity_dirty(id);
                     // 新建筑走 Buildup 再定格，避免瞬现主体 SHP。
@@ -857,6 +948,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::NotMobile);
                         continue;
                     }
+                    self.clear_deploy_stance_for_move(id);
                     let _ = self.with_identity_mut(id, |identity| {
                         identity.mission = Some(ra_types::MissionKind::AttackMove);
                     });
@@ -951,6 +1043,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::NotMobile);
                         continue;
                     }
+                    self.clear_deploy_stance_for_move(id);
                     let Some((x, y)) = self.pick_scatter_cell(entity_index)
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);

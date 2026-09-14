@@ -544,7 +544,7 @@ impl BattleController {
         else {
             return false;
         };
-        self.local.selected.iter().any(|&id| game.deploy_target_of(id).is_some())
+        self.local.selected.iter().any(|&id| game.entity_can_deploy(id))
     }
 
     /// 结算页标题刷新（不推进）。
