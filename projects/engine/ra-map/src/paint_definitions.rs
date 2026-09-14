@@ -368,9 +368,7 @@ fn resolve_cameo_asset_names(art: Option<&IniDocument>, rules: Option<&IniDocume
 
 /// 图标 / 主体共用名：`rules.ini` 的 `Image` → `art.ini` 的 `Image` → 类型 id。
 fn resolve_cameo_image_key(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str) -> String {
-    let from_rules = rules.and_then(|r| r.get(type_id, "Image")).map(str::trim).filter(|s| !s.is_empty());
-    let from_art = art.and_then(|a| a.get(type_id, "Image")).map(str::trim).filter(|s| !s.is_empty());
-    from_rules.or(from_art).map(|s| s.to_string()).unwrap_or_else(|| type_id.to_string())
+    crate::image_key::resolve_techno_image_key(rules, art, type_id)
 }
 
 fn push_cameo_shp_name(out: &mut Vec<String>, raw: Option<&str>) {

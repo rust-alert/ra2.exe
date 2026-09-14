@@ -54,8 +54,12 @@ Image=GAPOWR
 "#
         .to_vec(),
     );
-    files.insert("rules.ini".into(), br#"[General]
-"#.to_vec());
+    files.insert(
+        "rules.ini".into(),
+        br#"[General]
+"#
+        .to_vec(),
+    );
     let source = MapSource { files };
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "diag");
@@ -65,6 +69,39 @@ Image=GAPOWR
     let missing = paint.structure_types_missing_art();
     assert!(missing.iter().any(|k| k.eq_ignore_ascii_case("GACNST")), "{missing:?}");
     assert!(!missing.iter().any(|k| k.eq_ignore_ascii_case("GAPOWR")), "{missing:?}");
+}
+
+#[test]
+fn seal_follows_rules_image_for_structure_without_own_art_section() {
+    // 美军空指：rules `Image=GAAIRC`，art 无 `[AMRADR]`，主体几何在 `[GAAIRC]`。
+    let mut files = HashMap::new();
+    files.insert(
+        "art.ini".into(),
+        br#"[GAAIRC]
+Foundation=3x2
+Height=7
+Buildup=GAAIRCMK
+Cameo=HELIICON
+"#
+        .to_vec(),
+    );
+    files.insert(
+        "rules.ini".into(),
+        br#"[AMRADR]
+Image=GAAIRC
+"#
+        .to_vec(),
+    );
+    let source = MapSource { files };
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "amradr");
+    map.entities = vec![structure("AMRADR", 1, 1)];
+
+    let paint = PaintDefinitionsLoader::load(&source, "art.ini", "rules.ini").seal_with_runtime(&RuntimeDefinitions::default(), &map);
+    let missing = paint.structure_types_missing_art();
+    assert!(!missing.iter().any(|k| k.eq_ignore_ascii_case("AMRADR")), "AMRADR should resolve via rules Image=GAAIRC: {missing:?}");
+    let cameo = PaintDefinitionsLoader::load(&source, "art.ini", "rules.ini").cameo_asset_names("AMRADR");
+    assert!(cameo.shp.iter().any(|n| n.eq_ignore_ascii_case("HELIICON.shp")), "cameo should follow GAAIRC art Cameo=: {cameo:?}");
 }
 
 #[test]
@@ -79,19 +116,17 @@ Image=TREE01
 "#
         .to_vec(),
     );
-    files.insert("rules.ini".into(), br#"[General]
-"#.to_vec());
+    files.insert(
+        "rules.ini".into(),
+        br#"[General]
+"#
+        .to_vec(),
+    );
     let source = MapSource { files };
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "diag-mt");
-    map.entities = vec![
-        mobile(MapEntityKind::Infantry, "E1", 1, 1),
-        mobile(MapEntityKind::Unit, "MTNK", 2, 2),
-    ];
-    map.terrain_objects = vec![
-        TerrainObject { x: 3, y: 3, name: "TREE01".into() },
-        TerrainObject { x: 4, y: 4, name: "TREE99".into() },
-    ];
+    map.entities = vec![mobile(MapEntityKind::Infantry, "E1", 1, 1), mobile(MapEntityKind::Unit, "MTNK", 2, 2)];
+    map.terrain_objects = vec![TerrainObject { x: 3, y: 3, name: "TREE01".into() }, TerrainObject { x: 4, y: 4, name: "TREE99".into() }];
 
     let paint = PaintDefinitionsLoader::load(&source, "art.ini", "rules.ini").seal_with_runtime(&RuntimeDefinitions::default(), &map);
     let missing_mobile = paint.mobile_types_missing_art();
@@ -114,15 +149,16 @@ Theater=yes
 "#
         .to_vec(),
     );
-    files.insert("rules.ini".into(), br#"[General]
-"#.to_vec());
+    files.insert(
+        "rules.ini".into(),
+        br#"[General]
+"#
+        .to_vec(),
+    );
     let source = MapSource { files };
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "diag-ov");
-    map.overlays = vec![
-        ra_map::OverlayCell { x: 1, y: 1, overlay_id: 0, data: 0 },
-        ra_map::OverlayCell { x: 2, y: 2, overlay_id: 1, data: 0 },
-    ];
+    map.overlays = vec![ra_map::OverlayCell { x: 1, y: 1, overlay_id: 0, data: 0 }, ra_map::OverlayCell { x: 2, y: 2, overlay_id: 1, data: 0 }];
 
     let paint = PaintDefinitionsLoader::load_sealed_for_overlays(
         &source,

@@ -8,7 +8,7 @@ use serde::{Deserialize, de::Deserializer};
 
 use crate::{
     MapEntity, MapEntityKind, MapInfo,
-    compose::{TerrainImage, TileBlit, paint_cell_sprites},
+    compose::{CellSpriteItem, TerrainImage, TileBlit, cell_sprite_foundation, foundation_sort_depth, paint_cell_sprites},
     iso_math::TILE_WIDTH,
     lighting::{PointLight, apply_rgba_tint, cell_tint_with_lights},
     structure_damage::{damaged_body_frame, structure_tech_level},
@@ -34,18 +34,8 @@ fn is_ambient_structure_owner(owner: &str) -> bool {
 /// - `Remapable=no` 且氛围房主：仍走 `remap_owner`（中立 `Color=Grey`），避免 `unittem.pal`
 ///   默认 16..=31 色带偏红，看起来像「红方已占领」。
 /// - `Remapable=no` 且玩家房主：保持原色板（油田主体等不染色）。
-fn structure_owner_palette(
-    remapable: bool,
-    owner: &str,
-    base: &Palette,
-    remap_owner: &dyn Fn(&Palette, &str) -> Palette,
-) -> Palette {
-    if remapable || is_ambient_structure_owner(owner) {
-        remap_owner(base, owner)
-    }
-    else {
-        base.clone()
-    }
+fn structure_owner_palette(remapable: bool, owner: &str, base: &Palette, remap_owner: &dyn Fn(&Palette, &str) -> Palette) -> Palette {
+    if remapable || is_ambient_structure_owner(owner) { remap_owner(base, owner) } else { base.clone() }
 }
 
 /// 建筑类型叠画主体提示（按 `type_id` 去重一次）。
@@ -58,6 +48,9 @@ struct StructureTypePaintHints {
     body_new_theater: bool,
     bib_key: Option<String>,
     bib_new_theater: bool,
+    /// rules Foundation= 占地；缺省 1x1。叠画深度取东南角。
+    foundation_w: u16,
+    foundation_h: u16,
     tech_level: i32,
     /// rules `TurretAnimIsVoxel` 炮塔体素（缺则跳过）。
     turret_voxel: Option<StructureTurretVoxelHints>,
@@ -221,7 +214,7 @@ struct StructureBuildupHints {
 }
 
 fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocument>, type_id: &str) -> StructureTypePaintHints {
-    let art_section = resolve_art_section(art, type_id);
+    let art_section = resolve_art_section(art, rules, type_id);
     let art_resolved = art.is_some_and(|a| a.section(type_id).is_some() || a.section(art_section.as_str()).is_some());
     let body = structure_body_art_fields(art, type_id, &art_section);
     let remapable = body.remapable.unwrap_or(true);
@@ -241,6 +234,7 @@ fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocum
         .filter(|n| !n.is_empty())
         .map(|n| n.as_str().to_string())
         .unwrap_or_else(|| art_section.trim().to_ascii_uppercase());
+    let foundation = structure_foundation(rules, art, type_id, &art_section);
     StructureTypePaintHints {
         art_resolved,
         remapable,
@@ -248,12 +242,39 @@ fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocum
         body_new_theater,
         bib_key,
         bib_new_theater,
+        foundation_w: foundation.width.max(1),
+        foundation_h: foundation.height.max(1),
         tech_level: structure_tech_level(rules, type_id),
         turret_voxel: structure_turret_voxel_hints(rules, type_id),
         fire_offsets: structure_damage_fire_offsets(&body),
         buildup: structure_buildup_hints(art, body.buildup.as_ref().map(|n| n.as_str()), body_new_theater),
         loop_anims: structure_loop_anim_names(&body),
     }
+}
+
+fn structure_foundation(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str, art_section: &str) -> ra_types::Foundation {
+    #[derive(Default, Deserialize)]
+    struct FoundationFields {
+        #[serde(rename = "Foundation")]
+        foundation: Option<ra_types::Foundation>,
+    }
+    let from_art = |key: &str| {
+        art.and_then(|a| a.section(key)).and_then(|s| s.deserialize::<FoundationFields>().ok()).and_then(|f| f.foundation)
+    };
+    // 与 `apply_art_geometry` 一致：先 Image 目标 art 节，再本类 art，再 rules。
+    from_art(art_section)
+        .or_else(|| {
+            if art_section.eq_ignore_ascii_case(type_id) {
+                None
+            }
+            else {
+                from_art(type_id)
+            }
+        })
+        .or_else(|| {
+            rules.and_then(|r| r.section(type_id)).and_then(|s| s.deserialize::<FoundationFields>().ok()).and_then(|f| f.foundation)
+        })
+        .unwrap_or_default()
 }
 
 fn structure_body_art_fields(art: Option<&IniDocument>, type_id: &str, art_section: &str) -> StructureBodyArtFields {
@@ -509,10 +530,12 @@ pub enum StructureAnimMode {
 /// 预烘焙的单条建筑活动层（泵机 / 旗帜等）。
 #[derive(Debug, Clone)]
 pub struct StructureAnimLayer {
-    /// 格子 X。
+    /// 格子 X（绘制锚点，foundation 西北角）。
     pub x: u16,
-    /// 格子 Y。
+    /// 格子 Y（绘制锚点，foundation 西北角）。
     pub y: u16,
+    /// 等距叠画深度（foundation 东南角）。
+    pub sort_depth: i32,
     /// 格子高度（叠画用）。
     pub cell_z: u8,
     /// art `Rate`（毫秒/帧）。
@@ -646,6 +669,7 @@ pub fn collect_structure_anim_bank(
             continue;
         };
         let cell_z = z_lookup.get(&(ent.x, ent.y)).copied().unwrap_or(0);
+        let sort_depth = foundation_sort_depth(ent.x, ent.y, type_hint.foundation_w, type_hint.foundation_h);
         let yellow = damage.is_yellow(ent.health);
 
         for (slot, &(_, _, z_key)) in type_hint.loop_anims.iter().zip(STRUCTURE_LOOP_ANIM_KEYS.iter()) {
@@ -688,6 +712,7 @@ pub fn collect_structure_anim_bank(
             layers.push(StructureAnimLayer {
                 x: ent.x,
                 y: ent.y,
+                sort_depth,
                 cell_z,
                 rate_ms: hint.rate_ms,
                 loop_start: hint.loop_start,
@@ -731,6 +756,7 @@ pub fn collect_structure_anim_bank(
                 layers.push(StructureAnimLayer {
                     x: ent.x,
                     y: ent.y,
+                    sort_depth,
                     cell_z,
                     rate_ms: fire_hint.rate_ms,
                     loop_start: 0,
@@ -757,7 +783,16 @@ pub fn collect_structure_anim_bank(
             if frames.iter().all(|f| f.width == 0) {
                 continue;
             }
-            layers.push(StructureAnimLayer { x: ent.x, y: ent.y, cell_z, rate_ms: fire_hint.rate_ms, loop_start: 0, loop_end: body_n, frames });
+            layers.push(StructureAnimLayer {
+                x: ent.x,
+                y: ent.y,
+                sort_depth,
+                cell_z,
+                rate_ms: fire_hint.rate_ms,
+                loop_start: 0,
+                loop_end: body_n,
+                frames,
+            });
         }
     }
 
@@ -769,7 +804,7 @@ pub fn paint_structure_anim_bank(image: &mut TerrainImage, bank: &StructureAnimB
     if bank.layers.is_empty() {
         return 0;
     }
-    let mut items: Vec<(u16, u16, TileBlit)> = Vec::with_capacity(bank.layers.len());
+    let mut items: Vec<CellSpriteItem> = Vec::with_capacity(bank.layers.len());
     for layer in &bank.layers {
         let frame_no = structure_anim_frame(clock_ms, layer.rate_ms, layer.loop_start, layer.loop_end);
         let local = usize::from(frame_no.saturating_sub(layer.loop_start));
@@ -782,7 +817,7 @@ pub fn paint_structure_anim_bank(image: &mut TerrainImage, bank: &StructureAnimB
         }
         let mut painted = blit.clone();
         apply_rgba_tint(&mut painted.rgba, cell_tint_with_lights(&bank.lighting, layer.cell_z, layer.x, layer.y, &bank.point_lights));
-        items.push((layer.x, layer.y, painted));
+        items.push((layer.x, layer.y, layer.sort_depth, painted));
     }
     let z_at = |x: u16, y: u16| bank.layers.iter().find(|l| l.x == x && l.y == y).map(|l| l.cell_z).unwrap_or(0);
     paint_cell_sprites(image, &items, z_at)
@@ -805,10 +840,12 @@ pub fn paint_structure_anims_onto_rgba(
 /// 建筑一次性 Buildup 序列（MCV 展开 / 放置建造等）。
 #[derive(Debug, Clone)]
 pub struct StructureBuildupClip {
-    /// 格子 X。
+    /// 格子 X（绘制锚点）。
     pub x: u16,
-    /// 格子 Y。
+    /// 格子 Y（绘制锚点）。
     pub y: u16,
+    /// 等距叠画深度（foundation 东南角）。
+    pub sort_depth: i32,
     /// 格子高度。
     pub cell_z: u8,
     /// 毫秒/帧。
@@ -883,7 +920,8 @@ pub fn load_structure_buildup_clip(
         return None;
     }
     let cell_z = map.cells.iter().find(|c| c.x == x as i16 && c.y == y as i16).map(|c| c.z).unwrap_or(0);
-    Some(StructureBuildupClip { x, y, cell_z, rate_ms: buildup.rate_ms, frames })
+    let sort_depth = foundation_sort_depth(x, y, type_hint.foundation_w, type_hint.foundation_h);
+    Some(StructureBuildupClip { x, y, sort_depth, cell_z, rate_ms: buildup.rate_ms, frames })
 }
 
 /// 把 Buildup 某一帧叠到 RGBA 预览。
@@ -899,7 +937,7 @@ pub fn paint_structure_buildup_onto_rgba(
         return false;
     };
     let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
-    let items = vec![(clip.x, clip.y, blit.clone())];
+    let items = vec![(clip.x, clip.y, clip.sort_depth, blit.clone())];
     let z = clip.cell_z;
     paint_cell_sprites(&mut terrain, &items, |_, _| z);
     *image = terrain.image;
@@ -978,15 +1016,7 @@ pub fn restore_structure_foundation_from_ground(
     restore_rect(image, ground, min_x, min_y, max_x - min_x, max_y - min_y)
 }
 
-fn restore_rgba_mask(
-    image: &mut image::RgbaImage,
-    ground: &image::RgbaImage,
-    dx: i32,
-    dy: i32,
-    src_w: u32,
-    src_h: u32,
-    src: &[u8],
-) -> bool {
+fn restore_rgba_mask(image: &mut image::RgbaImage, ground: &image::RgbaImage, dx: i32, dy: i32, src_w: u32, src_h: u32, src: &[u8]) -> bool {
     let mut any = false;
     let (dst_w, dst_h) = (image.width(), image.height());
     for row in 0..src_h as i32 {
@@ -1013,15 +1043,7 @@ fn restore_rgba_mask(
     any
 }
 
-fn restore_mask_region(
-    image: &mut image::RgbaImage,
-    ground: &image::RgbaImage,
-    dx: i32,
-    dy: i32,
-    src_w: u32,
-    src_h: u32,
-    mask: &[u8],
-) -> bool {
+fn restore_mask_region(image: &mut image::RgbaImage, ground: &image::RgbaImage, dx: i32, dy: i32, src_w: u32, src_h: u32, mask: &[u8]) -> bool {
     let mut any = false;
     let (dst_w, dst_h) = (image.width(), image.height());
     for row in 0..src_h as i32 {
@@ -1119,7 +1141,7 @@ fn paint_map_structures_inner(
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
     let mut blit_cache: HashMap<(String, String, u16, i32), TileBlit> = HashMap::new();
-    let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
+    let mut items: Vec<CellSpriteItem> = Vec::new();
     let mut missing: Vec<(u16, u16)> = Vec::new();
 
     for ent in structures {
@@ -1138,7 +1160,7 @@ fn paint_map_structures_inner(
                     load_structure_blit(source, map, bib_key, hint.bib_new_theater, 0, 0, &pal, &mut shp_cache, &mut blit_cache, &ent.owner)
                 {
                     apply_rgba_tint(&mut blit.rgba, map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y)));
-                    items.push((ent.x, ent.y, blit));
+                    items.push(cell_sprite_foundation(ent.x, ent.y, hint.foundation_w, hint.foundation_h, blit));
                 }
             }
             let body_key = hint.body_key.as_str();
@@ -1149,7 +1171,7 @@ fn paint_map_structures_inner(
                 load_structure_blit(source, map, body_key, body_new_theater, frame_idx, 0, &pal, &mut shp_cache, &mut blit_cache, &ent.owner)
             {
                 apply_rgba_tint(&mut blit.rgba, map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y)));
-                items.push((ent.x, ent.y, blit));
+                items.push(cell_sprite_foundation(ent.x, ent.y, hint.foundation_w, hint.foundation_h, blit));
             }
             else {
                 paint.note_missing_structure_shp(ent.type_id.as_str());
@@ -1157,7 +1179,7 @@ fn paint_map_structures_inner(
             }
             if let Some(mut blit) = load_structure_turret_vxl(source, hint.turret_voxel.as_ref(), ent.facing, &pal) {
                 apply_rgba_tint(&mut blit.rgba, map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y)));
-                items.push((ent.x, ent.y, blit));
+                items.push(cell_sprite_foundation(ent.x, ent.y, hint.foundation_w, hint.foundation_h, blit));
             }
         }
 
@@ -1191,7 +1213,7 @@ fn paint_map_structures_inner(
                 &ent.owner,
             ) {
                 apply_rgba_tint(&mut blit.rgba, map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y)));
-                items.push((ent.x, ent.y, blit));
+                items.push(cell_sprite_foundation(ent.x, ent.y, hint.foundation_w, hint.foundation_h, blit));
             }
         }
     }
@@ -1214,25 +1236,20 @@ fn load_anim_palette(source: &dyn AssetSource) -> Option<Palette> {
     source.read("anim.pal").ok().and_then(|b| Palette::parse(&b).ok())
 }
 
-fn resolve_art_section(art: Option<&IniDocument>, type_id: &str) -> String {
-    art.and_then(|a| {
-        let image_key = a
-            .section(type_id)
-            .and_then(|s| s.deserialize::<StructureBodyArtFields>().ok())
-            .and_then(|f| f.image)
-            .filter(|n| !n.is_empty())
-            .unwrap_or_else(|| ImageName::parse(type_id));
+/// 解析建筑 art 节名：`rules`/`art` `Image=` → 存在的目标节，否则本类节，否则类型 id。
+///
+/// 与 cameo / 机动单位共用 [`crate::image_key::resolve_techno_image_key`]。
+fn resolve_art_section(art: Option<&IniDocument>, rules: Option<&IniDocument>, type_id: &str) -> String {
+    let image_key = crate::image_key::resolve_techno_image_key(rules, art, type_id);
+    if let Some(a) = art {
         if a.section(image_key.as_str()).is_some() {
-            Some(image_key.as_str().to_string())
+            return image_key;
         }
-        else if a.section(type_id).is_some() {
-            Some(type_id.to_ascii_uppercase())
+        if a.section(type_id).is_some() {
+            return type_id.to_ascii_uppercase();
         }
-        else {
-            None
-        }
-    })
-    .unwrap_or_else(|| type_id.to_ascii_uppercase())
+    }
+    image_key
 }
 
 fn load_shp<'a>(

@@ -59,7 +59,6 @@ fn overlay_map(id: u8, data: u8) -> MapInfo {
     map
 }
 
-
 /// 与 boot 对齐：按类型回调预填 overlay hint 后丢弃 IniDocument。
 fn sealed_overlay_paint(
     source: &dyn AssetSource,
@@ -103,16 +102,7 @@ fn missing_overlay_body_notes_type_name() {
     let mut image = TerrainImage::blank(256, 256);
     let type_name = |id: u8| (id == 102).then(|| "LOBRDG26".into());
     let mut paint = sealed_overlay_paint(&source, &map, &type_name, &|_| false);
-    let (shp, mark) = paint_map_overlays(
-        &source,
-        &map,
-        &mut image,
-        &mut paint,
-        &type_name,
-        &|_| false,
-        &|_| None,
-        OverlayLayerFilter::All,
-    );
+    let (shp, mark) = paint_map_overlays(&source, &map, &mut image, &mut paint, &type_name, &|_| false, &|_| None, OverlayLayerFilter::All);
     assert_eq!((shp, mark), (0, 1));
     assert!(paint.overlay_types_missing_shp().contains("LOBRDG26"));
     assert_eq!(paint.overlay_types_missing_shp().len(), 1);

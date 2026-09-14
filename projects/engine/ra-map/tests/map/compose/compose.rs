@@ -1,6 +1,6 @@
 //! 自顶层 `compose.rs`。
 
-use ra_map::{IsoCell, OverlayCell, ShadowBlit, TileBlit, compose_terrain_rgba, paint_cell_sprites, paint_overlay_markers};
+use ra_map::{IsoCell, OverlayCell, ShadowBlit, TileBlit, cell_sprite, compose_terrain_rgba, paint_cell_sprites, paint_overlay_markers};
 
 #[test]
 fn compose_one_opaque_tile() {
@@ -96,7 +96,7 @@ fn paint_cell_sprite_marks_pixel() {
     for px in sprite.chunks_exact_mut(4) {
         px.copy_from_slice(&[255, 0, 0, 255]);
     }
-    let items = [(2u16, 3u16, TileBlit { width: 4, height: 4, offset_x: 28, offset_y: 13, rgba: sprite, shadow: None })];
+    let items = [cell_sprite(2u16, 3u16, TileBlit { width: 4, height: 4, offset_x: 28, offset_y: 13, rgba: sprite, shadow: None })];
     let n = paint_cell_sprites(&mut img, &items, |_, _| 0);
     assert_eq!(n, 1);
     assert!(img.image.as_raw().chunks(4).any(|c| c[0] == 255 && c[1] == 0));
@@ -118,7 +118,7 @@ fn paint_cell_sprite_shadow_darkens_terrain() {
     // 主体透明，只验证落影压暗。
     let sprite = vec![0u8; 2 * 2 * 4];
     let mask = vec![1u8, 1, 1, 1];
-    let items = [(
+    let items = [cell_sprite(
         2u16,
         3u16,
         TileBlit {
@@ -134,4 +134,66 @@ fn paint_cell_sprite_shadow_darkens_terrain() {
     assert_eq!(n, 0);
     let dim = img.image.as_raw().chunks(4).filter(|c| c[0] == 100 && c[1] == 100 && c[2] == 100 && c[3] == 255).count();
     assert!(dim >= 4, "expected at least 4 halved-RGB shadow pixels, got {dim}");
+}
+
+
+#[test]
+fn paint_cell_sprites_sort_by_cell_depth_not_blit_top() {
+    use ra_map::{cell_sprite_foundation, iso_to_screen};
+
+    let cells = [
+        IsoCell { x: 2, y: 2, tile_num: 0, sub_tile: 0, z: 0, flags: 0 },
+        IsoCell { x: 2, y: 3, tile_num: 0, sub_tile: 0, z: 0, flags: 0 },
+    ];
+    let mut ground = vec![0u8; 60 * 30 * 4];
+    for px in ground.chunks_exact_mut(4) {
+        px.copy_from_slice(&[40, 40, 40, 255]);
+    }
+    let mut img = compose_terrain_rgba(
+        &cells,
+        |_, _| Some(TileBlit { width: 60, height: 30, offset_x: 0, offset_y: 0, rgba: ground.clone(), shadow: None }),
+        |_, _, _| [1.0, 1.0, 1.0],
+    )
+    .unwrap();
+
+    let mut tall = vec![0u8; 40 * 90 * 4];
+    for px in tall.chunks_exact_mut(4) {
+        px.copy_from_slice(&[0, 200, 0, 255]);
+    }
+    let mut short = vec![0u8; 40 * 30 * 4];
+    for px in short.chunks_exact_mut(4) {
+        px.copy_from_slice(&[200, 0, 0, 255]);
+    }
+
+    let items = [
+        cell_sprite(2, 2, TileBlit { width: 40, height: 30, offset_x: 10, offset_y: -10, rgba: short, shadow: None }),
+        cell_sprite_foundation(
+            2,
+            3,
+            2,
+            2,
+            TileBlit { width: 40, height: 90, offset_x: 10, offset_y: -70, rgba: tall, shadow: None },
+        ),
+    ];
+    let north_top = {
+        let (_, sy) = iso_to_screen(2, 2, 0);
+        sy - 10
+    };
+    let south_top = {
+        let (_, sy) = iso_to_screen(2, 3, 0);
+        sy - 70
+    };
+    assert!(south_top < north_top, "precondition: tall blit top is above short ({south_top} < {north_top})");
+
+    let n = paint_cell_sprites(&mut img, &items, |_, _| 0);
+    assert_eq!(n, 2);
+
+    let (nx, _) = iso_to_screen(2, 2, 0);
+    let (sx, _) = iso_to_screen(2, 3, 0);
+    let sample_x = ((nx + 15) + (sx + 45)) / 2 - img.origin_x;
+    let sample_y = 80 - img.origin_y;
+    assert!(sample_x >= 0 && sample_y >= 0);
+    let i = ((sample_y as u32 * img.image.width() + sample_x as u32) * 4) as usize;
+    let pix = &img.image.as_raw()[i..i + 4];
+    assert!(pix[1] > 150 && pix[0] < 80, "expected green (south) on top at sample, got {pix:?}");
 }

@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use crate::{
     LightingConfig, MapInfo, PointLight, TerrainObject,
-    compose::{ShadowBlit, TerrainImage, TileBlit, paint_cell_sprites},
+    compose::{CellSpriteItem, ShadowBlit, TerrainImage, TileBlit, cell_sprite, paint_cell_sprites},
     iso_math::{TILE_HEIGHT, TILE_WIDTH},
     lighting::{apply_rgba_tint, cell_tint_with_lights},
     theater::{theater_palette, theater_tmp_extension},
@@ -60,12 +60,7 @@ impl crate::PaintDefinitions {
         self.ensure_terrain_hint_with(None, None, name);
     }
 
-    pub(crate) fn ensure_terrain_hint_with(
-        &mut self,
-        art: Option<&IniDocument>,
-        rules: Option<&IniDocument>,
-        name: &str,
-    ) {
+    pub(crate) fn ensure_terrain_hint_with(&mut self, art: Option<&IniDocument>, rules: Option<&IniDocument>, name: &str) {
         if self.terrain_hints.contains(name) {
             return;
         }
@@ -87,12 +82,8 @@ impl crate::PaintDefinitions {
 
 fn terrain_object_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocument>, name: &str) -> TerrainObjectPaintHints {
     let art_fields = art.and_then(|a| a.section(name)).and_then(|s| s.deserialize::<TerrainArtSectionFields>().ok()).unwrap_or_default();
-    let image_key = art_fields
-        .image
-        .as_ref()
-        .filter(|n| !n.is_empty())
-        .map(|n| n.as_str().to_string())
-        .unwrap_or_else(|| name.trim().to_ascii_uppercase());
+    let image_key =
+        art_fields.image.as_ref().filter(|n| !n.is_empty()).map(|n| n.as_str().to_string()).unwrap_or_else(|| name.trim().to_ascii_uppercase());
     let art_resolved = art.is_some_and(|a| a.section(name).is_some() || a.section(image_key.as_str()).is_some());
     let rules_fields = rules.and_then(|r| r.section(name)).and_then(|s| s.deserialize::<TerrainRulesSectionFields>().ok()).unwrap_or_default();
     TerrainObjectPaintHints {
@@ -280,7 +271,7 @@ pub fn paint_map_terrain_objects(
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
     // (image_key, frame_idx, spawns_tiberium)
     let mut blit_cache: HashMap<(String, u16, bool), TileBlit> = HashMap::new();
-    let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
+    let mut items: Vec<CellSpriteItem> = Vec::new();
 
     for obj in &map.terrain_objects {
         let Some(hint) = paint.terrain_hint(obj.name.as_str())
@@ -332,7 +323,7 @@ pub fn paint_map_terrain_objects(
         if let Some(blit) = blit_cache.get(&cache_key) {
             let mut painted = blit.clone();
             apply_rgba_tint(&mut painted.rgba, tint);
-            items.push((obj.x, obj.y, painted));
+            items.push(cell_sprite(obj.x, obj.y, painted));
             continue;
         }
         let Some(frame) = shp.frames.get(usize::from(frame_idx))
@@ -351,7 +342,7 @@ pub fn paint_map_terrain_objects(
         };
         blit_cache.insert(cache_key, blit.clone());
         apply_rgba_tint(&mut blit.rgba, tint);
-        items.push((obj.x, obj.y, blit));
+        items.push(cell_sprite(obj.x, obj.y, blit));
     }
 
     paint_cell_sprites(image, &items, z_at)
@@ -462,7 +453,7 @@ pub fn paint_terrain_anim_bank(image: &mut TerrainImage, bank: &TerrainAnimBank,
     if bank.layers.is_empty() {
         return 0;
     }
-    let mut items: Vec<(u16, u16, TileBlit)> = Vec::with_capacity(bank.layers.len());
+    let mut items: Vec<CellSpriteItem> = Vec::with_capacity(bank.layers.len());
     for layer in &bank.layers {
         let body_n = layer.frames.len();
         if body_n == 0 {
@@ -479,7 +470,7 @@ pub fn paint_terrain_anim_bank(image: &mut TerrainImage, bank: &TerrainAnimBank,
         }
         let mut painted = blit.clone();
         apply_rgba_tint(&mut painted.rgba, cell_tint_with_lights(&bank.lighting, layer.cell_z, layer.x, layer.y, &bank.point_lights));
-        items.push((layer.x, layer.y, painted));
+        items.push(cell_sprite(layer.x, layer.y, painted));
     }
     let z_at = |x: u16, y: u16| bank.layers.iter().find(|l| l.x == x && l.y == y).map(|l| l.cell_z).unwrap_or(0);
     paint_cell_sprites(image, &items, z_at)
@@ -629,7 +620,7 @@ pub fn paint_ore_tree_frames(image: &mut TerrainImage, bank: &TerrainAnimBank, f
     if bank.layers.is_empty() || frames.is_empty() {
         return 0;
     }
-    let mut items: Vec<(u16, u16, TileBlit)> = Vec::with_capacity(frames.len());
+    let mut items: Vec<CellSpriteItem> = Vec::with_capacity(frames.len());
     for &(x, y, frame_idx) in frames {
         let Some(layer) = bank.layers.iter().find(|l| l.x == x && l.y == y)
         else {
@@ -649,7 +640,7 @@ pub fn paint_ore_tree_frames(image: &mut TerrainImage, bank: &TerrainAnimBank, f
         }
         let mut painted = blit.clone();
         apply_rgba_tint(&mut painted.rgba, cell_tint_with_lights(&bank.lighting, layer.cell_z, layer.x, layer.y, &bank.point_lights));
-        items.push((x, y, painted));
+        items.push(cell_sprite(x, y, painted));
     }
     let z_at = |x: u16, y: u16| bank.layers.iter().find(|l| l.x == x && l.y == y).map(|l| l.cell_z).unwrap_or(0);
     paint_cell_sprites(image, &items, z_at)

@@ -813,6 +813,7 @@ fn structure_anim_bank_extend_from_syncs_lighting() {
         layers: vec![StructureAnimLayer {
             x: 1,
             y: 2,
+            sort_depth: 3,
             cell_z: 0,
             rate_ms: 100,
             loop_start: 0,

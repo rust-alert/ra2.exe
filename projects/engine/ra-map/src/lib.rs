@@ -6,6 +6,7 @@ mod battle_pass;
 mod boot_map;
 pub mod compose;
 mod fallback_preview;
+mod image_key;
 mod iso_math;
 mod iso_pack;
 mod land;
@@ -58,7 +59,8 @@ pub use boot_map::{
     mount_theater_mixes, resolve_boot_map_name_csf, skirmish_ai_row_count, try_parse_boot_map,
 };
 pub use compose::{
-    ShadowBlit, TerrainImage, TileBlit, compose_terrain_rgba, paint_cell_sprites, paint_overlay_markers, paint_structure_missing_markers,
+    CellSpriteItem, ShadowBlit, TerrainImage, TileBlit, cell_sprite, cell_sprite_foundation, compose_terrain_rgba, foundation_sort_depth,
+    paint_cell_sprites, paint_overlay_markers, paint_structure_missing_markers,
 };
 pub use fallback_preview::{RawRgbaImage, load_fallback_theater_tile, load_fallback_unit_sprite};
 pub use iso_math::{HEIGHT_STEP, TILE_HEIGHT, TILE_WIDTH, iso_to_screen, screen_to_iso};
@@ -104,8 +106,8 @@ pub use structure_damage::{
 pub use structure_paint::{
     StructureAnimBank, StructureAnimLayer, StructureAnimMode, StructureBuildupClip, buildup_frame_index, buildup_frame_index_reverse,
     collect_structure_anim_bank, load_structure_buildup_clip, paint_map_structures, paint_structure_anim_bank, paint_structure_anims_onto_rgba,
-    paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, restore_structure_blit_from_ground, restore_structure_foundation_from_ground,
-    structure_anim_frame,
+    paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, restore_structure_blit_from_ground,
+    restore_structure_foundation_from_ground, structure_anim_frame,
 };
 pub use terrain_objects::{TerrainObject, parse_terrain_objects};
 pub use terrain_paint::{

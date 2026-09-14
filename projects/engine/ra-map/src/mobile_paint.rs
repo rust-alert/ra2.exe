@@ -11,7 +11,7 @@ use serde::Deserialize;
 
 use crate::{
     MapEntity, MapEntityKind, MapInfo,
-    compose::{ShadowBlit, TerrainImage, TileBlit, paint_cell_sprites},
+    compose::{CellSpriteItem, ShadowBlit, TerrainImage, TileBlit, cell_sprite, paint_cell_sprites},
     iso_math::{TILE_HEIGHT, TILE_WIDTH},
     lighting::apply_rgba_tint,
     theater::{new_theater_shp_name, theater_palette},
@@ -72,12 +72,7 @@ impl crate::PaintDefinitions {
         self.ensure_mobile_hint_with(None, None, type_id);
     }
 
-    pub(crate) fn ensure_mobile_hint_with(
-        &mut self,
-        art: Option<&IniDocument>,
-        rules: Option<&IniDocument>,
-        type_id: &TechnoName,
-    ) {
+    pub(crate) fn ensure_mobile_hint_with(&mut self, art: Option<&IniDocument>, rules: Option<&IniDocument>, type_id: &TechnoName) {
         if self.mobile_hints.contains(type_id) {
             return;
         }
@@ -131,18 +126,10 @@ struct MobileArtImageFields {
     new_theater: Option<bool>,
     #[serde(rename = "Sequence")]
     sequence: Option<ImageName>,
-    #[serde(rename = "Image")]
-    image: Option<ImageName>,
     #[serde(rename = "WalkFrames", default, deserialize_with = "deserialize_opt_u32")]
     walk_frames: Option<u32>,
     #[serde(rename = "FiringFrames", default, deserialize_with = "deserialize_opt_u32")]
     firing_frames: Option<u32>,
-}
-
-#[derive(Debug, Default, Deserialize)]
-struct MobileRulesImageFields {
-    #[serde(rename = "Image")]
-    image: Option<ImageName>,
 }
 
 /// 移动单位绘制姿态：行走循环帧 + 是否移动中 + 格内像素偏移。
@@ -207,7 +194,7 @@ pub fn paint_map_mobiles(
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
     let mut blit_cache: HashMap<(String, u16, HouseName, u8, u8, u32), TileBlit> = HashMap::new();
-    let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
+    let mut items: Vec<CellSpriteItem> = Vec::new();
 
     for ent in mobiles {
         let Some(hint) = paint.mobile_hint(&ent.type_id)
@@ -230,7 +217,7 @@ pub fn paint_map_mobiles(
             }
             painted.offset_x = painted.offset_x.saturating_add(pose.offset_x);
             painted.offset_y = painted.offset_y.saturating_add(pose.offset_y);
-            items.push((ent.x, ent.y, painted));
+            items.push(cell_sprite(ent.x, ent.y, painted));
             continue;
         }
 
@@ -252,7 +239,7 @@ pub fn paint_map_mobiles(
             }
             blit.offset_x = blit.offset_x.saturating_add(pose.offset_x);
             blit.offset_y = blit.offset_y.saturating_add(pose.offset_y);
-            items.push((ent.x, ent.y, blit));
+            items.push(cell_sprite(ent.x, ent.y, blit));
         }
         else {
             paint.note_missing_mobile_shp(ent.type_id.as_str());
@@ -263,9 +250,7 @@ pub fn paint_map_mobiles(
 }
 
 fn resolve_mobile_image_key(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str) -> String {
-    let from_rules = rules.and_then(|r| r.section(type_id)).and_then(|s| s.deserialize::<MobileRulesImageFields>().ok()).and_then(|f| f.image);
-    let from_art = art.and_then(|a| a.section(type_id)).and_then(|s| s.deserialize::<MobileArtImageFields>().ok()).and_then(|f| f.image);
-    from_rules.or(from_art).filter(|n| !n.is_empty()).map(|n| n.as_str().to_string()).unwrap_or_else(|| type_id.trim().to_ascii_uppercase())
+    crate::image_key::resolve_techno_image_key(rules, art, type_id)
 }
 
 /// 步兵朝向字节 → SHP 朝向槽（0..=7）。

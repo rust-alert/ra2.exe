@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use crate::{
     MapInfo, OverlayCell,
-    compose::{TerrainImage, TileBlit, paint_cell_sprites, paint_overlay_markers},
+    compose::{CellSpriteItem, TerrainImage, TileBlit, cell_sprite, paint_cell_sprites, paint_overlay_markers},
     iso_math::{TILE_HEIGHT, TILE_WIDTH},
     lighting::apply_rgba_tint,
     theater::{new_theater_shp_name, theater_palette, theater_tiberium_palette, theater_tmp_extension},
@@ -213,7 +213,7 @@ pub fn paint_map_overlays(
     }
 
     let mut blit_cache: HashMap<(String, u8, u8, i32), TileBlit> = HashMap::new();
-    let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
+    let mut items: Vec<CellSpriteItem> = Vec::new();
 
     for item in &resolved {
         let Some(shp) = shp_cache.get(&item.file)
@@ -233,7 +233,7 @@ pub fn paint_map_overlays(
             if item.pal_kind != 2 {
                 apply_rgba_tint(&mut painted.rgba, tint);
             }
-            items.push((item.x, item.y, painted));
+            items.push(cell_sprite(item.x, item.y, painted));
             continue;
         }
         let pal: Option<&Palette> = match item.pal_kind {
@@ -265,7 +265,7 @@ pub fn paint_map_overlays(
         if item.pal_kind != 2 {
             apply_rgba_tint(&mut blit.rgba, tint);
         }
-        items.push((item.x, item.y, blit));
+        items.push(cell_sprite(item.x, item.y, blit));
     }
 
     let shp_n = paint_cell_sprites(image, &items, z_at);
@@ -315,12 +315,8 @@ impl OverlayPaintHintTable {
 
     /// 无 art 节可解析的 overlay 类型名（去重已排序）。
     pub(crate) fn types_missing_art(&self) -> Vec<&str> {
-        let mut out: Vec<&str> = self
-            .by_key
-            .iter()
-            .filter(|(_, hint)| !hint.art_resolved)
-            .map(|((type_name, _), _)| type_name.as_str())
-            .collect();
+        let mut out: Vec<&str> =
+            self.by_key.iter().filter(|(_, hint)| !hint.art_resolved).map(|((type_name, _), _)| type_name.as_str()).collect();
         out.sort_unstable();
         out.dedup();
         out
@@ -357,12 +353,7 @@ impl crate::PaintDefinitions {
 /// 解析 overlay 的 SHP 键与剧院标志：rules `Image=`（如 `BRIDGE1`→`BRIDGE`）再落到 art 节。
 ///
 /// 画图键优先级：art `Image=` → rules `Image=` → `display_name`（矿石坐标变体等）。
-fn resolve_overlay_art_keys(
-    art: Option<&IniDocument>,
-    rules: Option<&IniDocument>,
-    type_name: &str,
-    display_name: &str,
-) -> OverlayArtHints {
+fn resolve_overlay_art_keys(art: Option<&IniDocument>, rules: Option<&IniDocument>, type_name: &str, display_name: &str) -> OverlayArtHints {
     let rules_image = rules
         .and_then(|r| r.section(type_name))
         .and_then(|s| s.deserialize::<OverlayRulesImageFields>().ok())
@@ -370,9 +361,8 @@ fn resolve_overlay_art_keys(
         .filter(|n| !n.is_empty())
         .map(|n| n.as_str().to_string());
     let rules_image_or_type = rules_image.clone().unwrap_or_else(|| type_name.to_ascii_uppercase());
-    let art_resolved = art.is_some_and(|a| {
-        [type_name, rules_image_or_type.as_str(), display_name].into_iter().any(|candidate| a.section(candidate).is_some())
-    });
+    let art_resolved = art
+        .is_some_and(|a| [type_name, rules_image_or_type.as_str(), display_name].into_iter().any(|candidate| a.section(candidate).is_some()));
     let art_section = art
         .and_then(|a| {
             for candidate in [type_name, rules_image_or_type.as_str(), display_name] {

@@ -173,15 +173,45 @@ pub fn paint_structure_missing_markers(image: &mut TerrainImage, cells: &[(u16, 
     painted
 }
 
+/// 格子精灵叠画项：绘制锚点 `(draw_x, draw_y)` + 等距深度键 + blit。
+///
+/// `sort_depth` 通常为 `draw_x + draw_y`；多格建筑应取 foundation 东南角
+/// `(x+w-1)+(y+h-1)`，使占地南缘更靠前的建筑后画。
+pub type CellSpriteItem = (u16, u16, i32, TileBlit);
+
+/// 单格精灵：`sort_depth = x + y`。
+#[inline]
+pub fn cell_sprite(x: u16, y: u16, blit: TileBlit) -> CellSpriteItem {
+    (x, y, i32::from(x) + i32::from(y), blit)
+}
+
+/// 多格建筑的等距深度键：foundation 东南角 `x+y`。
+#[inline]
+pub fn foundation_sort_depth(anchor_x: u16, anchor_y: u16, foundation_w: u16, foundation_h: u16) -> i32 {
+    let w = foundation_w.max(1);
+    let h = foundation_h.max(1);
+    i32::from(anchor_x.saturating_add(w - 1)) + i32::from(anchor_y.saturating_add(h - 1))
+}
+
+/// 多格建筑精灵：绘制仍锚在 foundation 西北角，深度取东南角。
+#[inline]
+pub fn cell_sprite_foundation(anchor_x: u16, anchor_y: u16, foundation_w: u16, foundation_h: u16, blit: TileBlit) -> CellSpriteItem {
+    (anchor_x, anchor_y, foundation_sort_depth(anchor_x, anchor_y, foundation_w, foundation_h), blit)
+}
+
 /// 在已合成地形上按格子绘制精灵（树 / 建筑等）。
 ///
-/// `items` 为 `(cell_x, cell_y, blit)`；每项先压暗落影再画主体。返回实际画上的主体数量。
-pub fn paint_cell_sprites(image: &mut TerrainImage, items: &[(u16, u16, TileBlit)], mut cell_z: impl FnMut(u16, u16) -> u8) -> usize {
+/// `items` 为 [`CellSpriteItem`]；每项先压暗落影再画主体。返回实际画上的主体数量。
+///
+/// 排序按**格子深度**（`sort_depth`、`draw_x`），不用 blit 顶边。高大建筑
+/// `offset_y` 很负时，顶边排序会让更北的矮建筑后画盖住更南的高楼。
+pub fn paint_cell_sprites(image: &mut TerrainImage, items: &[CellSpriteItem], mut cell_z: impl FnMut(u16, u16) -> u8) -> usize {
     if items.is_empty() {
         return 0;
     }
-    let mut prepared: Vec<(i32, i32, i32, i32, &TileBlit)> = Vec::with_capacity(items.len());
-    for (x, y, blit) in items {
+    // (cell_sx, cell_sy, blit_x, blit_y, sort_depth, draw_x, blit)
+    let mut prepared: Vec<(i32, i32, i32, i32, i32, u16, &TileBlit)> = Vec::with_capacity(items.len());
+    for (x, y, depth, blit) in items {
         let z = cell_z(*x, *y);
         let (sx, sy) = iso_to_screen(i32::from(*x), i32::from(*y), z);
         prepared.push((
@@ -189,13 +219,15 @@ pub fn paint_cell_sprites(image: &mut TerrainImage, items: &[(u16, u16, TileBlit
             sy - image.origin_y,
             sx + blit.offset_x - image.origin_x,
             sy + blit.offset_y - image.origin_y,
+            *depth,
+            *x,
             blit,
         ));
     }
-    prepared.sort_by_key(|(_, _, bx, by, _)| (*by, *bx));
+    prepared.sort_by_key(|(_, _, _, _, depth, draw_x, _)| (*depth, *draw_x));
     let mut painted = 0usize;
     let (width, height) = (image.image.width(), image.image.height());
-    for (cell_sx, cell_sy, dx, dy, blit) in prepared {
+    for (cell_sx, cell_sy, dx, dy, _, _, blit) in prepared {
         if let Some(shadow) = blit.shadow.as_ref() {
             let sdx = cell_sx + shadow.offset_x;
             let sdy = cell_sy + shadow.offset_y;
