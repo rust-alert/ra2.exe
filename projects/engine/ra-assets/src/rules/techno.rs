@@ -265,12 +265,15 @@ impl TechnoTypeRegistry {
     }
 
     /// 用层叠 art 覆盖建筑几何字段。
+    ///
+    /// 解析顺序：本类 art 节 → art `Image=` 跳转 → rules 已解析的 `Image=` 指向的 art 节。
+    /// 美军空指 `AMRADR` 仅在 rules 写 `Image=GAAIRC`、art 无本类节，须靠第三步拿到 `Foundation=3x2`。
     pub fn apply_art_geometry_layered(&mut self, art: LayeredIniView<'_>) {
         for tt in self.by_id.values_mut() {
             if tt.kind != TechnoKind::Building {
                 continue;
             }
-            let geo = art_geometry_fields(art, &tt.id);
+            let geo = art_geometry_fields(art, tt.id.as_str(), tt.image.as_str());
             if let Some(foundation) = geo.foundation {
                 tt.foundation = foundation;
             }
@@ -527,29 +530,34 @@ struct ArtGeometryFields {
     height: Option<i32>,
 }
 
-/// 先读 art 本节，再跟 `Image=` 指向的 art 节（后者覆盖前者已出现的键）。
-fn art_geometry_fields(art: LayeredIniView<'_>, type_key: &str) -> ArtGeometryFields {
+/// 先读 art 本节，再跟 art / rules 的 `Image=` 指向的 art 节（后者覆盖前者已出现的键）。
+fn art_geometry_fields(art: LayeredIniView<'_>, type_key: &str, rules_image: &str) -> ArtGeometryFields {
     let mut out = ArtGeometryFields::default();
     if let Some(sec) = art.section(type_key) {
         if let Ok(fields) = sec.deserialize::<ArtGeometryFields>() {
             out = fields;
         }
     }
-    let Some(image_raw) = art.get(type_key, "Image")
-    else {
-        return out;
-    };
-    let image = image_raw.trimmed().raw.to_ascii_uppercase();
+    if let Some(image_raw) = art.get(type_key, "Image") {
+        merge_art_geometry_from_section(art, &mut out, type_key, image_raw.trimmed().raw);
+    }
+    // rules `Image=`（如 `AMRADR` → `GAAIRC`）：art 无本类节时仍须跳到目标几何。
+    merge_art_geometry_from_section(art, &mut out, type_key, rules_image);
+    out
+}
+
+fn merge_art_geometry_from_section(art: LayeredIniView<'_>, out: &mut ArtGeometryFields, type_key: &str, image_raw: &str) {
+    let image = image_raw.trim().to_ascii_uppercase();
     if image.is_empty() || image.eq_ignore_ascii_case(type_key) {
-        return out;
+        return;
     }
     let Some(sec) = art.section(&image)
     else {
-        return out;
+        return;
     };
     let Ok(overlay) = sec.deserialize::<ArtGeometryFields>()
     else {
-        return out;
+        return;
     };
     if overlay.foundation.is_some() {
         out.foundation = overlay.foundation;
@@ -557,7 +565,6 @@ fn art_geometry_fields(art: LayeredIniView<'_>, type_key: &str) -> ArtGeometryFi
     if overlay.height.is_some() {
         out.height = overlay.height;
     }
-    out
 }
 
 /// 从武器节读取伤害 / 射程 / ROF / 弹头 / 抛射体；缺省时可用 `fallback_rof`（主武器可回退类型节 ROF）。

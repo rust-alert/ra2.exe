@@ -234,6 +234,29 @@ fn apply_art_geometry_overrides_rules_and_follows_image() {
 }
 
 #[test]
+fn apply_art_geometry_follows_rules_image_when_art_section_missing() {
+    // 美军空指：rules `Image=GAAIRC`，art 无 `[AMRADR]`，几何在 `[GAAIRC]`。
+    let rules = IniDocument::parse(
+        b"[BuildingTypes]\n0=GAAIRC\n1=AMRADR\n\
+[GAAIRC]\nStrength=600\n\
+[AMRADR]\nStrength=600\nImage=GAAIRC\n",
+    )
+    .unwrap();
+    let art = IniDocument::parse(b"[GAAIRC]\nFoundation=3x2\nHeight=7\n").unwrap();
+    let mut reg = TechnoTypeRegistry::from_rules(&rules);
+    assert_eq!(reg.get("AMRADR").unwrap().image.as_str(), "GAAIRC");
+    assert_eq!((reg.get("AMRADR").unwrap().foundation.width, reg.get("AMRADR").unwrap().foundation.height), (1, 1));
+    reg.apply_art_geometry(&art);
+    let am = reg.get("AMRADR").unwrap();
+    assert_eq!((am.foundation.width, am.foundation.height), (3, 2));
+    assert_eq!(am.foundation.raw, "3X2");
+    assert_eq!(am.height, Some(7));
+    let ga = reg.get("GAAIRC").unwrap();
+    assert_eq!((ga.foundation.width, ga.foundation.height), (3, 2));
+    assert_eq!(ga.height, Some(7));
+}
+
+#[test]
 fn from_layered_merges_techno_fields_and_list() {
     let base = IniDocument::parse(
         b"[VehicleTypes]\n0=MTNK\n\
