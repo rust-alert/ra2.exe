@@ -136,6 +136,25 @@ impl BattleController {
         self.place_mode = Some(type_id.to_string());
     }
 
+    /// 放置态与建造场完工件对齐。
+    ///
+    /// `PlaceBuilding` / 取消生产等经命令队列异步消费完工件；点击当下不能用
+    /// `is_local_ready_to_place` 判断是否退出。仿真推进后若当前放置类型已无完工件，
+    /// 则退出放置（成功落位或完工件被取消均适用）。拒单时完工件仍在，放置态保持，
+    /// 便于继续点合法格。
+    pub(super) fn sync_place_mode_with_ready(&mut self) {
+        let Some(type_id) = self.place_mode.clone()
+        else {
+            return;
+        };
+        let still_ready =
+            self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.is_local_ready_to_place(&type_id));
+        if !still_ready {
+            self.place_mode = None;
+            tracing::info!("建造模式 · 完工件已消耗，已退出");
+        }
+    }
+
     /// 当前页签若已无基础，切到第一个仍可见的页签。
     pub(super) fn sync_sidebar_tab_to_visible(&mut self, visible: [bool; SIDEBAR_TAB_COUNT]) {
         if visible.get(self.sidebar_tab).copied().unwrap_or(false) {

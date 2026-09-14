@@ -619,8 +619,16 @@ impl BattleController {
             if let Some(rect) = self.left_gesture.marquee_rect() {
                 stroke_marquee_rect(&mut page, rect);
             }
+            // 防御：放置态若因异步漏清，无完工件时不画绿框（常态由 `sync_place_mode_with_ready` 退出）。
             if let Some(type_id) = self.place_mode.clone() {
-                self.paint_placement_ghost(&mut page, renderer, w, h, &type_id);
+                let paint_ghost = self
+                    .session
+                    .as_ref()
+                    .and_then(|s| s.battle())
+                    .is_some_and(|g| g.is_local_ready_to_place(&type_id));
+                if paint_ghost {
+                    self.paint_placement_ghost(&mut page, renderer, w, h, &type_id);
+                }
             }
             // 收束窗（`pending_savour_outcome`）与已锁定 `outcome` 都叠胜负横幅。
             let hold_outcome =

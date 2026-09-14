@@ -143,10 +143,9 @@ impl BattleController {
             if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                 tracing::info!("放置建筑 {type_id} @({},{})", cell.0, cell.1);
                 game.order_place_building(type_id.clone(), cell.0, cell.1);
-                // 成功会清掉完工件；失败仍保持落位，便于接着点合法格。
-                if !game.is_local_ready_to_place(&type_id) {
-                    self.place_mode = None;
-                }
+                // `PlaceBuilding` 入队后下一拍才消费完工件，此处 `is_local_ready_to_place` 仍为 true。
+                // 占地已在主机侧校验。退出放置由 `sync_place_mode_with_ready` 在仿真推进后对齐。
+                // 若命令被拒，完工件仍在，放置态保持，便于继续点合法格。
             }
             return;
         }
