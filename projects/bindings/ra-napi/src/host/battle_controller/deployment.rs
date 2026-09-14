@@ -4,8 +4,8 @@ use std::{collections::HashMap, time::Instant};
 
 use ra_map::{
     MapEntity, MapEntityKind, MobilePaintPose, StructureBuildupClip, collect_structure_anim_bank, load_structure_buildup_clip,
-    paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba,
-    paint_terrain_anims_onto_rgba, restore_structure_blit_from_ground, restore_structure_foundation_from_ground,
+    load_structure_erase_masks, paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba,
+    paint_structures_onto_rgba, paint_terrain_anims_onto_rgba, restore_structure_blit_from_ground, restore_structure_foundation_from_ground,
 };
 use ra_renderer::Renderer;
 use ra_types::{EntityId, HouseName, TechnoName};
@@ -433,23 +433,17 @@ impl BattleController {
             load_structure_buildup_clip(assets, &game.world.map, &mut self.paint, &job.type_id, &job.owner, job.x, job.y, &|base, owner| {
                 remap_owner_palette(rules, Some(lobby), base, owner)
             })
-        } else {
+        }
+        else {
             None
         };
         let cell_z = clip.as_ref().map(|c| c.cell_z).unwrap_or(0);
-        self.erase_structure_from_preview(&job, clip.as_ref(), cell_z);
+        self.erase_structure_from_preview(assets, &job, clip.as_ref(), cell_z);
         self.structure_anims.layers.retain(|layer| !(layer.x == job.x && layer.y == job.y));
         self.last_anim_sig = u64::MAX;
         match clip {
             Some(clip) => {
-                tracing::info!(
-                    "拆除动画 · {} @({},{}) · {}帧倒放 · {}ms/帧",
-                    job.type_id,
-                    job.x,
-                    job.y,
-                    clip.frames.len(),
-                    clip.rate_ms
-                );
+                tracing::info!("拆除动画 · {} @({},{}) · {}帧倒放 · {}ms/帧", job.type_id, job.x, job.y, clip.frames.len(), clip.rate_ms);
                 self.pending_teardowns.push(PendingTeardown {
                     entity: job.entity,
                     type_id: job.type_id,
@@ -466,44 +460,143 @@ impl BattleController {
         }
     }
 
-    /// 从 `preview_clean` / underlay 按遮罩还原无建筑底图像素。
+    /// 从 `preview_clean` / underlay 按精灵遮罩还原无建筑底图像素。
     ///
-    /// 优先用 Buildup 末帧遮罩；再按 Foundation 包围盒扫一遍，清掉主体 SHP 比末帧更大时的残影。
-    fn erase_structure_from_preview(&mut self, job: &TeardownVisualJob, clip: Option<&StructureBuildupClip>, cell_z: u8) {
+    /// 优先 Bib+主体 SHP，其次 Buildup 末帧；仅两者皆无时才回退 Foundation 矩形
+    ///（矩形会吃掉邻接建筑在屏幕重叠处的像素）。
+    fn erase_structure_from_preview(
+        &mut self,
+        assets: &GameAssetSource,
+        job: &TeardownVisualJob,
+        clip: Option<&StructureBuildupClip>,
+        cell_z: u8,
+    ) {
         let origin = self.preview_origin;
-        let mask = clip.and_then(|c| c.frames.last());
+        let body_masks = if let Some(rules) = self.rules.as_ref() {
+            let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+            else {
+                return;
+            };
+            let lobby = &self.lobby_primaries;
+            load_structure_erase_masks(assets, &game.world.map, &mut self.paint, &job.type_id, &job.owner, &|base, owner| {
+                remap_owner_palette(rules, Some(lobby), base, owner)
+            })
+        } else {
+            Vec::new()
+        };
+        let buildup_mask = clip.and_then(|c| c.frames.last());
+        let use_foundation = body_masks.is_empty() && buildup_mask.is_none();
+
         if let (Some(clean), Some(ground)) = (self.preview_clean.as_mut(), self.preview_structureless_clean.as_ref()) {
-            if let Some(blit) = mask {
+            for blit in &body_masks {
                 let _ = restore_structure_blit_from_ground(clean, ground, origin.0, origin.1, job.x, job.y, cell_z, blit);
             }
-            let _ = restore_structure_foundation_from_ground(
-                clean,
-                ground,
-                origin.0,
-                origin.1,
-                job.x,
-                job.y,
-                cell_z,
-                job.foundation_w,
-                job.foundation_h,
-            );
+            if body_masks.is_empty() {
+                if let Some(blit) = buildup_mask {
+                    let _ = restore_structure_blit_from_ground(clean, ground, origin.0, origin.1, job.x, job.y, cell_z, blit);
+                }
+            }
+            if use_foundation {
+                let _ = restore_structure_foundation_from_ground(
+                    clean,
+                    ground,
+                    origin.0,
+                    origin.1,
+                    job.x,
+                    job.y,
+                    cell_z,
+                    job.foundation_w,
+                    job.foundation_h,
+                );
+            }
         }
         if let (Some(underlay), Some(ground)) = (self.preview_ore_underlay.as_mut(), self.preview_structureless_underlay.as_ref()) {
-            if let Some(blit) = mask {
+            for blit in &body_masks {
                 let _ = restore_structure_blit_from_ground(underlay, ground, origin.0, origin.1, job.x, job.y, cell_z, blit);
             }
-            let _ = restore_structure_foundation_from_ground(
-                underlay,
-                ground,
-                origin.0,
-                origin.1,
-                job.x,
-                job.y,
-                cell_z,
-                job.foundation_w,
-                job.foundation_h,
-            );
+            if body_masks.is_empty() {
+                if let Some(blit) = buildup_mask {
+                    let _ = restore_structure_blit_from_ground(underlay, ground, origin.0, origin.1, job.x, job.y, cell_z, blit);
+                }
+            }
+            if use_foundation {
+                let _ = restore_structure_foundation_from_ground(
+                    underlay,
+                    ground,
+                    origin.0,
+                    origin.1,
+                    job.x,
+                    job.y,
+                    cell_z,
+                    job.foundation_w,
+                    job.foundation_h,
+                );
+            }
         }
+        // 遮罩 / 矩形擦除会清掉邻接建筑在屏幕重叠处的像素，必须按深度重烤存活建筑。
+        self.repaint_living_structures_onto_preview(assets);
+    }
+
+    /// 把仍存活的建筑按深度重叠到 `preview_clean` / underlay（拆除擦除后补邻接残缺）。
+    fn repaint_living_structures_onto_preview(&mut self, assets: &GameAssetSource) {
+        let Some(rules) = self.rules.as_ref()
+        else {
+            return;
+        };
+        let origin = self.preview_origin;
+        let lobby = self.lobby_primaries.clone();
+        let living: Vec<MapEntity> = {
+            let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+            else {
+                return;
+            };
+            game.world
+                .entity_ids()
+                .into_iter()
+                .filter_map(|id| {
+                    let (cur, max, dead) = game.world.ecs_health(id)?;
+                    if dead {
+                        return None;
+                    }
+                    let (type_id, kind) = game.world.ecs_identity(id)?;
+                    if kind != MapEntityKind::Structure {
+                        return None;
+                    }
+                    let owner = game.world.ecs_owner(id)?;
+                    let (x, y, _) = game.world.ecs_transform(id)?;
+                    let health = if max == 0 { 256 } else { ((u64::from(cur) * 256) / u64::from(max)).min(256) as u16 };
+                    Some(MapEntity {
+                        kind: MapEntityKind::Structure,
+                        owner: HouseName::parse(owner.as_ref()),
+                        type_id: TechnoName::parse(type_id.as_ref()),
+                        health,
+                        x,
+                        y,
+                        facing: 0,
+                        sub_cell: 0,
+                        mission: Default::default(),
+                        tag: Default::default(),
+                    })
+                })
+                .collect()
+        };
+        if living.is_empty() {
+            return;
+        }
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return;
+        };
+        let mut map = game.world.map.clone();
+        map.entities = living;
+        let remap = |base: &ra_assets::Palette, own: &str| remap_owner_palette(rules, Some(&lobby), base, own);
+        if let Some(clean) = self.preview_clean.as_mut() {
+            let _ = paint_structures_onto_rgba(assets, &map, clean, origin.0, origin.1, &mut self.paint, &remap);
+        }
+        if let Some(underlay) = self.preview_ore_underlay.as_mut() {
+            let _ = paint_structures_onto_rgba(assets, &map, underlay, origin.0, origin.1, &mut self.paint, &remap);
+        }
+        self.last_anim_sig = u64::MAX;
     }
 
     /// 把已展开建造场烤进 `preview_clean`。主体 SHP 缺失时用 Buildup 末帧。
