@@ -160,6 +160,65 @@ Rate=300\n\
 }
 
 #[test]
+fn neutral_oil_derrick_still_invokes_owner_remap_despite_remapable_no() {
+    // Remapable=no 若完全跳过 remap，unittem 默认色带偏红，中立油田会看起来像红方已占领。
+    let art = b"\
+[CAOILD]\n\
+Remapable=no\n\
+NewTheater=yes\n\
+ActiveAnimTwo=CAOILD_F\n\
+\n\
+[CAOILD_F]\n\
+Image=CAOILD_F\n\
+NewTheater=yes\n\
+Start=0\n\
+LoopStart=0\n\
+LoopEnd=1\n\
+Rate=300\n\
+";
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), art.to_vec());
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 63, 0));
+    files.insert("ctoild.shp".into(), raw_one_pixel_shp(5));
+    files.insert("ctoild_f.shp".into(), raw_one_pixel_shp(5));
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Neutral".into(),
+        type_id: "CAOILD".into(),
+        health: 256,
+        x: 5,
+        y: 0,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+
+    let source = MapSource { files };
+    let mut image = TerrainImage::blank(256, 256);
+    let mut paint = sealed_paint(&source, &map);
+    let remap_owners = std::cell::RefCell::new(Vec::<String>::new());
+    let _ = paint_map_structures(
+        &source,
+        &map,
+        &mut image,
+        &mut paint,
+        &|p, owner| {
+            remap_owners.borrow_mut().push(owner.to_ascii_uppercase());
+            p.clone()
+        },
+        StructureAnimMode::BodyAndAnims { clock_ms: 0 },
+    );
+    let remap_owners = remap_owners.into_inner();
+    assert!(
+        remap_owners.iter().any(|o| o == "NEUTRAL"),
+        "Neutral CAOILD must still call remap_owner for Grey neutralization: {remap_owners:?}"
+    );
+}
+
+#[test]
 fn yellow_health_collects_damage_fire_layers() {
     use ra_map::collect_structure_anim_bank;
 

@@ -23,6 +23,31 @@ const STRUCTURE_LOOP_ANIM_KEYS: &[(&str, &str, &str)] = &[
     ("IdleAnimTwo", "IdleAnimTwoDamaged", "IdleAnimTwoZAdjust"),
 ];
 
+/// 氛围房主：中立 / 平民 / Special。
+fn is_ambient_structure_owner(owner: &str) -> bool {
+    matches!(owner.to_ascii_uppercase().as_str(), "NEUTRAL" | "CIVILIAN" | "SPECIAL")
+}
+
+/// 建筑主体 / 活动层调色板。
+///
+/// - `Remapable=yes`：按房主染色。
+/// - `Remapable=no` 且氛围房主：仍走 `remap_owner`（中立 `Color=Grey`），避免 `unittem.pal`
+///   默认 16..=31 色带偏红，看起来像「红方已占领」。
+/// - `Remapable=no` 且玩家房主：保持原色板（油田主体等不染色）。
+fn structure_owner_palette(
+    remapable: bool,
+    owner: &str,
+    base: &Palette,
+    remap_owner: &dyn Fn(&Palette, &str) -> Palette,
+) -> Palette {
+    if remapable || is_ambient_structure_owner(owner) {
+        remap_owner(base, owner)
+    }
+    else {
+        base.clone()
+    }
+}
+
 /// 建筑类型叠画主体提示（按 `type_id` 去重一次）。
 #[derive(Debug, Clone)]
 struct StructureTypePaintHints {
@@ -107,12 +132,7 @@ impl crate::PaintDefinitions {
         self.ensure_structure_hint_with(None, None, type_id);
     }
 
-    pub(crate) fn ensure_structure_hint_with(
-        &mut self,
-        art: Option<&IniDocument>,
-        rules: Option<&IniDocument>,
-        type_id: &TechnoName,
-    ) {
+    pub(crate) fn ensure_structure_hint_with(&mut self, art: Option<&IniDocument>, rules: Option<&IniDocument>, type_id: &TechnoName) {
         if self.structure_hints.contains(type_id) {
             return;
         }
@@ -138,12 +158,7 @@ impl crate::PaintDefinitions {
         self.ensure_structure_anim_hint_with(None, anim_name, default_rate_ms);
     }
 
-    pub(crate) fn ensure_structure_anim_hint_with(
-        &mut self,
-        art: Option<&IniDocument>,
-        anim_name: &str,
-        default_rate_ms: u32,
-    ) {
+    pub(crate) fn ensure_structure_anim_hint_with(&mut self, art: Option<&IniDocument>, anim_name: &str, default_rate_ms: u32) {
         if self.structure_anim_hints.contains(anim_name) {
             return;
         }
@@ -630,7 +645,6 @@ pub fn collect_structure_anim_bank(
         else {
             continue;
         };
-        let remapable = type_hint.remapable;
         let cell_z = z_lookup.get(&(ent.x, ent.y)).copied().unwrap_or(0);
         let yellow = damage.is_yellow(ent.health);
 
@@ -642,8 +656,9 @@ pub fn collect_structure_anim_bank(
             // `*ZAdjust` 是原版 Z 缓冲排序偏移，不是屏幕像素。预览叠画已分主体/活动两遍，忽略即可。
             let _ = z_key;
             let hint = paint.resolve_structure_anim_hint(anim_name, 300);
-            let anim_remapable = hint.remapable_override.unwrap_or(remapable);
-            let anim_pal = if anim_remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
+            // 活动层缺省可染色（油田旗等）；仅当 anim 节显式 `Remapable=no` 时关闭。
+            let anim_remapable = hint.remapable_override.unwrap_or(true);
+            let anim_pal = structure_owner_palette(anim_remapable, &ent.owner, &obj_pal, remap_owner);
 
             let Some(shp) = load_shp(source, map, &hint.image_key, hint.new_theater, &mut shp_cache)
             else {
@@ -837,7 +852,7 @@ pub fn load_structure_buildup_clip(
     let buildup = type_hint.buildup.as_ref()?;
     let remapable = type_hint.remapable;
     let obj_pal = load_object_palette(source, map)?;
-    let pal = if remapable { remap_owner(&obj_pal, owner) } else { obj_pal };
+    let pal = structure_owner_palette(remapable, owner, &obj_pal, remap_owner);
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
     let shp = load_shp(source, map, &buildup.image_key, buildup.new_theater, &mut shp_cache)?;
     // 偶数帧且后半有像素时，后半是落影（常为索引 1）；Buildup 只播主体半幅。
@@ -937,7 +952,7 @@ fn paint_map_structures_inner(
             continue;
         };
         let remapable = hint.remapable;
-        let pal = if remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
+        let pal = structure_owner_palette(remapable, &ent.owner, &obj_pal, remap_owner);
 
         if paint_body {
             let body_new_theater = hint.body_new_theater;
@@ -984,8 +999,9 @@ fn paint_map_structures_inner(
             let _ = z_key;
             let anim_hint = paint.resolve_structure_anim_hint(anim_name, 300);
             let frame_idx = structure_anim_frame(clock_ms, anim_hint.rate_ms, anim_hint.loop_start, anim_hint.loop_end);
-            let anim_remapable = anim_hint.remapable_override.unwrap_or(remapable);
-            let anim_pal = if anim_remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
+            // 活动层缺省可染色（油田旗等）；仅当 anim 节显式 `Remapable=no` 时关闭。
+            let anim_remapable = anim_hint.remapable_override.unwrap_or(true);
+            let anim_pal = structure_owner_palette(anim_remapable, &ent.owner, &obj_pal, remap_owner);
             if let Some(mut blit) = load_structure_blit(
                 source,
                 map,
