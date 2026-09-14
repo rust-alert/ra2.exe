@@ -1,5 +1,5 @@
 use crate::{
-    gameplay::{ai::is_ambient_house, is_base_unit},
+    gameplay::{ai::is_ambient_house, is_base_unit, structure_counts_for_skirmish_alive},
     state::{
         BattleState,
         components::{Health, Identity, Owner},
@@ -19,7 +19,7 @@ pub enum BattleOutcome {
     },
     /// 本地或剧本判定失败（战役触发器 Lose、遭遇战本地出局等）。
     Defeat {
-        /// 可选说明（触发器 id 等）。
+        /// 可选说明（触发器 id、双灭 `stalemate` 等）。
         reason: String,
     },
 }
@@ -55,7 +55,7 @@ pub struct PlayerBattleStats {
 }
 
 impl BattleSession {
-    /// 遭遇战：若仅剩一个阵营仍保活，进入 `SavourDelay` 收束后再锁定。
+    /// 遭遇战：若仅剩一个阵营仍保活，或各方均出局（双灭），进入 `SavourDelay` 收束后再锁定。
     /// 战役：消费触发器 `pending_outcome`，同样可走收束窗。
     pub(super) fn refresh_outcome(&mut self) {
         if self.outcome.is_some() {
@@ -71,14 +71,9 @@ impl BattleSession {
         if self.boot_kind == SessionBootKind::Campaign {
             return;
         }
-        let Some(owner) = self.sole_victor().map(str::to_string)
-        else {
-            return;
-        };
-        let local_win =
-            self.world.players.iter().find(|p| p.id == self.world.local_player).is_some_and(|p| p.house.as_ref().eq_ignore_ascii_case(&owner));
-        let outcome = if local_win { BattleOutcome::Victory { owner: owner.clone() } } else { BattleOutcome::Defeat { reason: String::new() } };
-        self.begin_savour(outcome);
+        if let Some(outcome) = self.evaluate_skirmish_outcome() {
+            self.begin_savour(outcome);
+        }
     }
 
     /// 由剧本 / 触发器锁定胜负（战役主路径；仍经收束窗）。
@@ -144,6 +139,9 @@ impl BattleSession {
                 else if reason.is_empty() {
                     "胜负已定".into()
                 }
+                else if reason == "stalemate" {
+                    "胜负已定 · 双灭".into()
+                }
                 else {
                     format!("胜负已定 · {reason}")
                 }
@@ -200,10 +198,37 @@ impl BattleSession {
         BattleStats { duration_ticks: self.world.tick, units_lost, buildings_lost, funds_spent, players }
     }
 
+    /// 遭遇战胜负：恰好一方保活 → 胜/负；各方均出局 → 双灭判负；否则继续。
+    fn evaluate_skirmish_outcome(&self) -> Option<BattleOutcome> {
+        let contenders: Vec<&str> =
+            self.world.players.iter().filter(|p| !is_ambient_house(p.house.as_ref())).map(|p| p.house.as_ref()).collect();
+        if contenders.len() < 2 {
+            return None;
+        }
+        let alive: Vec<&str> = contenders.into_iter().filter(|house| house_keeps_alive(&self.world, house, self.short_game)).collect();
+        match alive.as_slice() {
+            [] => Some(BattleOutcome::Defeat { reason: "stalemate".into() }),
+            [owner] => {
+                let local_win = self
+                    .world
+                    .players
+                    .iter()
+                    .find(|p| p.id == self.world.local_player)
+                    .is_some_and(|p| p.house.as_ref().eq_ignore_ascii_case(owner));
+                Some(if local_win {
+                    BattleOutcome::Victory { owner: (*owner).to_string() }
+                } else {
+                    BattleOutcome::Defeat { reason: String::new() }
+                })
+            }
+            _ => None,
+        }
+    }
+
     /// 若仅剩一个非氛围阵营仍保活，返回其 owner。
     ///
     /// 至少需要两名非氛围玩家槽位，避免单机装载尚未开战时误判胜负。
-    /// 短局：存活建筑或 `[General] BaseUnit` 保活。长局：任意存活建筑 / 步兵 / 载具 / 飞行器保活。
+    /// 短局：存活非围墙建筑或 `[General] BaseUnit` 保活。长局：非围墙建筑 / 步兵 / 载具 / 飞行器保活。
     pub fn sole_victor(&self) -> Option<&str> {
         let contenders: Vec<&str> =
             self.world.players.iter().filter(|p| !is_ambient_house(p.house.as_ref())).map(|p| p.house.as_ref()).collect();
@@ -230,7 +255,11 @@ fn house_keeps_alive(world: &BattleState, house: &str, short_game: bool) -> bool
             continue;
         };
         match identity.kind {
-            MapEntityKind::Structure => return true,
+            MapEntityKind::Structure => {
+                if structure_counts_for_skirmish_alive(&world.definitions, identity.type_id) {
+                    return true;
+                }
+            }
             MapEntityKind::Unit if short_game => {
                 if is_base_unit(&world.definitions, identity.type_id) {
                     return true;

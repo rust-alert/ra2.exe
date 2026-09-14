@@ -183,6 +183,8 @@ pub struct StructureDefinition {
     pub construction_yard: bool,
     /// 是否矿场。
     pub refinery: bool,
+    /// INI `Wall=yes`（围墙 / 闸门等；不计入遭遇战保活）。
+    pub wall: bool,
     /// INI `FreeUnit=`：建筑落位完成后白送的单位稳定 id；`None` = 不送。
     pub free_unit: Option<TypeId>,
     /// INI `Radar=yes`（侧栏雷达开图）。

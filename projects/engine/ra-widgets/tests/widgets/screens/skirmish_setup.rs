@@ -34,6 +34,16 @@ fn houses_to_ensure_follows_lobby_rows() {
 }
 
 #[test]
+fn houses_to_ensure_resolves_same_country_rows() {
+    let mut req = lobby_with_sides();
+    // 本地与 AI 同国 → 为 AI 改派表中下一个未占用国家，保证两席 contender。
+    req.set_row_side(1, 0);
+    assert_eq!(req.row_side(0), "Americans");
+    assert_eq!(req.row_side(1), "Americans");
+    assert_eq!(req.houses_to_ensure(1), vec!["Americans".to_string(), "French".to_string()]);
+}
+
+#[test]
 fn cycle_side_wraps() {
     let mut req = lobby_with_sides();
     assert_eq!(req.side, "Americans");

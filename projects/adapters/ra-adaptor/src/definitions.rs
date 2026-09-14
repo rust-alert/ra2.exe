@@ -202,6 +202,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         let powered = tt.powered.unwrap_or(drain > 0);
         let construction_yard = tt.construction_yard;
         let refinery = tt.refinery;
+        let wall = tt.wall;
         if !tt.free_unit.is_empty() {
             pending_free_units.push((key.clone(), tt.free_unit.clone()));
         }
@@ -273,6 +274,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             armor: tt.armor,
             construction_yard,
             refinery,
+            wall,
             free_unit: None,
             radar,
             build_cat,

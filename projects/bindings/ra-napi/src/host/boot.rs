@@ -726,14 +726,7 @@ pub fn boot_world_with_progress(
     let mut structure_anims = StructureAnimBank::default();
     let mut terrain_anims = TerrainAnimBank::default();
     let mut ore_tree_anims = TerrainAnimBank::default();
-    let mut preview = match load_map_terrain_preview(
-        &source,
-        &map,
-        &mut paint,
-        &rules,
-        &structure_lights,
-        Some(&lobby_primaries),
-    ) {
+    let mut preview = match load_map_terrain_preview(&source, &map, &mut paint, &rules, &structure_lights, Some(&lobby_primaries)) {
         Some((name, image, base, underlay, bank, terrain_bank, ore_bank, ox, oy)) => {
             note = format!("{note} · preview:{name}");
             preview_origin = (ox, oy);
@@ -780,6 +773,17 @@ pub fn boot_world_with_progress(
     let preferred_house = Some(request.side.as_str());
     let ai_rows = skirmish_ai_row_count(count_skirmish_start_slots(&map.waypoints, &map.name));
     let ensure_houses = request.houses_to_ensure(ai_rows);
+    if request.boot_kind == LoadKind::Skirmish && ensure_houses.len() < 2 {
+        let seats = if ensure_houses.is_empty() {
+            "无".to_string()
+        } else {
+            ensure_houses.join("+")
+        };
+        let msg = format!("遭遇战需要至少两个不同阵营（当前席位: {seats}）。请为 AI 选择与本地不同的国家。");
+        tracing::error!(houses = %seats, "遭遇战胜负席位不足");
+        report(1.0, "席位不足");
+        return Ok(BootResult::failed(msg));
+    }
     let ensure_refs: Vec<&str> = ensure_houses.iter().map(String::as_str).collect();
     let session_result = match request.boot_kind {
         LoadKind::Campaign => {
@@ -880,15 +884,8 @@ pub fn boot_world_with_progress(
             // 航点播种的 MCV 不在地图放置段：保留无 mobile 底图，再叠到对局底图。
             if let Some(base) = preview_base.as_mut() {
                 preview_clean = Some(base.clone());
-                let painted = paint_session_mobiles_onto_preview(
-                    &source,
-                    &mut paint,
-                    &rules,
-                    &opened.session,
-                    base,
-                    preview_origin,
-                    &lobby_primaries,
-                );
+                let painted =
+                    paint_session_mobiles_onto_preview(&source, &mut paint, &rules, &opened.session, base, preview_origin, &lobby_primaries);
                 if painted > 0 {
                     note = format!("{note} · start_mobile_shp#{painted}");
                 }

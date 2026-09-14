@@ -217,18 +217,25 @@ impl SkirmishBootRequest {
         self.side = self.row_side(0).to_string();
     }
 
-    /// 装载时需登记的 house 列表：本地 + 当前地图席位内的 AI 行（去重保序）。
+    /// 装载时需登记的 house 列表：本地 + 当前地图席位内的 AI 行。
+    ///
+    /// 同国冲突时从 `sides` 表改派尚未占用的国家，保证遭遇战至少两个不同 contender，
+    /// 避免 `sole_victor` 因席位不足永不结算。国家表耗尽则跳过该行。
     pub fn houses_to_ensure(&self, ai_rows: usize) -> Vec<String> {
         let rows = (1 + ai_rows).min(SKIRMISH_ROW_COUNT);
         let mut out = Vec::with_capacity(rows);
         for row in 0..rows {
-            let house = self.row_side(row);
-            if house.is_empty() {
-                continue;
+            let preferred = self.row_side(row);
+            let house = if !preferred.is_empty() && !out.iter().any(|h: &String| h.eq_ignore_ascii_case(preferred)) {
+                preferred.to_string()
             }
-            if !out.iter().any(|h: &String| h.eq_ignore_ascii_case(house)) {
-                out.push(house.to_string());
-            }
+            else {
+                match self.sides.iter().find(|s| !out.iter().any(|h| h.eq_ignore_ascii_case(s))) {
+                    Some(alt) => alt.clone(),
+                    None => continue,
+                }
+            };
+            out.push(house);
         }
         out
     }

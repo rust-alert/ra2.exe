@@ -149,11 +149,26 @@ Radar=yes\nRefinery=no\nSuperWeapon=Nuke\nPower=-50\n",
     let yard = reg.get("GACNST").unwrap();
     assert!(yard.construction_yard);
     assert!(!yard.refinery);
+    assert!(!yard.wall);
     assert!(yard.radar);
     assert_eq!(yard.factory, Some(ra_types::ProductionCategory::Building));
     assert_eq!(yard.super_weapon, "NUKE");
     assert_eq!(yard.power, -50);
     assert!(yard.free_unit.is_empty());
+}
+
+#[test]
+fn parse_wall_structure() {
+    let doc = IniDocument::parse(
+        b"[BuildingTypes]\n0=GAWALL\n\
+[GAWALL]\nStrength=100\nCost=100\nArmor=concrete\nWall=yes\nBuildCat=Combat\nOwner=Americans\nFoundation=1x1\n",
+    )
+    .unwrap();
+    let reg = TechnoTypeRegistry::from_rules(&doc);
+    let wall = reg.get("GAWALL").unwrap();
+    assert!(wall.wall);
+    assert!(!wall.construction_yard);
+    assert_eq!(wall.build_cat, ra_types::BuildCat::Combat);
 }
 
 #[test]

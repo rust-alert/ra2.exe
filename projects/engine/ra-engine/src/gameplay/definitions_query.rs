@@ -52,6 +52,16 @@ pub(crate) fn is_construction_yard(defs: &RuntimeDefinitions, type_id: TypeId) -
     defs.structures.get_by_id(type_id).is_some_and(|s| s.construction_yard)
 }
 
+/// 建筑是否围墙 / 闸门（INI `Wall=yes`）。
+pub(crate) fn is_wall(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
+    defs.structures.get_by_id(type_id).is_some_and(|s| s.wall)
+}
+
+/// 建筑是否计入遭遇战保活（围墙不计；未知类型保守计为保活）。
+pub(crate) fn structure_counts_for_skirmish_alive(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
+    !is_wall(defs, type_id)
+}
+
 /// 建筑是否供电站（`power.output > 0`）。
 pub(crate) fn is_power_plant(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
     defs.structures.get_by_id(type_id).is_some_and(|s| s.power.output > 0)
