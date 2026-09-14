@@ -78,7 +78,7 @@ fn sell_building_refunds_half_cost_and_frees_footprint() {
     let teardown = world.take_structure_teardown_dirty();
     assert_eq!(teardown, vec![power]);
     let sfx = world.take_battle_sfx_cues();
-    assert!(sfx.iter().any(|c| c.event == "BuildingSold"));
+    assert!(sfx.iter().any(|c| c.event == "SellBuilding"));
 }
 
 #[test]
@@ -91,8 +91,56 @@ fn sell_building_refunds_scaled_by_remaining_health() {
     world.push_command(GameCommand::SellBuilding { player: PlayerId(0), building: power });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
-    // cost 600 · 半血 → (600 * 0.5) / 2 = 150
+    // cost 600 · RefundPercent 50 · 半血 → 150
     assert_eq!(world.house_funds("AMERICANS"), Some(funds_before + 150));
+}
+
+#[test]
+fn sell_building_honors_soylent_over_cost_percent() {
+    let rules_text = b"[VehicleTypes]\n0=AMCV\n\
+[BuildingTypes]\n0=GACNST\n1=GAREFN\n\
+[AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\nTechLevel=1\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
+[GAREFN]\nRefinery=yes\nOwner=Americans\nStrength=1000\nSight=4\nCost=2000\nSoylent=300\nTechLevel=1\nFoundation=3x4\n";
+    let defs = defs_from_rules_ini(rules_text);
+    assert_eq!(defs.structures.get("GAREFN").expect("refn").soylent, 300);
+    let mut map = MapInfo::empty(GameEdition::Ra2, "sell-soylent");
+    map.width = 24;
+    map.height = 24;
+    map.entities = vec![
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GACNST".into(),
+            health: 256,
+            x: 4,
+            y: 4,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GAREFN".into(),
+            health: 256,
+            x: 8,
+            y: 4,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+    ];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+    let refinery = world.entity_id_at(1).expect("refn");
+    world.push_command(GameCommand::SellBuilding { player: PlayerId(0), building: refinery });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty());
+    // Soylent=300 满血，不是 Cost/2=1000。
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 + 300));
 }
 
 #[test]

@@ -1166,12 +1166,18 @@ impl crate::state::BattleState {
                     };
                     let house = self.players[player_index].house.clone();
                     let cost = self.definitions.techno.get_by_id(identity.type_id).map(|tt| tt.cost).unwrap_or(0);
+                    let soylent = self.definitions.structures.get_by_id(identity.type_id).map(|s| s.soylent).unwrap_or(0);
                     let (hp_cur, hp_max) = self
                         .ecs_get::<Health>(building_id)
                         .map(|h| (h.current, h.maximum.max(1)))
                         .unwrap_or((1, 1));
-                    // 原版侧栏出售：残血比例造价的一半。
-                    let refund = ((i64::from(cost) * i64::from(hp_cur) / i64::from(hp_max)) / 2).max(0) as i32;
+                    // 原版：满血基数优先 `Soylent`，否则 `Cost * RefundPercent / 100`，再按残血比例。
+                    let full_refund = if soylent > 0 {
+                        i64::from(soylent)
+                    } else {
+                        i64::from(cost) * i64::from(self.definitions.refund_percent) / 100
+                    };
+                    let refund = (full_refund * i64::from(hp_cur) / i64::from(hp_max)).max(0) as i32;
                     let sold_type_id = identity.type_id;
                     let _ = self.with_health_mut(building_id, |health| {
                         health.current = 0;
@@ -1185,8 +1191,8 @@ impl crate::state::BattleState {
                         self.players[player_index].funds = self.players[player_index].funds.saturating_add(refund);
                         self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_sub(refund);
                     }
-                    // 收银短音；呈现层另播 Buildup 倒放。
-                    self.push_battle_sfx_cue("BuildingSold");
+                    // `[General] SellSound=SellBuilding`；呈现层另播 Buildup 倒放。
+                    self.push_battle_sfx_cue("SellBuilding");
                     self.mark_entity_dirty(building_id);
                     self.repath_mobiles();
                 }

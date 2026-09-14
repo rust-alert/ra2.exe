@@ -457,6 +457,14 @@ impl Shell {
                 }
             }
         }
+        // 零售 `[General] SellSound=SellBuilding` → `uselbuil`。
+        if event_id.eq_ignore_ascii_case("SellBuilding") || event_id.eq_ignore_ascii_case("BuildingSold") {
+            for fallback in ["uselbuil", "USELBUIL", "SellBuilding"] {
+                if !candidates.iter().any(|c| c.eq_ignore_ascii_case(fallback)) {
+                    candidates.push((*fallback).into());
+                }
+            }
+        }
         if candidates.is_empty() {
             candidates.push(event_id.to_string());
         }
