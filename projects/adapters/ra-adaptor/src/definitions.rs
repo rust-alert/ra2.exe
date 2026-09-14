@@ -209,6 +209,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         let build_cat = tt.build_cat;
         let capturable = tt.capturable;
         let water_bound = tt.water_bound;
+        let produce_cash =
+            ra_types::ProduceCashProfile { startup: tt.produce_cash_startup, amount: tt.produce_cash_amount, delay: tt.produce_cash_delay };
         let production = tt.factory.map(|category| ProductionProfile { category });
 
         let mut capabilities = vec![BuiltinCapability::Structure];
@@ -229,6 +231,9 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         }
         if capturable {
             capabilities.push(BuiltinCapability::Capturable);
+        }
+        if produce_cash.ticks_income() || produce_cash.startup > 0 {
+            capabilities.push(BuiltinCapability::CashProducer);
         }
         if production.is_some() {
             capabilities.push(BuiltinCapability::Producer);
@@ -272,6 +277,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             radar,
             build_cat,
             capturable,
+            produce_cash,
             water_bound,
             production,
             owner: tt.owner.clone(),

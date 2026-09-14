@@ -212,6 +212,15 @@ impl BattleState {
         self.with_component_mut(id, f)
     }
 
+    /// 以 ECS 为权威修改建筑周期产钱累计。
+    pub(crate) fn with_cash_producer_mut<R>(
+        &mut self,
+        id: EntityId,
+        f: impl FnOnce(&mut crate::state::components::CashProducerState) -> R,
+    ) -> Option<R> {
+        self.with_component_mut(id, f)
+    }
+
     /// 以 ECS 为权威修改动画桥接状态，并立即投影回 `WorldEntity`。
     pub(crate) fn with_animation_mut<R>(
         &mut self,

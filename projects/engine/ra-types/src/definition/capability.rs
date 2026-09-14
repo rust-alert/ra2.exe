@@ -37,6 +37,8 @@ pub enum BuiltinCapability {
     Sellable,
     /// 可占领。
     Capturable,
+    /// 周期产钱（`ProduceCashAmount` / `ProduceCashDelay`）。
+    CashProducer,
     /// 雷达。
     Radar,
     /// 超级武器。

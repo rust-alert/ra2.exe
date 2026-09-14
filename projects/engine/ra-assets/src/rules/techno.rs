@@ -122,6 +122,12 @@ pub struct TechnoType {
     pub build_cat: BuildCat,
     /// `Capturable`。
     pub capturable: bool,
+    /// `ProduceCashStartup`：自中立占领时的一次性奖金。
+    pub produce_cash_startup: i32,
+    /// `ProduceCashAmount`：周期发放金额。
+    pub produce_cash_amount: i32,
+    /// `ProduceCashDelay`：周期长度（逻辑 tick）。
+    pub produce_cash_delay: u32,
     /// `Factory` 生产类别（装载期一次解码；`None` = 非工厂）。
     pub factory: Option<ProductionCategory>,
     /// `SuperWeapon` 名；空表示无。
@@ -345,6 +351,12 @@ struct TechnoSectionFields {
     build_cat: BuildCat,
     #[serde(rename = "Capturable", default, deserialize_with = "deserialize_opt_bool")]
     capturable: Option<bool>,
+    #[serde(rename = "ProduceCashStartup", default, deserialize_with = "deserialize_opt_i32")]
+    produce_cash_startup: Option<i32>,
+    #[serde(rename = "ProduceCashAmount", default, deserialize_with = "deserialize_opt_i32")]
+    produce_cash_amount: Option<i32>,
+    #[serde(rename = "ProduceCashDelay", default, deserialize_with = "deserialize_opt_u32")]
+    produce_cash_delay: Option<u32>,
     #[serde(rename = "Factory", default, deserialize_with = "deserialize_optional_factory")]
     factory: Option<ProductionCategory>,
     #[serde(rename = "SuperWeapon", default)]
@@ -456,6 +468,9 @@ fn parse_techno(view: LayeredIniView<'_>, id: &TechnoName, kind: TechnoKind, ove
         radar: fields.radar.unwrap_or(false),
         build_cat: fields.build_cat,
         capturable: fields.capturable.unwrap_or(false),
+        produce_cash_startup: fields.produce_cash_startup.unwrap_or(0).max(0),
+        produce_cash_amount: fields.produce_cash_amount.unwrap_or(0).max(0),
+        produce_cash_delay: fields.produce_cash_delay.unwrap_or(0),
         factory: fields.factory,
         super_weapon: fields.super_weapon,
         foundation: fields.foundation,

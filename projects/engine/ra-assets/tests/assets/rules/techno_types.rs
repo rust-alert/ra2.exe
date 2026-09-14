@@ -112,6 +112,7 @@ fn parse_build_gates_deploy_and_structure_flags() {
 RequiredHouses=Americans,Alliance\nForbiddenHouses=Russians\nBuildLimit=1\nBuildTime=50\n\
 RequiresStolenAlliedTech=yes\nDeploysInto=gapowr\nPixelSelectionBracketDelta=-5\n\
 [GAPOWR]\nStrength=600\nCost=600\nPower=200\nPowered=no\nBuildCat=Combat\nCapturable=yes\n\
+ProduceCashStartup=1000\nProduceCashAmount=20\nProduceCashDelay=100\n\
 [GACNST]\nStrength=1000\nCost=2500\nConstructionYard=yes\nFactory=BuildingType\n\
 Radar=yes\nRefinery=no\nSuperWeapon=Nuke\nPower=-50\n",
     )
@@ -141,6 +142,9 @@ Radar=yes\nRefinery=no\nSuperWeapon=Nuke\nPower=-50\n",
     assert_eq!(power.build_cat, ra_types::BuildCat::Combat);
     assert!(power.capturable);
     assert!(!power.water_bound);
+    assert_eq!(power.produce_cash_startup, 1000);
+    assert_eq!(power.produce_cash_amount, 20);
+    assert_eq!(power.produce_cash_delay, 100);
 
     let yard = reg.get("GACNST").unwrap();
     assert!(yard.construction_yard);

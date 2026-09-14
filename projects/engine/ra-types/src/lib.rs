@@ -30,7 +30,7 @@ pub use definition::{
     MapTrigger, MapWaypoint, MapWeatherKind, MissionKind, MissionName, OverlayName, OverlayTypeRegistry, PowerProfile, PreparedAction,
     PreparedActionCommand, PreparedAiTrigger, PreparedCellTag, PreparedEvent, PreparedHouse, PreparedMap, PreparedPlacement,
     PreparedScriptType, PreparedTag, PreparedTaskForce, PreparedTaskForceEntry, PreparedTeamType, PreparedTrigger, PrerequisiteGroupKind,
-    PrerequisiteGroups, PrerequisiteList, PrerequisiteToken, ProductionCategory, ProductionDefinitions, ProductionProfile,
+    PrerequisiteGroups, PrerequisiteList, PrerequisiteToken, ProduceCashProfile, ProductionCategory, ProductionDefinitions, ProductionProfile,
     ProjectileDefinition, ProjectileDefinitions, ProjectileName, RuntimeDefinitions, ScriptTypeName, SideName, SmudgeName, SoundDefinitions,
     StolenTechKind, StructureDefinition, StructureDefinitions, StructureLightProfile, SuperWeaponActionName, SuperWeaponDefinition,
     SuperWeaponDefinitions, SuperWeaponKindName, SuperWeaponName, TMP_TERRAIN_TO_LAND, TagName, TaskForceName, TeamTypeName, TechnoCategory,

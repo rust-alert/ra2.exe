@@ -142,6 +142,27 @@ fn light_float_to_units(value: f32) -> i32 {
     (value * 1000.0 + 0.1) as i32
 }
 
+/// 建筑周期产钱（INI `ProduceCashStartup` / `ProduceCashAmount` / `ProduceCashDelay`）。
+///
+/// 全零表示不产钱。`startup` 仅在从中立 / 平民等氛围房主被工程师占领时发放。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[doc(hidden)]
+pub struct ProduceCashProfile {
+    /// 自氛围房主占领时的一次性奖金。
+    pub startup: i32,
+    /// 每个周期发放的金额。
+    pub amount: i32,
+    /// 周期长度（逻辑 tick）；`0` 表示不发放周期款。
+    pub delay: u32,
+}
+
+impl ProduceCashProfile {
+    /// 是否按周期向非氛围房主发放。
+    pub fn ticks_income(&self) -> bool {
+        self.amount > 0 && self.delay > 0
+    }
+}
+
 /// 单条建筑静态定义（adaptor 冻结；引擎只读查询）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[doc(hidden)]
@@ -170,6 +191,8 @@ pub struct StructureDefinition {
     pub build_cat: BuildCat,
     /// `Capturable=yes`（可被工程师占领）。
     pub capturable: bool,
+    /// `ProduceCashStartup` / `ProduceCashAmount` / `ProduceCashDelay`（油田等产钱建筑）。
+    pub produce_cash: ProduceCashProfile,
     /// `WaterBound=yes`（须落在水域；船厂等）。
     pub water_bound: bool,
     /// 生产配置（若为工厂）。

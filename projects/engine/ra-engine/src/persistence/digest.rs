@@ -5,7 +5,8 @@ use crate::{
     state::{
         BattleState,
         components::{
-            AnimationState, AttackState, CombatStats, HarvesterState, Health, Identity, Locomotor, Owner, ProductionQueue, Transform,
+            AnimationState, AttackState, CashProducerState, CombatStats, HarvesterState, Health, Identity, Locomotor, Owner, ProductionQueue,
+            Transform,
         },
     },
 };
@@ -28,6 +29,7 @@ impl BattleState {
             let attack = self.ecs_get::<AttackState>(id).copied();
             let anim = self.ecs_get::<AnimationState>(id).copied();
             let harvester = self.ecs_get::<HarvesterState>(id).copied();
+            let cash_producer = self.ecs_get::<CashProducerState>(id).copied();
             let armor = self.ecs_get::<CombatStats>(id).map(|s| s.armor).unwrap_or_default();
             let attack_verses = self.ecs_get::<CombatStats>(id).map(|s| s.attack_verses).unwrap_or([0; 11]);
             let attack_range = self.ecs_get::<CombatStats>(id).map(|s| s.attack_range).unwrap_or(0);
@@ -56,6 +58,7 @@ impl BattleState {
             let attack_target = attack.and_then(|a| a.target);
             let ore_trip_accum = harvester.map(|h| h.ore_trip_accum).unwrap_or(0);
             let ore_cargo = harvester.map(|h| h.cargo).unwrap_or(0);
+            let cash_accum = cash_producer.map(|c| c.accum).unwrap_or(0);
 
             h = h
                 .wrapping_mul(1099511628211)
@@ -75,6 +78,7 @@ impl BattleState {
                 .wrapping_add(u64::from(attack_cooldown) << 24)
                 .wrapping_add(u64::from(ore_trip_accum) << 8)
                 .wrapping_add(u64::from(ore_cargo) << 12)
+                .wrapping_add(u64::from(cash_accum) << 14)
                 .wrapping_add(u64::from(hit_flash) << 16)
                 .wrapping_add(u64::from(fire_flash) << 20)
                 .wrapping_add(attack_target.map(|tid| tid.0).unwrap_or(0) << 32);

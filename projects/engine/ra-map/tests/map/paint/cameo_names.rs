@@ -169,6 +169,7 @@ CameoPCX=gaicon
         radar: false,
         build_cat: Default::default(),
         capturable: false,
+        produce_cash: Default::default(),
         water_bound: false,
         production: None,
         owner: HouseAllowList::empty(),

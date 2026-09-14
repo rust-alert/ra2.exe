@@ -248,6 +248,23 @@ fn build_runtime_definitions_projects_techno_fields_without_rescanning_section()
 }
 
 #[test]
+fn build_runtime_definitions_projects_produce_cash() {
+    let rules = rules_from(
+        b"[BuildingTypes]\n0=CAOILD\n\
+[CAOILD]\nCost=1500\nStrength=1000\nCapturable=yes\n\
+ProduceCashStartup=1000\nProduceCashAmount=20\nProduceCashDelay=100\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let oil = defs.structures.get("CAOILD").expect("CAOILD");
+    assert!(oil.capturable);
+    assert_eq!(oil.produce_cash.startup, 1000);
+    assert_eq!(oil.produce_cash.amount, 20);
+    assert_eq!(oil.produce_cash.delay, 100);
+    assert!(oil.capabilities.contains(&BuiltinCapability::CashProducer));
+    assert!(oil.capabilities.contains(&BuiltinCapability::Capturable));
+}
+
+#[test]
 fn build_runtime_definitions_freezes_countries_into_house_table() {
     let rules = rules_from(
         b"[Countries]\n0=Americans\n1=Russians\n\

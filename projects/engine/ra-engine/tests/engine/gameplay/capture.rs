@@ -19,7 +19,7 @@ fn capture_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
 [GATECH]\nCapturable=yes\nOwner=Americans,Russians,Neutral\nStrength=500\nSight=6\nCost=2000\nTechLevel=1\n\
 [NATECH]\nCapturable=yes\nOwner=Americans,Russians,Neutral\nStrength=500\nSight=6\nCost=2000\nTechLevel=1\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans,Russians\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
-[CAOIL]\nCapturable=yes\nFoundation=2x2\nOwner=Americans,Russians,Neutral\nStrength=800\nSight=4\nCost=1500\nTechLevel=1\n",
+[CAOIL]\nCapturable=yes\nFoundation=2x2\nProduceCashStartup=1000\nProduceCashAmount=20\nProduceCashDelay=100\nOwner=Americans,Russians,Neutral\nStrength=800\nSight=4\nCost=1500\nTechLevel=1\n",
     )
 }
 
@@ -148,6 +148,46 @@ fn engineer_captures_when_adjacent_to_2x2_footprint_edge() {
     assert!(world.last_rejects().is_empty());
     assert_eq!(world.ecs_owner(building).expect("owner").as_ref(), "AMERICANS");
     assert!(world.ecs_health(engineer).expect("health").2);
+}
+
+#[test]
+fn capturing_neutral_oil_grants_startup_and_periodic_cash() {
+    let mut world = capture_world_owned(4, 4, "CAOIL", 5, 4, "NEUTRAL");
+    assert!(world.set_house_funds("AMERICANS", 500));
+    let building = world.entity_id_at(1).expect("building");
+    let engineer = world.entity_id_at(0).expect("engineer");
+    world.push_command(GameCommand::CaptureBuilding { engineer, building });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty());
+    assert_eq!(world.ecs_owner(building).expect("owner").as_ref(), "AMERICANS");
+    // ProduceCashStartup=1000
+    assert_eq!(world.house_funds("AMERICANS"), Some(1_500));
+
+    // 占领当 tick 的 `RefineryIncome` 已把 `accum` 记为 1，再过 98 tick 仍未满 Delay。
+    for _ in 0..98 {
+        world.advance_tick();
+        assert_eq!(world.house_funds("AMERICANS"), Some(1_500));
+    }
+    world.advance_tick();
+    // ProduceCashAmount=20 after ProduceCashDelay=100
+    assert_eq!(world.house_funds("AMERICANS"), Some(1_520));
+}
+
+#[test]
+fn capturing_enemy_oil_skips_startup_but_keeps_periodic_cash() {
+    let mut world = capture_world(4, 4, "CAOIL", 5, 4);
+    assert!(world.set_house_funds("AMERICANS", 500));
+    let building = world.entity_id_at(1).expect("building");
+    let engineer = world.entity_id_at(0).expect("engineer");
+    world.push_command(GameCommand::CaptureBuilding { engineer, building });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty());
+    // 非中立房主：无 Startup
+    assert_eq!(world.house_funds("AMERICANS"), Some(500));
+    for _ in 0..100 {
+        world.advance_tick();
+    }
+    assert_eq!(world.house_funds("AMERICANS"), Some(520));
 }
 
 #[test]

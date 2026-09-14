@@ -42,7 +42,10 @@ impl BattleState {
                     self.tick_power_blackouts();
                 }
                 SystemPhase::Turrets => self.advance_turrets(),
-                SystemPhase::RefineryIncome => self.advance_refinery_income(),
+                SystemPhase::RefineryIncome => {
+                    self.advance_refinery_income();
+                    self.advance_produce_cash();
+                }
                 SystemPhase::Production => {
                     self.advance_production();
                     crate::gameplay::tick_repairs(self);

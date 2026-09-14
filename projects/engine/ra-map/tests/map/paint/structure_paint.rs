@@ -154,14 +154,8 @@ Rate=300\n\
     let mut image = TerrainImage::blank(256, 256);
     let mut paint = sealed_paint(&source, &map);
     assert!(paint.documents_sealed());
-    let painted = paint_map_structures(
-        &source,
-        &map,
-        &mut image,
-        &mut paint,
-        &|p, _| p.clone(),
-        StructureAnimMode::BodyAndAnims { clock_ms: 300 },
-    );
+    let painted =
+        paint_map_structures(&source, &map, &mut image, &mut paint, &|p, _| p.clone(), StructureAnimMode::BodyAndAnims { clock_ms: 300 });
     assert_eq!(painted.0, 3, "body + pump ActiveAnim + flag ActiveAnimTwo");
 }
 
@@ -526,6 +520,7 @@ Rate=50\n\
         radar: false,
         build_cat: Default::default(),
         capturable: false,
+        produce_cash: Default::default(),
         water_bound: false,
         production: None,
         owner: HouseAllowList::empty(),
@@ -719,14 +714,7 @@ fn missing_structure_body_paints_magenta_marker() {
     });
     let mut image = TerrainImage::blank(256, 256);
     let mut paint = sealed_paint(&source, &map);
-    let (shp, mark) = paint_map_structures(
-        &source,
-        &map,
-        &mut image,
-        &mut paint,
-        &|p, _| p.clone(),
-        StructureAnimMode::BodyOnly,
-    );
+    let (shp, mark) = paint_map_structures(&source, &map, &mut image, &mut paint, &|p, _| p.clone(), StructureAnimMode::BodyOnly);
     assert_eq!((shp, mark), (0, 1));
     assert!(paint.structure_types_missing_shp().contains("MISS"));
     assert_eq!(paint.structure_types_missing_shp().len(), 1);

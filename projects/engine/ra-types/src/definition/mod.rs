@@ -71,7 +71,8 @@ pub use projectile::{ProjectileDefinition, ProjectileDefinitions, ProjectileName
 pub use runtime::RuntimeDefinitions;
 pub use sound::SoundDefinitions;
 pub use structure::{
-    BuildCat, HouseDefinition, HouseDefinitions, PowerProfile, StructureDefinition, StructureDefinitions, StructureLightProfile,
+    BuildCat, HouseDefinition, HouseDefinitions, PowerProfile, ProduceCashProfile, StructureDefinition, StructureDefinitions,
+    StructureLightProfile,
 };
 pub use super_weapon::{SuperWeaponActionName, SuperWeaponDefinition, SuperWeaponDefinitions, SuperWeaponKindName, SuperWeaponName};
 pub use tech_tree::{HouseStolenTechMap, PrerequisiteGroupKind, PrerequisiteGroups, PrerequisiteList, PrerequisiteToken, StolenTechKind};

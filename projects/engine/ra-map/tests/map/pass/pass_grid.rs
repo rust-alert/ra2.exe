@@ -138,6 +138,7 @@ fn prepared_map_skeleton_expands_structure_foundation() {
         radar: false,
         build_cat: Default::default(),
         capturable: false,
+        produce_cash: Default::default(),
         water_bound: false,
         production: None,
         owner: HouseAllowList::empty(),
@@ -202,6 +203,7 @@ fn prepared_map_skeleton_bound_applies_overlay_and_foundation() {
         radar: false,
         build_cat: Default::default(),
         capturable: false,
+        produce_cash: Default::default(),
         water_bound: false,
         production: None,
         owner: HouseAllowList::empty(),
@@ -271,6 +273,7 @@ fn from_prepared_pass_layers_roundtrips_bound_grid() {
         radar: false,
         build_cat: Default::default(),
         capturable: false,
+        produce_cash: Default::default(),
         water_bound: false,
         production: None,
         owner: HouseAllowList::empty(),
@@ -285,7 +288,13 @@ fn from_prepared_pass_layers_roundtrips_bound_grid() {
     let rules = IniDocument::parse(b"[OverlayTypes]\n").expect("rules");
     let overlays = overlay_types_from_rules(&rules);
     let prepared = map.to_prepared_map_skeleton_bound(&overlays, &structures);
-    let grid = PassGrid::from_prepared_pass_layers(prepared.pass_width, prepared.pass_height, &prepared.passable, &prepared.cell_heights, &prepared.land_types);
+    let grid = PassGrid::from_prepared_pass_layers(
+        prepared.pass_width,
+        prepared.pass_height,
+        &prepared.passable,
+        &prepared.cell_heights,
+        &prepared.land_types,
+    );
     assert_eq!(grid.width, 4);
     assert_eq!(grid.height, 3);
     assert_eq!(grid.cell_height(0, 0), 2);
@@ -342,6 +351,7 @@ fn reseal_from_placements_expands_foundation_by_type_id() {
         radar: false,
         build_cat: Default::default(),
         capturable: false,
+        produce_cash: Default::default(),
         water_bound: false,
         production: None,
         owner: HouseAllowList::empty(),

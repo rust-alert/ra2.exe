@@ -46,6 +46,7 @@ impl EcsRegistry {
         self.world.insert(handle, bundle.attack);
         self.world.insert(handle, bundle.production);
         self.world.insert(handle, bundle.harvester);
+        self.world.insert(handle, bundle.cash_producer);
         self.world.insert(handle, bundle.animation);
         self.world.insert(handle, bundle.deploy_stance);
         handle

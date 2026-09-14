@@ -196,6 +196,13 @@ pub struct HarvesterState {
     pub cargo: u8,
 }
 
+/// 建筑周期产钱累计（`ProduceCashDelay`）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct CashProducerState {
+    /// 距下一次 `ProduceCashAmount` 发放已累计的 tick。
+    pub accum: u32,
+}
+
 /// 呈现相关动画桥接状态。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AnimationState {
@@ -237,6 +244,8 @@ pub struct EntitySpawnBundle {
     pub production: ProductionQueue,
     /// 采矿状态。
     pub harvester: HarvesterState,
+    /// 周期产钱累计。
+    pub cash_producer: CashProducerState,
     /// 动画桥接。
     pub animation: AnimationState,
     /// 就地部署姿态。

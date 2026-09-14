@@ -1,4 +1,5 @@
 //! 采矿：矿车站矿格采集、邻接矿场卸货入账；空闲时自动寻矿 / 返场。
+//! 油田等：`ProduceCashAmount` / `ProduceCashDelay` 周期产钱。
 
 use std::sync::Arc;
 
@@ -6,7 +7,7 @@ use ra_map::MapEntityKind;
 use ra_types::EntityId;
 
 use crate::{
-    gameplay::{is_construction_yard, is_harvester, is_power_plant, is_radar, is_refinery},
+    gameplay::{ai::is_ambient_house, is_construction_yard, is_harvester, is_power_plant, is_radar, is_refinery},
     state::{
         ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS,
         components::{Health, Identity, MovementState, Owner, Transform},
@@ -112,6 +113,63 @@ impl crate::state::BattleState {
                 movement.move_accum = 0;
             });
             self.repath_entity_at(index);
+        }
+    }
+
+    /// 存活产钱建筑按 `ProduceCashDelay` 向非氛围房主发放 `ProduceCashAmount`。
+    pub(crate) fn advance_produce_cash(&mut self) {
+        let mut payouts: Vec<(Arc<str>, i32)> = Vec::new();
+        let n = self.entities.len();
+        for index in 0..n {
+            let id = self.entities[index].id;
+            if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                continue;
+            }
+            if !self.ecs_get::<Identity>(id).is_some_and(|i| i.kind == MapEntityKind::Structure) {
+                continue;
+            }
+            let Some(type_id) = self.ecs_get::<Identity>(id).map(|i| i.type_id)
+            else {
+                continue;
+            };
+            let Some(profile) = self.definitions.structures.get_by_id(type_id).map(|s| s.produce_cash)
+            else {
+                continue;
+            };
+            if !profile.ticks_income() {
+                continue;
+            }
+            let Some(owner) =
+                self.ecs_get::<Owner>(id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)))
+            else {
+                continue;
+            };
+            if is_ambient_house(owner.as_ref()) {
+                let _ = self.with_cash_producer_mut(id, |c| {
+                    c.accum = 0;
+                });
+                continue;
+            }
+            let ready = self
+                .with_cash_producer_mut(id, |c| {
+                    c.accum = c.accum.saturating_add(1);
+                    if c.accum >= profile.delay {
+                        c.accum = 0;
+                        true
+                    }
+                    else {
+                        false
+                    }
+                })
+                .unwrap_or(false);
+            if ready {
+                payouts.push((owner, profile.amount));
+            }
+        }
+        for (house, amount) in payouts {
+            if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == house.as_ref()) {
+                player.funds = player.funds.saturating_add(amount);
+            }
         }
     }
 
