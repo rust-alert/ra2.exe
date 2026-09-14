@@ -298,3 +298,72 @@ fn push_command_cannot_spoof_place_building_player_via_body() {
     assert_eq!(frame.commands.len(), 1);
     assert_eq!(frame.commands[0].player, PlayerId(0));
 }
+
+#[test]
+fn water_bound_shipyard_places_on_water_rejects_land() {
+    use ra_map::LandType;
+
+    let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAYARD\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
+[GAYARD]\nWaterBound=yes\nFactory=UnitType\nOwner=Americans\nStrength=1000\nSight=4\nCost=1000\nTechLevel=1\nFoundation=2x2\n";
+    let defs = defs_from_rules_ini(rules_text);
+    assert!(defs.structures.get("GAYARD").expect("GAYARD").water_bound);
+    let mut map = MapInfo::empty(GameEdition::Ra2, "water-bound-place");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "AMERICANS".into(),
+        type_id: "GACNST".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    }];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+
+    // 模拟 TMP 封水：一块 2x2 水域，陆地仍可走。
+    for (x, y) in [(8u16, 8u16), (9, 8), (8, 9), (9, 9)] {
+        world.pass_grid.set_land_type(x, y, LandType::Water);
+        world.pass_grid.set_passable(x, y, false);
+    }
+    world.sync_prepared_pass_layers();
+
+    queue_until_ready(&mut world, "GAYARD");
+    let yard_id = world.definitions.techno.get("GAYARD").expect("GAYARD").id;
+
+    // 陆地应拒绝。
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: yard_id,
+        x: 6,
+        y: 4,
+    });
+    world.advance_tick();
+    assert_eq!(world.last_rejects().len(), 1);
+    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidPlacement);
+    assert_eq!(world.entity_count(), 1);
+    // 完工件仍在，可继续落水。
+    assert_eq!(world.house_ready_building("AMERICANS"), Some(yard_id));
+
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: yard_id,
+        x: 8,
+        y: 8,
+    });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty(), "water place rejects: {:?}", world.last_rejects());
+    assert_eq!(world.entity_count(), 2);
+    let shipyard = world.entity_id_at(1).expect("shipyard");
+    let identity = world.ecs_identity(shipyard).expect("id");
+    assert_eq!(identity.1, MapEntityKind::Structure);
+    assert_eq!(identity.0.as_ref(), "GAYARD");
+    assert_eq!(world.ecs_transform(shipyard).map(|t| (t.0, t.1)), Some((8, 8)));
+    assert!(!world.pass_grid.is_passable(8, 8));
+    assert_eq!(world.pass_grid.land_type(8, 8), LandType::Water);
+}

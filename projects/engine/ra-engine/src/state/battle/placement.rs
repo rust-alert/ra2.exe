@@ -1,15 +1,21 @@
+use ra_map::LandType;
 use ra_types::occupancy_kind;
 
 use super::types::BattleState;
 
 impl BattleState {
-    /// 目标格是否可放置单格建筑（界内、可通行、无占用实体）。
+    /// 目标格是否可放置单格**陆地**建筑（界内、可通行、无占用实体）。
+    ///
+    /// 单位 FreeUnit / 工厂出兵等仍走此入口；水域建筑请用 [`Self::can_place_structure_footprint`]。
     pub fn can_place_structure(&self, x: u16, y: u16) -> bool {
-        self.can_place_structure_footprint(x, y, 1, 1)
+        self.can_place_structure_footprint(x, y, 1, 1, false)
     }
 
     /// 以 `(x,y)` 为左上角，检查 `width×height` 矩形是否全部可放置。
-    pub fn can_place_structure_footprint(&self, x: u16, y: u16, width: u16, height: u16) -> bool {
+    ///
+    /// - `water_bound=false`：每格须陆地可通行（`is_passable`）。
+    /// - `water_bound=true`：每格须规范陆地为 [`LandType::Water`]（不要求地面通行）。
+    pub fn can_place_structure_footprint(&self, x: u16, y: u16, width: u16, height: u16, water_bound: bool) -> bool {
         let width = width.max(1);
         let height = height.max(1);
         for dy in 0..height {
@@ -22,18 +28,28 @@ impl BattleState {
                 else {
                     return false;
                 };
-                if !self.pass_grid.in_bounds(cx, cy) {
-                    return false;
-                }
-                if !self.pass_grid.is_passable(cx, cy) {
-                    return false;
-                }
-                if self.cell_blocked_by_entity(cx, cy) {
+                if !self.cell_ok_for_structure(cx, cy, water_bound) {
                     return false;
                 }
             }
         }
         true
+    }
+
+    /// 单格是否满足建筑落位的陆地 / 水域条件（含实体占用）。
+    pub fn cell_ok_for_structure(&self, cx: u16, cy: u16, water_bound: bool) -> bool {
+        if !self.pass_grid.in_bounds(cx, cy) {
+            return false;
+        }
+        if self.cell_blocked_by_entity(cx, cy) {
+            return false;
+        }
+        if water_bound {
+            self.pass_grid.land_type(cx, cy) == LandType::Water
+        }
+        else {
+            self.pass_grid.is_passable(cx, cy)
+        }
     }
 
     /// 格上是否有存活实体占用：机动单位看锚点格，建筑看完整 `Foundation` 矩形。
@@ -87,6 +103,8 @@ impl BattleState {
     }
 
     /// 出售 / 拆除后释放建筑占地通行，并恢复静态占格（地形 / 污迹 / 空）。
+    ///
+    /// 通行按规范陆地恢复：水域 / 岩 / 墙等仍不可走，避免船厂拆除后水面被误开。
     pub fn unseal_structure_footprint(&mut self, x: u16, y: u16, width: u16, height: u16) {
         let width = width.max(1);
         let height = height.max(1);
@@ -101,8 +119,9 @@ impl BattleState {
                     continue;
                 };
                 if self.pass_grid.in_bounds(cx, cy) {
-                    self.pass_grid.set_passable(cx, cy, true);
-                    self.set_prepared_passable(cx, cy, true);
+                    let passable = ra_map::land_passable(self.pass_grid.land_type(cx, cy));
+                    self.pass_grid.set_passable(cx, cy, passable);
+                    self.set_prepared_passable(cx, cy, passable);
                     if self.prepared_occupancy_at(cx, cy) == Some(occupancy_kind::STRUCTURE) {
                         self.set_prepared_occupancy(cx, cy, self.static_occupancy_at(cx, cy));
                     }

@@ -208,6 +208,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         let radar = tt.radar;
         let build_cat = tt.build_cat;
         let capturable = tt.capturable;
+        let water_bound = tt.water_bound;
         let production = tt.factory.map(|category| ProductionProfile { category });
 
         let mut capabilities = vec![BuiltinCapability::Structure];
@@ -271,6 +272,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             radar,
             build_cat,
             capturable,
+            water_bound,
             production,
             owner: tt.owner.clone(),
             owner_ids: ra_types::HouseIdAllowList::empty(),

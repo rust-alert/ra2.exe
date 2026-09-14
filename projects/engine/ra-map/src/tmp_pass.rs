@@ -6,13 +6,10 @@ use ra_assets::TmpFile;
 use ra_types::AssetSource;
 
 use crate::{
-    MapInfo, ground_passable,
-    pass_grid::PassGrid,
-    theater::{theater_ini_name, theater_tmp_extension},
-    tileset::parse_tileset_ini,
+    MapInfo, pass_grid::PassGrid, theater::{theater_ini_name, theater_tmp_extension}, tileset::parse_tileset_ini,
 };
 
-/// 读取剧院 TMP 的 `terrain_type`，对水/岩/墙等不可走格调用 `PassGrid::seal_land_types`。
+/// 读取剧院 TMP 的 `terrain_type`，写入规范陆地类型，并对水/岩/墙等不可走格封死通行。
 ///
 /// 返回新封格数量。
 pub fn seal_pass_grid_from_tmp(source: &dyn AssetSource, map: &MapInfo, grid: &mut PassGrid) -> usize {
@@ -59,9 +56,8 @@ pub fn seal_pass_grid_from_tmp(source: &dyn AssetSource, map: &MapInfo, grid: &m
         else {
             continue;
         };
-        if !ground_passable(tile.terrain_type) {
-            sealed.push((x, y, tile.terrain_type));
-        }
+        // 所有可读 TMP 格都写入陆地类型；不可走者计入封格批次。
+        sealed.push((x, y, tile.terrain_type));
     }
     grid.seal_land_types(&sealed)
 }

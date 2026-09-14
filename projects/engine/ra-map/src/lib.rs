@@ -50,8 +50,8 @@ use ra_types::{
 };
 use serde::{Deserialize, de::Deserializer};
 
-pub use battle_pass::{BattlePassFinalizeStats, finalize_battle_pass_grid};
 pub use base64::{base64_decode, base64_decode_parts, base64_encode};
+pub use battle_pass::{BattlePassFinalizeStats, finalize_battle_pass_grid};
 pub use boot_map::{
     BOOT_MAP_CANDIDATES, BootMapCandidate, BootMapResult, boot_map_name_csf_key, count_skirmish_start_slots, find_boot_map,
     find_boot_map_named, find_first_boot_map, list_parseable_boot_maps, list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names,
@@ -406,7 +406,7 @@ impl MapInfo {
 
     fn prepared_map_from_pass_grid(&self, grid: PassGrid, structures: Option<&ra_types::StructureDefinitions>) -> ra_types::PreparedMap {
         let definition = self.to_map_definition();
-        let (pass_width, pass_height, passable, cell_heights) = grid.to_prepared_pass_layers();
+        let (pass_width, pass_height, passable, cell_heights, land_types) = grid.to_prepared_pass_layers();
         let occupancy = prepared_occupancy_from_map(self, structures);
         ra_types::PreparedMap {
             definition,
@@ -414,6 +414,7 @@ impl MapInfo {
             pass_height,
             passable,
             cell_heights,
+            land_types,
             occupancy,
             placements: Vec::new(),
             houses: Vec::new(),

@@ -136,7 +136,8 @@ impl BattleController {
                 return;
             };
             let foundation = game.world.definitions.structures.get(&type_id).map(|s| s.foundation.clone()).unwrap_or_default();
-            if !game.world.can_place_structure_footprint(cell.0, cell.1, foundation.width, foundation.height) {
+            let water_bound = game.world.definitions.structures.get(&type_id).map(|s| s.water_bound).unwrap_or(false);
+            if !game.world.can_place_structure_footprint(cell.0, cell.1, foundation.width, foundation.height, water_bound) {
                 tracing::debug!("放置跳过 · 占地不可用 {type_id} @({},{})", cell.0, cell.1);
                 return;
             }

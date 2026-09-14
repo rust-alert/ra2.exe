@@ -170,6 +170,8 @@ pub struct StructureDefinition {
     pub build_cat: BuildCat,
     /// `Capturable=yes`（可被工程师占领）。
     pub capturable: bool,
+    /// `WaterBound=yes`（须落在水域；船厂等）。
+    pub water_bound: bool,
     /// 生产配置（若为工厂）。
     pub production: Option<ProductionProfile>,
     /// `Owner=`：空名单 = 不限阵营。

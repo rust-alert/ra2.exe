@@ -416,6 +416,7 @@ impl BattleController {
             return;
         };
         let foundation = game.world.definitions.structures.get(type_id).map(|s| s.foundation.clone()).unwrap_or_default();
+        let water_bound = game.world.definitions.structures.get(type_id).map(|s| s.water_bound).unwrap_or(false);
         let width = foundation.width.max(1);
         let height = foundation.height.max(1);
         let cam = renderer.camera();
@@ -431,7 +432,7 @@ impl BattleController {
                 else {
                     continue;
                 };
-                let ok = game.world.can_place_structure(cx, cy);
+                let ok = game.world.cell_ok_for_structure(cx, cy, water_bound);
                 let fill = if ok { [40u8, 220, 70, 90] } else { [220u8, 40, 40, 110] };
                 let stroke = if ok { [80u8, 255, 100, 230] } else { [255u8, 70, 70, 240] };
                 let z = game.world.pass_grid.cell_height(cx, cy);
@@ -530,12 +531,8 @@ impl BattleController {
             (Some(id), _, None) => format!("#{}", id.0),
             _ => "—".into(),
         };
-        let deploy_hint_owned = self
-            .local
-            .selected
-            .first()
-            .copied()
-            .and_then(|id| game.and_then(|g| g.deploy_target_of(id).map(|t| format!("D→{t}"))));
+        let deploy_hint_owned =
+            self.local.selected.first().copied().and_then(|id| game.and_then(|g| g.deploy_target_of(id).map(|t| format!("D→{t}"))));
         let queue = hud.produce_queues.first().map(|q| format!("队列 {}:{}", q.type_id, q.remaining_ticks));
         let reject = hud.last_rejects.first().map(|r| r.reason.as_hud_label());
         let tip_owned = self.command_hover.and_then(command_button_csf_tooltip).and_then(|key| resolve_csf_text(csf, key));

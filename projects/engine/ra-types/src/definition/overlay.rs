@@ -105,14 +105,22 @@ pub struct OverlayTypeRegistry {
     harvestable: Vec<bool>,
     /// 与 `names` 对齐：`NoUseTileLandType` 时按 `Land=` 得到的通行覆盖；`None` 表示不改 TMP 封格。
     land_pass_override: Vec<Option<bool>>,
+    /// 与 `names` 对齐：`NoUseTileLandType` 时写入的规范陆地；`None` 表示不改 TMP 陆地。
+    land_type_override: Vec<Option<super::LandType>>,
 }
 
 impl OverlayTypeRegistry {
-    /// 由已解析的名称、可采标记与通行覆盖构造（装载层填充）。
-    pub fn from_entries(names: Vec<OverlayName>, harvestable: Vec<bool>, land_pass_override: Vec<Option<bool>>) -> Self {
+    /// 由已解析的名称、可采标记、通行覆盖与陆地覆盖构造（装载层填充）。
+    pub fn from_entries(
+        names: Vec<OverlayName>,
+        harvestable: Vec<bool>,
+        land_pass_override: Vec<Option<bool>>,
+        land_type_override: Vec<Option<super::LandType>>,
+    ) -> Self {
         debug_assert_eq!(names.len(), harvestable.len());
         debug_assert_eq!(names.len(), land_pass_override.len());
-        Self { names, harvestable, land_pass_override }
+        debug_assert_eq!(names.len(), land_type_override.len());
+        Self { names, harvestable, land_pass_override, land_type_override }
     }
 
     /// 已登记的类型数量。
@@ -138,5 +146,10 @@ impl OverlayTypeRegistry {
     /// `NoUseTileLandType` 覆盖下的目标通行性；无覆盖则 `None`。
     pub fn land_pass_override(&self, id: u8) -> Option<bool> {
         self.land_pass_override.get(usize::from(id)).copied().flatten()
+    }
+
+    /// `NoUseTileLandType` 覆盖下的目标陆地类型；无覆盖则 `None`。
+    pub fn land_type_override(&self, id: u8) -> Option<super::LandType> {
+        self.land_type_override.get(usize::from(id)).copied().flatten()
     }
 }

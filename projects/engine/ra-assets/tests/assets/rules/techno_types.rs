@@ -140,6 +140,7 @@ Radar=yes\nRefinery=no\nSuperWeapon=Nuke\nPower=-50\n",
     assert_eq!(power.powered, Some(false));
     assert_eq!(power.build_cat, ra_types::BuildCat::Combat);
     assert!(power.capturable);
+    assert!(!power.water_bound);
 
     let yard = reg.get("GACNST").unwrap();
     assert!(yard.construction_yard);
@@ -149,6 +150,22 @@ Radar=yes\nRefinery=no\nSuperWeapon=Nuke\nPower=-50\n",
     assert_eq!(yard.super_weapon, "NUKE");
     assert_eq!(yard.power, -50);
     assert!(yard.free_unit.is_empty());
+}
+
+#[test]
+fn parse_water_bound_shipyard() {
+    let doc = IniDocument::parse(
+        b"[BuildingTypes]\n0=GAYARD\n1=NAYARD\n\
+[GAYARD]\nStrength=1000\nCost=1000\nWaterBound=yes\nFactory=UnitType\nOwner=Americans\nFoundation=3x3\n\
+[NAYARD]\nStrength=1000\nCost=1000\nWaterBound=yes\nFactory=UnitType\nOwner=Russians\nFoundation=3x3\n",
+    )
+    .unwrap();
+    let reg = TechnoTypeRegistry::from_rules(&doc);
+    let ga = reg.get("GAYARD").unwrap();
+    assert!(ga.water_bound);
+    assert!(!ga.naval);
+    let na = reg.get("NAYARD").unwrap();
+    assert!(na.water_bound);
 }
 
 #[test]

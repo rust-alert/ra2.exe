@@ -526,6 +526,7 @@ Rate=50\n\
         radar: false,
         build_cat: Default::default(),
         capturable: false,
+        water_bound: false,
         production: None,
         owner: HouseAllowList::empty(),
         owner_ids: ra_types::HouseIdAllowList::empty(),

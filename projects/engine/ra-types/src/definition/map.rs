@@ -1795,6 +1795,10 @@ pub struct PreparedMap {
     pub passable: Vec<u8>,
     /// 行优先格高度档，与 [`Self::passable`] 同长或空。
     pub cell_heights: Vec<u8>,
+    /// 行优先规范 [`crate::LandType`] 序号（`u8`），与 [`Self::passable`] 同长或空。
+    ///
+    /// 由 TMP `terrain_type` 写入，并可被 `NoUseTileLandType` 覆盖层覆盖；缺省按 `Clear`。
+    pub land_types: Vec<u8>,
     /// 行优先粗占格：见 [`occupancy_kind`]。空表示尚未填充。
     ///
     /// 骨架可按建筑名表 `Foundation=` 展开；[`crate::reseal_prepared_layers_from_placements`]

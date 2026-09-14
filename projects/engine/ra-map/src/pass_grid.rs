@@ -5,7 +5,7 @@ use crate::{MapEntityKind, MapInfo};
 /// 地面单位相邻格允许的最大高度差（`IsoCell.z` / TMP height 粗对齐）。
 pub const MAX_GROUND_CLIMB: u8 = 1;
 
-/// 矩形通行表：`true` = 可走；附带每格高度供爬升判定。
+/// 矩形通行表：`true` = 可走；附带每格高度与规范陆地类型。
 #[derive(Debug, Clone)]
 pub struct PassGrid {
     /// 宽（格）。
@@ -14,13 +14,21 @@ pub struct PassGrid {
     pub height: u32,
     passable: Vec<bool>,
     cell_height: Vec<u8>,
+    /// 规范 [`ra_types::LandType`] 序号；缺省 `Clear`。
+    land_types: Vec<u8>,
 }
 
 impl PassGrid {
-    /// 全可走空表（高度均为 0）。
+    /// 全可走空表（高度均为 0，陆地均为 `Clear`）。
     pub fn open(width: u32, height: u32) -> Self {
         let n = (width as usize).saturating_mul(height as usize);
-        Self { width, height, passable: vec![true; n], cell_height: vec![0; n] }
+        Self {
+            width,
+            height,
+            passable: vec![true; n],
+            cell_height: vec![0; n],
+            land_types: vec![ra_types::LandType::Clear as u8; n],
+        }
     }
 
     /// 由地图尺寸建表：灌入 `IsoCell.z`，并用建筑 / 地形物件占用格封死。
@@ -101,6 +109,23 @@ impl PassGrid {
         }
     }
 
+    /// 该格规范陆地类型；越界按 `Clear`。
+    pub fn land_type(&self, x: u16, y: u16) -> ra_types::LandType {
+        self.index(x, y)
+            .and_then(|i| self.land_types.get(i).copied())
+            .and_then(ra_types::LandType::from_u8)
+            .unwrap_or(ra_types::LandType::Clear)
+    }
+
+    /// 设置该格规范陆地类型。
+    pub fn set_land_type(&mut self, x: u16, y: u16, land: ra_types::LandType) {
+        if let Some(i) = self.index(x, y) {
+            if let Some(slot) = self.land_types.get_mut(i) {
+                *slot = land as u8;
+            }
+        }
+    }
+
     /// 相邻迈格高度差是否在地面爬升上限内。
     pub fn climb_ok(&self, from_x: u16, from_y: u16, to_x: u16, to_y: u16) -> bool {
         self.cell_height(from_x, from_y).abs_diff(self.cell_height(to_x, to_y)) <= MAX_GROUND_CLIMB
@@ -111,18 +136,25 @@ impl PassGrid {
         self.passable.iter().filter(|p| !**p).count()
     }
 
-    /// 导出 [`ra_types::PreparedMap`] 通行层（`1`/`0` 位图 + 高度档）。
-    pub fn to_prepared_pass_layers(&self) -> (u32, u32, Vec<u8>, Vec<u8>) {
+    /// 导出 [`ra_types::PreparedMap`] 通行层（`1`/`0` 位图 + 高度档 + 陆地类型）。
+    pub fn to_prepared_pass_layers(&self) -> (u32, u32, Vec<u8>, Vec<u8>, Vec<u8>) {
         let passable = self.passable.iter().map(|&p| if p { 1 } else { 0 }).collect();
-        (self.width, self.height, passable, self.cell_height.clone())
+        (self.width, self.height, passable, self.cell_height.clone(), self.land_types.clone())
     }
 
     /// 自 [`ra_types::PreparedMap`] 通行层灌表（`passable` 非 0 为可走）。
     ///
-    /// 长度不足的格子按不可走 / 高度 0；超出部分忽略。
-    pub fn from_prepared_pass_layers(width: u32, height: u32, passable: &[u8], cell_heights: &[u8]) -> Self {
+    /// 长度不足的格子按不可走 / 高度 0 / `Clear`；超出部分忽略。
+    pub fn from_prepared_pass_layers(width: u32, height: u32, passable: &[u8], cell_heights: &[u8], land_types: &[u8]) -> Self {
         let n = (width as usize).saturating_mul(height as usize);
-        let mut grid = Self { width, height, passable: vec![false; n], cell_height: vec![0; n] };
+        let clear = ra_types::LandType::Clear as u8;
+        let mut grid = Self {
+            width,
+            height,
+            passable: vec![false; n],
+            cell_height: vec![0; n],
+            land_types: vec![clear; n],
+        };
         for i in 0..n {
             if passable.get(i).copied().unwrap_or(0) != 0 {
                 grid.passable[i] = true;
@@ -130,25 +162,32 @@ impl PassGrid {
             if let Some(&z) = cell_heights.get(i) {
                 grid.cell_height[i] = z;
             }
+            if let Some(&land) = land_types.get(i) {
+                grid.land_types[i] = land;
+            }
         }
         grid
     }
 
-    /// 按 TMP `terrain_type` 封死不可走陆地（水/岩/墙）。
+    /// 写入 TMP `terrain_type` 对应的规范陆地，并对不可走陆地封死通行。
     pub fn seal_land_type(&mut self, x: u16, y: u16, terrain_type: u8) {
-        if !crate::ground_passable(terrain_type) {
+        let land = crate::tmp_terrain_to_land_type(terrain_type);
+        self.set_land_type(x, y, land);
+        if !crate::land_passable(land) {
             self.set_passable(x, y, false);
         }
     }
 
-    /// 对一批 `(x,y,terrain_type)` 封格；返回新封死数量（原本已不可走的不计）。
+    /// 对一批 `(x,y,terrain_type)` 写入陆地类型并封不可走格；返回新封死数量（原本已不可走的不计）。
     pub fn seal_land_types(&mut self, cells: &[(u16, u16, u8)]) -> usize {
         let mut n = 0;
         for &(x, y, tt) in cells {
-            if !self.in_bounds(x, y) || crate::ground_passable(tt) {
+            if !self.in_bounds(x, y) {
                 continue;
             }
-            if self.is_passable(x, y) {
+            let land = crate::tmp_terrain_to_land_type(tt);
+            self.set_land_type(x, y, land);
+            if !crate::land_passable(land) && self.is_passable(x, y) {
                 self.set_passable(x, y, false);
                 n += 1;
             }

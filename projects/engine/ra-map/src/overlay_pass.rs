@@ -4,12 +4,15 @@ use ra_types::OverlayTypeRegistry;
 
 use crate::{MapInfo, pass_grid::PassGrid};
 
-/// 对已冻结的 `NoUseTileLandType` 覆盖按装载期通行结果重写格子。
+/// 对已冻结的 `NoUseTileLandType` 覆盖按装载期通行 / 陆地结果重写格子。
 ///
-/// 返回新打开或新封死的格数（状态变化数）。
+/// 返回新打开或新封死的格数（通行状态变化数）。
 pub fn apply_overlay_land_to_pass_grid(map: &MapInfo, overlays: &OverlayTypeRegistry, grid: &mut PassGrid) -> usize {
     let mut changed = 0usize;
     for cell in &map.overlays {
+        if let Some(land) = overlays.land_type_override(cell.overlay_id) {
+            grid.set_land_type(cell.x, cell.y, land);
+        }
         let Some(passable) = overlays.land_pass_override(cell.overlay_id)
         else {
             continue;

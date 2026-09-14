@@ -368,7 +368,8 @@ impl crate::state::BattleState {
                         continue;
                     };
                     let foundation = self.definitions.structures.get_by_id(tt.id).map(|s| s.foundation.clone()).unwrap_or_default();
-                    if !self.can_place_structure_footprint(x, y, foundation.width, foundation.height) {
+                    let water_bound = self.definitions.structures.get_by_id(tt.id).map(|s| s.water_bound).unwrap_or(false);
+                    if !self.can_place_structure_footprint(x, y, foundation.width, foundation.height, water_bound) {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }

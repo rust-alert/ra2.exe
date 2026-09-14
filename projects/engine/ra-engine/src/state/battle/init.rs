@@ -32,8 +32,13 @@ impl BattleState {
     /// 产品 boot 可先 [`crate::validate_map_for_battle`]，战役路径再把同一份 `PreparedMap` 传入，避免二次绑定。
     /// 遭遇战剥机动后实体集变化，必须重新 [`MapInfo::to_prepared_map`]，勿复用预览前的 prepared。
     pub fn from_prepared(edition: GameEdition, definitions: Arc<RuntimeDefinitions>, map: MapInfo, prepared: PreparedMap) -> RaResult<Self> {
-        let pass_grid =
-            PassGrid::from_prepared_pass_layers(prepared.pass_width, prepared.pass_height, &prepared.passable, &prepared.cell_heights);
+        let pass_grid = PassGrid::from_prepared_pass_layers(
+            prepared.pass_width,
+            prepared.pass_height,
+            &prepared.passable,
+            &prepared.cell_heights,
+            &prepared.land_types,
+        );
         let mut next_entity_id = 1u64;
         let mut house_order: Vec<String> = Vec::new();
         let ecs = EcsRegistry::new();
@@ -161,11 +166,12 @@ impl BattleState {
 
     /// 用当前 `pass_grid` 回写 `prepared` 通行层（TMP 封格 / overlay land 之后）。
     pub fn sync_prepared_pass_layers(&mut self) {
-        let (pass_width, pass_height, passable, cell_heights) = self.pass_grid.to_prepared_pass_layers();
+        let (pass_width, pass_height, passable, cell_heights, land_types) = self.pass_grid.to_prepared_pass_layers();
         self.prepared.pass_width = pass_width;
         self.prepared.pass_height = pass_height;
         self.prepared.passable = passable;
         self.prepared.cell_heights = cell_heights;
+        self.prepared.land_types = land_types;
     }
 
     /// 对局通行后半段：[`finalize_battle_pass_grid`]（TMP → overlay land）→ 回写 `prepared` → 必要时重寻路。

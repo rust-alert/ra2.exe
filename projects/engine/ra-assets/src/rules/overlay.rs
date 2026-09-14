@@ -28,6 +28,7 @@ pub fn overlay_types_from_layered(view: LayeredIniView<'_>) -> OverlayTypeRegist
     let mut names = Vec::new();
     let mut harvestable = Vec::new();
     let mut land_pass_override = Vec::new();
+    let mut land_type_override = Vec::new();
     for key in section.keys() {
         let Some(value) = section.get(key)
         else {
@@ -40,12 +41,13 @@ pub fn overlay_types_from_layered(view: LayeredIniView<'_>) -> OverlayTypeRegist
         let name_up = name.as_str();
         let fields = overlay_type_fields(view, name_up);
         let can_harvest = overlay_type_is_harvestable(&fields, name_up);
-        let pass_override = overlay_land_pass_override(&fields);
+        let (pass_override, type_override) = overlay_land_overrides(&fields);
         names.push(name);
         harvestable.push(can_harvest);
         land_pass_override.push(pass_override);
+        land_type_override.push(type_override);
     }
-    OverlayTypeRegistry::from_entries(names, harvestable, land_pass_override)
+    OverlayTypeRegistry::from_entries(names, harvestable, land_pass_override, land_type_override)
 }
 
 /// 类型名是否像矿/宝石（无规则节时的回退）。
@@ -116,14 +118,14 @@ fn overlay_type_fields(view: LayeredIniView<'_>, name: &str) -> OverlayTypeSecti
     view.section(name).and_then(|s| s.deserialize::<OverlayTypeSectionFields>().ok()).unwrap_or_default()
 }
 
-/// `NoUseTileLandType=yes` 时按 `Land=` 得到通行覆盖；否则不改 TMP 封格。
+/// `NoUseTileLandType=yes` 时按 `Land=` 得到通行与陆地覆盖；否则不改 TMP。
 ///
 /// 通行粗判与 `ra-map` 的 `land_passable` 对齐：水 / 岩 / 墙不可走，缺键按 Clear（可走）。
-fn overlay_land_pass_override(fields: &OverlayTypeSectionFields) -> Option<bool> {
+fn overlay_land_overrides(fields: &OverlayTypeSectionFields) -> (Option<bool>, Option<LandType>) {
     if !fields.no_use_tile_land_type.unwrap_or(false) {
-        return None;
+        return (None, None);
     }
-    Some(ra_types::land_passable(fields.land))
+    (Some(ra_types::land_passable(fields.land)), Some(fields.land))
 }
 
 fn overlay_type_is_harvestable(fields: &OverlayTypeSectionFields, name: &str) -> bool {
