@@ -41,9 +41,75 @@ CameoPCX=gaiconx
     assert!(names.shp.iter().any(|n| n == "GAICON.shp"));
     assert!(names.shp.iter().any(|n| n == "GAICONX.shp"));
     assert!(names.shp.iter().any(|n| n == "GAICONA.shp"));
-    assert!(names.shp.ends_with(&["GACNSTicon.shp".to_string(), "GACNST.shp".to_string()]));
+    assert!(names.shp.iter().any(|n| n == "GACNSTicon.shp"));
+    assert!(names.shp.iter().any(|n| n == "GACNST.shp"));
+    assert!(names.shp.iter().any(|n| n == "GACNSTXicon.shp"));
+    assert!(names.shp.iter().any(|n| n == "GACNSTX.shp"));
     let again = paint.cameo_asset_names("GACNST");
     assert_eq!(again, names);
+}
+
+#[test]
+fn cameo_asset_names_follow_rules_image_when_art_section_missing() {
+    // 对齐美军空指 `AMRADR`：rules `Image=GAAIRC`，art 无本类节，图标在目标节。
+    let mut files = HashMap::new();
+    files.insert(
+        "art.ini".into(),
+        br#"[GAAIRC]
+Cameo=HELIICON
+CameoPCX=heliicon
+AltCameo=HELIICONA
+"#
+        .to_vec(),
+    );
+    files.insert(
+        "rules.ini".into(),
+        br#"[AMRADR]
+Image=GAAIRC
+"#
+        .to_vec(),
+    );
+    let source = MapSource { files };
+    let mut loader = PaintDefinitionsLoader::load(&source, "art.ini", "rules.ini");
+    let names = loader.cameo_asset_names("AMRADR");
+    let mut paint = loader.drop_documents();
+    assert!(paint.documents_sealed());
+    assert_eq!(names.pcx, vec!["heliicon.pcx".to_string()]);
+    assert!(names.shp.iter().any(|n| n == "HELIICON.shp"));
+    assert!(names.shp.iter().any(|n| n == "HELIICONA.shp"));
+    assert!(names.shp.iter().any(|n| n == "AMRADRicon.shp"));
+    assert!(names.shp.iter().any(|n| n == "GAAIRCicon.shp"));
+    assert_eq!(paint.cameo_asset_names("AMRADR"), names);
+}
+
+#[test]
+fn cameo_asset_names_rules_image_overrides_art_image() {
+    let mut files = HashMap::new();
+    files.insert(
+        "art.ini".into(),
+        br#"[AMRADR]
+Image=WRONG
+Cameo=LOCALICON
+[GAAIRC]
+Cameo=HELIICON
+[WRONG]
+Cameo=WRONGICON
+"#
+        .to_vec(),
+    );
+    files.insert(
+        "rules.ini".into(),
+        br#"[AMRADR]
+Image=GAAIRC
+"#
+        .to_vec(),
+    );
+    let source = MapSource { files };
+    let mut loader = PaintDefinitionsLoader::load(&source, "art.ini", "rules.ini");
+    let names = loader.cameo_asset_names("AMRADR");
+    assert!(names.shp.iter().any(|n| n == "LOCALICON.shp"));
+    assert!(names.shp.iter().any(|n| n == "HELIICON.shp"));
+    assert!(!names.shp.iter().any(|n| n == "WRONGICON.shp"));
 }
 
 #[test]

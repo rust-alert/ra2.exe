@@ -118,13 +118,7 @@ impl PaintDefinitionsLoader {
     }
 
     /// [`Self::load`] 后立即按定义与地图 seal，供预览 / 测试走与 boot 相同的无文档路径。
-    pub fn load_sealed(
-        source: &dyn AssetSource,
-        art_ini: &str,
-        rules_ini: &str,
-        defs: &RuntimeDefinitions,
-        map: &MapInfo,
-    ) -> PaintDefinitions {
+    pub fn load_sealed(source: &dyn AssetSource, art_ini: &str, rules_ini: &str, defs: &RuntimeDefinitions, map: &MapInfo) -> PaintDefinitions {
         Self::load(source, art_ini, rules_ini).seal_with_runtime(defs, map)
     }
 
@@ -158,12 +152,7 @@ impl PaintDefinitionsLoader {
     }
 
     /// 在仍持有 art/rules 时，按地图 overlay 格与类型回调写入 hint。
-    pub fn preload_map_overlays(
-        &mut self,
-        map: &MapInfo,
-        overlay_type_name: &dyn Fn(u8) -> Option<String>,
-        is_tiberium: &dyn Fn(u8) -> bool,
-    ) {
+    pub fn preload_map_overlays(&mut self, map: &MapInfo, overlay_type_name: &dyn Fn(u8) -> Option<String>, is_tiberium: &dyn Fn(u8) -> bool) {
         let art = self.art.as_ref();
         let rules = self.rules.as_ref();
         for cell in &map.overlays {
@@ -171,12 +160,8 @@ impl PaintDefinitionsLoader {
             else {
                 continue;
             };
-            let display_name = if is_tiberium(cell.overlay_id) {
-                flat_tiberium_display_type_name(&type_name, cell.x, cell.y)
-            }
-            else {
-                type_name.clone()
-            };
+            let display_name =
+                if is_tiberium(cell.overlay_id) { flat_tiberium_display_type_name(&type_name, cell.x, cell.y) } else { type_name.clone() };
             self.paint.ensure_overlay_hint_with(art, rules, &type_name, &display_name);
         }
     }
@@ -184,7 +169,8 @@ impl PaintDefinitionsLoader {
     /// 解析建造栏图标候选名（写入 hint 后可在 seal / drop 后复用）。
     pub fn cameo_asset_names(&mut self, type_id: &str) -> CameoAssetNames {
         let art = self.art.as_ref();
-        self.paint.ensure_cameo_hint_with(art, type_id);
+        let rules = self.rules.as_ref();
+        self.paint.ensure_cameo_hint_with(art, rules, type_id);
         self.paint.cameo_asset_names(type_id)
     }
 
@@ -201,11 +187,11 @@ impl PaintDefinitionsLoader {
                         paint.ensure_mobile_hint_with(art, rules, &techno.type_key)
                     }
                 }
-                paint.ensure_cameo_hint_with(art, techno.type_key.as_str());
+                paint.ensure_cameo_hint_with(art, rules, techno.type_key.as_str());
             }
             for structure in defs.structures.iter() {
                 paint.ensure_structure_hint_with(art, rules, &structure.type_key);
-                paint.ensure_cameo_hint_with(art, structure.type_key.as_str());
+                paint.ensure_cameo_hint_with(art, rules, structure.type_key.as_str());
             }
             for spawner in defs.terrain_spawners.iter() {
                 paint.ensure_terrain_hint_with(art, rules, spawner.type_key.as_str());
@@ -229,7 +215,7 @@ impl PaintDefinitionsLoader {
                         paint.ensure_mobile_hint_with(art, rules, &ent.type_id)
                     }
                 }
-                paint.ensure_cameo_hint_with(art, ent.type_id.as_str());
+                paint.ensure_cameo_hint_with(art, rules, ent.type_id.as_str());
             }
             for obj in &map.terrain_objects {
                 paint.ensure_terrain_hint_with(art, rules, obj.name.as_str());
@@ -266,21 +252,21 @@ impl PaintDefinitions {
 
     /// 确保表中含该类型建造栏图标候选名（已有则跳过；无文档时仅类型名回退）。
     pub fn ensure_cameo_hint(&mut self, type_id: &str) {
-        self.ensure_cameo_hint_with(None, type_id);
+        self.ensure_cameo_hint_with(None, None, type_id);
     }
 
-    pub(crate) fn ensure_cameo_hint_with(&mut self, art: Option<&IniDocument>, type_id: &str) {
+    pub(crate) fn ensure_cameo_hint_with(&mut self, art: Option<&IniDocument>, rules: Option<&IniDocument>, type_id: &str) {
         if self.cameo_hints.contains(type_id) {
             return;
         }
-        let names = resolve_cameo_asset_names(art, type_id);
+        let names = resolve_cameo_asset_names(art, rules, type_id);
         self.cameo_hints.insert(type_id.to_string(), names);
     }
 
-    /// 解析建造栏图标候选名（缓存后复用；无 art 时仅类型 id 回退）。
+    /// 解析建造栏图标候选名（缓存后复用；无 art/rules 时仅类型 id 回退）。
     pub fn cameo_asset_names(&mut self, type_id: &str) -> CameoAssetNames {
         self.ensure_cameo_hint(type_id);
-        self.cameo_hints.get(type_id).cloned().unwrap_or_else(|| resolve_cameo_asset_names(None, type_id))
+        self.cameo_hints.get(type_id).cloned().unwrap_or_else(|| resolve_cameo_asset_names(None, None, type_id))
     }
 
     /// seal 后仍无 art 节的建筑类型键（将回退占位叠画）。
@@ -351,22 +337,40 @@ fn note_missing_key(set: &mut BTreeSet<String>, raw: &str) {
     }
 }
 
-fn resolve_cameo_asset_names(art: Option<&IniDocument>, type_id: &str) -> CameoAssetNames {
+/// 建造栏图标候选名：本类 art 节 → `Image=` 目标 art 节 → `{type}icon` 回退。
+///
+/// `Image=` 解析顺序与机动单位叠画一致：`rules` → `art` → 类型 id。
+/// 例如美军空指 `AMRADR` 仅在 rules 写 `Image=GAAIRC`，art 无本类节，须跟到 `GAAIRC` 的 `Cameo=`。
+fn resolve_cameo_asset_names(art: Option<&IniDocument>, rules: Option<&IniDocument>, type_id: &str) -> CameoAssetNames {
     let mut pcx = Vec::new();
     let mut shp = Vec::new();
+    let image_key = resolve_cameo_image_key(rules, art, type_id);
     if let Some(art) = art {
         push_cameo_pcx_name(&mut pcx, art.get(type_id, "CameoPCX"));
         push_cameo_shp_name(&mut shp, art.get(type_id, "Cameo"));
-        let image_key = art.get(type_id, "Image").unwrap_or(type_id);
         if !image_key.eq_ignore_ascii_case(type_id) {
-            push_cameo_pcx_name(&mut pcx, art.get(image_key, "CameoPCX"));
-            push_cameo_shp_name(&mut shp, art.get(image_key, "Cameo"));
+            push_cameo_pcx_name(&mut pcx, art.get(&image_key, "CameoPCX"));
+            push_cameo_shp_name(&mut shp, art.get(&image_key, "Cameo"));
         }
         push_cameo_shp_name(&mut shp, art.get(type_id, "AltCameo"));
+        if !image_key.eq_ignore_ascii_case(type_id) {
+            push_cameo_shp_name(&mut shp, art.get(&image_key, "AltCameo"));
+        }
     }
     shp.push(format!("{type_id}icon.shp"));
     shp.push(format!("{type_id}.shp"));
+    if !image_key.eq_ignore_ascii_case(type_id) {
+        shp.push(format!("{image_key}icon.shp"));
+        shp.push(format!("{image_key}.shp"));
+    }
     CameoAssetNames { pcx, shp }
+}
+
+/// 图标 / 主体共用名：`rules.ini` 的 `Image` → `art.ini` 的 `Image` → 类型 id。
+fn resolve_cameo_image_key(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str) -> String {
+    let from_rules = rules.and_then(|r| r.get(type_id, "Image")).map(str::trim).filter(|s| !s.is_empty());
+    let from_art = art.and_then(|a| a.get(type_id, "Image")).map(str::trim).filter(|s| !s.is_empty());
+    from_rules.or(from_art).map(|s| s.to_string()).unwrap_or_else(|| type_id.to_string())
 }
 
 fn push_cameo_shp_name(out: &mut Vec<String>, raw: Option<&str>) {
