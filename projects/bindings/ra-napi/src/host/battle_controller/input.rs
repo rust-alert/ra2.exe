@@ -27,7 +27,7 @@ impl BattleController {
 
     /// 战术区悬停上下文（不含边缘滚屏）。
     ///
-    /// 可部署能力只进命令条 / `D` 的 `deploy_mode`；悬停已选单位不会自动切 Deploy 光标。
+    /// 西木口径：悬停**已选**可部署单位显示 Deploy；`D` / 命令条立即下发，无单独部署工具态。
     pub(super) fn battle_pointer_context(&self, renderer: &Renderer, window: &Window) -> super::super::battle_input::BattlePointer {
         use super::super::battle_input::BattlePointer;
         let Some(game) = self.session.as_ref().and_then(|s| s.battle())
@@ -55,11 +55,6 @@ impl BattleController {
             return BattlePointer::Default;
         }
 
-        // 部署模式：仅显式进入后显示 Deploy / NoDeploy（右键取消）。
-        if self.deploy_mode {
-            return if self.selection_has_deployable() { BattlePointer::Deploy } else { BattlePointer::NoDeploy };
-        }
-
         // 跟随模式：悬停任意存活机动单位时用点选光标（右键取消）。
         if self.follow_mode {
             if game.pick_any_mobile_near_image(wx, wy, 72.0).is_some() {
@@ -80,6 +75,13 @@ impl BattleController {
                 .ecs_identity(id)
                 .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
         });
+
+        // 悬停已选可部署单位 → Deploy（先于攻击 / 移动，避免被友军格 Move 盖住）。
+        if let Some(id) = game.pick_local_mobile_near_image(wx, wy, 72.0) {
+            if selected.contains(&id) && game.deploy_target_of(id).is_some() {
+                return BattlePointer::Deploy;
+            }
+        }
 
         // 攻击移动模式：空地与敌方均显示攻击光标（右键取消模式）。
         if self.attack_move_mode && has_mobile {
@@ -178,19 +180,6 @@ impl BattleController {
             tracing::info!(count = self.planning_waypoints.len(), x = cell.0, y = cell.1, "路径点规划 · 追加航点");
             return;
         }
-        // 部署模式：左键确认就地展开（右键经 clear_sidebar_tool_modes 取消）。
-        if self.deploy_mode {
-            if self.selection_has_deployable() {
-                let tick = game.world.tick;
-                self.deploy_selection();
-                self.pulse_action_lines_at(tick);
-            }
-            else {
-                self.deploy_mode = false;
-                tracing::info!(active = false, "部署模式 · 选中已无可用单位，已退出");
-            }
-            return;
-        }
         // 跟随模式：左键点选任意机动单位作为跟随目标。
         if self.follow_mode {
             let selected = self.local.selected.clone();
@@ -250,7 +239,13 @@ impl BattleController {
                 });
             if let Some(id) = local_picked {
                 let cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
-                // 左键点己方单位只负责选择；部署仅由命令条 Deploy / `D` 即时下发。
+                // 西木：左键点已选可部署单位 → 立即部署（非 Shift 加选）。
+                if !add && self.local.selected.contains(&id) && game.deploy_target_of(id).is_some() {
+                    let tick = game.world.tick;
+                    self.deploy_selection();
+                    self.pulse_action_lines_at(tick);
+                    return;
+                }
                 if add {
                     self.local.select_add(game, id);
                     tracing::info!("加选实体 #{} @({},{}) · 选中 {:?}", id.0, cell.0, cell.1, self.local.selected);
@@ -289,7 +284,6 @@ impl BattleController {
                     }
                 }
                 self.attack_move_mode = false;
-                self.deploy_mode = false;
                 self.follow_mode = false;
                 self.pulse_action_lines_at(tick);
                 return;
@@ -330,7 +324,6 @@ impl BattleController {
                     self.planning_waypoints.clear();
                 }
                 self.attack_move_mode = false;
-                self.deploy_mode = false;
                 self.follow_mode = false;
                 self.pulse_action_lines_at(tick);
                 return;
@@ -756,7 +749,11 @@ impl BattleController {
                 BattleNav::None
             }
             HotkeyAction::DeployObject => {
-                self.toggle_deploy_mode();
+                let tick = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.tick);
+                self.deploy_selection();
+                if let Some(tick) = tick {
+                    self.pulse_action_lines_at(tick);
+                }
                 BattleNav::None
             }
             HotkeyAction::GuardObject => {

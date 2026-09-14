@@ -122,9 +122,9 @@ pub enum BattlePointer {
     Sell,
     /// 修理工具光标。
     Repair,
-    /// 选中可部署单位且已进入 `deploy_mode` 时的部署标记光标。
+    /// 悬停已选可部署单位时的部署光标（西木：点单位 / `D` 即部署，无单独工具态）。
     Deploy,
-    /// 部署模式中但当前选中不可部署。
+    /// 已选可部署单位但当前落点不可部署（占位；地形闸未接前少用）。
     NoDeploy,
     /// 整窗边缘滚屏光标。
     Edge(EdgeScrollCursor),

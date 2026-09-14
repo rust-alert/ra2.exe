@@ -132,7 +132,6 @@ impl BattleController {
         self.planning_mode = false;
         self.planning_waypoints.clear();
         self.attack_move_mode = false;
-        self.deploy_mode = false;
         self.follow_mode = false;
         self.place_mode = Some(type_id.to_string());
     }
@@ -301,7 +300,6 @@ impl BattleController {
                 self.planning_mode = false;
                 self.planning_waypoints.clear();
                 self.attack_move_mode = false;
-                self.deploy_mode = false;
                 self.follow_mode = false;
                 self.repair_mode = !self.repair_mode;
                 if self.repair_mode {
@@ -315,7 +313,6 @@ impl BattleController {
                 self.planning_mode = false;
                 self.planning_waypoints.clear();
                 self.attack_move_mode = false;
-                self.deploy_mode = false;
                 self.follow_mode = false;
                 self.sell_mode = !self.sell_mode;
                 if self.sell_mode {
@@ -365,8 +362,9 @@ impl BattleController {
         );
     }
 
-    /// 关闭建造放置 / 修理 / 出售 / 规划 / 攻击移动 / 部署 / 跟随。有任一处于激活则返回 `true`。
+    /// 关闭建造放置 / 修理 / 出售 / 规划 / 攻击移动 / 跟随。有任一处于激活则返回 `true`。
     /// 西木右键优先走此路径：只关工具态、保留选中，不下 `order_stop`。
+    /// 部署不是工具态（悬停已选单位 / `D` / 命令条立即下发）。
     pub(super) fn clear_sidebar_tool_modes(&mut self) -> bool {
         let mut cleared = false;
         if self.place_mode.take().is_some() {
@@ -394,11 +392,6 @@ impl BattleController {
             tracing::info!(active = false, "命令条 · 攻击移动");
             cleared = true;
         }
-        if self.deploy_mode {
-            self.deploy_mode = false;
-            tracing::info!(active = false, "命令条 · 部署模式");
-            cleared = true;
-        }
         if self.follow_mode {
             self.follow_mode = false;
             tracing::info!(active = false, "命令条 · 跟随模式");
@@ -422,7 +415,13 @@ impl BattleController {
         let tip = command_button_csf_tooltip(slot).unwrap_or("?");
         tracing::info!(slot, name, tip, "命令条按钮");
         match name {
-            "Deploy" => self.toggle_deploy_mode(),
+            "Deploy" => {
+                let tick = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.tick);
+                self.deploy_selection();
+                if let Some(tick) = tick {
+                    self.pulse_action_lines_at(tick);
+                }
+            }
             "Guard" => self.guard_selection(),
             "Stop" => self.stop_selection(),
             "AttackMove" => self.toggle_attack_move_mode(),
@@ -450,7 +449,6 @@ impl BattleController {
                     self.repair_mode = false;
                     self.sell_mode = false;
                     self.attack_move_mode = false;
-                    self.deploy_mode = false;
                     self.follow_mode = false;
                     tracing::info!(active = true, "命令条 · 路径点规划");
                 }
