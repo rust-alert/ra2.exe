@@ -1,10 +1,10 @@
-//! 自顶层 `structure_paint.rs`。
+﻿//! 自顶层 `structure_paint.rs`。
 
 use std::collections::HashMap;
 
 use ra_map::{
     MapEntity, MapEntityKind, MapInfo, PaintDefinitions, PaintDefinitionsLoader, StructureAnimMode, TerrainImage, buildup_frame_index,
-    paint_map_structures, structure_anim_frame,
+    buildup_frame_index_reverse, paint_map_structures, structure_anim_frame,
 };
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
@@ -478,6 +478,16 @@ fn buildup_frame_index_one_shot() {
 }
 
 #[test]
+fn buildup_frame_index_reverse_one_shot() {
+    assert_eq!(buildup_frame_index_reverse(0, 100, 3), Some(2));
+    assert_eq!(buildup_frame_index_reverse(99, 100, 3), Some(2));
+    assert_eq!(buildup_frame_index_reverse(100, 100, 3), Some(1));
+    assert_eq!(buildup_frame_index_reverse(299, 100, 3), Some(0));
+    assert_eq!(buildup_frame_index_reverse(300, 100, 3), None);
+    assert_eq!(buildup_frame_index_reverse(0, 100, 0), None);
+}
+
+#[test]
 fn load_structure_buildup_clip_decodes_frames() {
     use ra_map::load_structure_buildup_clip;
 
@@ -582,6 +592,7 @@ Rate=50\n\
         radar: false,
         build_cat: Default::default(),
         capturable: false,
+        unsellable: false,
         produce_cash: Default::default(),
         water_bound: false,
         production: None,

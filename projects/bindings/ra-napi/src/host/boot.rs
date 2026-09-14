@@ -96,6 +96,10 @@ pub struct BootResult {
     pub preview_clean: Option<RgbaImage>,
     /// 无可采矿的定格底图（产矿/采集脏刷新 underlay）。
     pub preview_ore_underlay: Option<RgbaImage>,
+    /// 无建筑的含矿底图（出售 / 拆除擦像素用）。
+    pub preview_structureless_clean: Option<RgbaImage>,
+    /// 无建筑且无可采矿的底图（与 underlay 同步擦除）。
+    pub preview_structureless_underlay: Option<RgbaImage>,
     /// 建筑活动层银行。
     pub structure_anims: StructureAnimBank,
     /// 动画地形物件银行（旗帜等常循环）。
@@ -134,6 +138,8 @@ impl BootResult {
             preview_base: None,
             preview_clean: None,
             preview_ore_underlay: None,
+            preview_structureless_clean: None,
+            preview_structureless_underlay: None,
             structure_anims: StructureAnimBank::default(),
             terrain_anims: TerrainAnimBank::default(),
             ore_tree_anims: TerrainAnimBank::default(),
@@ -158,6 +164,8 @@ impl BootResult {
             preview_base: None,
             preview_clean: None,
             preview_ore_underlay: None,
+            preview_structureless_clean: None,
+            preview_structureless_underlay: None,
             structure_anims: StructureAnimBank::default(),
             terrain_anims: TerrainAnimBank::default(),
             ore_tree_anims: TerrainAnimBank::default(),
@@ -179,7 +187,19 @@ fn load_map_terrain_preview(
     rules: &RulesSystem,
     structure_lights: &StructureLightTable,
     lobby_primaries: Option<&HashMap<String, Rgba>>,
-) -> Option<(String, RgbaImage, RgbaImage, RgbaImage, StructureAnimBank, TerrainAnimBank, TerrainAnimBank, i32, i32)> {
+) -> Option<(
+    String,
+    RgbaImage,
+    RgbaImage,
+    RgbaImage,
+    RgbaImage,
+    RgbaImage,
+    StructureAnimBank,
+    TerrainAnimBank,
+    TerrainAnimBank,
+    i32,
+    i32,
+)> {
     let preview = compose_boot_preview(
         source,
         map,
@@ -199,6 +219,8 @@ fn load_map_terrain_preview(
         rgba,
         preview.base_without_anims,
         preview.ore_underlay,
+        preview.structureless_clean,
+        preview.structureless_underlay,
         preview.anim_bank,
         preview.terrain_anim_bank,
         preview.ore_tree_anim_bank,
@@ -723,15 +745,19 @@ pub fn boot_world_with_progress(
     let mut preview_base: Option<RgbaImage> = None;
     let mut preview_clean: Option<RgbaImage> = None;
     let mut preview_ore_underlay: Option<RgbaImage> = None;
+    let mut preview_structureless_clean: Option<RgbaImage> = None;
+    let mut preview_structureless_underlay: Option<RgbaImage> = None;
     let mut structure_anims = StructureAnimBank::default();
     let mut terrain_anims = TerrainAnimBank::default();
     let mut ore_tree_anims = TerrainAnimBank::default();
     let mut preview = match load_map_terrain_preview(&source, &map, &mut paint, &rules, &structure_lights, Some(&lobby_primaries)) {
-        Some((name, image, base, underlay, bank, terrain_bank, ore_bank, ox, oy)) => {
+        Some((name, image, base, underlay, structureless_clean, structureless_underlay, bank, terrain_bank, ore_bank, ox, oy)) => {
             note = format!("{note} · preview:{name}");
             preview_origin = (ox, oy);
             preview_base = Some(base);
             preview_ore_underlay = Some(underlay);
+            preview_structureless_clean = Some(structureless_clean);
+            preview_structureless_underlay = Some(structureless_underlay);
             structure_anims = bank;
             terrain_anims = terrain_bank;
             ore_tree_anims = ore_bank;
@@ -921,6 +947,8 @@ pub fn boot_world_with_progress(
         preview_base,
         preview_clean,
         preview_ore_underlay,
+        preview_structureless_clean,
+        preview_structureless_underlay,
         structure_anims,
         terrain_anims,
         ore_tree_anims,

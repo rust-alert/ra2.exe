@@ -211,6 +211,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         let radar = tt.radar;
         let build_cat = tt.build_cat;
         let capturable = tt.capturable;
+        let unsellable = tt.unsellable;
         let water_bound = tt.water_bound;
         let produce_cash =
             ra_types::ProduceCashProfile { startup: tt.produce_cash_startup, amount: tt.produce_cash_amount, delay: tt.produce_cash_delay };
@@ -234,6 +235,9 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         }
         if capturable {
             capabilities.push(BuiltinCapability::Capturable);
+        }
+        if !unsellable {
+            capabilities.push(BuiltinCapability::Sellable);
         }
         if produce_cash.ticks_income() || produce_cash.startup > 0 {
             capabilities.push(BuiltinCapability::CashProducer);
@@ -283,6 +287,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             radar,
             build_cat,
             capturable,
+            unsellable,
             produce_cash,
             water_bound,
             production,

@@ -138,6 +138,7 @@ impl BattleState {
             overlay_paint_dirty: Vec::new(),
             structure_paint_dirty: Vec::new(),
             structure_buildup_dirty: Vec::new(),
+            structure_teardown_dirty: Vec::new(),
             match_seed: 0,
             pending_eva_cues: Vec::new(),
             pending_battle_sfx_cues: Vec::new(),

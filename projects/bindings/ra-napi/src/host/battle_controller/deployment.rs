@@ -5,7 +5,7 @@ use std::{collections::HashMap, time::Instant};
 use ra_map::{
     MapEntity, MapEntityKind, MobilePaintPose, StructureBuildupClip, collect_structure_anim_bank, load_structure_buildup_clip,
     paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba,
-    paint_terrain_anims_onto_rgba,
+    paint_terrain_anims_onto_rgba, restore_structure_blit_from_ground, restore_structure_foundation_from_ground,
 };
 use ra_renderer::Renderer;
 use ra_types::{EntityId, HouseName, TechnoName};
@@ -32,6 +32,28 @@ pub(super) struct DeployVisualJob {
     owner: String,
     x: u16,
     y: u16,
+}
+
+/// 待播的建筑拆除 / 出售倒放。
+pub(super) struct PendingTeardown {
+    #[allow(dead_code)]
+    entity: EntityId,
+    type_id: String,
+    clip: Option<StructureBuildupClip>,
+    started: Instant,
+    x: u16,
+    y: u16,
+}
+
+/// 权威拆除完成后等待呈现侧播动画的任务。
+pub(in crate::host) struct TeardownVisualJob {
+    entity: EntityId,
+    type_id: String,
+    owner: String,
+    x: u16,
+    y: u16,
+    foundation_w: u16,
+    foundation_h: u16,
 }
 
 impl BattleController {
@@ -199,29 +221,36 @@ impl BattleController {
         }
     }
 
-    /// 启动 / 推进部署 Buildup，并在播放期间重绘预览（去掉已烤死的 MCV 像素）。
+    /// 启动 / 推进部署 Buildup 与拆除倒放，并在播放期间重绘预览。
     pub(super) fn tick_deploy_visuals(&mut self, assets: Option<&GameAssetSource>, renderer: &mut Renderer) {
         self.enqueue_structure_buildup_jobs();
+        self.enqueue_structure_teardown_jobs();
         let Some(assets) = assets
         else {
             return;
         };
-        let had_queue = !self.deploy_visual_queue.is_empty();
+        let had_deploy_queue = !self.deploy_visual_queue.is_empty();
+        let had_teardown_queue = !self.teardown_visual_queue.is_empty();
         let jobs: Vec<DeployVisualJob> = self.deploy_visual_queue.drain(..).collect();
+        let teardown_jobs: Vec<TeardownVisualJob> = self.teardown_visual_queue.drain(..).collect();
         let pending_before = self.pending_buildups.len();
+        let teardown_before = self.pending_teardowns.len();
         for job in jobs {
             self.begin_deploy_visual(assets, job);
         }
-        let started_new = self.pending_buildups.len() > pending_before;
-        if self.pending_buildups.is_empty() {
-            if had_queue {
-                // 无 Buildup 资源时已定格：必须上传底图（活动层可空）。
+        for job in teardown_jobs {
+            self.begin_teardown_visual(assets, job);
+        }
+        let started_new = self.pending_buildups.len() > pending_before || self.pending_teardowns.len() > teardown_before;
+        if self.pending_buildups.is_empty() && self.pending_teardowns.is_empty() {
+            if had_deploy_queue || had_teardown_queue {
+                // 无动画资源时已定格 / 已擦除：必须上传底图。
                 self.present_preview_base(renderer);
             }
             return;
         }
         if started_new {
-            self.recompose_preview_with_buildups(assets, renderer);
+            self.recompose_preview_with_structure_fx(assets, renderer);
         }
         let mut still = Vec::new();
         let mut finished = Vec::new();
@@ -239,11 +268,35 @@ impl BattleController {
             tracing::info!("部署动画结束 · {} @({},{})", done.type_id, done.clip.x, done.clip.y);
             self.settle_deployed_structure(assets, &done.type_id, &done.owner, done.clip.x, done.clip.y, Some(&done.clip));
         }
-        if self.pending_buildups.is_empty() {
+
+        let mut still_teardown = Vec::new();
+        let mut finished_teardown = Vec::new();
+        for pending in self.pending_teardowns.drain(..) {
+            let elapsed = pending.started.elapsed().as_millis() as u64;
+            let done = match pending.clip.as_ref() {
+                Some(clip) => clip.frame_at_reverse(elapsed).is_none(),
+                None => true,
+            };
+            if done {
+                finished_teardown.push(pending);
+            }
+            else {
+                still_teardown.push(pending);
+            }
+        }
+        self.pending_teardowns = still_teardown;
+        for done in &finished_teardown {
+            tracing::info!("拆除动画结束 · {} @({},{})", done.type_id, done.x, done.y);
+        }
+        if !finished_teardown.is_empty() {
+            self.rebuild_preview_base_with_mobiles(assets);
+        }
+
+        if self.pending_buildups.is_empty() && self.pending_teardowns.is_empty() {
             self.present_preview_base(renderer);
         }
         else {
-            self.recompose_preview_with_buildups(assets, renderer);
+            self.recompose_preview_with_structure_fx(assets, renderer);
         }
     }
 
@@ -283,6 +336,57 @@ impl BattleController {
         }
     }
 
+    /// 将权威侧拆除 / 出售脏集转入倒放呈现队列。
+    pub(super) fn enqueue_structure_teardown_jobs(&mut self) {
+        let dirty = self.session.as_mut().and_then(|s| s.battle_mut()).map(|g| g.world.take_structure_teardown_dirty()).unwrap_or_default();
+        if dirty.is_empty() {
+            return;
+        }
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return;
+        };
+        for id in dirty {
+            let Some((type_id, kind)) = game.world.ecs_identity(id)
+            else {
+                continue;
+            };
+            if kind != MapEntityKind::Structure {
+                continue;
+            }
+            let Some(owner) = game.world.ecs_owner(id)
+            else {
+                continue;
+            };
+            let Some((x, y, _)) = game.world.ecs_transform(id)
+            else {
+                continue;
+            };
+            if self.teardown_visual_queue.iter().any(|j| j.entity == id) || self.pending_teardowns.iter().any(|p| p.entity == id) {
+                continue;
+            }
+            // 若同一实体还在播 Buildup，取消展开以免与拆除打架。
+            self.pending_buildups.retain(|p| p.entity != id);
+            self.deploy_visual_queue.retain(|j| j.entity != id);
+            let foundation = game
+                .world
+                .definitions
+                .structures
+                .get(type_id.as_ref())
+                .map(|s| (s.foundation.width.max(1), s.foundation.height.max(1)))
+                .unwrap_or((1, 1));
+            self.teardown_visual_queue.push(TeardownVisualJob {
+                entity: id,
+                type_id: type_id.to_string(),
+                owner: owner.to_string(),
+                x,
+                y,
+                foundation_w: foundation.0,
+                foundation_h: foundation.1,
+            });
+        }
+    }
+
     pub(super) fn begin_deploy_visual(&mut self, assets: &GameAssetSource, job: DeployVisualJob) {
         if self.rules.is_none() {
             tracing::warn!("部署动画 · 无规则快照，直接定格 {}", job.type_id);
@@ -315,6 +419,90 @@ impl BattleController {
                 tracing::warn!("部署动画 · 无 Buildup 资源 {}，尝试直接定格", job.type_id);
                 self.settle_deployed_structure(assets, &job.type_id, &job.owner, job.x, job.y, None);
             }
+        }
+    }
+
+    /// 擦除已烤死的建筑像素，并启动 Buildup 倒放（无资源则立刻结束）。
+    pub(super) fn begin_teardown_visual(&mut self, assets: &GameAssetSource, job: TeardownVisualJob) {
+        let clip = if let Some(rules) = self.rules.as_ref() {
+            let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+            else {
+                return;
+            };
+            let lobby = &self.lobby_primaries;
+            load_structure_buildup_clip(assets, &game.world.map, &mut self.paint, &job.type_id, &job.owner, job.x, job.y, &|base, owner| {
+                remap_owner_palette(rules, Some(lobby), base, owner)
+            })
+        } else {
+            None
+        };
+        let cell_z = clip.as_ref().map(|c| c.cell_z).unwrap_or(0);
+        self.erase_structure_from_preview(&job, clip.as_ref(), cell_z);
+        self.structure_anims.layers.retain(|layer| !(layer.x == job.x && layer.y == job.y));
+        self.last_anim_sig = u64::MAX;
+        match clip {
+            Some(clip) => {
+                tracing::info!(
+                    "拆除动画 · {} @({},{}) · {}帧倒放 · {}ms/帧",
+                    job.type_id,
+                    job.x,
+                    job.y,
+                    clip.frames.len(),
+                    clip.rate_ms
+                );
+                self.pending_teardowns.push(PendingTeardown {
+                    entity: job.entity,
+                    type_id: job.type_id,
+                    clip: Some(clip),
+                    started: Instant::now(),
+                    x: job.x,
+                    y: job.y,
+                });
+            }
+            None => {
+                tracing::info!("拆除 · 无 Buildup，已擦底图 {}", job.type_id);
+                self.rebuild_preview_base_with_mobiles(assets);
+            }
+        }
+    }
+
+    /// 从 `preview_clean` / underlay 按遮罩还原无建筑底图像素。
+    ///
+    /// 优先用 Buildup 末帧遮罩；再按 Foundation 包围盒扫一遍，清掉主体 SHP 比末帧更大时的残影。
+    fn erase_structure_from_preview(&mut self, job: &TeardownVisualJob, clip: Option<&StructureBuildupClip>, cell_z: u8) {
+        let origin = self.preview_origin;
+        let mask = clip.and_then(|c| c.frames.last());
+        if let (Some(clean), Some(ground)) = (self.preview_clean.as_mut(), self.preview_structureless_clean.as_ref()) {
+            if let Some(blit) = mask {
+                let _ = restore_structure_blit_from_ground(clean, ground, origin.0, origin.1, job.x, job.y, cell_z, blit);
+            }
+            let _ = restore_structure_foundation_from_ground(
+                clean,
+                ground,
+                origin.0,
+                origin.1,
+                job.x,
+                job.y,
+                cell_z,
+                job.foundation_w,
+                job.foundation_h,
+            );
+        }
+        if let (Some(underlay), Some(ground)) = (self.preview_ore_underlay.as_mut(), self.preview_structureless_underlay.as_ref()) {
+            if let Some(blit) = mask {
+                let _ = restore_structure_blit_from_ground(underlay, ground, origin.0, origin.1, job.x, job.y, cell_z, blit);
+            }
+            let _ = restore_structure_foundation_from_ground(
+                underlay,
+                ground,
+                origin.0,
+                origin.1,
+                job.x,
+                job.y,
+                cell_z,
+                job.foundation_w,
+                job.foundation_h,
+            );
         }
     }
 
@@ -499,8 +687,8 @@ impl BattleController {
         self.last_anim_sig = u64::MAX;
     }
 
-    /// Buildup 播放中：干净底图 + 移动单位 + 当前展开帧 + ActiveAnim。
-    pub(super) fn recompose_preview_with_buildups(&mut self, assets: &GameAssetSource, renderer: &mut Renderer) {
+    /// Buildup / 拆除倒放播放中：干净底图 + 移动单位 + 当前展开或倒放帧 + ActiveAnim。
+    pub(super) fn recompose_preview_with_structure_fx(&mut self, assets: &GameAssetSource, renderer: &mut Renderer) {
         let Some(rules) = self.rules.as_ref()
         else {
             return;
@@ -568,6 +756,16 @@ impl BattleController {
             let elapsed = pending.started.elapsed().as_millis() as u64;
             let frame = pending.clip.frame_at(elapsed).unwrap_or(0);
             paint_structure_buildup_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &pending.clip, frame);
+        }
+        for pending in &self.pending_teardowns {
+            let Some(clip) = pending.clip.as_ref()
+            else {
+                continue;
+            };
+            let elapsed = pending.started.elapsed().as_millis() as u64;
+            if let Some(frame) = clip.frame_at_reverse(elapsed) {
+                paint_structure_buildup_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, clip, frame);
+            }
         }
         let clock_ms = self.anim_started.elapsed().as_millis() as u64;
         self.sync_preview_anim_lighting();

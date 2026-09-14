@@ -1119,6 +1119,10 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
+                    if self.definitions.structures.get_by_id(identity.type_id).is_some_and(|s| s.unsellable) {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
                     let Some(xf) = self.ecs_get::<Transform>(building_id).copied()
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
@@ -1126,10 +1130,13 @@ impl crate::state::BattleState {
                     };
                     let house = self.players[player_index].house.clone();
                     let cost = self.definitions.techno.get_by_id(identity.type_id).map(|tt| tt.cost).unwrap_or(0);
-                    // 原版侧栏出售约退半价。
-                    let refund = (cost / 2).max(0);
+                    let (hp_cur, hp_max) = self
+                        .ecs_get::<Health>(building_id)
+                        .map(|h| (h.current, h.maximum.max(1)))
+                        .unwrap_or((1, 1));
+                    // 原版侧栏出售：残血比例造价的一半。
+                    let refund = ((i64::from(cost) * i64::from(hp_cur) / i64::from(hp_max)) / 2).max(0) as i32;
                     let sold_type_id = identity.type_id;
-                    let foundation = self.definitions.structures.get_by_id(sold_type_id).map(|s| s.foundation.clone()).unwrap_or_default();
                     let _ = self.with_health_mut(building_id, |health| {
                         health.current = 0;
                         health.dead = true;
@@ -1137,13 +1144,13 @@ impl crate::state::BattleState {
                     let _ = self.with_production_mut(building_id, |queue| {
                         queue.clear_production();
                     });
-                    self.reassign_primary_after_factory_lost(building_id);
-                    self.unseal_structure_footprint(xf.x, xf.y, foundation.width, foundation.height);
-                    self.revoke_structure_power(house.as_ref(), sold_type_id);
+                    self.finalize_structure_removal(building_id, house.as_ref(), sold_type_id, xf.x, xf.y, true);
                     if refund > 0 {
                         self.players[player_index].funds = self.players[player_index].funds.saturating_add(refund);
                         self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_sub(refund);
                     }
+                    // 收银短音；呈现层另播 Buildup 倒放。
+                    self.push_battle_sfx_cue("BuildingSold");
                     self.mark_entity_dirty(building_id);
                     self.repath_mobiles();
                 }

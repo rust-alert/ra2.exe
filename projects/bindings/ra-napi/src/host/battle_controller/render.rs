@@ -101,7 +101,7 @@ impl BattleController {
         self.tick_deploy_visuals(assets, renderer);
         let overlay_patched = assets.map(|a| self.apply_overlay_paint_dirty(a)).unwrap_or(false);
         let structure_patched = assets.map(|a| self.apply_structure_paint_dirty(a)).unwrap_or(false);
-        if self.pending_buildups.is_empty() {
+        if self.pending_buildups.is_empty() && self.pending_teardowns.is_empty() {
             // 移动单位烤在预览底图上：脏集或仍在滑移时都要重绘（含渲染帧格内插值）。
             let mobiles_moved = match &pending {
                 PendingDraw::Incremental { dirty, .. } => self.dirty_includes_mobile(dirty),
@@ -208,6 +208,23 @@ impl BattleController {
             );
             let _ = (shp, mark);
             self.preview_clean = Some(clean);
+            if let Some(ground_underlay) = self.preview_structureless_underlay.as_ref() {
+                let mut ground_clean = ground_underlay.clone();
+                let _ = paint_overlays_onto_preview_rgba(
+                    assets,
+                    &map,
+                    &harvestable,
+                    &mut ground_clean,
+                    self.preview_origin.0,
+                    self.preview_origin.1,
+                    &mut self.paint,
+                    &|id| overlay_types.name(id).map(str::to_owned),
+                    &|id| overlay_types.is_harvestable(id),
+                    &tib_hsv,
+                    OverlayLayerFilter::Ground,
+                );
+                self.preview_structureless_clean = Some(ground_clean);
+            }
             self.last_anim_sig = u64::MAX;
             return true;
         }
@@ -624,11 +641,7 @@ impl BattleController {
             }
             // 防御：放置态若因异步漏清，无完工件时不画绿框（常态由 `sync_place_mode_with_ready` 退出）。
             if let Some(type_id) = self.place_mode.clone() {
-                let paint_ghost = self
-                    .session
-                    .as_ref()
-                    .and_then(|s| s.battle())
-                    .is_some_and(|g| g.is_local_ready_to_place(&type_id));
+                let paint_ghost = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.is_local_ready_to_place(&type_id));
                 if paint_ghost {
                     self.paint_placement_ghost(&mut page, renderer, w, h, &type_id);
                 }

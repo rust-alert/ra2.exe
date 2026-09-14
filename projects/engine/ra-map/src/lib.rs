@@ -102,9 +102,10 @@ pub use structure_damage::{
     StructureDamageRules, damaged_body_frame, health_ratio_256, parse_condition_percent, parse_damage_fire_offset, structure_tech_level,
 };
 pub use structure_paint::{
-    StructureAnimBank, StructureAnimLayer, StructureAnimMode, StructureBuildupClip, buildup_frame_index, collect_structure_anim_bank,
-    load_structure_buildup_clip, paint_map_structures, paint_structure_anim_bank, paint_structure_anims_onto_rgba,
-    paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, structure_anim_frame,
+    StructureAnimBank, StructureAnimLayer, StructureAnimMode, StructureBuildupClip, buildup_frame_index, buildup_frame_index_reverse,
+    collect_structure_anim_bank, load_structure_buildup_clip, paint_map_structures, paint_structure_anim_bank, paint_structure_anims_onto_rgba,
+    paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, restore_structure_blit_from_ground, restore_structure_foundation_from_ground,
+    structure_anim_frame,
 };
 pub use terrain_objects::{TerrainObject, parse_terrain_objects};
 pub use terrain_paint::{

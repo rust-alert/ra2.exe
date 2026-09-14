@@ -194,7 +194,7 @@ pub enum CommandBody {
         /// 实体稳定 ID。
         entity: EntityId,
     },
-    /// 出售己方建筑：退还约半价造价并移除建筑。
+    /// 出售己方建筑：按残血比例退半价，写入 `Selling` 并排队拆除呈现。
     SellBuilding {
         /// 出资并拥有该建筑的玩家。
         player: PlayerId,

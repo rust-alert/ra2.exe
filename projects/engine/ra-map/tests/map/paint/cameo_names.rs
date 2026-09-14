@@ -1,4 +1,4 @@
-//! `PaintDefinitions::cameo_asset_names`：候选名解析，不暴露 `IniDocument`。
+﻿//! `PaintDefinitions::cameo_asset_names`：候选名解析，不暴露 `IniDocument`。
 
 use ra_map::{PaintDefinitions, PaintDefinitionsLoader};
 use ra_types::{AssetSource, RaError, RaResult};
@@ -172,6 +172,7 @@ CameoPCX=gaicon
         radar: false,
         build_cat: Default::default(),
         capturable: false,
+        unsellable: false,
         produce_cash: Default::default(),
         water_bound: false,
         production: None,

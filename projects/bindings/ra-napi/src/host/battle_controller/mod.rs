@@ -70,7 +70,7 @@ pub enum BattleNav {
     QueueScreenshot,
 }
 
-use deployment::{DeployVisualJob, PendingBuildup};
+use deployment::{DeployVisualJob, PendingBuildup, PendingTeardown, TeardownVisualJob};
 
 /// 对局页专用状态（与菜单 / 加载页隔离）。
 pub struct BattleController {
@@ -169,6 +169,10 @@ pub struct BattleController {
     pub(super) preview_clean: Option<RgbaImage>,
     /// 无可采矿的定格底图（产矿/采集脏刷新）。
     pub(super) preview_ore_underlay: Option<RgbaImage>,
+    /// 无建筑的含矿底图（拆除擦像素）。
+    pub(super) preview_structureless_clean: Option<RgbaImage>,
+    /// 无建筑且无可采矿的底图。
+    pub(super) preview_structureless_underlay: Option<RgbaImage>,
     /// 建筑活动层银行。
     pub(super) structure_anims: StructureAnimBank,
     /// 动画地形物件银行（旗帜等常循环）。
@@ -189,6 +193,10 @@ pub struct BattleController {
     pub(super) pending_buildups: Vec<PendingBuildup>,
     /// 权威部署完成后待启动的呈现任务。
     pub(super) deploy_visual_queue: Vec<DeployVisualJob>,
+    /// 正在播放的拆除 / 出售倒放。
+    pub(super) pending_teardowns: Vec<PendingTeardown>,
+    /// 权威拆除完成后待启动的呈现任务。
+    pub(super) teardown_visual_queue: Vec<TeardownVisualJob>,
     /// 预览原点。
     pub(super) preview_origin: (i32, i32),
     /// 活动层呈现时钟起点。
@@ -304,6 +312,8 @@ impl BattleController {
             preview_base: boot.preview_base,
             preview_clean: boot.preview_clean,
             preview_ore_underlay: boot.preview_ore_underlay,
+            preview_structureless_clean: boot.preview_structureless_clean,
+            preview_structureless_underlay: boot.preview_structureless_underlay,
             structure_anims: boot.structure_anims,
             terrain_anims: boot.terrain_anims,
             ore_tree_anims: boot.ore_tree_anims,
@@ -317,6 +327,8 @@ impl BattleController {
             lobby_primaries: boot.lobby_primaries,
             pending_buildups: Vec::new(),
             deploy_visual_queue: Vec::new(),
+            pending_teardowns: Vec::new(),
+            teardown_visual_queue: Vec::new(),
             preview_origin: boot.preview_origin,
             anim_started: Instant::now(),
             last_anim_sig: u64::MAX,
@@ -467,6 +479,8 @@ impl BattleController {
         self.preview_base = boot.preview_base;
         self.preview_clean = boot.preview_clean;
         self.preview_ore_underlay = boot.preview_ore_underlay;
+        self.preview_structureless_clean = boot.preview_structureless_clean;
+        self.preview_structureless_underlay = boot.preview_structureless_underlay;
         self.structure_anims = boot.structure_anims;
         self.terrain_anims = boot.terrain_anims;
         self.ore_tree_anims = boot.ore_tree_anims;
@@ -480,6 +494,8 @@ impl BattleController {
         self.view_bookmarks = [None; VIEW_BOOKMARK_COUNT];
         self.pending_buildups.clear();
         self.deploy_visual_queue.clear();
+        self.pending_teardowns.clear();
+        self.teardown_visual_queue.clear();
         self.preview_origin = boot.preview_origin;
         self.anim_started = Instant::now();
         self.last_anim_sig = u64::MAX;

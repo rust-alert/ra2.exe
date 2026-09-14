@@ -326,10 +326,7 @@ impl crate::state::BattleState {
             self.clear_attack_target_resume_attack_move(attacker_id, attack_move);
         }
         if kind == MapEntityKind::Structure {
-            let foundation = self.definitions.structures.get_by_id(type_id).map(|s| s.foundation.clone()).unwrap_or_default();
-            self.unseal_structure_footprint(x, y, foundation.width, foundation.height);
-            self.revoke_structure_power(&house, type_id);
-            self.reassign_primary_after_factory_lost(dead_id);
+            self.finalize_structure_removal(dead_id, house.as_ref(), type_id, x, y, false);
         }
     }
 

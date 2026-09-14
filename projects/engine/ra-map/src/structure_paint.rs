@@ -822,6 +822,11 @@ impl StructureBuildupClip {
     pub fn frame_at(&self, elapsed_ms: u64) -> Option<usize> {
         buildup_frame_index(elapsed_ms, self.rate_ms, self.frames.len())
     }
+
+    /// 倒放选帧（出售 / 拆除）：从末帧走向第 0 帧；播完返回 `None`。
+    pub fn frame_at_reverse(&self, elapsed_ms: u64) -> Option<usize> {
+        buildup_frame_index_reverse(elapsed_ms, self.rate_ms, self.frames.len())
+    }
 }
 
 /// Buildup 一次性选帧：`elapsed / rate`；越界表示播完。
@@ -832,6 +837,12 @@ pub fn buildup_frame_index(elapsed_ms: u64, rate_ms: u32, frame_count: usize) ->
     let rate = u64::from(rate_ms.max(1));
     let idx = (elapsed_ms / rate) as usize;
     if idx >= frame_count { None } else { Some(idx) }
+}
+
+/// Buildup 倒放选帧：第 0 步为末帧；越界表示播完。
+pub fn buildup_frame_index_reverse(elapsed_ms: u64, rate_ms: u32, frame_count: usize) -> Option<usize> {
+    let forward = buildup_frame_index(elapsed_ms, rate_ms, frame_count)?;
+    Some(frame_count - 1 - forward)
 }
 
 /// 从 art `Buildup=` 装入一次性展开序列。无 `Buildup` 或资源缺失时返回 `None`。
@@ -893,6 +904,171 @@ pub fn paint_structure_buildup_onto_rgba(
     paint_cell_sprites(&mut terrain, &items, |_, _| z);
     *image = terrain.image;
     true
+}
+
+/// 用精灵遮罩把目标图中的建筑像素从 `ground` 还原（出售 / 拆除擦底图）。
+///
+/// 对遮罩主体与落影非透明处，逐像素从 `ground` 拷贝到 `image`。
+pub fn restore_structure_blit_from_ground(
+    image: &mut image::RgbaImage,
+    ground: &image::RgbaImage,
+    origin_x: i32,
+    origin_y: i32,
+    cell_x: u16,
+    cell_y: u16,
+    cell_z: u8,
+    blit: &TileBlit,
+) -> bool {
+    if image.width() != ground.width() || image.height() != ground.height() {
+        return false;
+    }
+    let (sx, sy) = crate::iso_math::iso_to_screen(i32::from(cell_x), i32::from(cell_y), cell_z);
+    let mut any = false;
+    if let Some(shadow) = blit.shadow.as_ref() {
+        let sdx = sx + shadow.offset_x - origin_x;
+        let sdy = sy + shadow.offset_y - origin_y;
+        any |= restore_mask_region(image, ground, sdx, sdy, shadow.width, shadow.height, &shadow.mask);
+    }
+    let dx = sx + blit.offset_x - origin_x;
+    let dy = sy + blit.offset_y - origin_y;
+    any |= restore_rgba_mask(image, ground, dx, dy, blit.width, blit.height, &blit.rgba);
+    any
+}
+
+/// 按 Foundation 格钻石包围盒从 `ground` 还原（无 Buildup / 主体 SHP 时的回退擦除）。
+pub fn restore_structure_foundation_from_ground(
+    image: &mut image::RgbaImage,
+    ground: &image::RgbaImage,
+    origin_x: i32,
+    origin_y: i32,
+    cell_x: u16,
+    cell_y: u16,
+    cell_z: u8,
+    foundation_w: u16,
+    foundation_h: u16,
+) -> bool {
+    if image.width() != ground.width() || image.height() != ground.height() {
+        return false;
+    }
+    let fw = foundation_w.max(1);
+    let fh = foundation_h.max(1);
+    let mut min_x = i32::MAX;
+    let mut min_y = i32::MAX;
+    let mut max_x = i32::MIN;
+    let mut max_y = i32::MIN;
+    for dy in 0..fh {
+        for dx in 0..fw {
+            let (sx, sy) = crate::iso_math::iso_to_screen(i32::from(cell_x.saturating_add(dx)), i32::from(cell_y.saturating_add(dy)), cell_z);
+            let left = sx - origin_x;
+            let top = sy - origin_y;
+            min_x = min_x.min(left);
+            min_y = min_y.min(top);
+            max_x = max_x.max(left + crate::iso_math::TILE_WIDTH);
+            max_y = max_y.max(top + crate::iso_math::TILE_HEIGHT);
+        }
+    }
+    if min_x >= max_x || min_y >= max_y {
+        return false;
+    }
+    // 主体 SHP 常向上伸出钻石，多还原一圈避免残影。
+    min_x -= crate::iso_math::TILE_WIDTH;
+    min_y -= crate::iso_math::TILE_HEIGHT * 3;
+    max_x += crate::iso_math::TILE_WIDTH;
+    max_y += crate::iso_math::TILE_HEIGHT;
+    restore_rect(image, ground, min_x, min_y, max_x - min_x, max_y - min_y)
+}
+
+fn restore_rgba_mask(
+    image: &mut image::RgbaImage,
+    ground: &image::RgbaImage,
+    dx: i32,
+    dy: i32,
+    src_w: u32,
+    src_h: u32,
+    src: &[u8],
+) -> bool {
+    let mut any = false;
+    let (dst_w, dst_h) = (image.width(), image.height());
+    for row in 0..src_h as i32 {
+        let y = dy + row;
+        if y < 0 || y >= dst_h as i32 {
+            continue;
+        }
+        for col in 0..src_w as i32 {
+            let x = dx + col;
+            if x < 0 || x >= dst_w as i32 {
+                continue;
+            }
+            let si = ((row as u32 * src_w + col as u32) * 4) as usize;
+            if si + 3 >= src.len() || src[si + 3] == 0 {
+                continue;
+            }
+            let di = ((y as u32 * dst_w + x as u32) * 4) as usize;
+            let g = ground.as_raw();
+            let d = image.as_mut();
+            d[di..di + 4].copy_from_slice(&g[di..di + 4]);
+            any = true;
+        }
+    }
+    any
+}
+
+fn restore_mask_region(
+    image: &mut image::RgbaImage,
+    ground: &image::RgbaImage,
+    dx: i32,
+    dy: i32,
+    src_w: u32,
+    src_h: u32,
+    mask: &[u8],
+) -> bool {
+    let mut any = false;
+    let (dst_w, dst_h) = (image.width(), image.height());
+    for row in 0..src_h as i32 {
+        let y = dy + row;
+        if y < 0 || y >= dst_h as i32 {
+            continue;
+        }
+        for col in 0..src_w as i32 {
+            let x = dx + col;
+            if x < 0 || x >= dst_w as i32 {
+                continue;
+            }
+            let mi = (row as u32 * src_w + col as u32) as usize;
+            if mi >= mask.len() || mask[mi] == 0 {
+                continue;
+            }
+            let di = ((y as u32 * dst_w + x as u32) * 4) as usize;
+            let g = ground.as_raw();
+            let d = image.as_mut();
+            d[di..di + 4].copy_from_slice(&g[di..di + 4]);
+            any = true;
+        }
+    }
+    any
+}
+
+fn restore_rect(image: &mut image::RgbaImage, ground: &image::RgbaImage, dx: i32, dy: i32, w: i32, h: i32) -> bool {
+    let mut any = false;
+    let (dst_w, dst_h) = (image.width(), image.height());
+    for row in 0..h {
+        let y = dy + row;
+        if y < 0 || y >= dst_h as i32 {
+            continue;
+        }
+        for col in 0..w {
+            let x = dx + col;
+            if x < 0 || x >= dst_w as i32 {
+                continue;
+            }
+            let di = ((y as u32 * dst_w + x as u32) * 4) as usize;
+            let g = ground.as_raw();
+            let d = image.as_mut();
+            d[di..di + 4].copy_from_slice(&g[di..di + 4]);
+            any = true;
+        }
+    }
+    any
 }
 
 /// 在已有 RGBA 上叠建筑主体（`BodyOnly`）。

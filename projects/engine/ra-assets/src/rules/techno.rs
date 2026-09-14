@@ -128,6 +128,8 @@ pub struct TechnoType {
     pub build_cat: BuildCat,
     /// `Capturable`。
     pub capturable: bool,
+    /// `Unsellable=yes`：禁止侧栏出售。
+    pub unsellable: bool,
     /// `ProduceCashStartup`：自中立占领时的一次性奖金。
     pub produce_cash_startup: i32,
     /// `ProduceCashAmount`：周期发放金额。
@@ -363,6 +365,8 @@ struct TechnoSectionFields {
     build_cat: BuildCat,
     #[serde(rename = "Capturable", default, deserialize_with = "deserialize_opt_bool")]
     capturable: Option<bool>,
+    #[serde(rename = "Unsellable", default, deserialize_with = "deserialize_opt_bool")]
+    unsellable: Option<bool>,
     #[serde(rename = "ProduceCashStartup", default, deserialize_with = "deserialize_opt_i32")]
     produce_cash_startup: Option<i32>,
     #[serde(rename = "ProduceCashAmount", default, deserialize_with = "deserialize_opt_i32")]
@@ -483,6 +487,7 @@ fn parse_techno(view: LayeredIniView<'_>, id: &TechnoName, kind: TechnoKind, ove
         radar: fields.radar.unwrap_or(false),
         build_cat: fields.build_cat,
         capturable: fields.capturable.unwrap_or(false),
+        unsellable: fields.unsellable.unwrap_or(false),
         produce_cash_startup: fields.produce_cash_startup.unwrap_or(0).max(0),
         produce_cash_amount: fields.produce_cash_amount.unwrap_or(0).max(0),
         produce_cash_delay: fields.produce_cash_delay.unwrap_or(0),

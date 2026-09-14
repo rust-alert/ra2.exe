@@ -200,6 +200,8 @@ pub struct StructureDefinition {
     pub build_cat: BuildCat,
     /// `Capturable=yes`（可被工程师占领）。
     pub capturable: bool,
+    /// `Unsellable=yes`（禁止侧栏出售；缺省可售）。
+    pub unsellable: bool,
     /// `ProduceCashStartup` / `ProduceCashAmount` / `ProduceCashDelay`（油田等产钱建筑）。
     pub produce_cash: ProduceCashProfile,
     /// `WaterBound=yes`（须落在水域；船厂等）。
