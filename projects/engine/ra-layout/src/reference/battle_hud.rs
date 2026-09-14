@@ -66,6 +66,10 @@ pub struct BattleHudChromeMetrics {
     pub top_btn_y: i32,
     /// `powerp` 电表条带宽度。
     pub power_w: i32,
+    /// 首列 cameo 相对侧栏 / `cameo_band` 左缘的 x（对齐 `side2` 凹槽，**不**跟 `power_w`）。
+    pub cameo_x: i32,
+    /// 列步进（格宽 + 列缝；`side2` 两凹槽中心距为 64）。
+    pub cameo_col_stride: i32,
 }
 
 impl BattleHudChromeMetrics {
@@ -88,6 +92,9 @@ impl BattleHudChromeMetrics {
             top_btn_gap: 0,
             top_btn_y: 7,
             power_w: 12,
+            // 与 `side2` 168×50 凹槽实测一致（两列缝 4px）。
+            cameo_x: 20,
+            cameo_col_stride: 64,
         }
     }
 
@@ -109,6 +116,8 @@ impl BattleHudChromeMetrics {
             top_btn_gap: 0,
             top_btn_y: 5,
             power_w: 16,
+            cameo_x: 20,
+            cameo_col_stride: 64,
         }
     }
 
@@ -323,17 +332,21 @@ pub fn solve_battle_hud_with_metrics(viewport_w: u32, viewport_h: u32, metrics: 
 pub const CAMEO_CELL_W: i32 = 60;
 /// 建造栏 cameo 画布高（像素）。
 pub const CAMEO_CELL_H: i32 = 48;
-/// 建造栏行距（含缝，像素）。
+/// 建造栏行距（含缝，像素；与 `side2` 瓦片高一致）。
 pub const CAMEO_ROW_STRIDE: i32 = 50;
+/// 建造栏默认列步进（格宽 60 + 列缝 4；与 `side2` 凹槽距一致）。
+pub const CAMEO_COL_STRIDE: i32 = 64;
 /// 建造栏列数。
 pub const CAMEO_COLS: i32 = 2;
 /// 分类页签数量（建筑 / 步兵 / 载具 / 飞行器）。
 pub const SIDEBAR_TAB_COUNT: usize = 4;
 
-/// 电表右侧可摆 cameo 的内容区（去掉左缘电表条）。
-pub fn cameo_content_rect(cameo_band: RectPx, power_meter_w: i32) -> RectPx {
-    let left = power_meter_w.max(0).min(cameo_band.w.saturating_sub(1));
-    RectPx::new(cameo_band.x + left, cameo_band.y, (cameo_band.w - left).max(1), cameo_band.h.max(1))
+/// 可摆 cameo 的内容区（相对 `cameo_band`，按 chrome 凹槽原点与列步进）。
+pub fn cameo_content_rect(cameo_band: RectPx, metrics: BattleHudChromeMetrics) -> RectPx {
+    let left = metrics.cameo_x.max(0).min(cameo_band.w.saturating_sub(1));
+    let stride = metrics.cameo_col_stride.max(CAMEO_CELL_W);
+    let grid_w = stride.saturating_mul(CAMEO_COLS - 1) + CAMEO_CELL_W;
+    RectPx::new(cameo_band.x + left, cameo_band.y, grid_w.min(cameo_band.w - left).max(1), cameo_band.h.max(1))
 }
 
 /// 当前可视 cameo 槽位数（行数 × 2）。
@@ -343,15 +356,16 @@ pub fn cameo_visible_slot_count(cameo_band_h: i32) -> usize {
 }
 
 /// 可视槽 `slot`（先行后列）的屏幕矩形；越界返回 `None`。
-pub fn cameo_slot_rect(cameo_band: RectPx, power_meter_w: i32, slot: usize) -> Option<RectPx> {
+pub fn cameo_slot_rect(cameo_band: RectPx, metrics: BattleHudChromeMetrics, slot: usize) -> Option<RectPx> {
     let visible = cameo_visible_slot_count(cameo_band.h);
     if slot >= visible {
         return None;
     }
-    let content = cameo_content_rect(cameo_band, power_meter_w);
+    let content = cameo_content_rect(cameo_band, metrics);
     let col = (slot as i32) % CAMEO_COLS;
     let row = (slot as i32) / CAMEO_COLS;
-    let x = content.x + col * CAMEO_CELL_W;
+    let stride = metrics.cameo_col_stride.max(CAMEO_CELL_W);
+    let x = content.x + col * stride;
     let y = content.y + 1 + row * CAMEO_ROW_STRIDE;
     if x + CAMEO_CELL_W > content.x + content.w {
         return None;
@@ -363,12 +377,36 @@ pub fn cameo_slot_rect(cameo_band: RectPx, power_meter_w: i32, slot: usize) -> O
 }
 
 /// 命中 cameo 可视槽下标（相对当前滚动起点为 0）。
-pub fn hit_cameo_slot(cameo_band: RectPx, power_meter_w: i32, x: i32, y: i32) -> Option<usize> {
+pub fn hit_cameo_slot(cameo_band: RectPx, metrics: BattleHudChromeMetrics, x: i32, y: i32) -> Option<usize> {
     let visible = cameo_visible_slot_count(cameo_band.h);
     for slot in 0..visible {
-        if cameo_slot_rect(cameo_band, power_meter_w, slot).is_some_and(|r| r.contains(x, y)) {
+        if cameo_slot_rect(cameo_band, metrics, slot).is_some_and(|r| r.contains(x, y)) {
             return Some(slot);
         }
     }
     None
+}
+
+#[cfg(test)]
+mod cameo_grid_tests {
+    use super::*;
+    use crate::shell::rect_px_from_snapshot;
+
+    #[test]
+    fn cameo_slots_follow_side2_cameo_x_and_col_stride() {
+        let metrics = BattleHudChromeMetrics::sidec01();
+        assert_eq!(metrics.cameo_x, 20);
+        assert_eq!(metrics.cameo_col_stride, CAMEO_COL_STRIDE);
+        assert_ne!(metrics.cameo_x, metrics.power_w, "凹槽原点不得误用为电表宽");
+
+        let snap = solve_battle_hud_with_metrics(800, 600, metrics);
+        let band = rect_px_from_snapshot(&snap, "cameo_band");
+        let a = cameo_slot_rect(band, metrics, 0).expect("slot0");
+        let b = cameo_slot_rect(band, metrics, 1).expect("slot1");
+        assert_eq!(a.x, band.x + metrics.cameo_x);
+        assert_eq!(b.x, a.x + metrics.cameo_col_stride);
+        assert_eq!(a.w, CAMEO_CELL_W);
+        assert_eq!(a.h, CAMEO_CELL_H);
+        assert!(b.x > a.x + CAMEO_CELL_W, "两列之间应留 4px 缝");
+    }
 }

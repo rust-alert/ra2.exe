@@ -16,9 +16,10 @@ mod skirmish_score;
 
 pub use battle_abort_confirm::{BATTLE_ABORT_CONFIRM_BUTTON_IDS, solve_battle_abort_confirm, solve_battle_abort_confirm_at};
 pub use battle_hud::{
-    BattleHudChromeMetrics, CAMEO_CELL_H, CAMEO_CELL_W, CAMEO_COLS, CAMEO_ROW_STRIDE, COMMAND_BAR_BUTTON_COUNT, COMMAND_BAR_BUTTON_IDS,
-    COMMAND_BAR_H, COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W, SIDEBAR_TAB_COUNT, battle_hud_world_viewport, cameo_content_rect,
-    cameo_slot_rect, cameo_visible_slot_count, hit_cameo_slot, solve_battle_hud, solve_battle_hud_with_metrics,
+    BattleHudChromeMetrics, CAMEO_CELL_H, CAMEO_CELL_W, CAMEO_COL_STRIDE, CAMEO_COLS, CAMEO_ROW_STRIDE, COMMAND_BAR_BUTTON_COUNT,
+    COMMAND_BAR_BUTTON_IDS, COMMAND_BAR_H, COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W, SIDEBAR_TAB_COUNT,
+    battle_hud_world_viewport, cameo_content_rect, cameo_slot_rect, cameo_visible_slot_count, hit_cameo_slot, solve_battle_hud,
+    solve_battle_hud_with_metrics,
 };
 pub use battle_in_game_options::{BATTLE_IN_GAME_OPTIONS_BUTTON_IDS, solve_battle_in_game_options, solve_battle_in_game_options_at};
 pub use battle_pause::{

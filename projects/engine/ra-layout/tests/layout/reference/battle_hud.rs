@@ -140,12 +140,20 @@ fn cameo_grid_two_columns_inside_band() {
     let visible = cameo_visible_slot_count(band.h);
     assert!(visible >= 2, "至少两格 cameo · h={}", band.h);
     assert_eq!(visible % 2, 0);
-    let a = cameo_slot_rect(band, metrics.power_w, 0).expect("slot0");
-    let b = cameo_slot_rect(band, metrics.power_w, 1).expect("slot1");
+    let a = cameo_slot_rect(band, metrics, 0).expect("slot0");
+    let b = cameo_slot_rect(band, metrics, 1).expect("slot1");
     assert_eq!(a.w, CAMEO_CELL_W);
     assert_eq!(a.h, CAMEO_CELL_H);
-    assert_eq!(b.x, a.x + CAMEO_CELL_W);
+    // 对齐 `side2`：首列相对 band 左缘 `cameo_x`，列距 `cameo_col_stride`（非紧贴格宽）。
+    assert_eq!(a.x, band.x + metrics.cameo_x);
+    assert_eq!(b.x, a.x + metrics.cameo_col_stride);
+    assert_eq!(b.x - a.x, CAMEO_COL_STRIDE);
+    assert_ne!(b.x, a.x + CAMEO_CELL_W, "列缝不得被吃掉");
     assert_eq!(b.y, a.y);
-    assert_eq!(hit_cameo_slot(band, metrics.power_w, a.x + 1, a.y + 1), Some(0));
-    assert_eq!(hit_cameo_slot(band, metrics.power_w, b.x + 1, b.y + 1), Some(1));
+    assert_eq!(hit_cameo_slot(band, metrics, a.x + 1, a.y + 1), Some(0));
+    assert_eq!(hit_cameo_slot(band, metrics, b.x + 1, b.y + 1), Some(1));
+    // 列缝内命中应落空（或落到邻格外），勿把右列起点当成左列宽。
+    let seam_x = a.x + CAMEO_CELL_W + 1;
+    assert!(seam_x < b.x);
+    assert_ne!(hit_cameo_slot(band, metrics, seam_x, a.y + 1), Some(0));
 }

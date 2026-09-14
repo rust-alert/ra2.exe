@@ -46,9 +46,9 @@ fn hit_tabs_and_cameo_slots() {
     let metrics = BattleHudChromeMetrics::sidec01();
     let snap = solve_battle_hud_with_metrics(800, 600, metrics);
     let tab0 = rect_px_from_snapshot(&snap, "tab00");
-    assert_eq!(hit_at_with_chrome(&snap, None, metrics.power_w, 4, tab0.x + 1, tab0.y + 1), Some(BattleHudHit::SidebarTab(0)));
+    assert_eq!(hit_at_with_chrome(&snap, None, metrics, 4, tab0.x + 1, tab0.y + 1), Some(BattleHudHit::SidebarTab(0)));
     let band = rect_px_from_snapshot(&snap, "cameo_band");
-    let cell = cameo_slot_rect(band, metrics.power_w, 0).expect("slot0");
-    assert_eq!(hit_at_with_chrome(&snap, None, metrics.power_w, 2, cell.x + 1, cell.y + 1), Some(BattleHudHit::Cameo(0)));
-    assert_eq!(hit_at_with_chrome(&snap, None, metrics.power_w, 0, cell.x + 1, cell.y + 1), None, "空列表时 cameo 槽应吞掉点击");
+    let cell = cameo_slot_rect(band, metrics, 0).expect("slot0");
+    assert_eq!(hit_at_with_chrome(&snap, None, metrics, 2, cell.x + 1, cell.y + 1), Some(BattleHudHit::Cameo(0)));
+    assert_eq!(hit_at_with_chrome(&snap, None, metrics, 0, cell.x + 1, cell.y + 1), None, "空列表时 cameo 槽应吞掉点击");
 }

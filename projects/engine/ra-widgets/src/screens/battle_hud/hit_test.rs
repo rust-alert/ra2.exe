@@ -78,14 +78,14 @@ impl BattleHudHit {
 const BATTLE_HUD_HIT_IDS: [&str; 8] = ["repair", "sell", "opt_btn", "diplo_btn", "tab00", "tab01", "tab02", "tab03"];
 
 pub fn hit_at(snap: &LayoutSnapshot, x: i32, y: i32) -> Option<BattleHudHit> {
-    hit_at_with_chrome(snap, None, BattleHudChromeMetrics::sidec01().power_w, 0, x, y)
+    hit_at_with_chrome(snap, None, BattleHudChromeMetrics::sidec01(), 0, x, y)
 }
 
 /// 带 chrome / cameo 槽数的命中。
 pub fn hit_at_with_chrome(
     snap: &LayoutSnapshot,
     chrome: Option<&BattleHudChrome>,
-    power_meter_w: i32,
+    metrics: BattleHudChromeMetrics,
     cameo_count: usize,
     x: i32,
     y: i32,
@@ -119,7 +119,7 @@ pub fn hit_at_with_chrome(
     }
 
     let band = rect_px_from_snapshot(snap, "cameo_band");
-    if let Some(slot) = hit_cameo_slot(band, power_meter_w, x, y) {
+    if let Some(slot) = hit_cameo_slot(band, metrics, x, y) {
         if slot < cameo_count {
             return Some(BattleHudHit::Cameo(slot));
         }

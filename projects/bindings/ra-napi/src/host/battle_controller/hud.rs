@@ -37,7 +37,7 @@ impl BattleController {
         let band = rect_px_from_snapshot(&snap, "cameo_band");
         let visible = cameo_visible_slot_count(band.h);
         let cameo_count = self.current_tab_cameo_count(visible);
-        let hit = hit_at_with_chrome(&snap, self.hud_chrome.as_ref(), metrics.power_w, cameo_count, x, y);
+        let hit = hit_at_with_chrome(&snap, self.hud_chrome.as_ref(), metrics, cameo_count, x, y);
         if let Some(BattleHudHit::SidebarTab(tab)) = hit {
             let tabs_visible = Self::sidebar_tabs_visible(self.current_capabilities().as_ref());
             if !tabs_visible.get(tab).copied().unwrap_or(false) {

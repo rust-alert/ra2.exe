@@ -425,10 +425,17 @@ pub fn paint_battle_hud_chrome(page: &mut RgbaImage, chrome: &BattleHudChrome) {
 /// 将 cameo 列表画进侧栏内容区。
 ///
 /// `tick` 用于完工待放 cameo 的闪烁相位。
-pub fn blit_battle_cameos(page: &mut RgbaImage, snap: &LayoutSnapshot, power_meter_w: i32, cameos: &[BattleCameoPaint<'_>], tick: u64) {
+/// 槽位几何走 [`BattleHudChromeMetrics::cameo_x`] / [`BattleHudChromeMetrics::cameo_col_stride`]，对齐 `side2` 凹槽。
+pub fn blit_battle_cameos(
+    page: &mut RgbaImage,
+    snap: &LayoutSnapshot,
+    metrics: BattleHudChromeMetrics,
+    cameos: &[BattleCameoPaint<'_>],
+    tick: u64,
+) {
     let band = rect_px_from_snapshot(snap, "cameo_band");
     for (slot, item) in cameos.iter().enumerate() {
-        let Some(cell) = cameo_slot_rect(band, power_meter_w, slot)
+        let Some(cell) = cameo_slot_rect(band, metrics, slot)
         else {
             break;
         };

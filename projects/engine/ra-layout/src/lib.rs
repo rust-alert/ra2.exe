@@ -19,9 +19,9 @@ pub use policy::{
 };
 pub use reference::{
     BATTLE_ABORT_CONFIRM_BUTTON_IDS, BATTLE_IN_GAME_OPTIONS_BUTTON_IDS, BATTLE_PAUSE_BKGD_LG, BATTLE_PAUSE_BKGD_MD, BATTLE_PAUSE_BKGD_SM,
-    BATTLE_PAUSE_RAIL_W, BattleHudChromeMetrics, CAMEO_CELL_H, CAMEO_CELL_W, CAMEO_COLS, CAMEO_ROW_STRIDE, COMMAND_BAR_BUTTON_COUNT,
-    COMMAND_BAR_BUTTON_IDS, COMMAND_BAR_H, COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W, DluRect, FontBaseUnits,
-    LOAD_SCREEN_BUTTON_IDS, MS_SANS_SERIF_8PT, NETWORK_BUTTON_IDS, OPTIONS_CONTENT_IDS, SCORE_ROW_SLOTS, SIDEBAR_TAB_COUNT,
+    BATTLE_PAUSE_RAIL_W, BattleHudChromeMetrics, CAMEO_CELL_H, CAMEO_CELL_W, CAMEO_COL_STRIDE, CAMEO_COLS, CAMEO_ROW_STRIDE,
+    COMMAND_BAR_BUTTON_COUNT, COMMAND_BAR_BUTTON_IDS, COMMAND_BAR_H, COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W, DluRect,
+    FontBaseUnits, LOAD_SCREEN_BUTTON_IDS, MS_SANS_SERIF_8PT, NETWORK_BUTTON_IDS, OPTIONS_CONTENT_IDS, SCORE_ROW_SLOTS, SIDEBAR_TAB_COUNT,
     battle_hud_world_viewport, battle_pause_background_rect, battle_pause_background_size, battle_pause_rail_rect, cameo_content_rect,
     cameo_slot_rect, cameo_visible_slot_count, hit_cameo_slot, mul_div_round, solve_battle_abort_confirm, solve_battle_abort_confirm_at,
     solve_battle_hud, solve_battle_hud_with_metrics, solve_battle_in_game_options, solve_battle_in_game_options_at, solve_battle_pause,
