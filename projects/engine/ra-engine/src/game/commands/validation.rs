@@ -227,6 +227,7 @@ impl crate::state::BattleState {
                     self.mark_entity_dirty(dirty_id);
                     // 展开后离开移动单位层，经 Buildup 定格进建筑底图（含 AI 部署）。
                     self.structure_buildup_dirty.push(dirty_id);
+                    self.maybe_assign_primary_factory(dirty_id);
                 }
                 GameCommand::PlaceBuilding { player, type_id, x, y } => {
                     if player != scheduled.player {
@@ -330,6 +331,7 @@ impl crate::state::BattleState {
                     self.structure_buildup_dirty.push(id);
                     // `FreeUnit=`：落位完成时白送（视觉 Buildup 在宿主侧，玩法以落位为准）。
                     self.spawn_structure_free_unit(id, def_id, house.as_ref(), x, y);
+                    self.maybe_assign_primary_factory(id);
                 }
                 GameCommand::Produce { player, type_id } => {
                     if player != scheduled.player {
@@ -540,6 +542,35 @@ impl crate::state::BattleState {
                         queue.rally_y = Some(y);
                     });
                     self.mark_entity_dirty(id);
+                }
+                GameCommand::SetPrimaryFactory { factory } => {
+                    let Some(factory_index) = self.entity_index(factory)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let id = self.entities[factory_index].id;
+                    if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                        self.reject(command_index, CommandRejectReason::EntityDead);
+                        continue;
+                    }
+                    if !self.player_owns_entity(scheduled.player, factory_index) {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
+                    let Some(type_id) = self.ecs_get::<Identity>(id).map(|i| i.type_id)
+                    else {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    };
+                    if !is_production_factory(&self.definitions, type_id) {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
+                    if !self.set_primary_factory(id) {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
                 }
                 GameCommand::Infiltrate { agent, building } => {
                     let Some(agent_index) = self.entity_index(agent)
@@ -1012,6 +1043,7 @@ impl crate::state::BattleState {
                     let _ = self.with_production_mut(building_id, |queue| {
                         queue.clear_production();
                     });
+                    self.reassign_primary_after_factory_lost(building_id);
                     self.unseal_structure_footprint(xf.x, xf.y, foundation.width, foundation.height);
                     self.revoke_structure_power(house.as_ref(), sold_type_id);
                     if refund > 0 {

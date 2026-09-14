@@ -320,6 +320,32 @@ impl BattleSession {
         }
     }
 
+    /// 将选中生产厂设为主厂（PRI）。
+    pub fn order_set_primary(&mut self, selected: &[EntityId]) {
+        if self.outcome.is_some() {
+            return;
+        }
+        for &id in selected {
+            if self.world.entity_index(id).is_some() {
+                self.push_command(GameCommand::SetPrimaryFactory { factory: id });
+            }
+        }
+    }
+
+    /// 选中集合中是否包含可设为主厂的生产建筑。
+    pub fn selection_has_primary_factory(&self, selected: &[EntityId]) -> bool {
+        selected.iter().any(|&id| {
+            if self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                return false;
+            }
+            let Some(identity) = self.world.ecs_get::<Identity>(id)
+            else {
+                return false;
+            };
+            identity.kind == MapEntityKind::Structure && crate::gameplay::is_production_factory(&self.world.definitions, identity.type_id)
+        })
+    }
+
     /// 选中集合中是否包含建筑。
     pub fn selection_has_structure(&self, selected: &[EntityId]) -> bool {
         selected.iter().any(|&id| {

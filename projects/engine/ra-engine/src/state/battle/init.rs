@@ -151,6 +151,7 @@ impl BattleState {
             if kind == MapEntityKind::Structure {
                 let foundation = world.definitions.structures.get_by_id(type_id).map(|s| s.foundation.clone()).unwrap_or_default();
                 world.seal_structure_footprint(x, y, foundation.width, foundation.height);
+                world.maybe_assign_primary_factory(id);
             }
         }
         world.rehash();

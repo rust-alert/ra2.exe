@@ -78,6 +78,8 @@ pub enum HotkeyAction {
     DefenseTab,
     ScatterObject,
     PlanningMode,
+    /// 将选中生产厂设为主厂（命令条 Primary / 可选 `keyboard.ini`）。
+    MakePrimary,
     View(u8),
     SetView(u8),
     Taunt(u8),
@@ -391,6 +393,7 @@ pub fn parse_hotkey_action(name: &str) -> Option<HotkeyAction> {
         "defensetab" => HotkeyAction::DefenseTab,
         "scatterobject" => HotkeyAction::ScatterObject,
         "planningmode" => HotkeyAction::PlanningMode,
+        "makeprimary" | "primary" | "setprimary" => HotkeyAction::MakePrimary,
         "screencapture" => HotkeyAction::ScreenCapture,
         "sidebarpageup" => HotkeyAction::SidebarPageUp,
         "sidebarup" => HotkeyAction::SidebarUp,

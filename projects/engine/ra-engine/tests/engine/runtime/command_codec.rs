@@ -13,6 +13,7 @@ fn command_codec_roundtrip() {
         GameCommand::PlaceBuilding { player: PlayerId(0), type_id: TypeId(1), x: 6, y: 4 },
         GameCommand::Produce { player: PlayerId(1), type_id: TypeId(2) },
         GameCommand::SetRallyPoint { factory: EntityId(2), x: 9, y: 3 },
+        GameCommand::SetPrimaryFactory { factory: EntityId(2) },
         GameCommand::Infiltrate { agent: EntityId(8), building: EntityId(9) },
         GameCommand::CancelProduce { player: PlayerId(0), type_id: TypeId(2) },
         GameCommand::CaptureBuilding { engineer: EntityId(10), building: EntityId(11) },

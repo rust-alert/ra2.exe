@@ -125,6 +125,8 @@ impl crate::state::BattleState {
 
     fn transfer_structure_owner(&mut self, building_id: EntityId, type_id: ra_types::TypeId, from_house: &str, to_house: &str) {
         // 中立等氛围房主可能不在 players 表；revoke/grant 内部会安全跳过缺失席位。
+        // 先按旧房主重算主厂，再改归属（否则会按新房主找同侪）。
+        self.reassign_primary_after_factory_lost(building_id);
         self.revoke_structure_power(from_house, type_id);
         let Some(new_house_id) = crate::gameplay::house_id_of(&self.definitions, to_house)
         else {
@@ -136,8 +138,10 @@ impl crate::state::BattleState {
         self.grant_structure_power(to_house, type_id);
         // 清空生产队列，避免换房后继续产出旧方单位。
         let _ = self.with_production_mut(building_id, |queue| {
-            queue.item = None;
+            queue.clear_production();
+            queue.is_primary = false;
         });
+        self.maybe_assign_primary_factory(building_id);
         self.mark_entity_dirty(building_id);
         self.structure_paint_dirty.push(building_id);
     }

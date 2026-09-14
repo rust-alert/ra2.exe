@@ -80,6 +80,7 @@ fn render_unit_from_snapshot(u: &SnapshotUnit, selected: bool, hovered: bool) ->
         foundation_h: u.foundation_h,
         art_height: u.art_height,
         bracket_delta: u.bracket_delta,
+        is_primary: u.is_primary,
     }
 }
 

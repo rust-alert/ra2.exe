@@ -329,6 +329,7 @@ impl crate::state::BattleState {
             let foundation = self.definitions.structures.get_by_id(type_id).map(|s| s.foundation.clone()).unwrap_or_default();
             self.unseal_structure_footprint(x, y, foundation.width, foundation.height);
             self.revoke_structure_power(&house, type_id);
+            self.reassign_primary_after_factory_lost(dead_id);
         }
     }
 

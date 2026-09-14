@@ -218,7 +218,9 @@ impl OrderIconGpu {
         let sh = surface_h.max(1) as f32;
         let tick = world.source_tick;
         for u in world.units.values().filter(|u| !u.dead && u.selected) {
-            if world.action_lines_active && !u.is_structure {
+            // 工厂：选中期间常驻画集结格。机动单位：仅行动线窗口内画移动 / 攻击目标。
+            let show_goals = u.is_structure || world.action_lines_active;
+            if show_goals {
                 if let Some((ax, ay)) = u.attack_target_screen {
                     if self.attack_range.count > 0 {
                         let fi = self.attack_range.start + (tick % u64::from(self.attack_range.count.max(1))) as u32;

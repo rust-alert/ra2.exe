@@ -46,6 +46,8 @@ pub struct RenderUnit {
     pub art_height: u16,
     /// 选中血条竖直偏移。
     pub bracket_delta: i32,
+    /// 是否为主厂（画 PRI 角标）。
+    pub is_primary: bool,
 }
 
 /// 当前可视对象的渲染侧状态（跨帧复用）。

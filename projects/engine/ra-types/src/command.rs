@@ -28,6 +28,8 @@ pub enum CommandKind {
     CancelProduce,
     /// 设置集结点。
     SetRally,
+    /// 将生产厂设为本房主该生产类别的主厂（PRI）。
+    SetPrimary,
     /// 间谍渗透敌方建筑。
     Infiltrate,
     /// 工程师占领敌方可俘建筑。
@@ -137,6 +139,11 @@ pub enum CommandBody {
         /// 集结格 Y。
         y: u16,
     },
+    /// 将工厂设为本房主、本生产类别唯一主厂（PRI）。
+    SetPrimaryFactory {
+        /// 工厂实体稳定 ID。
+        factory: EntityId,
+    },
     /// 间谍渗透敌方建筑。
     Infiltrate {
         /// 间谍实体。
@@ -226,6 +233,7 @@ impl CommandBody {
             Self::Produce { .. } => CommandKind::Produce,
             Self::CancelProduce { .. } => CommandKind::CancelProduce,
             Self::SetRallyPoint { .. } => CommandKind::SetRally,
+            Self::SetPrimaryFactory { .. } => CommandKind::SetPrimary,
             Self::Infiltrate { .. } => CommandKind::Infiltrate,
             Self::CaptureBuilding { .. } => CommandKind::CaptureBuilding,
             Self::Guard { .. } => CommandKind::Guard,
@@ -257,9 +265,12 @@ impl CommandBody {
             | Self::CaptureBuilding { building, .. }
             | Self::SellBuilding { building, .. }
             | Self::RepairBuilding { building, .. } => CommandTarget::Entity(*building),
-            Self::Deploy { entity } | Self::Guard { entity } | Self::Stop { entity } | Self::Scatter { entity } | Self::Delete { entity } => {
-                CommandTarget::Entity(*entity)
-            }
+            Self::Deploy { entity }
+            | Self::Guard { entity }
+            | Self::Stop { entity }
+            | Self::Scatter { entity }
+            | Self::Delete { entity }
+            | Self::SetPrimaryFactory { factory: entity } => CommandTarget::Entity(*entity),
             Self::Produce { type_id, .. } | Self::CancelProduce { type_id, .. } => CommandTarget::TypeId(*type_id),
         }
     }

@@ -374,7 +374,9 @@ impl MarkerGpu {
 
         for u in world.units.values().filter(|u| !u.dead) {
             let (draw_bracket, draw_pips) = status_visibility(u.selected, u.hovered);
-            if !draw_bracket && !draw_pips {
+            // 主厂黄三角在未选中时也要画；其它标记仍按选中 / 悬停。
+            let draw_primary = u.is_structure && u.is_primary;
+            if !draw_bracket && !draw_pips && !draw_primary {
                 continue;
             }
             let (cx, cy) = cell_center(u.screen_x, u.screen_y);
@@ -387,6 +389,9 @@ impl MarkerGpu {
             if u.is_structure {
                 if draw_bracket {
                     push_building_brackets(&mut lines, camera, sw, sh, cx, cy, u);
+                }
+                if draw_primary {
+                    push_primary_chevron(&mut lines, camera, sw, sh, cx, cy, u);
                 }
                 if draw_pips {
                     push_building_pips(&mut sprites, camera, sw, sh, cx, cy, u, tone, &self.pips_slots);
@@ -592,6 +597,22 @@ pub fn push_building_brackets(out: &mut Vec<LineVertex>, camera: &Camera, sw: f3
     // BR roof
     push_stub_line(out, camera, sw, sh, roof[3], ground[3], color);
     push_stub_line(out, camera, sw, sh, roof[3], roof[1], color);
+}
+
+/// 主厂黄三角（屋顶上方小chevron）。
+#[doc(hidden)]
+pub fn push_primary_chevron(out: &mut Vec<LineVertex>, camera: &Camera, sw: f32, sh: f32, sx: f32, sy: f32, u: &RenderUnit) {
+    let fw = u.foundation_w.max(1) as f32;
+    let fh = u.foundation_h.max(1) as f32;
+    let z_screen = u.art_height.max(1) as f32 * BUILDING_HEIGHT_PX;
+    let (_, roof) = building_box_corners(sx, sy, fw, fh, z_screen);
+    let tip = Pt { x: (roof[0].x + roof[1].x) * 0.5, y: roof[0].y.min(roof[1].y) - 10.0 };
+    let left = Pt { x: tip.x - 7.0, y: tip.y + 10.0 };
+    let right = Pt { x: tip.x + 7.0, y: tip.y + 10.0 };
+    let color = [1.0, 0.85, 0.15, 0.98];
+    push_pixel_line(out, camera, sw, sh, left, tip, color);
+    push_pixel_line(out, camera, sw, sh, tip, right, color);
+    push_pixel_line(out, camera, sw, sh, left, right, color);
 }
 
 #[derive(Clone, Copy)]

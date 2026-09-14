@@ -37,6 +37,7 @@ impl BattleState {
             let produce_ready = self.ecs_get::<ProductionQueue>(id).and_then(|p| p.ready.clone());
             let rally_x = self.ecs_get::<ProductionQueue>(id).and_then(|p| p.rally_x);
             let rally_y = self.ecs_get::<ProductionQueue>(id).and_then(|p| p.rally_y);
+            let is_primary = self.ecs_get::<ProductionQueue>(id).is_some_and(|p| p.is_primary);
             let type_id = self.ecs_get::<Identity>(id).map(|i| i.type_id);
             let owner = self.ecs_get::<Owner>(id).map(|o| o.house);
 
@@ -98,7 +99,8 @@ impl BattleState {
             h = h
                 .wrapping_mul(1099511628211)
                 .wrapping_add(rally_x.map(u64::from).unwrap_or(0))
-                .wrapping_add(rally_y.map(|v| u64::from(v) << 16).unwrap_or(0));
+                .wrapping_add(rally_y.map(|v| u64::from(v) << 16).unwrap_or(0))
+                .wrapping_add(u64::from(is_primary));
             if let Some(type_id) = type_id {
                 for b in type_id.0.to_le_bytes() {
                     h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(b));
@@ -194,6 +196,10 @@ pub(crate) fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
         GameCommand::SetRallyPoint { factory, x, y } => {
             h = h.wrapping_mul(1099511628211).wrapping_add(6);
             h = h.wrapping_mul(1099511628211).wrapping_add(factory.0).wrapping_add((x as u64) << 16).wrapping_add((y as u64) << 32);
+        }
+        GameCommand::SetPrimaryFactory { factory } => {
+            h = h.wrapping_mul(1099511628211).wrapping_add(20);
+            h = h.wrapping_mul(1099511628211).wrapping_add(factory.0);
         }
         GameCommand::Infiltrate { agent, building } => {
             h = h.wrapping_mul(1099511628211).wrapping_add(7);

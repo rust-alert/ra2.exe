@@ -537,6 +537,8 @@ pub fn battle_outcome_banner_fallback(campaign: bool, victory: bool) -> &'static
 }
 
 /// 遭遇战 / 单机命令条按钮列表（对齐零售 `ui.ini` `[AdvancedCommandBar]`，并补上 `AttackMove` / `Stop`）。
+///
+/// 主厂（PRI）不占底栏槽：再点已选生产厂，或 `keyboard.ini` 的 `MakePrimary`。
 pub const SKIRMISH_COMMAND_BAR: &[&str] = &["Team01", "Team02", "TypeSelect", "Deploy", "AttackMove", "Guard", "Stop", "PlanningMode"];
 
 /// 多人命令条（对齐 `[MultiplayerAdvancedCommandBar]`，并补上 `AttackMove` / `Stop`）。
@@ -558,6 +560,8 @@ pub fn command_bar_shp_index(name: &str) -> Option<usize> {
         "PlanningMode" => Some(9),
         "Cheer" => Some(10),
         "AutoDeploy" => Some(11),
+        // 预留：若日后扩展底栏槽，可复用 Cheer 帧作 PRI 钮面。
+        "Primary" => Some(10),
         _ => None,
     }
 }
@@ -577,6 +581,7 @@ pub fn command_bar_csf_tooltip(name: &str) -> Option<&'static str> {
         "PlanningMode" => Some("TIP:PLANNINGMODE"),
         "Cheer" => Some("TIP:CHEER"),
         "AutoDeploy" => Some("TIP:AUTODEPLOY"),
+        "Primary" => Some("TIP:PRIMARY"),
         _ => None,
     }
 }

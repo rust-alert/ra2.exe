@@ -147,6 +147,8 @@ pub struct SnapshotUnit {
     pub art_height: u16,
     /// `PixelSelectionBracketDelta`：选中血条竖直像素偏移（负值上移）。
     pub bracket_delta: i32,
+    /// 是否为本房主该生产类别的主厂（PRI 角标）。
+    pub is_primary: bool,
 }
 
 impl SnapshotUnit {
@@ -199,11 +201,20 @@ impl BattleSession {
         let deployable = !matches!(identity.kind, MapEntityKind::Structure)
             && crate::gameplay::deploy_into_type(&self.world.definitions, identity.type_id).is_some();
         let movement = self.world.ecs_get::<MovementState>(id);
-        let move_goal_screen = movement.and_then(|m| {
-            let dx = m.destination_x?;
-            let dy = m.destination_y?;
-            Some(self.cell_anchor_screen(dx, dy))
-        });
+        let queue = self.world.ecs_get::<ProductionQueue>(id);
+        let is_primary = queue.is_some_and(|q| q.is_primary);
+        let move_goal_screen = movement
+            .and_then(|m| {
+                let dx = m.destination_x?;
+                let dy = m.destination_y?;
+                Some(self.cell_anchor_screen(dx, dy))
+            })
+            .or_else(|| {
+                let q = queue?;
+                let rx = q.rally_x?;
+                let ry = q.rally_y?;
+                Some(self.cell_anchor_screen(rx, ry))
+            });
         let attack_target = self.world.ecs_get::<AttackState>(id).and_then(|a| a.target);
         let attack_target_screen = attack_target.and_then(|tid| {
             let txf = self.world.ecs_get::<Transform>(tid).copied()?;
@@ -245,6 +256,7 @@ impl BattleSession {
             foundation_h,
             art_height,
             bracket_delta,
+            is_primary,
         })
     }
 
@@ -327,14 +339,7 @@ impl BattleSession {
                 let mut push_slot = |type_id: ra_types::TypeId, remaining_ticks: u32| {
                     let total_ticks = self.world.definitions.techno.get_by_id(type_id).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
                     let key = std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&self.world.definitions, type_id));
-                    out.push(SnapshotProduceQueue {
-                        factory: id,
-                        type_id: key,
-                        remaining_ticks,
-                        total_ticks,
-                        rally_x,
-                        rally_y,
-                    });
+                    out.push(SnapshotProduceQueue { factory: id, type_id: key, remaining_ticks, total_ticks, rally_x, rally_y });
                 };
                 if let Some((type_id, remaining_ticks)) = queue.item {
                     push_slot(type_id, remaining_ticks);

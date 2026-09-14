@@ -1,7 +1,7 @@
 //! 工厂生产队列、出厂与集结。
 
 use ra_map::MapEntityKind;
-use ra_types::{TechnoClass, TechnoDefinition, TypeId};
+use ra_types::{EntityId, TechnoClass, TechnoDefinition, TypeId};
 
 use crate::{
     gameplay::{factory_matches_unit, is_construction_yard, structure_is_defense, verses_for},
@@ -161,12 +161,11 @@ impl crate::state::BattleState {
             TechnoClass::Building => return,
         };
         let techno_class = tt.class;
-        let promoted =
-            self.players.iter().find(|p| p.house_id == Some(owner_id)).is_some_and(|p| match tt.class {
-                TechnoClass::Infantry => p.promoted_infantry,
-                TechnoClass::Vehicle => p.promoted_vehicle,
-                _ => false,
-            });
+        let promoted = self.players.iter().find(|p| p.house_id == Some(owner_id)).is_some_and(|p| match tt.class {
+            TechnoClass::Infantry => p.promoted_infantry,
+            TechnoClass::Vehicle => p.promoted_vehicle,
+            _ => false,
+        });
         let base_health = tt.strength.max(1);
         let max_health =
             if promoted { base_health.saturating_mul(5).saturating_div(4).max(base_health.saturating_add(1)) } else { base_health };
@@ -261,13 +260,16 @@ impl crate::state::BattleState {
         })
     }
 
-    /// 单位厂：优先空闲厂开单；否则选最短仍可入队的 FIFO 厂。
+    /// 单位厂：优先主厂（PRI）；否则空闲厂；再否则最短仍可入队的 FIFO 厂。
     #[doc(hidden)]
     pub fn find_unit_factory_for_enqueue(&self, house: &str, kind: TechnoClass) -> Option<usize> {
         if matches!(kind, TechnoClass::Building) {
             return None;
         }
         let house_id = crate::gameplay::house_id_of(&self.definitions, house);
+        let mut primary_idle: Option<usize> = None;
+        let mut primary_busy: Option<usize> = None;
+        let mut idle: Option<usize> = None;
         let mut best: Option<(usize, usize)> = None;
         for (index, e) in self.entities.iter().enumerate() {
             let id = e.id;
@@ -290,16 +292,171 @@ impl crate::state::BattleState {
             if !queue.can_enqueue_unit() {
                 continue;
             }
+            if queue.is_primary {
+                if queue.item.is_none() {
+                    primary_idle = Some(index);
+                }
+                else {
+                    primary_busy = Some(index);
+                }
+                continue;
+            }
             let len = queue.unit_len();
             if queue.item.is_none() {
-                return Some(index);
+                if idle.is_none() {
+                    idle = Some(index);
+                }
+                continue;
             }
             match best {
                 Some((_, best_len)) if len >= best_len => {}
                 _ => best = Some((index, len)),
             }
         }
-        best.map(|(index, _)| index)
+        primary_idle.or(primary_busy).or(idle).or(best.map(|(index, _)| index))
+    }
+
+    /// 若 `id` 为生产厂且本房主该生产类别尚无主厂，则将其标为 PRI。
+    pub(crate) fn maybe_assign_primary_factory(&mut self, id: EntityId) {
+        let Some(identity) = self.ecs_get::<Identity>(id).cloned()
+        else {
+            return;
+        };
+        if identity.kind != MapEntityKind::Structure {
+            return;
+        }
+        if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+            return;
+        }
+        if !crate::gameplay::is_production_factory(&self.definitions, identity.type_id) {
+            return;
+        }
+        let Some(owner) = self.ecs_get::<Owner>(id).map(|o| o.house)
+        else {
+            return;
+        };
+        let Some(category) = self.definitions.structures.get_by_id(identity.type_id).and_then(|s| s.production.as_ref()).map(|p| p.category)
+        else {
+            return;
+        };
+        let has_primary = self.entities.iter().any(|e| {
+            let eid = e.id;
+            if eid == id || self.ecs_get::<Health>(eid).map(|h| h.dead).unwrap_or(true) {
+                return false;
+            }
+            if !self.ecs_get::<Owner>(eid).is_some_and(|o| o.house == owner) {
+                return false;
+            }
+            if !self.ecs_get::<Identity>(eid).is_some_and(|i| {
+                i.kind == MapEntityKind::Structure && crate::gameplay::factory_matches_category(&self.definitions, i.type_id, category)
+            }) {
+                return false;
+            }
+            self.ecs_get::<ProductionQueue>(eid).is_some_and(|q| q.is_primary)
+        });
+        if has_primary {
+            return;
+        }
+        let _ = self.with_production_mut(id, |queue| {
+            queue.is_primary = true;
+        });
+        self.mark_entity_dirty(id);
+    }
+
+    /// 主厂被毁后，将 PRI 转给同房主同生产类别的下一座存活厂。
+    pub(crate) fn reassign_primary_after_factory_lost(&mut self, lost_id: EntityId) {
+        let Some(identity) = self.ecs_get::<Identity>(lost_id).cloned()
+        else {
+            return;
+        };
+        if !crate::gameplay::is_production_factory(&self.definitions, identity.type_id) {
+            return;
+        }
+        let was_primary = self.ecs_get::<ProductionQueue>(lost_id).is_some_and(|q| q.is_primary);
+        let _ = self.with_production_mut(lost_id, |queue| {
+            queue.is_primary = false;
+        });
+        if !was_primary {
+            return;
+        }
+        let Some(owner) = self.ecs_get::<Owner>(lost_id).map(|o| o.house)
+        else {
+            return;
+        };
+        let Some(category) = self.definitions.structures.get_by_id(identity.type_id).and_then(|s| s.production.as_ref()).map(|p| p.category)
+        else {
+            return;
+        };
+        let successor = self.entities.iter().find_map(|e| {
+            let eid = e.id;
+            if eid == lost_id || self.ecs_get::<Health>(eid).map(|h| h.dead).unwrap_or(true) {
+                return None;
+            }
+            if !self.ecs_get::<Owner>(eid).is_some_and(|o| o.house == owner) {
+                return None;
+            }
+            if !self.ecs_get::<Identity>(eid).is_some_and(|i| {
+                i.kind == MapEntityKind::Structure && crate::gameplay::factory_matches_category(&self.definitions, i.type_id, category)
+            }) {
+                return None;
+            }
+            Some(eid)
+        });
+        if let Some(next) = successor {
+            let _ = self.with_production_mut(next, |queue| {
+                queue.is_primary = true;
+            });
+            self.mark_entity_dirty(next);
+        }
+        self.mark_entity_dirty(lost_id);
+    }
+
+    /// 将 `factory` 设为本房主、本生产类别唯一主厂。
+    pub(crate) fn set_primary_factory(&mut self, factory: EntityId) -> bool {
+        let Some(identity) = self.ecs_get::<Identity>(factory).cloned()
+        else {
+            return false;
+        };
+        if identity.kind != MapEntityKind::Structure || self.ecs_get::<Health>(factory).map(|h| h.dead).unwrap_or(true) {
+            return false;
+        }
+        if !crate::gameplay::is_production_factory(&self.definitions, identity.type_id) {
+            return false;
+        }
+        let Some(owner) = self.ecs_get::<Owner>(factory).map(|o| o.house)
+        else {
+            return false;
+        };
+        let Some(category) = self.definitions.structures.get_by_id(identity.type_id).and_then(|s| s.production.as_ref()).map(|p| p.category)
+        else {
+            return false;
+        };
+        let peers: Vec<EntityId> = self
+            .entities
+            .iter()
+            .filter_map(|e| {
+                let eid = e.id;
+                if self.ecs_get::<Health>(eid).map(|h| h.dead).unwrap_or(true) {
+                    return None;
+                }
+                if !self.ecs_get::<Owner>(eid).is_some_and(|o| o.house == owner) {
+                    return None;
+                }
+                if !self.ecs_get::<Identity>(eid).is_some_and(|i| {
+                    i.kind == MapEntityKind::Structure && crate::gameplay::factory_matches_category(&self.definitions, i.type_id, category)
+                }) {
+                    return None;
+                }
+                Some(eid)
+            })
+            .collect();
+        for eid in peers {
+            let _ = self.with_production_mut(eid, |queue| {
+                queue.is_primary = eid == factory;
+            });
+            self.mark_entity_dirty(eid);
+        }
+        true
     }
 
     /// 兼容旧调用：结构轨查空闲建造场；单位查可入队厂。

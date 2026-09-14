@@ -196,6 +196,11 @@ impl BattleState {
         Some((queue.rally_x, queue.rally_y))
     }
 
+    /// 读取是否为主厂（PRI；测试与诊断）。
+    pub fn ecs_is_primary(&self, id: EntityId) -> Option<bool> {
+        self.ecs_get::<crate::state::components::ProductionQueue>(id).map(|q| q.is_primary)
+    }
+
     /// 读取 ECS `AnimationState`（测试与诊断）。
     pub fn ecs_animation(&self, id: EntityId) -> Option<(u16, u32)> {
         let anim = self.ecs_get::<crate::state::components::AnimationState>(id)?;

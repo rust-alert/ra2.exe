@@ -83,6 +83,13 @@ impl BattleController {
             }
         }
 
+        // 悬停已选生产厂 → Select（再点左键设 PRI；空地仍走下方 Move 设集结）。
+        if let Some(id) = Self::pick_local_building_at_image(game, wx, wy) {
+            if selected.contains(&id) && game.selection_has_primary_factory(&[id]) {
+                return BattlePointer::Select;
+            }
+        }
+
         // 攻击移动模式：空地与敌方均显示攻击光标（右键取消模式）。
         if self.attack_move_mode && has_mobile {
             if game.pick_hostile_near_image(wx, wy, 72.0).is_some() {
@@ -246,6 +253,15 @@ impl BattleController {
                     self.pulse_action_lines_at(tick);
                     return;
                 }
+                // 再点已选生产厂 → 设为主厂（PRI）。
+                if !add && self.local.selected.contains(&id) && game.selection_has_primary_factory(&[id]) {
+                    if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                        tracing::info!("设为主厂 → #{}（选中 {:?}）", id.0, selected);
+                        game.order_set_primary(&[id]);
+                    }
+                    self.pulse_action_lines_at(tick);
+                    return;
+                }
                 if add {
                     self.local.select_add(game, id);
                     tracing::info!("加选实体 #{} @({},{}) · 选中 {:?}", id.0, cell.0, cell.1, self.local.selected);
@@ -274,12 +290,7 @@ impl BattleController {
                         game.order_infiltrate(&selected, target);
                     }
                     else {
-                        tracing::info!(
-                            force = force_attack,
-                            "命令攻击 → #{}（选中 {:?}）",
-                            target.0,
-                            selected
-                        );
+                        tracing::info!(force = force_attack, "命令攻击 → #{}（选中 {:?}）", target.0, selected);
                         game.order_attack(&selected, target);
                     }
                 }
@@ -858,6 +869,28 @@ impl BattleController {
                     self.repair_mode = false;
                     self.sell_mode = false;
                     tracing::info!(active = true, "PlanningMode");
+                }
+                BattleNav::None
+            }
+            HotkeyAction::MakePrimary => {
+                let selected = self.local.selected.clone();
+                if selected.is_empty() {
+                    tracing::info!("设为主厂 · 无选中");
+                    return BattleNav::None;
+                }
+                let pulse_tick = self.session.as_mut().and_then(|s| s.battle_mut()).map(|game| {
+                    let tick = game.world.tick;
+                    if game.selection_has_primary_factory(&selected) {
+                        tracing::info!("设为主厂 · {:?}", selected);
+                        game.order_set_primary(&selected);
+                    }
+                    else {
+                        tracing::info!("设为主厂 · 选中无生产厂 {:?}", selected);
+                    }
+                    tick
+                });
+                if let Some(tick) = pulse_tick {
+                    self.pulse_action_lines_at(tick);
                 }
                 BattleNav::None
             }

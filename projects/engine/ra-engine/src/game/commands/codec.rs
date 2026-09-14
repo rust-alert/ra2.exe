@@ -49,6 +49,10 @@ pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
             b.extend_from_slice(&x.to_be_bytes());
             b.extend_from_slice(&y.to_be_bytes());
         }
+        GameCommand::SetPrimaryFactory { factory } => {
+            b.push(20);
+            b.extend_from_slice(&factory.0.to_be_bytes());
+        }
         GameCommand::Infiltrate { agent, building } => {
             b.push(7);
             b.extend_from_slice(&agent.0.to_be_bytes());
@@ -283,6 +287,13 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
             let x = u16::from_be_bytes(bytes[6..8].try_into().ok()?);
             let y = u16::from_be_bytes(bytes[8..10].try_into().ok()?);
             Some(GameCommand::FireSuperWeapon { player, type_id, x, y })
+        }
+        20 => {
+            if bytes.len() < 1 + 8 {
+                return None;
+            }
+            let factory = EntityId(u64::from_be_bytes(bytes[1..9].try_into().ok()?));
+            Some(GameCommand::SetPrimaryFactory { factory })
         }
         _ => None,
     }
