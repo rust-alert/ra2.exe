@@ -168,6 +168,7 @@ CameoPCX=gaicon
         wall: false,
         base_normal: true,
         adjacent: 3,
+        guard_range: 0,
         free_unit: None,
         radar: false,
         build_cat: Default::default(),

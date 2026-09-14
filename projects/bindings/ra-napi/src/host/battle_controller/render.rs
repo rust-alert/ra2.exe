@@ -441,10 +441,16 @@ impl BattleController {
         let width = foundation.width.max(1);
         let height = foundation.height.max(1);
         let house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.as_ref());
-        let zone_ok = house.is_some_and(|h| game.world.house_build_zone_allows(h, sdef.adjacent, ox, oy, width, height));
+        let place_ok = house.is_some_and(|h| game.world.can_place_building_for(h, sdef.id, ox, oy));
+        let fill_cells: std::collections::HashSet<(u16, u16)> = house
+            .filter(|_| place_ok && sdef.wall)
+            .map(|h| game.world.wall_placement_cells(h, sdef.id, ox, oy).into_iter().collect())
+            .unwrap_or_default();
         let cam = renderer.camera();
         let half_w = (TILE_WIDTH / 2) as f32;
         let half_h = (TILE_HEIGHT / 2) as f32;
+        // 墙链：先画补段幽灵，再画点击占地。
+        let mut ghost_cells: Vec<(u16, u16, bool)> = fill_cells.iter().filter(|c| **c != (ox, oy)).map(|&(cx, cy)| (cx, cy, true)).collect();
         for dy in 0..height {
             for dx in 0..width {
                 let Some(cx) = ox.checked_add(dx)
@@ -455,7 +461,11 @@ impl BattleController {
                 else {
                     continue;
                 };
-                let ok = zone_ok && game.world.cell_ok_for_structure(cx, cy, water_bound);
+                let cell_ok = place_ok && game.world.cell_ok_for_structure(cx, cy, water_bound);
+                ghost_cells.push((cx, cy, cell_ok));
+            }
+        }
+        for (cx, cy, ok) in ghost_cells {
                 let fill = if ok { [40u8, 220, 70, 90] } else { [220u8, 40, 40, 110] };
                 let stroke = if ok { [80u8, 255, 100, 230] } else { [255u8, 70, 70, 240] };
                 let z = game.world.pass_grid.cell_height(cx, cy);
@@ -475,7 +485,6 @@ impl BattleController {
                 }
                 fill_screen_diamond(page, &vp, corners_s, fill);
                 stroke_screen_diamond(page, &vp, corners_s, stroke);
-            }
         }
     }
 

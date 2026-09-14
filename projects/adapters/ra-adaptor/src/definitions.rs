@@ -205,6 +205,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         let wall = tt.wall;
         let base_normal = tt.base_normal;
         let adjacent = tt.adjacent;
+        let guard_range = tt.guard_range;
         if !tt.free_unit.is_empty() {
             pending_free_units.push((key.clone(), tt.free_unit.clone()));
         }
@@ -283,6 +284,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             wall,
             base_normal,
             adjacent,
+            guard_range,
             free_unit: None,
             radar,
             build_cat,

@@ -476,3 +476,179 @@ fn place_building_ignores_non_base_normal_as_anchor() {
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidPlacement);
     assert_eq!(world.entity_count(), 2);
 }
+
+#[test]
+fn wall_chain_places_within_guard_range_and_autofills() {
+    let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAWALL\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\nBaseNormal=yes\n\
+[GAWALL]\nWall=yes\nBaseNormal=no\nAdjacent=0\nGuardRange=4\nOwner=Americans\nStrength=100\nSight=1\nCost=50\nTechLevel=1\nFoundation=1x1\nBuildCat=Combat\n";
+    let defs = defs_from_rules_ini(rules_text);
+    let mut map = MapInfo::empty(GameEdition::Ra2, "wall-chain");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GACNST".into(),
+            health: 256,
+            x: 4,
+            y: 4,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        // 已有墙枢纽：贴建造场，作为链起点。
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GAWALL".into(),
+            health: 256,
+            x: 5,
+            y: 4,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+    ];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+    assert_eq!(world.definitions.structures.get("GAWALL").map(|s| (s.wall, s.guard_range, s.base_normal)), Some((true, 4, false)));
+
+    queue_until_ready(&mut world, "GAWALL");
+    // 沿墙正交延到轴距 4：中间三格应免费补齐。
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: world.definitions.techno.get("GAWALL").expect("GAWALL").id,
+        x: 9,
+        y: 4,
+    });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty(), "wall chain rejects: {:?}", world.last_rejects());
+    // 原 2 + 中间 (6,7,8) + 点击 (9) = 6
+    assert_eq!(world.entity_count(), 6);
+    for x in 6u16..=9 {
+        assert!(!world.pass_grid.is_passable(x, 4), "wall segment sealed @({x},4)");
+    }
+    // 一次完工件，费用只扣一截墙。
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 50));
+    assert!(world.house_ready_building("AMERICANS").is_none());
+}
+
+#[test]
+fn wall_chain_rejects_beyond_guard_range_and_diagonal() {
+    let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAWALL\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\nBaseNormal=yes\n\
+[GAWALL]\nWall=yes\nBaseNormal=no\nAdjacent=0\nGuardRange=4\nOwner=Americans\nStrength=100\nSight=1\nCost=50\nTechLevel=1\nFoundation=1x1\nBuildCat=Combat\n";
+    let defs = defs_from_rules_ini(rules_text);
+    let mut map = MapInfo::empty(GameEdition::Ra2, "wall-chain-reject");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GACNST".into(),
+            health: 256,
+            x: 4,
+            y: 4,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GAWALL".into(),
+            health: 256,
+            x: 5,
+            y: 4,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+    ];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+    let wall_id = world.definitions.techno.get("GAWALL").expect("GAWALL").id;
+
+    queue_until_ready(&mut world, "GAWALL");
+    // 轴距 5 > GuardRange=4，且已超出建造场 Adjacent=0。
+    world.push_command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: wall_id, x: 10, y: 4 });
+    world.advance_tick();
+    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidPlacement);
+    assert_eq!(world.entity_count(), 2);
+
+    // 斜向不可链。
+    world.push_command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: wall_id, x: 7, y: 6 });
+    world.advance_tick();
+    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidPlacement);
+    assert_eq!(world.entity_count(), 2);
+}
+
+#[test]
+fn wall_chain_blocked_path_rejects() {
+    let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAWALL\n2=GAPOWR\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\nBaseNormal=yes\n\
+[GAWALL]\nWall=yes\nBaseNormal=no\nAdjacent=0\nGuardRange=4\nOwner=Americans\nStrength=100\nSight=1\nCost=50\nTechLevel=1\nFoundation=1x1\nBuildCat=Combat\n\
+[GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\nFoundation=1x1\nAdjacent=0\n";
+    let defs = defs_from_rules_ini(rules_text);
+    let mut map = MapInfo::empty(GameEdition::Ra2, "wall-chain-block");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GACNST".into(),
+            health: 256,
+            x: 4,
+            y: 4,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GAWALL".into(),
+            health: 256,
+            x: 5,
+            y: 4,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        // 挡在墙链中间。
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GAPOWR".into(),
+            health: 256,
+            x: 7,
+            y: 4,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+    ];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+    queue_until_ready(&mut world, "GAWALL");
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: world.definitions.techno.get("GAWALL").expect("GAWALL").id,
+        x: 9,
+        y: 4,
+    });
+    world.advance_tick();
+    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidPlacement);
+    assert_eq!(world.entity_count(), 3);
+}

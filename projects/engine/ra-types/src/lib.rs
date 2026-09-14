@@ -25,7 +25,7 @@ pub use definition::{
     CampaignName, CapabilitySet, ColorName, ContentFingerprint, DEFAULT_AI_TRIGGER_WEIGHT, DEFAULT_BUILD_ADJACENT, DeployableDefinition,
     DeployableDefinitions,
     DeploymentPlacement, Foundation, GameModeName, HouseAllowList, HouseDefinition, HouseDefinitions, HouseIdAllowList, HouseName,
-    HouseStolenTechMap, ImageName, LandType, LocomotorDefinitions, MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapDefinition,
+    HouseStolenTechMap, ImageName, LandType, LocomotorDefinitions, MAX_GUARD_RANGE_CELLS, MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapDefinition,
     MapEdge, MapEvent, MapEventCondition, MapFileName, MapHouse, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity,
     MapPlacedEntityKind, MapScriptStep, MapScriptType, MapSmudge, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType, MapTerrainObject,
     MapTrigger, MapWaypoint, MapWeatherKind, MissionKind, MissionName, OverlayName, OverlayTypeRegistry, PowerProfile, PreparedAction,

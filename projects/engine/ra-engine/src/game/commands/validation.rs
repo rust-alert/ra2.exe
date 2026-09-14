@@ -368,10 +368,12 @@ impl crate::state::BattleState {
                         continue;
                     };
                     let foundation = self.definitions.structures.get_by_id(tt.id).map(|s| s.foundation.clone()).unwrap_or_default();
+                    let water_bound = self.definitions.structures.get_by_id(tt.id).is_some_and(|s| s.water_bound);
                     if !self.can_place_building_for(house.as_ref(), tt.id, x, y) {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
+                    let place_cells = self.wall_placement_cells(house.as_ref(), tt.id, x, y);
                     let def_id = tt.id;
                     let max_health = tt.strength.max(1);
                     let armor = tt.armor;
@@ -385,45 +387,58 @@ impl crate::state::BattleState {
                         }
                     });
                     self.mark_entity_dirty(yard_id);
-                    let id = self.alloc_entity_id();
-                    self.players[player_index].power_output = self.players[player_index].power_output.saturating_add(power.output);
-                    self.players[player_index].power_drain = self.players[player_index].power_drain.saturating_add(power.drain);
-                    self.players[player_index].built = self.players[player_index].built.saturating_add(1);
-                    self.seal_structure_footprint(x, y, foundation.width, foundation.height);
-                    self.spawn_from_bundle(EntitySpawnBundle {
-                        identity: Identity { entity_id: id, type_id: def_id, kind: MapEntityKind::Structure, mission: None, tag: None },
-                        owner: Owner { house: crate::gameplay::house_id_of(&self.definitions, house.as_ref()).expect("place building house") },
-                        transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
-                        health: Health { current: max_health, maximum: max_health, dead: false },
-                        locomotor: Locomotor { speed: 0 },
-                        movement: MovementState {
-                            destination_x: None,
-                            destination_y: None,
-                            waypoints: Vec::new(),
-                            path: Vec::new(),
-                            move_accum: 0,
-                        },
-                        combat: CombatStats {
-                            armor,
-                            attack_range: 0,
-                            attack_damage: 0,
-                            attack_cooldown_max: 0,
-                            attack_verses: full_verses(),
-                            techno_class: Some(TechnoClass::Building),
-                        },
-                        attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None, follow_target: None },
-                        production: ProductionQueue::empty(),
-                        harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
-                        cash_producer: CashProducerState::default(),
-                        animation: AnimationState { hva_frame: 0, hit_flash: 0, fire_flash: 0 },
-                        deploy_stance: DeployStance { deployed: false },
-                    });
-                    self.mark_entity_dirty(id);
-                    // 新建筑走 Buildup 再定格，避免瞬现主体 SHP。
-                    self.structure_buildup_dirty.push(id);
-                    // `FreeUnit=`：落位完成时白送（视觉 Buildup 在宿主侧，玩法以落位为准）。
-                    self.spawn_structure_free_unit(id, def_id, house.as_ref(), x, y);
-                    self.maybe_assign_primary_factory(id);
+                    let owner_house = crate::gameplay::house_id_of(&self.definitions, house.as_ref()).expect("place building house");
+                    let mut click_id = None;
+                    for (px, py) in place_cells {
+                        if !self.can_place_structure_footprint(px, py, foundation.width, foundation.height, water_bound) {
+                            continue;
+                        }
+                        let id = self.alloc_entity_id();
+                        // 墙链中间段免费补齐，电力 / 造价仍只按完工件结算一次。
+                        self.players[player_index].power_output = self.players[player_index].power_output.saturating_add(power.output);
+                        self.players[player_index].power_drain = self.players[player_index].power_drain.saturating_add(power.drain);
+                        self.players[player_index].built = self.players[player_index].built.saturating_add(1);
+                        self.seal_structure_footprint(px, py, foundation.width, foundation.height);
+                        self.spawn_from_bundle(EntitySpawnBundle {
+                            identity: Identity { entity_id: id, type_id: def_id, kind: MapEntityKind::Structure, mission: None, tag: None },
+                            owner: Owner { house: owner_house },
+                            transform: Transform { x: px, y: py, facing: 0, turret_facing: 0, sub_cell: 0 },
+                            health: Health { current: max_health, maximum: max_health, dead: false },
+                            locomotor: Locomotor { speed: 0 },
+                            movement: MovementState {
+                                destination_x: None,
+                                destination_y: None,
+                                waypoints: Vec::new(),
+                                path: Vec::new(),
+                                move_accum: 0,
+                            },
+                            combat: CombatStats {
+                                armor,
+                                attack_range: 0,
+                                attack_damage: 0,
+                                attack_cooldown_max: 0,
+                                attack_verses: full_verses(),
+                                techno_class: Some(TechnoClass::Building),
+                            },
+                            attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None, follow_target: None },
+                            production: ProductionQueue::empty(),
+                            harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
+                            cash_producer: CashProducerState::default(),
+                            animation: AnimationState { hva_frame: 0, hit_flash: 0, fire_flash: 0 },
+                            deploy_stance: DeployStance { deployed: false },
+                        });
+                        self.mark_entity_dirty(id);
+                        // 新建筑走 Buildup 再定格，避免瞬现主体 SHP。
+                        self.structure_buildup_dirty.push(id);
+                        if px == x && py == y {
+                            click_id = Some(id);
+                        }
+                    }
+                    if let Some(id) = click_id {
+                        // `FreeUnit=`：落位完成时白送（视觉 Buildup 在宿主侧，玩法以落位为准）。
+                        self.spawn_structure_free_unit(id, def_id, house.as_ref(), x, y);
+                        self.maybe_assign_primary_factory(id);
+                    }
                 }
                 GameCommand::Produce { player, type_id } => {
                     if player != scheduled.player {

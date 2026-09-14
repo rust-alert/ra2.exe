@@ -17,6 +17,9 @@ use super::{
 /// rules 未写 `Adjacent=` 时的缺省空隙格数。
 pub const DEFAULT_BUILD_ADJACENT: i32 = 3;
 
+/// 原版 `GuardRange` 墙链 / 警戒扫描的硬上限（格）。
+pub const MAX_GUARD_RANGE_CELLS: i32 = 16;
+
 /// 建造栏分类（INI `BuildCat=`）。
 ///
 /// 侧栏 Q/W：非 `Combat` 进建筑页，`Combat` 进防御页。缺省视为建筑页。
@@ -192,6 +195,8 @@ pub struct StructureDefinition {
     pub base_normal: bool,
     /// INI `Adjacent=`：相对己方 `BaseNormal` 建筑允许的最大空隙格数（缺省 `3`；负值禁止落位）。
     pub adjacent: i32,
+    /// INI `GuardRange=`：墙链自动补段最大轴距（格）；缺省取主/副武器 `Range` 较大者。
+    pub guard_range: i32,
     /// INI `FreeUnit=`：建筑落位完成后白送的单位稳定 id；`None` = 不送。
     pub free_unit: Option<TypeId>,
     /// INI `Radar=yes`（侧栏雷达开图）。

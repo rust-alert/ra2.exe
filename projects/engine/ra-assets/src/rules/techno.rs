@@ -120,6 +120,8 @@ pub struct TechnoType {
     pub base_normal: bool,
     /// `Adjacent`：相对己方 `BaseNormal` 建筑的最大空隙格数；缺省 `3`；负值禁止落位。
     pub adjacent: i32,
+    /// `GuardRange`：墙链自动补段最大轴距（格）；缺省取主/副武器 `Range` 较大者。
+    pub guard_range: i32,
     /// `FreeUnit` 目标类型名；空表示建成后不白送单位。
     pub free_unit: TechnoName,
     /// `Radar`。
@@ -357,6 +359,8 @@ struct TechnoSectionFields {
     base_normal: Option<bool>,
     #[serde(rename = "Adjacent", default, deserialize_with = "deserialize_opt_i32")]
     adjacent: Option<i32>,
+    #[serde(rename = "GuardRange", default, deserialize_with = "deserialize_opt_i32")]
+    guard_range: Option<i32>,
     #[serde(rename = "FreeUnit", default)]
     free_unit: TechnoName,
     #[serde(rename = "Radar", default, deserialize_with = "deserialize_opt_bool")]
@@ -483,6 +487,7 @@ fn parse_techno(view: LayeredIniView<'_>, id: &TechnoName, kind: TechnoKind, ove
         wall: fields.wall.unwrap_or(false),
         base_normal: fields.base_normal.unwrap_or(true),
         adjacent: fields.adjacent.unwrap_or(DEFAULT_BUILD_ADJACENT),
+        guard_range: fields.guard_range.unwrap_or(primary_w.range.max(secondary_w.range) as i32),
         free_unit: fields.free_unit,
         radar: fields.radar.unwrap_or(false),
         build_cat: fields.build_cat,

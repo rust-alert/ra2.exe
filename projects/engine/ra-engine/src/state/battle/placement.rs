@@ -38,7 +38,9 @@ impl BattleState {
         true
     }
 
-    /// 占地几何 + 己方 `BaseNormal`/`Adjacent` 建区：人类与 AI 落建筑的统一入口。
+    /// 占地几何 + 己方建区（`BaseNormal`/`Adjacent`）或墙链（`Wall`/`GuardRange`）。
+    ///
+    /// 人类与 AI 落建筑的统一入口。
     pub fn can_place_building_for(&self, house: &str, type_id: TypeId, x: u16, y: u16) -> bool {
         let Some(sdef) = self.definitions.structures.get_by_id(type_id)
         else {
@@ -48,7 +50,28 @@ impl BattleState {
         if !self.can_place_structure_footprint(x, y, foundation.width, foundation.height, sdef.water_bound) {
             return false;
         }
-        self.house_build_zone_allows(house, sdef.adjacent, x, y, foundation.width, foundation.height)
+        if self.house_build_zone_allows(house, sdef.adjacent, x, y, foundation.width, foundation.height) {
+            return true;
+        }
+        // 围墙：可沿己方同型墙在 `GuardRange` 内正交延伸（含自动补段路径畅通）。
+        sdef.wall && self.wall_chain_anchor(house, type_id, sdef.guard_range, x, y).is_some()
+    }
+
+    /// 墙落位时实际生成的格列表（含点击格；中间格为免费补段）。
+    ///
+    /// 非墙或无可用锚点时仅返回点击格（调用方仍须先通过 [`Self::can_place_building_for`]）。
+    pub fn wall_placement_cells(&self, house: &str, type_id: TypeId, x: u16, y: u16) -> Vec<(u16, u16)> {
+        let Some(sdef) = self.definitions.structures.get_by_id(type_id)
+        else {
+            return vec![(x, y)];
+        };
+        if !sdef.wall {
+            return vec![(x, y)];
+        }
+        match self.wall_chain_anchor(house, type_id, sdef.guard_range, x, y) {
+            Some((ax, ay)) => orthogonal_cells_between(ax, ay, x, y).into_iter().chain(std::iter::once((x, y))).collect(),
+            None => vec![(x, y)],
+        }
     }
 
     /// 新占地是否落在己方 `BaseNormal=yes` 建筑的 `Adjacent` 建区内。
@@ -98,6 +121,73 @@ impl BattleState {
             let ah = anchor.foundation.height.max(1);
             min_chebyshev_between_footprints(x, y, width, height, xf.x, xf.y, aw, ah) <= max_d
         })
+    }
+
+    /// 寻找可与 `(x,y)` 正交相连的己方同型墙锚点（轴距 ≤ 有效 `GuardRange`，中间格可放）。
+    ///
+    /// 多候选时取轴距最短者。仅支持 `1x1` 墙枢纽。
+    fn wall_chain_anchor(&self, house: &str, type_id: TypeId, guard_range: i32, x: u16, y: u16) -> Option<(u16, u16)> {
+        let max_dist = effective_guard_range_cells(guard_range);
+        if max_dist == 0 {
+            return None;
+        }
+        let Some(house_id) = crate::gameplay::house_id_of(&self.definitions, house)
+        else {
+            return None;
+        };
+        use crate::state::components::{Health, Identity, Owner, Transform};
+
+        let mut best: Option<(u32, u16, u16)> = None;
+        for e in &self.entities {
+            let id = e.id;
+            if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                continue;
+            }
+            if !self.ecs_get::<Owner>(id).is_some_and(|o| o.house == house_id) {
+                continue;
+            }
+            let Some(identity) = self.ecs_get::<Identity>(id)
+            else {
+                continue;
+            };
+            if identity.kind != MapEntityKind::Structure || identity.type_id != type_id {
+                continue;
+            }
+            let Some(anchor) = self.definitions.structures.get_by_id(identity.type_id)
+            else {
+                continue;
+            };
+            if !anchor.wall {
+                continue;
+            }
+            // 仅 1x1 枢纽参与正交补段（闸门等多格墙不走自动填缝）。
+            if anchor.foundation.width.max(1) != 1 || anchor.foundation.height.max(1) != 1 {
+                continue;
+            }
+            let Some(xf) = self.ecs_get::<Transform>(id)
+            else {
+                continue;
+            };
+            let Some(dist) = orthogonal_axis_distance(xf.x, xf.y, x, y)
+            else {
+                continue;
+            };
+            if dist == 0 || dist > max_dist {
+                continue;
+            }
+            if !self.wall_fill_path_clear(xf.x, xf.y, x, y, anchor.water_bound) {
+                continue;
+            }
+            if best.map(|(d, _, _)| dist < d).unwrap_or(true) {
+                best = Some((dist, xf.x, xf.y));
+            }
+        }
+        best.map(|(_, ax, ay)| (ax, ay))
+    }
+
+    /// 锚点与落点之间的中间格是否全部可放（不含两端）。
+    fn wall_fill_path_clear(&self, ax: u16, ay: u16, bx: u16, by: u16, water_bound: bool) -> bool {
+        orthogonal_cells_between(ax, ay, bx, by).into_iter().all(|(cx, cy)| self.cell_ok_for_structure(cx, cy, water_bound))
     }
 
     /// 单格是否满足建筑落位的陆地 / 水域条件（含实体占用）。
@@ -237,6 +327,49 @@ impl BattleState {
     }
 }
 
+/// 原版 `GuardRange` 有效格数：负值按 0；超过 [`ra_types::MAX_GUARD_RANGE_CELLS`] 截断。
+pub fn effective_guard_range_cells(guard_range: i32) -> u32 {
+    if guard_range <= 0 {
+        return 0;
+    }
+    (guard_range.min(ra_types::MAX_GUARD_RANGE_CELLS)) as u32
+}
+
+/// 两点正交轴距（同行或同列）；斜向返回 `None`。
+pub fn orthogonal_axis_distance(ax: u16, ay: u16, bx: u16, by: u16) -> Option<u32> {
+    if ax == bx {
+        Some((i32::from(ay) - i32::from(by)).unsigned_abs())
+    }
+    else if ay == by {
+        Some((i32::from(ax) - i32::from(bx)).unsigned_abs())
+    }
+    else {
+        None
+    }
+}
+
+/// 正交线段上不含端点的中间格（由 `a` 走向 `b`）。
+pub fn orthogonal_cells_between(ax: u16, ay: u16, bx: u16, by: u16) -> Vec<(u16, u16)> {
+    let mut out = Vec::new();
+    if ax == bx {
+        let (lo, hi) = if ay < by { (ay, by) } else { (by, ay) };
+        let mut y = lo.saturating_add(1);
+        while y < hi {
+            out.push((ax, y));
+            y = y.saturating_add(1);
+        }
+    }
+    else if ay == by {
+        let (lo, hi) = if ax < bx { (ax, bx) } else { (bx, ax) };
+        let mut x = lo.saturating_add(1);
+        while x < hi {
+            out.push((x, ay));
+            x = x.saturating_add(1);
+        }
+    }
+    out
+}
+
 /// 两矩形足迹（左上锚点 + 宽高，含端点）之间的最小切比雪夫距离。
 ///
 /// 重叠为 `0`；边或角相贴为 `1`；中间隔一格为 `2`。
@@ -276,7 +409,7 @@ pub fn min_chebyshev_between_footprints(ax: u16, ay: u16, aw: u16, ah: u16, bx: 
 
 #[cfg(test)]
 mod tests {
-    use super::min_chebyshev_between_footprints;
+    use super::{effective_guard_range_cells, min_chebyshev_between_footprints, orthogonal_axis_distance, orthogonal_cells_between};
 
     #[test]
     fn chebyshev_touching_edge_is_one() {
@@ -297,5 +430,28 @@ mod tests {
     #[test]
     fn chebyshev_overlap_is_zero() {
         assert_eq!(min_chebyshev_between_footprints(4, 4, 2, 2, 5, 5, 2, 2), 0);
+    }
+
+    #[test]
+    fn orthogonal_distance_rejects_diagonal() {
+        assert_eq!(orthogonal_axis_distance(4, 4, 4, 8), Some(4));
+        assert_eq!(orthogonal_axis_distance(4, 4, 7, 4), Some(3));
+        assert_eq!(orthogonal_axis_distance(4, 4, 5, 5), None);
+    }
+
+    #[test]
+    fn orthogonal_cells_between_excludes_endpoints() {
+        assert_eq!(orthogonal_cells_between(4, 4, 4, 7), vec![(4, 5), (4, 6)]);
+        assert_eq!(orthogonal_cells_between(7, 4, 4, 4), vec![(5, 4), (6, 4)]);
+        assert!(orthogonal_cells_between(4, 4, 4, 5).is_empty());
+        assert!(orthogonal_cells_between(4, 4, 5, 5).is_empty());
+    }
+
+    #[test]
+    fn guard_range_clamped_to_vanilla_cap() {
+        assert_eq!(effective_guard_range_cells(-1), 0);
+        assert_eq!(effective_guard_range_cells(0), 0);
+        assert_eq!(effective_guard_range_cells(4), 4);
+        assert_eq!(effective_guard_range_cells(100), 16);
     }
 }
