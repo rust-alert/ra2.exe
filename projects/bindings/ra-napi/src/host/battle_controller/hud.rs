@@ -147,8 +147,7 @@ impl BattleController {
         else {
             return;
         };
-        let still_ready =
-            self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.is_local_ready_to_place(&type_id));
+        let still_ready = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.is_local_ready_to_place(&type_id));
         if !still_ready {
             self.place_mode = None;
             tracing::info!("建造模式 · 完工件已消耗，已退出");
@@ -344,6 +343,7 @@ impl BattleController {
                 self.log_diplomacy_allies();
                 BattleNav::None
             }
+            BattleHudHit::Radar => BattleNav::None,
             BattleHudHit::CommandButton(_) => BattleNav::None,
         }
     }

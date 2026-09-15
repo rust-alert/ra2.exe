@@ -118,7 +118,7 @@ impl BattleController {
                 self.refresh_structure_anims(renderer);
             }
         }
-        self.upload_battle_hud(renderer, &hud, fnt, csf, vw, vh, present, screen_label);
+        self.upload_battle_hud(renderer, window.map(|w| w.as_ref()), &hud, fnt, csf, vw, vh, present, screen_label);
         renderer.set_action_lines_active(self.action_lines_active());
         match pending {
             PendingDraw::Full(snap) => renderer.draw_frame(Some(&snap)),
@@ -466,31 +466,32 @@ impl BattleController {
             }
         }
         for (cx, cy, ok) in ghost_cells {
-                let fill = if ok { [40u8, 220, 70, 90] } else { [220u8, 40, 40, 110] };
-                let stroke = if ok { [80u8, 255, 100, 230] } else { [255u8, 70, 70, 240] };
-                let z = game.world.pass_grid.cell_height(cx, cy);
-                let (sx, sy) = iso_to_screen(i32::from(cx), i32::from(cy), z);
-                let center_wx = (sx - game.preview_origin_x) as f32 + half_w;
-                let center_wy = (sy - game.preview_origin_y) as f32 + half_h;
-                let corners_w = [
-                    (center_wx, center_wy - half_h),
-                    (center_wx + half_w, center_wy),
-                    (center_wx, center_wy + half_h),
-                    (center_wx - half_w, center_wy),
-                ];
-                let mut corners_s = [(0i32, 0i32); 4];
-                for (i, (wx, wy)) in corners_w.iter().copied().enumerate() {
-                    let (sx, sy) = vp.world_to_screen(cam, wx, wy);
-                    corners_s[i] = (sx.round() as i32, sy.round() as i32);
-                }
-                fill_screen_diamond(page, &vp, corners_s, fill);
-                stroke_screen_diamond(page, &vp, corners_s, stroke);
+            let fill = if ok { [40u8, 220, 70, 90] } else { [220u8, 40, 40, 110] };
+            let stroke = if ok { [80u8, 255, 100, 230] } else { [255u8, 70, 70, 240] };
+            let z = game.world.pass_grid.cell_height(cx, cy);
+            let (sx, sy) = iso_to_screen(i32::from(cx), i32::from(cy), z);
+            let center_wx = (sx - game.preview_origin_x) as f32 + half_w;
+            let center_wy = (sy - game.preview_origin_y) as f32 + half_h;
+            let corners_w = [
+                (center_wx, center_wy - half_h),
+                (center_wx + half_w, center_wy),
+                (center_wx, center_wy + half_h),
+                (center_wx - half_w, center_wy),
+            ];
+            let mut corners_s = [(0i32, 0i32); 4];
+            for (i, (wx, wy)) in corners_w.iter().copied().enumerate() {
+                let (sx, sy) = vp.world_to_screen(cam, wx, wy);
+                corners_s[i] = (sx.round() as i32, sy.round() as i32);
+            }
+            fill_screen_diamond(page, &vp, corners_s, fill);
+            stroke_screen_diamond(page, &vp, corners_s, stroke);
         }
     }
 
     pub(super) fn upload_battle_hud(
         &mut self,
         renderer: &mut Renderer,
+        window: Option<&Window>,
         hud: &HudSnapshot,
         fnt: Option<&FntFile>,
         csf: Option<&CsfFile>,
@@ -577,6 +578,7 @@ impl BattleController {
         let band = rect_px_from_snapshot(&snap, "cameo_band");
         let visible = cameo_visible_slot_count(band.h);
         self.clamp_cameo_scroll(visible);
+        self.refresh_radar_minimap(renderer, window);
         let items = caps.as_ref().map(|c| Self::tab_items(c, self.sidebar_tab)).unwrap_or_default();
         let start = self.cameo_scroll.min(items.len());
         let end = (start + visible).min(items.len());
@@ -638,7 +640,9 @@ impl BattleController {
             command_tip: tip_owned.as_deref(),
             repair_active: self.repair_mode,
             sell_active: self.sell_mode,
-            radar_online: !local.map(|p| p.low_power).unwrap_or(false) && caps.as_ref().is_some_and(|c| c.has_radar),
+            radar_online: self.radar_online_latched,
+            radar_open_started_tick: self.radar_open_started_tick,
+            radar_minimap: self.radar_minimap.as_ref(),
             sidebar_tab: self.sidebar_tab.min(SIDEBAR_TAB_COUNT.saturating_sub(1)),
             sidebar_tabs_visible: tabs_visible,
             cameos: &cameos,

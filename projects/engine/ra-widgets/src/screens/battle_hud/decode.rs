@@ -91,6 +91,24 @@ pub fn radar_open_frame_range(body_count: usize) -> std::ops::Range<usize> {
 /// 开图动画帧推进间隔（逻辑 tick）。
 pub const RADAR_OPEN_FRAME_TICKS: u64 = 2;
 
+/// 由开图起点与当前 tick 取帧下标（播完钉在末帧，禁止取模循环）。
+pub fn radar_open_frame_index(started_tick: u64, now_tick: u64, frame_count: usize) -> usize {
+    if frame_count == 0 {
+        return 0;
+    }
+    let elapsed = now_tick.saturating_sub(started_tick) / RADAR_OPEN_FRAME_TICKS;
+    (elapsed as usize).min(frame_count - 1)
+}
+
+/// 开图动画是否已播完（可叠真实小地图）。
+pub fn radar_open_animation_done(started_tick: u64, now_tick: u64, frame_count: usize) -> bool {
+    if frame_count <= 1 {
+        return true;
+    }
+    let elapsed = now_tick.saturating_sub(started_tick) / RADAR_OPEN_FRAME_TICKS;
+    elapsed >= (frame_count as u64 - 1)
+}
+
 fn decode_radar_bundle(
     source: &GameAssetSource,
     mixes: &[&str],

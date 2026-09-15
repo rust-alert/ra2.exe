@@ -30,6 +30,7 @@ impl BattleController {
         // 须在仿真推进之后：`PlaceBuilding` 本拍才消费完工件。
         self.sync_place_mode_with_ready();
         self.poll_in_battle_eva();
+        self.sync_radar_online_edge();
         self.drain_engine_eva_cues();
         self.drain_engine_battle_sfx_cues();
         let nav = self.poll_outcome_nav();

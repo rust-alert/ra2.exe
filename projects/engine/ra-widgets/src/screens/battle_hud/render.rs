@@ -10,7 +10,11 @@ use ra_layout::{
 use ra_renderer::RgbaImage;
 
 use super::{
-    chrome::BattleHudChrome, command_bar::command_bar_shp_index_for_visual, decode::RADAR_OPEN_FRAME_TICKS, hit_test::BattleCameoPaint,
+    chrome::BattleHudChrome,
+    command_bar::command_bar_shp_index_for_visual,
+    decode::{radar_open_animation_done, radar_open_frame_index},
+    hit_test::BattleCameoPaint,
+    radar_minimap::blit_radar_minimap_into_slot,
 };
 
 pub(super) fn blit_rgba(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i32) {
@@ -220,7 +224,21 @@ pub fn blit_battle_hud_chrome_with_state(
     power_meter_w: i32,
     command_pressed: Option<usize>,
 ) {
-    blit_battle_hud_chrome_ex(page, chrome, snap, power_meter_w, command_pressed, false, false, false, 0, [true; SIDEBAR_TAB_COUNT], 0);
+    blit_battle_hud_chrome_ex(
+        page,
+        chrome,
+        snap,
+        power_meter_w,
+        command_pressed,
+        false,
+        false,
+        false,
+        None,
+        None,
+        0,
+        [true; SIDEBAR_TAB_COUNT],
+        0,
+    );
 }
 
 /// 对局 play HUD chrome（cameo 格子 / 电表 / 页签 / 命令钮）。
@@ -233,7 +251,8 @@ pub fn blit_battle_hud_chrome_with_state(
 ///
 /// `repair_active` / `sell_active`：侧栏工具切换态，贴 `repair`/`sell` 按下帧。
 ///
-/// `radar_online`：本机有电且有雷达时播开图帧，否则贴关图徽。
+/// `radar_online`：本机有电且有雷达。`radar_open_started_tick` 为开图起点；缺省视为已开完。
+/// 开图播完后叠 `radar_minimap`（俯视格网），再贴开图末帧边框。
 pub fn blit_battle_hud_chrome_ex(
     page: &mut RgbaImage,
     chrome: &BattleHudChrome,
@@ -243,6 +262,8 @@ pub fn blit_battle_hud_chrome_ex(
     repair_active: bool,
     sell_active: bool,
     radar_online: bool,
+    radar_open_started_tick: Option<u64>,
+    radar_minimap: Option<&RgbaImage>,
     tick: u64,
     tabs_visible: [bool; SIDEBAR_TAB_COUNT],
     active_tab: usize,
@@ -283,8 +304,29 @@ pub fn blit_battle_hud_chrome_ex(
     if let Some(s) = &chrome.top {
         blit_chrome_slot(page, &s.image, top);
     }
+    let open_done = if !radar_online {
+        false
+    }
+    else if chrome.radar_open.is_empty() {
+        true
+    }
+    else if let Some(started) = radar_open_started_tick {
+        radar_open_animation_done(started, tick, chrome.radar_open.len())
+    }
+    else {
+        true
+    };
+    if radar_online && open_done {
+        if let Some(map) = radar_minimap {
+            blit_radar_minimap_into_slot(page, map, radar);
+        }
+    }
     let radar_sprite = if radar_online && !chrome.radar_open.is_empty() {
-        let idx = ((tick / RADAR_OPEN_FRAME_TICKS) as usize) % chrome.radar_open.len();
+        // `None` 表示缺省已开完，钉末帧；禁止用当前 tick 当起点（会回到第 0 帧）。
+        let idx = match radar_open_started_tick {
+            Some(started) => radar_open_frame_index(started, tick, chrome.radar_open.len()),
+            None => chrome.radar_open.len() - 1,
+        };
         chrome.radar_open.get(idx).or(chrome.radar.as_ref())
     }
     else {

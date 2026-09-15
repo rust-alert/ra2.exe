@@ -7,6 +7,7 @@ mod hud;
 mod input;
 pub mod movement;
 mod pause;
+mod radar;
 mod render;
 mod tick;
 
@@ -222,6 +223,12 @@ pub struct BattleController {
     pub(super) eva_voice_until: Option<Instant>,
     /// 本机低电 EVA 已闩住（恢复供电后清闩，再掉电才再播）。
     pub(super) eva_low_power_latched: bool,
+    /// 本机雷达开图闩（边沿驱动开/关音效与开图动画起点）。
+    pub(super) radar_online_latched: bool,
+    /// 雷达开图动画起点（仿真 tick）；离线为 `None`。
+    pub(super) radar_open_started_tick: Option<u64>,
+    /// 俯视小地图缓存（开图播完后绘制）。
+    pub(super) radar_minimap: Option<RgbaImage>,
     /// 已观测到的本机存活机动单位（集合出现新 ID → 配合出厂边沿播 `EVA_UnitReady`）。
     pub(super) eva_alive_local_mobiles: HashSet<EntityId>,
     /// 是否已用当前存活集播种（首帧只建集、不播报）。
@@ -346,6 +353,9 @@ impl BattleController {
             pending_battle_sfx: Vec::new(),
             eva_voice_until: None,
             eva_low_power_latched: false,
+            radar_online_latched: false,
+            radar_open_started_tick: None,
+            radar_minimap: None,
             eva_alive_local_mobiles: HashSet::new(),
             eva_alive_seeded: false,
             eva_producing_factories: HashSet::new(),
@@ -512,6 +522,9 @@ impl BattleController {
         self.pending_battle_sfx.clear();
         self.eva_voice_until = None;
         self.eva_low_power_latched = false;
+        self.radar_online_latched = false;
+        self.radar_open_started_tick = None;
+        self.radar_minimap = None;
         self.eva_alive_local_mobiles.clear();
         self.eva_alive_seeded = false;
         self.eva_producing_factories.clear();

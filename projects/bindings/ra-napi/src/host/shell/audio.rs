@@ -500,6 +500,21 @@ impl Shell {
                 }
             }
         }
+        // 零售雷达开/关：`[RadarOn]` / `[RadarOff]` → `radaron` / `radaroff`（及 `uradaron`）。
+        if event_id.eq_ignore_ascii_case("RadarOn") {
+            for fallback in ["radaron", "uradaron", "RADARON", "URADARON"] {
+                if !candidates.iter().any(|c| c.eq_ignore_ascii_case(fallback)) {
+                    candidates.push((*fallback).into());
+                }
+            }
+        }
+        if event_id.eq_ignore_ascii_case("RadarOff") {
+            for fallback in ["radaroff", "RADAROFF"] {
+                if !candidates.iter().any(|c| c.eq_ignore_ascii_case(fallback)) {
+                    candidates.push((*fallback).into());
+                }
+            }
+        }
         // 零售 `[General] SellSound=SellBuilding` → `uselbuil`。
         if event_id.eq_ignore_ascii_case("SellBuilding") || event_id.eq_ignore_ascii_case("BuildingSold") {
             for fallback in ["uselbuil", "USELBUIL", "SellBuilding"] {

@@ -502,7 +502,8 @@ impl BattleController {
                                 | BattleHudHit::Repair
                                 | BattleHudHit::Sell
                                 | BattleHudHit::Options
-                                | BattleHudHit::Diplomacy),
+                                | BattleHudHit::Diplomacy
+                                | BattleHudHit::Radar),
                             ) => {
                                 self.command_pressed = None;
                                 self.sidebar_pressed = Some(hit);
@@ -538,7 +539,12 @@ impl BattleController {
                             let x = self.cursor.0 as i32;
                             let y = self.cursor.1 as i32;
                             if self.hit_hud_at(window, x, y) == Some(hit) {
-                                nav = self.on_sidebar_hit(hit);
+                                if hit == BattleHudHit::Radar {
+                                    self.focus_radar_click(renderer, window, x, y);
+                                }
+                                else {
+                                    nav = self.on_sidebar_hit(hit);
+                                }
                             }
                             self.left_gesture = LeftGesture::Idle;
                         }

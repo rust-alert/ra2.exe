@@ -24,6 +24,8 @@ pub enum BattleHudHit {
     Options,
     /// 外交。
     Diplomacy,
+    /// 雷达 / 小地图槽（开图后点击跳转镜头）。
+    Radar,
     /// 底边命令条可视槽（`cmdN` / `ButtonList` 下标）。
     CommandButton(usize),
     /// 分类页签（0=建筑 / 1=步兵 / 2=载具 / 3=飞行器）。
@@ -40,6 +42,7 @@ impl BattleHudHit {
             "sell" => Some(Self::Sell),
             "opt_btn" => Some(Self::Options),
             "diplo_btn" => Some(Self::Diplomacy),
+            "radar" => Some(Self::Radar),
             "tab00" => Some(Self::SidebarTab(0)),
             "tab01" => Some(Self::SidebarTab(1)),
             "tab02" => Some(Self::SidebarTab(2)),
@@ -64,6 +67,7 @@ impl BattleHudHit {
             Self::Sell => "sell",
             Self::Options => "opt_btn",
             Self::Diplomacy => "diplo_btn",
+            Self::Radar => "radar",
             Self::SidebarTab(0) => "tab00",
             Self::SidebarTab(1) => "tab01",
             Self::SidebarTab(2) => "tab02",
@@ -75,7 +79,7 @@ impl BattleHudHit {
     }
 }
 
-const BATTLE_HUD_HIT_IDS: [&str; 8] = ["repair", "sell", "opt_btn", "diplo_btn", "tab00", "tab01", "tab02", "tab03"];
+const BATTLE_HUD_HIT_IDS: [&str; 9] = ["repair", "sell", "opt_btn", "diplo_btn", "radar", "tab00", "tab01", "tab02", "tab03"];
 
 pub fn hit_at(snap: &LayoutSnapshot, x: i32, y: i32) -> Option<BattleHudHit> {
     hit_at_with_chrome(snap, None, BattleHudChromeMetrics::sidec01(), 0, x, y)
