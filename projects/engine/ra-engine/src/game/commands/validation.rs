@@ -375,12 +375,7 @@ impl crate::state::BattleState {
                     else {
                         let sdef = self.definitions.structures.get_by_id(tt.id);
                         let base_gap = self.definitions.ai_base_spacing;
-                        let min_gap = if sdef.is_some_and(|s| s.wants_extra_space) {
-                            base_gap.saturating_add(1)
-                        }
-                        else {
-                            base_gap
-                        };
+                        let min_gap = if sdef.is_some_and(|s| s.wants_extra_space) { base_gap.saturating_add(1) } else { base_gap };
                         // 命令路径：优先 `WantsExtraSpace` 间距，否则回落 `AIBaseSpacing`。
                         self.can_place_building_for_ai(house.as_ref(), tt.id, x, y, min_gap)
                             || (sdef.is_some_and(|s| s.wants_extra_space)
@@ -441,7 +436,13 @@ impl crate::state::BattleState {
                                 attack_verses: full_verses(),
                                 techno_class: Some(TechnoClass::Building),
                             },
-                            attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None, follow_target: None },
+                            attack: AttackState {
+                                target: None,
+                                cooldown: 0,
+                                infiltrate_target: None,
+                                capture_target: None,
+                                follow_target: None,
+                            },
                             production: ProductionQueue::empty(),
                             harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
                             cash_producer: CashProducerState::default(),
@@ -1167,16 +1168,10 @@ impl crate::state::BattleState {
                     let house = self.players[player_index].house.clone();
                     let cost = self.definitions.techno.get_by_id(identity.type_id).map(|tt| tt.cost).unwrap_or(0);
                     let soylent = self.definitions.structures.get_by_id(identity.type_id).map(|s| s.soylent).unwrap_or(0);
-                    let (hp_cur, hp_max) = self
-                        .ecs_get::<Health>(building_id)
-                        .map(|h| (h.current, h.maximum.max(1)))
-                        .unwrap_or((1, 1));
+                    let (hp_cur, hp_max) = self.ecs_get::<Health>(building_id).map(|h| (h.current, h.maximum.max(1))).unwrap_or((1, 1));
                     // 原版：满血基数优先 `Soylent`，否则 `Cost * RefundPercent / 100`，再按残血比例。
-                    let full_refund = if soylent > 0 {
-                        i64::from(soylent)
-                    } else {
-                        i64::from(cost) * i64::from(self.definitions.refund_percent) / 100
-                    };
+                    let full_refund =
+                        if soylent > 0 { i64::from(soylent) } else { i64::from(cost) * i64::from(self.definitions.refund_percent) / 100 };
                     let refund = (full_refund * i64::from(hp_cur) / i64::from(hp_max)).max(0) as i32;
                     let sold_type_id = identity.type_id;
                     let _ = self.with_health_mut(building_id, |health| {
@@ -1192,7 +1187,7 @@ impl crate::state::BattleState {
                         self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_sub(refund);
                     }
                     // `[General] SellSound=SellBuilding`；呈现层另播 Buildup 倒放。
-                    self.push_battle_sfx_cue("SellBuilding");
+                    self.push_battle_sfx_cue_at("SellBuilding", Some((xf.x, xf.y)));
                     self.mark_entity_dirty(building_id);
                     self.repath_mobiles();
                 }

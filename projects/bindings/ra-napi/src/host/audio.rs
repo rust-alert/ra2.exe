@@ -18,6 +18,55 @@ pub fn is_eva_event_id(event_id: &str) -> bool {
     event_id.starts_with("EVA_")
 }
 
+/// `sound.ini` 空间衰减参数（`Volume`/`MinVolume` 已归一到 0..1；`Range` 为格）。
+///
+/// 零售 `[Defaults]`：`Range=10`、`Volume=80`、`MinVolume=50`。超出 `Range` 且非 `GLOBAL` 时静音。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SoundSpatialParams {
+    /// 衰减半径（地图格）。
+    pub range_cells: f32,
+    /// 近距音量（0..1）。
+    pub volume: f32,
+    /// 到达 `Range` 时的音量下限（0..1）；仅 `global` 时在更远处仍保持该值。
+    pub min_volume: f32,
+    /// `Type` 含 `GLOBAL`：全图至少 `min_volume`。
+    pub global: bool,
+}
+
+impl SoundSpatialParams {
+    /// 零售 `sound.ini` `[Defaults]`。
+    pub const DEFAULTS: Self = Self { range_cells: 10.0, volume: 0.80, min_volume: 0.50, global: false };
+}
+
+/// 按与听者（镜头中心格）的格距，计算事件音量倍率（0..1，已含 `Volume`/`MinVolume`）。
+///
+/// - `dist <= Range`：从 `volume` 线性落到 `min_volume`
+/// - `dist > Range`：非 `GLOBAL` → `0`；`GLOBAL` → `min_volume`
+pub fn spatial_volume_scale(dist_cells: f32, params: &SoundSpatialParams) -> f32 {
+    let dist = dist_cells.max(0.0);
+    let range = params.range_cells.max(0.001);
+    let near = params.volume.clamp(0.0, 1.0);
+    let far = params.min_volume.clamp(0.0, 1.0);
+    if dist > range {
+        return if params.global { far } else { 0.0 };
+    }
+    let t = dist / range;
+    near + (far - near) * t
+}
+
+/// 两格欧氏距离（浮点格）。
+#[inline]
+pub fn cell_distance(ax: u16, ay: u16, bx: u16, by: u16) -> f32 {
+    let dx = f32::from(ax) - f32::from(bx);
+    let dy = f32::from(ay) - f32::from(by);
+    (dx * dx + dy * dy).sqrt()
+}
+
+/// 解析 `Type=` 是否含 `GLOBAL`（大小写不敏感；可与其它 flag 并列）。
+pub fn sound_type_is_global(type_line: &str) -> bool {
+    type_line.split_whitespace().any(|t| t.eq_ignore_ascii_case("GLOBAL"))
+}
+
 /// 壳层音频：BGM 单轨循环 + SFX 短音 + EVA 独立语音轨。
 pub struct ShellAudio {
     _device: MixerDeviceSink,
@@ -38,14 +87,7 @@ impl ShellAudio {
         match DeviceSinkBuilder::open_default_sink() {
             Ok(device) => {
                 tracing::info!("音频输出已打开");
-                Some(Self {
-                    _device: device,
-                    music: None,
-                    sfx: Vec::new(),
-                    voice: None,
-                    music_volume: 0.4,
-                    sfx_volume: 0.7,
-                })
+                Some(Self { _device: device, music: None, sfx: Vec::new(), voice: None, music_volume: 0.4, sfx_volume: 0.7 })
             }
             Err(e) => {
                 tracing::warn!(error = %e, "音频输出不可用，继续静音运行");
@@ -124,8 +166,19 @@ impl ShellAudio {
         self.sfx_volume
     }
 
-    /// 播放一次短音效（不打断 BGM / EVA 语音轨）。
+    /// 播放一次短音效（不打断 BGM / EVA 语音轨）；音量为 `sfx_volume`。
     pub fn play_sfx(&mut self, pcm: &PcmAudio) {
+        self.play_sfx_gain(pcm, 1.0);
+    }
+
+    /// 播放一次短音效，额外乘以 `gain`（0..1，来自空间衰减 / 事件 `Volume`）。
+    ///
+    /// `gain ≈ 0` 时跳过，避免占满 `MAX_SFX`。
+    pub fn play_sfx_gain(&mut self, pcm: &PcmAudio, gain: f32) {
+        let gain = gain.clamp(0.0, 1.0);
+        if gain < 0.01 {
+            return;
+        }
         self.sfx.retain(|p| !p.empty());
         // 连点时丢弃最旧实例，避免短音轨无限堆积。
         const MAX_SFX: usize = 4;
@@ -141,7 +194,7 @@ impl ShellAudio {
             return;
         };
         let player = Player::connect_new(self._device.mixer());
-        player.set_volume(self.sfx_volume);
+        player.set_volume(self.sfx_volume * gain);
         player.append(source);
         self.sfx.push(player);
     }
@@ -168,7 +221,7 @@ impl ShellAudio {
 
 #[cfg(test)]
 mod tests {
-    use super::is_eva_event_id;
+    use super::{SoundSpatialParams, cell_distance, is_eva_event_id, sound_type_is_global, spatial_volume_scale};
 
     #[test]
     fn eva_event_id_prefix() {
@@ -177,6 +230,24 @@ mod tests {
         assert!(!is_eva_event_id("PlaceBuilding"));
         assert!(!is_eva_event_id("SellBuilding"));
         assert!(!is_eva_event_id(""));
+    }
+
+    #[test]
+    fn spatial_volume_falls_off_then_mutes_beyond_range() {
+        let p = SoundSpatialParams::DEFAULTS;
+        assert!((spatial_volume_scale(0.0, &p) - 0.80).abs() < 1e-4);
+        assert!((spatial_volume_scale(10.0, &p) - 0.50).abs() < 1e-4);
+        assert_eq!(spatial_volume_scale(11.0, &p), 0.0);
+        let global = SoundSpatialParams { global: true, ..p };
+        assert!((spatial_volume_scale(50.0, &global) - 0.50).abs() < 1e-4);
+    }
+
+    #[test]
+    fn cell_distance_and_global_type_flags() {
+        assert!((cell_distance(0, 0, 3, 4) - 5.0).abs() < 1e-4);
+        assert!(sound_type_is_global("GLOBAL SHROUD"));
+        assert!(sound_type_is_global("normal Global"));
+        assert!(!sound_type_is_global("NORMAL SCREEN UNSHROUD"));
     }
 }
 

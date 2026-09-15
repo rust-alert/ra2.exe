@@ -442,7 +442,11 @@ impl Shell {
                 if let Some(ctrl) = self.battle_controller.as_mut() {
                     let pending = ctrl.take_pending_battle_sfx();
                     if !pending.is_empty() {
-                        tracing::warn!(count = pending.len(), events = ?pending, "进结算时仍有未播对局音效/EVA（已丢弃，避免叠播）");
+                        tracing::warn!(
+                            count = pending.len(),
+                            events = ?pending.iter().map(|c| c.event.as_str()).collect::<Vec<_>>(),
+                            "进结算时仍有未播对局音效/EVA（已丢弃，避免叠播）"
+                        );
                     }
                     ctrl.clear_outcome_audio_gate();
                 }
@@ -475,8 +479,8 @@ impl Shell {
                 // 放弃离场等路径可能已排队 EVA（如 BattleControlTerminated）。
                 if let Some(ctrl) = self.battle_controller.as_mut() {
                     let pending = ctrl.take_pending_battle_sfx();
-                    for event_id in pending {
-                        let _ = self.play_battle_sfx_event(&event_id);
+                    for cue in pending {
+                        let _ = self.play_battle_sfx_event(&cue.event, cue.cell);
                     }
                 }
                 match self.load_kind {

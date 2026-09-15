@@ -53,6 +53,15 @@ pub(super) struct ViewBookmark {
     zoom: f32,
 }
 
+/// 待播对局音效 / EVA（可选声源格供距离衰减）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PendingBattleSfx {
+    /// `sound.ini` / EVA 事件 id。
+    pub event: String,
+    /// 声源地图格；`None` = 非空间（EVA / UI 落位音等）。
+    pub cell: Option<(u16, u16)>,
+}
+
 /// 对局控制器向外壳报告的导航意图（外壳改 `AppScreen`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BattleNav {
@@ -207,8 +216,8 @@ pub struct BattleController {
     pub(super) start_view_pending: bool,
     /// 等待本 tick 结算的部署实体（`KeyD` 下发后）。
     pub(super) deploy_watch: Option<ra_types::EntityId>,
-    /// 对局短音效 / EVA 事件 id 队列（如 `PlaceBuilding`、`EVA_UnitLost`；由壳层播放）。
-    pub(super) pending_battle_sfx: Vec<String>,
+    /// 对局短音效 / EVA 队列（如 `PlaceBuilding`、`EVA_UnitLost`；由壳层播放）。
+    pub(super) pending_battle_sfx: Vec<PendingBattleSfx>,
     /// EVA 串播门闩截止（逻辑层：同通道一次只放一句；设备层由 `ShellAudio::play_voice` 独立轨承载）。
     pub(super) eva_voice_until: Option<Instant>,
     /// 本机低电 EVA 已闩住（恢复供电后清闩，再掉电才再播）。
@@ -572,7 +581,7 @@ impl BattleController {
     }
 
     /// 取出全部待播对局音效（离场 / 切页冲刷用；不遵守 EVA 串播门闩）。
-    pub fn take_pending_battle_sfx(&mut self) -> Vec<String> {
+    pub fn take_pending_battle_sfx(&mut self) -> Vec<PendingBattleSfx> {
         std::mem::take(&mut self.pending_battle_sfx)
     }
 
@@ -586,25 +595,25 @@ impl BattleController {
     /// 本帧可立即开播的事件：非 EVA 可并行取出；EVA 仅在语音门闩空闲时取队首一句。
     ///
     /// 短音与语音在设备层已分轨；本门闩只保证 EVA 不叠播，不压制开火 Report。
-    pub fn drain_playable_battle_sfx(&mut self) -> Vec<String> {
+    pub fn drain_playable_battle_sfx(&mut self) -> Vec<PendingBattleSfx> {
         let now = Instant::now();
         let voice_free = self.eva_voice_until.map(|until| now >= until).unwrap_or(true);
         let mut play_now = Vec::new();
         let mut deferred = Vec::new();
         let mut took_eva = false;
-        for event in self.pending_battle_sfx.drain(..) {
-            let is_eva = crate::host::audio::is_eva_event_id(&event);
+        for cue in self.pending_battle_sfx.drain(..) {
+            let is_eva = crate::host::audio::is_eva_event_id(&cue.event);
             if is_eva {
                 if voice_free && !took_eva {
-                    play_now.push(event);
+                    play_now.push(cue);
                     took_eva = true;
                 }
                 else {
-                    deferred.push(event);
+                    deferred.push(cue);
                 }
             }
             else {
-                play_now.push(event);
+                play_now.push(cue);
             }
         }
         self.pending_battle_sfx = deferred;
@@ -613,7 +622,7 @@ impl BattleController {
 
     /// 是否仍有未播 EVA，或语音门闩仍占用。
     pub fn eva_voice_busy(&self) -> bool {
-        if self.pending_battle_sfx.iter().any(|e| crate::host::audio::is_eva_event_id(e)) {
+        if self.pending_battle_sfx.iter().any(|e| crate::host::audio::is_eva_event_id(&e.event)) {
             return true;
         }
         self.eva_voice_until.is_some_and(|until| Instant::now() < until)

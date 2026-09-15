@@ -139,7 +139,7 @@ impl crate::state::BattleState {
                 });
                 self.mark_entity_dirty(attacker_id);
                 if let Some(report) = fire_report {
-                    self.push_battle_sfx_cue(report);
+                    self.push_battle_sfx_cue_at(report, Some((attacker_xf.x, attacker_xf.y)));
                 }
             }
         }

@@ -463,7 +463,7 @@ impl BattleController {
     /// 从 `preview_clean` / underlay 按精灵遮罩还原无建筑底图像素。
     ///
     /// 优先 Bib+主体 SHP，其次 Buildup 末帧；仅两者皆无时才回退 Foundation 矩形
-    ///（矩形会吃掉邻接建筑在屏幕重叠处的像素）。
+    /// （矩形会吃掉邻接建筑在屏幕重叠处的像素）。
     fn erase_structure_from_preview(
         &mut self,
         assets: &GameAssetSource,
@@ -481,7 +481,8 @@ impl BattleController {
             load_structure_erase_masks(assets, &game.world.map, &mut self.paint, &job.type_id, &job.owner, &|base, owner| {
                 remap_owner_palette(rules, Some(lobby), base, owner)
             })
-        } else {
+        }
+        else {
             Vec::new()
         };
         let buildup_mask = clip.and_then(|c| c.frames.last());
@@ -707,7 +708,10 @@ impl BattleController {
         self.structure_anims.extend_from(bank);
         self.last_anim_sig = u64::MAX;
         // `rules.ini` `[AudioVisual] BuildingSlam=PlaceBuilding`：建造落位 / MCV 展开定格。
-        self.pending_battle_sfx.push("PlaceBuilding".into());
+        self.pending_battle_sfx.push(super::PendingBattleSfx {
+            event: "PlaceBuilding".into(),
+            cell: Some((x, y)),
+        });
         self.rebuild_preview_base_with_mobiles(assets);
     }
 

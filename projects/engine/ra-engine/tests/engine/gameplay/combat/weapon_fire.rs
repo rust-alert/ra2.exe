@@ -47,10 +47,9 @@ fn resolve_combat_queues_weapon_report_sfx() {
     world.push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     world.advance_tick();
     let cues = world.take_battle_sfx_cues();
-    assert!(
-        cues.iter().any(|c| c.event.eq_ignore_ascii_case("TankCannon")),
-        "firing must queue the weapon Report as a battle sfx cue: {cues:?}"
-    );
+    let report = cues.iter().find(|c| c.event.eq_ignore_ascii_case("TankCannon"));
+    assert!(report.is_some(), "firing must queue the weapon Report as a battle sfx cue: {cues:?}");
+    assert_eq!(report.and_then(|c| c.cell), Some((10, 10)), "Report cue must carry the attacker cell for distance attenuation: {cues:?}");
     assert_eq!(
         world.ecs_fire_flash(a).expect("attacker fire flash"),
         ra_engine::FIRE_FLASH_TICKS,

@@ -63,19 +63,27 @@ impl BattleController {
         };
         let cues = game.world.take_battle_sfx_cues();
         for cue in cues {
-            self.queue_battle_sfx_once(&cue.event);
+            self.queue_battle_sfx_at(&cue.event, cue.cell);
         }
     }
 
-    /// 排队对局音效 / EVA（同 id 未播前不重复入队）。
+    /// 排队对局音效 / EVA（同 id 未播前不重复入队；无坐标）。
     pub(super) fn queue_battle_sfx_once(&mut self, event_id: &str) {
+        self.queue_battle_sfx_at(event_id, None);
+    }
+
+    /// 排队对局音效 / EVA，可选声源格（同 id 未播前不重复；可补坐标）。
+    pub(super) fn queue_battle_sfx_at(&mut self, event_id: &str, cell: Option<(u16, u16)>) {
         if event_id.is_empty() {
             return;
         }
-        if self.pending_battle_sfx.iter().any(|e| e.eq_ignore_ascii_case(event_id)) {
+        if let Some(existing) = self.pending_battle_sfx.iter_mut().find(|e| e.event.eq_ignore_ascii_case(event_id)) {
+            if existing.cell.is_none() {
+                existing.cell = cell;
+            }
             return;
         }
-        self.pending_battle_sfx.push(event_id.to_string());
+        self.pending_battle_sfx.push(super::PendingBattleSfx { event: event_id.to_string(), cell });
     }
 
     /// 局内 EVA：低电 / 资金不足 / 单位出厂 / 新建造选项。

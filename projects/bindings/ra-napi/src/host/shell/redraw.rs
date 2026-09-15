@@ -541,9 +541,9 @@ impl Shell {
                     self.present,
                 );
                 let sfx = ctrl.drain_playable_battle_sfx();
-                for event_id in sfx {
-                    if let Some(pcm) = self.play_battle_sfx_event(&event_id) {
-                        if crate::host::audio::is_eva_event_id(&event_id) {
+                for cue in sfx {
+                    if let Some(pcm) = self.play_battle_sfx_event(&cue.event, cue.cell) {
+                        if crate::host::audio::is_eva_event_id(&cue.event) {
                             if let Some(ctrl) = self.battle_controller.as_mut() {
                                 ctrl.note_eva_voice_started(&pcm);
                             }
@@ -571,9 +571,9 @@ impl Shell {
                     self.present,
                 );
                 let sfx = ctrl.drain_playable_battle_sfx();
-                for event_id in sfx {
-                    if let Some(pcm) = self.play_battle_sfx_event(&event_id) {
-                        if crate::host::audio::is_eva_event_id(&event_id) {
+                for cue in sfx {
+                    if let Some(pcm) = self.play_battle_sfx_event(&cue.event, cue.cell) {
+                        if crate::host::audio::is_eva_event_id(&cue.event) {
                             if let Some(ctrl) = self.battle_controller.as_mut() {
                                 ctrl.note_eva_voice_started(&pcm);
                             }

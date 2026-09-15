@@ -430,11 +430,51 @@ impl Shell {
         }
     }
 
+    /// `sound.ini` 事件的空间衰减参数（事件覆盖 + `[Defaults]` 回退）。
+    pub(super) fn sound_event_spatial_params(&self, event_id: &str) -> crate::host::audio::SoundSpatialParams {
+        use crate::host::audio::{SoundSpatialParams, soft_ini_get, sound_type_is_global};
+
+        let mut params = SoundSpatialParams::DEFAULTS;
+        let doc = self.read_ini_doc("sound.ini");
+        let bytes = if doc.is_none() { self.read_asset_bytes("sound.ini") } else { None };
+
+        let read_key = |section: &str, key: &str| -> Option<String> {
+            doc.as_ref()
+                .and_then(|d| d.get(section, key).map(str::to_string))
+                .or_else(|| bytes.as_ref().and_then(|b| soft_ini_get(b, section, key)))
+        };
+
+        // 先读 Defaults，再被事件节覆盖。
+        for section in ["Defaults", event_id] {
+            if let Some(v) = read_key(section, "Range").and_then(|s| s.trim().parse::<f32>().ok()).filter(|n| *n > 0.0) {
+                params.range_cells = v;
+            }
+            if let Some(v) = read_key(section, "Volume").and_then(|s| s.trim().parse::<f32>().ok()).map(|n| (n / 100.0).clamp(0.0, 1.0)) {
+                params.volume = v;
+            }
+            if let Some(v) = read_key(section, "MinVolume").and_then(|s| s.trim().parse::<f32>().ok()).map(|n| (n / 100.0).clamp(0.0, 1.0)) {
+                params.min_volume = v;
+            }
+            if let Some(t) = read_key(section, "Type") {
+                params.global = sound_type_is_global(&t);
+            }
+        }
+        params
+    }
+
+    /// 镜头中心对应的听者地图格（衰减原点）。
+    pub(super) fn battle_listener_cell(&self) -> Option<(u16, u16)> {
+        let ctrl = self.battle_controller.as_ref()?;
+        let game = ctrl.session.as_ref()?.battle()?;
+        let cam = self.renderer.camera();
+        game.image_to_cell(cam.center_x, cam.center_y)
+    }
+
     /// 对局短音效 / EVA：`sound.ini` 或 edition `eva.ini`/`evamd.ini` → `audio.bag` 或 MIX 内 `.wav`。
     ///
     /// EVA 事件经 [`crate::host::audio::ShellAudio::play_voice`] 独立轨播放；
-    /// 其它事件走短音轨。成功解码时返回 PCM（供结算延迟按采样时长对齐）。
-    pub(super) fn play_battle_sfx_event(&mut self, event_id: &str) -> Option<ra_assets::PcmAudio> {
+    /// 带坐标的短音按 `Range`/`MinVolume` 相对镜头中心衰减。成功解码时返回 PCM。
+    pub(super) fn play_battle_sfx_event(&mut self, event_id: &str, cell: Option<(u16, u16)>) -> Option<ra_assets::PcmAudio> {
         if event_id.is_empty() {
             return None;
         }
@@ -477,15 +517,34 @@ impl Shell {
             tracing::warn!(%event_id, candidates = ?candidates, "对局音效/EVA 未命中");
             return None;
         };
+        let spatial = self.sound_event_spatial_params(event_id);
+        let gain = if is_eva {
+            // EVA 全图可听，只用事件 Volume。
+            spatial.volume
+        }
+        else if let Some((sx, sy)) = cell {
+            match self.battle_listener_cell() {
+                Some((lx, ly)) => {
+                    let dist = crate::host::audio::cell_distance(sx, sy, lx, ly);
+                    crate::host::audio::spatial_volume_scale(dist, &spatial)
+                }
+                // 无听者格时仍按近距 Volume，避免整图静音。
+                None => spatial.volume,
+            }
+        }
+        else {
+            // 无坐标：UI / 落位等，按事件 Volume 全音量。
+            spatial.volume
+        };
         if let Some(audio) = self.audio.as_mut() {
             // 设备层：EVA → voice；开火 Report / UI 短音 → sfx（互不抢 `MAX_SFX`）。
             if is_eva {
                 audio.play_voice(&pcm);
             }
             else {
-                audio.play_sfx(&pcm);
+                audio.play_sfx_gain(&pcm, gain);
             }
-            tracing::info!(%event_id, frames = pcm.samples.len(), "已播放对局音效/EVA");
+            tracing::info!(%event_id, gain, cell = ?cell, frames = pcm.samples.len(), "已播放对局音效/EVA");
         }
         Some(pcm)
     }
