@@ -403,63 +403,35 @@ impl BattleController {
         traversable: bool,
         mode: &BattleInteractionMode,
     ) -> super::super::battle_input::ResolvedBattleHover {
-        use super::super::battle_input::{BattlePointer, ResolvedBattleHover, ResolvedPrimaryAction};
+        use super::super::battle_input::{BattlePointer, ResolvedBattleHover, ResolvedPrimaryAction, recommended_pointer_for_primary};
 
-        let (primary, recommended_pointer) = match intent {
-            WorldClickIntent::Noop => {
-                let pointer = if mode.is_sell() {
-                    BattlePointer::Sell
-                }
-                else if mode.is_repair() {
-                    BattlePointer::Repair
-                }
-                else if mode.place_type_id().is_some() {
-                    BattlePointer::Default
-                }
-                else if mode.is_follow() {
-                    BattlePointer::Default
-                }
-                else if mode.is_attack_move() {
-                    if traversable { BattlePointer::Attack } else { BattlePointer::NoMove }
-                }
-                else {
-                    BattlePointer::Default
-                };
-                (ResolvedPrimaryAction::Noop, pointer)
-            }
-            WorldClickIntent::Blocked => (ResolvedPrimaryAction::Noop, BattlePointer::NoMove),
-            WorldClickIntent::OutsideWorld { clear_selection: true } => (ResolvedPrimaryAction::Deselect, BattlePointer::Default),
-            WorldClickIntent::OutsideWorld { clear_selection: false } => (ResolvedPrimaryAction::Noop, BattlePointer::Default),
-            WorldClickIntent::PlaceBuilding { .. } => (ResolvedPrimaryAction::PlaceBuilding, BattlePointer::Default),
-            WorldClickIntent::Sell(_) => (ResolvedPrimaryAction::Sell, BattlePointer::Sell),
-            WorldClickIntent::Repair(_) => (ResolvedPrimaryAction::Repair, BattlePointer::Repair),
-            WorldClickIntent::AppendWaypoint { .. } => (
-                ResolvedPrimaryAction::AppendWaypoint,
-                if traversable { BattlePointer::Move } else { BattlePointer::NoMove },
-            ),
-            WorldClickIntent::Follow { .. } => (ResolvedPrimaryAction::Follow, BattlePointer::Select),
-            WorldClickIntent::FollowCancel => (ResolvedPrimaryAction::Noop, BattlePointer::Default),
-            WorldClickIntent::Select { add: true, .. } => (ResolvedPrimaryAction::AddSelect, BattlePointer::Select),
-            WorldClickIntent::Select { add: false, .. } => (ResolvedPrimaryAction::Select, BattlePointer::Select),
-            WorldClickIntent::Deploy => (ResolvedPrimaryAction::Deploy, BattlePointer::Deploy),
-            WorldClickIntent::SetPrimary(_) => (ResolvedPrimaryAction::SetPrimary, BattlePointer::Select),
-            WorldClickIntent::Attack { .. } => (ResolvedPrimaryAction::Attack, BattlePointer::Attack),
-            WorldClickIntent::Capture { .. } => (ResolvedPrimaryAction::Capture, BattlePointer::Attack),
-            WorldClickIntent::Infiltrate { .. } => (ResolvedPrimaryAction::Infiltrate, BattlePointer::Attack),
-            WorldClickIntent::Move { .. } => (
-                ResolvedPrimaryAction::Move,
-                if traversable { BattlePointer::Move } else { BattlePointer::NoMove },
-            ),
-            WorldClickIntent::AttackMove { .. } => (
-                ResolvedPrimaryAction::AttackMove,
-                if traversable { BattlePointer::Attack } else { BattlePointer::NoMove },
-            ),
-            WorldClickIntent::QueueMovePath { .. } => (
-                ResolvedPrimaryAction::QueueMovePath,
-                if traversable { BattlePointer::Move } else { BattlePointer::NoMove },
-            ),
-            WorldClickIntent::SetRally { .. } => (ResolvedPrimaryAction::SetRally, BattlePointer::Move),
-            WorldClickIntent::Deselect => (ResolvedPrimaryAction::Deselect, BattlePointer::Default),
+        let primary = match intent {
+            WorldClickIntent::Noop | WorldClickIntent::Blocked | WorldClickIntent::FollowCancel => ResolvedPrimaryAction::Noop,
+            WorldClickIntent::OutsideWorld { clear_selection: true } | WorldClickIntent::Deselect => ResolvedPrimaryAction::Deselect,
+            WorldClickIntent::OutsideWorld { clear_selection: false } => ResolvedPrimaryAction::Noop,
+            WorldClickIntent::PlaceBuilding { .. } => ResolvedPrimaryAction::PlaceBuilding,
+            WorldClickIntent::Sell(_) => ResolvedPrimaryAction::Sell,
+            WorldClickIntent::Repair(_) => ResolvedPrimaryAction::Repair,
+            WorldClickIntent::AppendWaypoint { .. } => ResolvedPrimaryAction::AppendWaypoint,
+            WorldClickIntent::Follow { .. } => ResolvedPrimaryAction::Follow,
+            WorldClickIntent::Select { add: true, .. } => ResolvedPrimaryAction::AddSelect,
+            WorldClickIntent::Select { add: false, .. } => ResolvedPrimaryAction::Select,
+            WorldClickIntent::Deploy => ResolvedPrimaryAction::Deploy,
+            WorldClickIntent::SetPrimary(_) => ResolvedPrimaryAction::SetPrimary,
+            WorldClickIntent::Attack { .. } => ResolvedPrimaryAction::Attack,
+            WorldClickIntent::Capture { .. } => ResolvedPrimaryAction::Capture,
+            WorldClickIntent::Infiltrate { .. } => ResolvedPrimaryAction::Infiltrate,
+            WorldClickIntent::Move { .. } => ResolvedPrimaryAction::Move,
+            WorldClickIntent::AttackMove { .. } => ResolvedPrimaryAction::AttackMove,
+            WorldClickIntent::QueueMovePath { .. } => ResolvedPrimaryAction::QueueMovePath,
+            WorldClickIntent::SetRally { .. } => ResolvedPrimaryAction::SetRally,
+        };
+        // 不可通行落点：强制 NoMove，避免工具态 Noop 仍显示攻击移动箭头。
+        let recommended_pointer = if matches!(intent, WorldClickIntent::Blocked) {
+            BattlePointer::NoMove
+        }
+        else {
+            recommended_pointer_for_primary(primary, traversable, mode.tool_kind())
         };
 
         ResolvedBattleHover {
@@ -732,10 +704,13 @@ impl BattleController {
     }
 
     pub(super) fn handle_right_click(&mut self, renderer: &Renderer, window: &Window) {
+        use super::super::battle_input::{RightClickMapOutcome, next_tool_after_map_right_click};
         self.sync_present_tick_fraction();
         let _ = renderer;
-        // 西木右键：先取消工具态（保留选中），不是停止，也不是下令。
-        if self.clear_sidebar_tool_modes() {
+        // 西木右键地图：有工具则退出并保留选中；无工具则清空选中（不是停止）。
+        let (_, outcome) = next_tool_after_map_right_click(self.interaction_mode.tool_kind());
+        if matches!(outcome, RightClickMapOutcome::CancelToolModes) {
+            let _ = self.clear_sidebar_tool_modes();
             return;
         }
         // 单位/建筑 cameo：右键取消该类型在产或候补一件。
@@ -757,8 +732,7 @@ impl BattleController {
                 }
             }
         }
-        // 无工具态：清空选中，回到默认箭头（停止只走 Stop / `S`）。
-        if !self.local.selected.is_empty() {
+        if matches!(outcome, RightClickMapOutcome::Deselect) && !self.local.selected.is_empty() {
             tracing::info!("右键 · 清空选中 {} 个", self.local.selected.len());
             self.local.clear();
         }

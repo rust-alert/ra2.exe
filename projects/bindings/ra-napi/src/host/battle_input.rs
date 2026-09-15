@@ -689,6 +689,63 @@ impl BattlePointer {
     }
 }
 
+/// 由主动作 + 通行性 + 工具态推导建议指针（与左键执行同源；不含边缘滚屏）。
+///
+/// `primary == Noop` 时仍可能显示工具光标（出售 / 修理 / 攻击移动悬空地）。
+pub fn recommended_pointer_for_primary(primary: ResolvedPrimaryAction, traversable: bool, tool: BattleToolKind) -> BattlePointer {
+    match primary {
+        ResolvedPrimaryAction::Noop => match tool {
+            BattleToolKind::Sell => BattlePointer::Sell,
+            BattleToolKind::Repair => BattlePointer::Repair,
+            BattleToolKind::PlaceBuilding | BattleToolKind::Follow | BattleToolKind::Planning | BattleToolKind::Normal => BattlePointer::Default,
+            BattleToolKind::AttackMove => {
+                if traversable {
+                    BattlePointer::Attack
+                }
+                else {
+                    BattlePointer::NoMove
+                }
+            }
+        },
+        ResolvedPrimaryAction::PlaceBuilding => BattlePointer::Default,
+        ResolvedPrimaryAction::Sell => BattlePointer::Sell,
+        ResolvedPrimaryAction::Repair => BattlePointer::Repair,
+        ResolvedPrimaryAction::AppendWaypoint | ResolvedPrimaryAction::Move | ResolvedPrimaryAction::QueueMovePath => {
+            if traversable {
+                BattlePointer::Move
+            }
+            else {
+                BattlePointer::NoMove
+            }
+        }
+        ResolvedPrimaryAction::Follow | ResolvedPrimaryAction::Select | ResolvedPrimaryAction::AddSelect | ResolvedPrimaryAction::SetPrimary => {
+            BattlePointer::Select
+        }
+        ResolvedPrimaryAction::Deploy => BattlePointer::Deploy,
+        ResolvedPrimaryAction::Attack | ResolvedPrimaryAction::Capture | ResolvedPrimaryAction::Infiltrate => BattlePointer::Attack,
+        ResolvedPrimaryAction::AttackMove => {
+            if traversable {
+                BattlePointer::Attack
+            }
+            else {
+                BattlePointer::NoMove
+            }
+        }
+        ResolvedPrimaryAction::SetRally => BattlePointer::Move,
+        ResolvedPrimaryAction::Deselect => BattlePointer::Default,
+    }
+}
+
+/// 地图右键后的工具态与语义：有工具则退出工具并保留选中，否则应清空选中。
+pub fn next_tool_after_map_right_click(current: BattleToolKind) -> (BattleToolKind, RightClickMapOutcome) {
+    if current.is_tool() {
+        (BattleToolKind::Normal, RightClickMapOutcome::CancelToolModes)
+    }
+    else {
+        (BattleToolKind::Normal, RightClickMapOutcome::Deselect)
+    }
+}
+
 impl EdgeScrollDir {
     /// 由轴向意图合成方向（可对角）。
     pub fn from_axes(west: bool, east: bool, north: bool, south: bool) -> Self {
@@ -1319,5 +1376,153 @@ mod tests {
         t.reset_transient();
         assert!(!t.modifiers.any());
         assert!(!t.buttons.any());
+    }
+
+    #[test]
+    fn recommended_pointer_aligns_with_primary_actions() {
+        assert_eq!(
+            recommended_pointer_for_primary(ResolvedPrimaryAction::Move, true, BattleToolKind::Normal),
+            BattlePointer::Move
+        );
+        assert_eq!(
+            recommended_pointer_for_primary(ResolvedPrimaryAction::Move, false, BattleToolKind::Normal),
+            BattlePointer::NoMove
+        );
+        assert_eq!(
+            recommended_pointer_for_primary(ResolvedPrimaryAction::Attack, true, BattleToolKind::Normal),
+            BattlePointer::Attack
+        );
+        assert_eq!(
+            recommended_pointer_for_primary(ResolvedPrimaryAction::Capture, true, BattleToolKind::Normal),
+            BattlePointer::Attack
+        );
+        assert_eq!(
+            recommended_pointer_for_primary(ResolvedPrimaryAction::Deploy, true, BattleToolKind::Normal),
+            BattlePointer::Deploy
+        );
+        assert_eq!(
+            recommended_pointer_for_primary(ResolvedPrimaryAction::Noop, true, BattleToolKind::Sell),
+            BattlePointer::Sell
+        );
+        assert_eq!(
+            recommended_pointer_for_primary(ResolvedPrimaryAction::Noop, false, BattleToolKind::AttackMove),
+            BattlePointer::NoMove
+        );
+        assert_eq!(
+            recommended_pointer_for_primary(ResolvedPrimaryAction::AttackMove, true, BattleToolKind::AttackMove),
+            BattlePointer::Attack
+        );
+    }
+
+    #[test]
+    fn edge_scroll_pointer_beats_context_pointer() {
+        let ctx = BattlePointer::Attack;
+        assert_eq!(BattlePointer::resolve(EdgeScrollCursor::Default, ctx), BattlePointer::Attack);
+        let edge = EdgeScrollCursor::Scroll(EdgeScrollDir::East);
+        assert_eq!(BattlePointer::resolve(edge, ctx), BattlePointer::Edge(edge));
+        let blocked = EdgeScrollCursor::Blocked(EdgeScrollDir::West);
+        assert_eq!(BattlePointer::resolve(blocked, BattlePointer::Move), BattlePointer::Edge(blocked));
+    }
+
+    #[test]
+    fn next_tool_after_map_right_click_cancels_tools() {
+        for tool in [
+            BattleToolKind::PlaceBuilding,
+            BattleToolKind::Repair,
+            BattleToolKind::Sell,
+            BattleToolKind::Planning,
+            BattleToolKind::AttackMove,
+            BattleToolKind::Follow,
+        ] {
+            let (next, outcome) = next_tool_after_map_right_click(tool);
+            assert_eq!(next, BattleToolKind::Normal);
+            assert_eq!(outcome, RightClickMapOutcome::CancelToolModes);
+        }
+        let (next, outcome) = next_tool_after_map_right_click(BattleToolKind::Normal);
+        assert_eq!(next, BattleToolKind::Normal);
+        assert_eq!(outcome, RightClickMapOutcome::Deselect);
+    }
+
+    #[test]
+    fn surface_metrics_physical_to_logical_at_scale_2() {
+        use winit::dpi::PhysicalPosition;
+        let m = BattleSurfaceMetrics {
+            logical_width: 800,
+            logical_height: 600,
+            physical_width: 1600,
+            physical_height: 1200,
+            scale_factor: 2.0,
+        };
+        let (x, y) = m.cursor_from_physical(PhysicalPosition::new(200.0, 100.0));
+        assert!((x - 100.0).abs() < 0.001);
+        assert!((y - 50.0).abs() < 0.001);
+        let (px, py, pw, ph) = m.layout_rect_to_physical(10, 20, 100, 50);
+        assert_eq!((px, py, pw, ph), (20, 40, 200, 100));
+    }
+
+    #[test]
+    fn sidebar_right_edge_still_triggers_edge_scroll_axes() {
+        // 光标在右侧栏边缘（接近客户区右缘）仍应触发东向边缘意图。
+        let (w, e, n, s) = edge_scroll_axes(799.0, 300.0, 800, 600, 16.0);
+        assert!(!w && e && !n && !s);
+    }
+
+    #[test]
+    fn outcome_hold_press_then_reset_leaves_no_release_edge() {
+        // 结算期按下 → reset_transient → 回局后抬起不得当成点击。
+        let mut t = BattleInputTracker::default();
+        t.begin_frame();
+        t.set_left(true);
+        assert!(t.buttons.left);
+        t.reset_transient();
+        assert!(!t.buttons.left);
+        assert!(!t.edges.left_released);
+        t.begin_frame();
+        t.set_left(false);
+        assert!(!t.edges.left_released);
+    }
+
+    #[test]
+    fn tracker_wheel_steps_accumulate_until_begin_frame() {
+        let mut t = BattleInputTracker::default();
+        t.add_wheel_steps(1);
+        t.add_wheel_steps(2);
+        assert_eq!(t.edges.wheel_steps, 3);
+        t.begin_frame();
+        assert_eq!(t.edges.wheel_steps, 0);
+    }
+
+    #[test]
+    fn ctrl_left_and_alt_left_order_mod_matrix() {
+        // Ctrl+左键敌方 / Alt+左键空地：修饰只进 OrderClickModifier，不进交互模式。
+        assert_eq!(OrderClickModifier::from_keys(true, false), OrderClickModifier::ForceAttack);
+        assert_eq!(OrderClickModifier::from_keys(false, true), OrderClickModifier::ForceMove);
+        assert_eq!(OrderClickModifier::from_keys(true, true), OrderClickModifier::ForceAttack);
+        assert!(!BattleToolKind::Normal.is_tool());
+    }
+
+    #[test]
+    fn blocked_ground_forces_nomove_even_under_attack_move_tool() {
+        // 控制器把 Blocked 映射为 Noop primary + 强制 NoMove；纯函数在 AttackMove+不可通行时也是 NoMove。
+        assert_eq!(
+            recommended_pointer_for_primary(ResolvedPrimaryAction::Noop, false, BattleToolKind::AttackMove),
+            BattlePointer::NoMove
+        );
+        assert_eq!(
+            recommended_pointer_for_primary(ResolvedPrimaryAction::AttackMove, false, BattleToolKind::AttackMove),
+            BattlePointer::NoMove
+        );
+    }
+
+    #[test]
+    fn next_tool_matches_classify_right_click_map() {
+        assert_eq!(
+            next_tool_after_map_right_click(BattleToolKind::Repair).1,
+            classify_right_click_map(true)
+        );
+        assert_eq!(
+            next_tool_after_map_right_click(BattleToolKind::Normal).1,
+            classify_right_click_map(false)
+        );
     }
 }
