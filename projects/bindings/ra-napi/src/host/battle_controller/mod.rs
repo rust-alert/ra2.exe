@@ -605,7 +605,7 @@ impl BattleController {
         if clear_tool_modes {
             let _ = self.clear_sidebar_tool_modes();
         }
-        self.presentation = BattlePresentationState { pointer: BattlePointer::Default };
+        self.presentation = BattlePresentationState::default();
     }
 
     /// 构造当前不可变输入帧（命中 / 释放对照共用）。
@@ -643,7 +643,11 @@ impl BattleController {
     pub fn update_presentation(&mut self, renderer: &Renderer, window: &winit::window::Window) {
         let hover = self.resolve_battle_hover(renderer, window);
         let pointer = BattlePointer::resolve(self.edge_scroll_cursor, hover.recommended_pointer);
-        self.presentation = BattlePresentationState { pointer };
+        self.presentation = BattlePresentationState {
+            pointer,
+            hover_cell: hover.cell,
+            hover_primary: hover.primary,
+        };
     }
 
     /// 结算页标题刷新（不推进）。

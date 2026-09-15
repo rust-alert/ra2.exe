@@ -29,7 +29,7 @@ pub(super) struct BattleWorldProbe {
     pub world_y: f32,
     /// 光标下地图格。
     pub cell: Option<(u16, u16)>,
-    /// 本方机动软命中。
+    /// 本方机动软命中（悬停展示；点选另走 `pick_local_for_order`）。
     pub local_mobile: Option<EntityId>,
     /// 本方建筑命中。
     pub local_building: Option<EntityId>,
@@ -39,8 +39,83 @@ pub(super) struct BattleWorldProbe {
     pub any_mobile: Option<EntityId>,
     /// 当前选中是否含机动单位。
     pub has_mobile_selected: bool,
+    /// 当前选中是否含建筑。
+    pub has_structure_selected: bool,
     /// 当前选中相对该格是否可通行。
     pub traversable: bool,
+}
+
+/// 战术区左键将执行的意图（由 `resolve_world_intent` 一次算出，光标与释放共用）。
+#[derive(Debug, Clone)]
+pub(super) enum WorldClickIntent {
+    /// 无动作。
+    Noop,
+    /// 不可通行落点：光标 `NoMove`，左键不下令（与指针同源）。
+    Blocked,
+    /// 窗外 / 非战术区。
+    OutsideWorld {
+        /// 是否清空选中。
+        clear_selection: bool,
+    },
+    /// 放置建筑。
+    PlaceBuilding {
+        type_id: String,
+        cell: (u16, u16),
+    },
+    /// 出售。
+    Sell(EntityId),
+    /// 修理。
+    Repair(EntityId),
+    /// 规划航点。
+    AppendWaypoint {
+        cell: (u16, u16),
+    },
+    /// 跟随。
+    Follow {
+        target: EntityId,
+    },
+    /// 跟随模式选中无效 → 退出模式。
+    FollowCancel,
+    /// 点选 / 加选。
+    Select {
+        id: EntityId,
+        add: bool,
+    },
+    /// 部署已选。
+    Deploy,
+    /// 设主厂。
+    SetPrimary(EntityId),
+    /// 攻击。
+    Attack {
+        target: EntityId,
+    },
+    /// 占领。
+    Capture {
+        target: EntityId,
+    },
+    /// 渗透。
+    Infiltrate {
+        target: EntityId,
+    },
+    /// 移动。
+    Move {
+        cell: (u16, u16),
+        queue_path: bool,
+    },
+    /// 攻击移动。
+    AttackMove {
+        cell: (u16, u16),
+    },
+    /// Shift 路径。
+    QueueMovePath {
+        cell: (u16, u16),
+    },
+    /// 集结点。
+    SetRally {
+        cell: (u16, u16),
+    },
+    /// 清空选中。
+    Deselect,
 }
 
 impl BattleController {
@@ -59,16 +134,12 @@ impl BattleController {
         BattlePointer::resolve(self.edge_scroll_cursor, hover.recommended_pointer)
     }
 
-    /// 战术区一次解析：光标与点击命令共用同一探针与指针建议。
+    /// 战术区一次解析：光标与左键命令共用同一意图。
     ///
-    /// 西木口径：悬停**已选**可部署单位显示 Deploy；`D` / 命令条立即下发，无单独部署工具态。
+    /// 西木口径：悬停**已选**可部署单位显示 Deploy；左键点该单位立即部署。
     pub(super) fn resolve_battle_hover(&self, renderer: &Renderer, window: &Window) -> super::super::battle_input::ResolvedBattleHover {
-        use super::super::battle_input::{BattlePointer, ResolvedBattleHover};
-        let Some(probe) = self.probe_battle_world(renderer, window)
-        else {
-            return ResolvedBattleHover { recommended_pointer: BattlePointer::Default, cell: None };
-        };
-        ResolvedBattleHover { recommended_pointer: self.pointer_from_world_probe(&probe), cell: probe.cell }
+        let (hover, _intent) = self.resolve_world_intent(renderer, window);
+        hover
     }
 
     /// 图像空间下的战场探针（一次 soft-pick，供光标与左键共用）。
@@ -86,6 +157,7 @@ impl BattleController {
                 .ecs_identity(id)
                 .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
         });
+        let has_structure = game.selection_has_structure(selected);
         let selected_naval_only = has_mobile
             && selected
                 .iter()
@@ -106,221 +178,200 @@ impl BattleController {
             hostile: game.pick_hostile_near_image(wx, wy, 72.0),
             any_mobile: game.pick_any_mobile_near_image(wx, wy, 72.0),
             has_mobile_selected: has_mobile,
+            has_structure_selected: has_structure,
             traversable,
         })
     }
 
-    /// 由探针与交互模式推导建议指针（不含边缘滚屏）。
-    pub(super) fn pointer_from_world_probe(&self, probe: &BattleWorldProbe) -> super::super::battle_input::BattlePointer {
-        use super::super::battle_input::BattlePointer;
-        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
-        else {
-            return BattlePointer::Default;
-        };
-        let selected = &self.local.selected;
+    /// 按当前修饰键与交互模式，解析战术区左键意图（光标同源）。
+    pub(super) fn resolve_world_intent(
+        &self,
+        renderer: &Renderer,
+        window: &Window,
+    ) -> (super::super::battle_input::ResolvedBattleHover, WorldClickIntent) {
+        use super::super::battle_input::{OrderClickModifier, ResolvedBattleHover};
 
-        if self.interaction_mode.is_sell() {
-            return BattlePointer::Sell;
-        }
-        if self.interaction_mode.is_repair() {
-            return BattlePointer::Repair;
-        }
-        if self.interaction_mode.place_type_id().is_some() {
-            return BattlePointer::Default;
-        }
-        if self.interaction_mode.is_follow() {
-            return if probe.any_mobile.is_some() { BattlePointer::Select } else { BattlePointer::Default };
-        }
-
-        let Some(_cell) = probe.cell
-        else {
-            return BattlePointer::Default;
-        };
-
-        if selected.is_empty() {
-            if probe.local_mobile.is_some() || probe.local_building.is_some() {
-                return BattlePointer::Select;
-            }
-            return BattlePointer::Default;
-        }
-
-        if let Some(id) = probe.local_mobile {
-            if selected.contains(&id) && game.entity_can_deploy(id) {
-                return BattlePointer::Deploy;
-            }
-        }
-        if let Some(id) = probe.local_building {
-            if selected.contains(&id) && game.selection_has_primary_factory(&[id]) {
-                return BattlePointer::Select;
-            }
-        }
-
-        if self.interaction_mode.is_attack_move() && probe.has_mobile_selected {
-            if probe.hostile.is_some() {
-                return BattlePointer::Attack;
-            }
-            return if probe.traversable { BattlePointer::Attack } else { BattlePointer::NoMove };
-        }
-
-        if probe.has_mobile_selected && probe.hostile.is_some() {
-            return BattlePointer::Attack;
-        }
-
-        if probe.traversable { BattlePointer::Move } else { BattlePointer::NoMove }
-    }
-
-    /// 可玩对局且未暂停 / 未结算时，壳层应捕获光标以支持边缘滚屏。
-    pub fn wants_cursor_capture(&self) -> bool {
-        self.session
-            .as_ref()
-            .and_then(|s| s.battle())
-            .is_some_and(|g| !g.paused && g.outcome.is_none() && !g.world.trigger_runtime.script_input_locked)
-    }
-
-    pub(super) fn handle_left_click(&mut self, renderer: &Renderer, window: &Window) {
-        self.sync_present_tick_fraction();
         let add = self.shift_down;
+        let mode = &self.interaction_mode;
         let Some(probe) = self.probe_battle_world(renderer, window)
         else {
-            if !add {
-                self.local.clear();
-            }
-            return;
+            let intent = WorldClickIntent::OutsideWorld { clear_selection: !add };
+            return (Self::hover_from_intent(&intent, None, false, mode), intent);
         };
-        let (wx, wy) = (probe.world_x, probe.world_y);
         let Some(game) = self.session.as_ref().and_then(|s| s.battle())
         else {
-            return;
+            return (ResolvedBattleHover::empty(), WorldClickIntent::Noop);
         };
-        if let Some(type_id) = self.interaction_mode.place_type_id().map(str::to_string) {
-            let Some(cell) = probe.cell
-            else {
-                return;
-            };
-            let Some(sdef) = game.world.definitions.structures.get(&type_id)
-            else {
-                return;
-            };
-            let house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.clone());
-            let Some(house) = house
-            else {
-                return;
-            };
-            if !game.world.can_place_building_for(house.as_ref(), sdef.id, cell.0, cell.1) {
-                tracing::debug!("放置跳过 · 占地或建区不可用 {type_id} @({},{})", cell.0, cell.1);
-                return;
-            }
-            if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                tracing::info!("放置建筑 {type_id} @({},{})", cell.0, cell.1);
-                game.order_place_building(type_id.clone(), cell.0, cell.1);
-                // `PlaceBuilding` 入队后下一拍才消费完工件，此处 `is_local_ready_to_place` 仍为 true。
-                // 占地已在主机侧校验。退出放置由 `sync_place_mode_with_ready` 在仿真推进后对齐。
-                // 若命令被拒，完工件仍在，放置态保持，便于继续点合法格。
-            }
-            return;
-        }
-        if self.interaction_mode.is_sell() {
-            // 出售：与悬停探针同一建筑命中。
-            if let Some(building) = probe.local_building {
-                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                    tracing::info!("出售建筑 · #{}", building.0);
-                    game.order_sell_building(building);
-                }
-            }
-            return;
-        }
-        if self.interaction_mode.is_repair() {
-            if let Some(building) = probe.local_building {
-                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                    tracing::info!("修理建筑 · #{}", building.0);
-                    game.order_repair_building(building);
-                }
-            }
-            return;
-        }
-        // 路径点规划：左键追加航点（右键只负责取消）。
-        if self.interaction_mode.is_planning() {
-            let Some(cell) = probe.cell
-            else {
-                return;
-            };
-            if self.local.selected.is_empty() {
-                tracing::info!("路径点规划 · 无选中单位，忽略航点");
-                return;
-            }
-            if self.planning_waypoints.last().copied() != Some(cell) {
-                self.planning_waypoints.push(cell);
-            }
-            tracing::info!(count = self.planning_waypoints.len(), x = cell.0, y = cell.1, "路径点规划 · 追加航点");
-            return;
-        }
-        // 跟随模式：左键点选任意机动单位作为跟随目标。
-        if self.interaction_mode.is_follow() {
-            let selected = self.local.selected.clone();
-            if selected.is_empty() || !probe.has_mobile_selected {
-                self.interaction_mode = BattleInteractionMode::Normal;
-                tracing::info!(active = false, "跟随模式 · 选中无效，已退出");
-                return;
-            }
-            let tick = game.world.tick;
-            if let Some(target) = probe.any_mobile {
-                if selected.contains(&target) {
-                    tracing::info!("跟随 · 目标在当前选中内，忽略");
-                    return;
-                }
-                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                    tracing::info!("命令跟随 → #{}（选中 {:?}）", target.0, selected);
-                    game.order_follow(&selected, target);
-                }
-                self.interaction_mode = BattleInteractionMode::Normal;
-                self.pulse_action_lines_at(tick);
-                return;
-            }
-            tracing::info!("跟随 · 未命中机动单位");
-            return;
-        }
 
-        let local_house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.to_string());
-        let tick = game.world.tick;
-        let selected = self.local.selected.clone();
-        let has_mobile = probe.has_mobile_selected;
-        let has_structure = game.selection_has_structure(&selected);
-        let order_mod = super::super::battle_input::OrderClickModifier::from_keys(self.ctrl_down, self.alt_down);
+        let order_mod = OrderClickModifier::from_keys(self.ctrl_down, self.alt_down);
         let queue_path = self.shift_down;
+        let selected = &self.local.selected;
+        let finish = |intent: WorldClickIntent| (Self::hover_from_intent(&intent, probe.cell, probe.traversable, mode), intent);
 
-        // 已选机动：先敌后友（与 Attack / Move 光标一致），避免邻矿被友军松散点选吞掉。
-        if has_mobile && !matches!(order_mod, super::super::battle_input::OrderClickModifier::ForceMove) {
-            if let Some(target) = probe.hostile {
-                let is_structure = game.world.ecs_identity(target).is_some_and(|(_, kind)| kind == MapEntityKind::Structure);
-                let force_attack = matches!(order_mod, super::super::battle_input::OrderClickModifier::ForceAttack);
-                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                    if !force_attack && is_structure && game.selection_has_engineer(&selected) && game.is_capturable_structure(target) {
-                        tracing::info!("命令占领 → #{}（选中 {:?}）", target.0, selected);
-                        game.order_capture_building(&selected, target);
-                    }
-                    else if !force_attack && is_structure && game.selection_has_agent(&selected) {
-                        tracing::info!("命令渗透 → #{}（选中 {:?}）", target.0, selected);
-                        game.order_infiltrate(&selected, target);
+        // —— 工具 / 命令模式（互斥）——
+        if let Some(type_id) = mode.place_type_id() {
+            let intent = match probe.cell {
+                Some(cell) => {
+                    let placeable = game
+                        .world
+                        .definitions
+                        .structures
+                        .get(type_id)
+                        .and_then(|sdef| {
+                            let house = game.world.players.iter().find(|p| p.id == game.world.local_player)?;
+                            Some(game.world.can_place_building_for(house.house.as_ref(), sdef.id, cell.0, cell.1))
+                        })
+                        .unwrap_or(false);
+                    if placeable {
+                        WorldClickIntent::PlaceBuilding {
+                            type_id: type_id.to_string(),
+                            cell,
+                        }
                     }
                     else {
-                        tracing::info!(force = force_attack, "命令攻击 → #{}（选中 {:?}）", target.0, selected);
-                        game.order_attack(&selected, target);
+                        WorldClickIntent::Noop
                     }
                 }
-                if self.interaction_mode.is_attack_move() || self.interaction_mode.is_follow() {
-                    self.interaction_mode = BattleInteractionMode::Normal;
+                None => WorldClickIntent::Noop,
+            };
+            return finish(intent);
+        }
+        if mode.is_sell() {
+            let intent = match probe.local_building {
+                Some(id) => WorldClickIntent::Sell(id),
+                None => WorldClickIntent::Noop,
+            };
+            return finish(intent);
+        }
+        if mode.is_repair() {
+            let intent = match probe.local_building {
+                Some(id) => WorldClickIntent::Repair(id),
+                None => WorldClickIntent::Noop,
+            };
+            return finish(intent);
+        }
+        if mode.is_planning() {
+            let intent = match probe.cell {
+                Some(cell) if !selected.is_empty() && probe.traversable => WorldClickIntent::AppendWaypoint { cell },
+                Some(_) if !selected.is_empty() => WorldClickIntent::Blocked,
+                _ => WorldClickIntent::Noop,
+            };
+            return finish(intent);
+        }
+        if mode.is_follow() {
+            let intent = if selected.is_empty() || !probe.has_mobile_selected {
+                WorldClickIntent::FollowCancel
+            }
+            else if let Some(target) = probe.any_mobile {
+                if selected.contains(&target) {
+                    WorldClickIntent::Noop
                 }
-                self.pulse_action_lines_at(tick);
-                return;
+                else {
+                    WorldClickIntent::Follow { target }
+                }
+            }
+            else {
+                WorldClickIntent::Noop
+            };
+            return finish(intent);
+        }
+
+        // —— 常规：先敌后友，再落点下令 ——
+        if probe.has_mobile_selected && !matches!(order_mod, OrderClickModifier::ForceMove) {
+            if let Some(target) = probe.hostile {
+                let is_structure = game.world.ecs_identity(target).is_some_and(|(_, kind)| kind == MapEntityKind::Structure);
+                let force_attack = matches!(order_mod, OrderClickModifier::ForceAttack);
+                let intent = if !force_attack && is_structure && game.selection_has_engineer(selected) && game.is_capturable_structure(target)
+                {
+                    WorldClickIntent::Capture { target }
+                }
+                else if !force_attack && is_structure && game.selection_has_agent(selected) {
+                    WorldClickIntent::Infiltrate { target }
+                }
+                else {
+                    WorldClickIntent::Attack { target }
+                };
+                return finish(intent);
             }
         }
 
-        // 本方单位 / 建筑：选择（或加选）。Alt 强制移动时跳过，允许点到友军所占格仍下令移动。
-        let skip_friendly_pick = matches!(order_mod, super::super::battle_input::OrderClickModifier::ForceMove) && has_mobile;
+        let skip_friendly_pick = matches!(order_mod, OrderClickModifier::ForceMove) && probe.has_mobile_selected;
         if !skip_friendly_pick {
-            // 有机动选中：只认落点格（禁止 72px 车身软命中），否则点邻矿会被吞成重选、左键采矿无反应。
-            let local_picked = if super::super::battle_input::allow_friendly_image_soft_pick(has_mobile) {
-                game.pick_local_mobile_near_image(wx, wy, 72.0).or_else(|| Self::pick_local_building_at_image(game, wx, wy)).or_else(|| {
+            if let Some(id) = self.pick_local_for_order(game, &probe) {
+                let unit_cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
+                let on_structure_footprint = game.world.ecs_identity(id).is_some_and(|(_, kind)| kind == MapEntityKind::Structure)
+                    && probe.cell.is_some_and(|(cx, cy)| game.pick_structure_at(cx, cy) == Some(id));
+                let soft_hit_to_order = !on_structure_footprint
+                    && super::super::battle_input::friendly_soft_hit_should_order_not_reselect(
+                        probe.has_mobile_selected,
+                        probe.cell,
+                        Some(unit_cell),
+                    );
+                if soft_hit_to_order {
+                    // 落入下方落点下令（与 Move 光标对齐）。
+                }
+                else if !add && selected.contains(&id) && game.entity_can_deploy(id) {
+                    return finish(WorldClickIntent::Deploy);
+                }
+                else if !add && selected.contains(&id) && game.selection_has_primary_factory(&[id]) {
+                    return finish(WorldClickIntent::SetPrimary(id));
+                }
+                else {
+                    return finish(WorldClickIntent::Select { id, add });
+                }
+            }
+        }
+
+        if let Some(cell) = probe.cell {
+            if probe.has_mobile_selected {
+                let intent = if !probe.traversable {
+                    // 不可通行：光标 NoMove，左键也不下令（避免「显示禁止却仍移动」）。
+                    WorldClickIntent::Blocked
+                }
+                else if queue_path && matches!(order_mod, OrderClickModifier::None) && !mode.is_attack_move() {
+                    WorldClickIntent::QueueMovePath { cell }
+                }
+                else if matches!(order_mod, OrderClickModifier::ForceAttack) || mode.is_attack_move() {
+                    WorldClickIntent::AttackMove { cell }
+                }
+                else {
+                    WorldClickIntent::Move {
+                        cell,
+                        queue_path,
+                    }
+                };
+                return finish(intent);
+            }
+            if probe.has_structure_selected {
+                return finish(WorldClickIntent::SetRally { cell });
+            }
+            let intent = if add {
+                WorldClickIntent::Noop
+            }
+            else {
+                WorldClickIntent::Deselect
+            };
+            return finish(intent);
+        }
+
+        let intent = if !add && !selected.is_empty() {
+            WorldClickIntent::Deselect
+        }
+        else {
+            WorldClickIntent::Noop
+        };
+        finish(intent)
+    }
+
+    /// 本方点选命中：有机动选中时只认落点格，避免邻矿被车身软命中吞掉。
+    pub(super) fn pick_local_for_order(&self, game: &ra_engine::BattleSession, probe: &BattleWorldProbe) -> Option<EntityId> {
+        let local_house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.to_string());
+        let has_mobile = probe.has_mobile_selected;
+        let (wx, wy) = (probe.world_x, probe.world_y);
+        if super::super::battle_input::allow_friendly_image_soft_pick(has_mobile) {
+            game.pick_local_mobile_near_image(wx, wy, 72.0)
+                .or_else(|| Self::pick_local_building_at_image(game, wx, wy))
+                .or_else(|| {
                     if !super::super::battle_input::allow_cell_neighbor_friendly_pick(has_mobile) {
                         return None;
                     }
@@ -332,124 +383,284 @@ impl BattleController {
                         game.pick_mobile_at(cell.0, cell.1)
                     }
                 })
-            }
-            else {
-                game.image_to_cell(wx, wy).and_then(|(cx, cy)| {
-                    let house = local_house.as_deref()?;
-                    game.pick_mobile_at_owned(cx, cy, Some(house))
-                        .or_else(|| game.pick_structure_at(cx, cy).filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house)))
-                })
-            };
-            if let Some(id) = local_picked {
-                let unit_cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
-                let click_cell = game.image_to_cell(wx, wy);
-                // 西木：左键点已选可部署单位 → 立即部署（非 Shift 加选）。
-                if !add && self.local.selected.contains(&id) && game.entity_can_deploy(id) {
-                    let tick = game.world.tick;
-                    self.deploy_selection();
-                    self.pulse_action_lines_at(tick);
-                    return;
+        }
+        else {
+            game.image_to_cell(wx, wy).and_then(|(cx, cy)| {
+                let house = local_house.as_deref()?;
+                game.pick_mobile_at_owned(cx, cy, Some(house))
+                    .or_else(|| game.pick_structure_at(cx, cy).filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house)))
+            })
+        }
+    }
+
+    /// 由意图推导悬停摘要（指针与主动作同源）。
+    pub(super) fn hover_from_intent(
+        intent: &WorldClickIntent,
+        cell: Option<(u16, u16)>,
+        traversable: bool,
+        mode: &BattleInteractionMode,
+    ) -> super::super::battle_input::ResolvedBattleHover {
+        use super::super::battle_input::{BattlePointer, ResolvedBattleHover, ResolvedPrimaryAction};
+
+        let (primary, recommended_pointer) = match intent {
+            WorldClickIntent::Noop => {
+                let pointer = if mode.is_sell() {
+                    BattlePointer::Sell
                 }
-                // 再点已选生产厂 → 设为主厂（PRI）。
-                if !add && self.local.selected.contains(&id) && game.selection_has_primary_factory(&[id]) {
-                    if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                        tracing::info!("设为主厂 → #{}（选中 {:?}）", id.0, selected);
-                        game.order_set_primary(&[id]);
-                    }
-                    self.pulse_action_lines_at(tick);
-                    return;
+                else if mode.is_repair() {
+                    BattlePointer::Repair
                 }
-                // 点中建筑 Foundation 占地：视为点选建筑（锚点格≠落点格时不能当「异格移动」）。
-                let on_structure_footprint = game.world.ecs_identity(id).is_some_and(|(_, kind)| kind == MapEntityKind::Structure)
-                    && click_cell.is_some_and(|(cx, cy)| game.pick_structure_at(cx, cy) == Some(id));
-                // 兜底：若仍误走软命中且落点异格，与 Move 光标对齐改下令。
-                if !on_structure_footprint
-                    && super::super::battle_input::friendly_soft_hit_should_order_not_reselect(has_mobile, click_cell, Some(unit_cell))
-                {
-                    tracing::debug!(
-                        entity = id.0,
-                        ?click_cell,
-                        unit_x = unit_cell.0,
-                        unit_y = unit_cell.1,
-                        "友军软命中但落点异格 · 改下移动令"
-                    );
+                else if mode.place_type_id().is_some() {
+                    BattlePointer::Default
+                }
+                else if mode.is_follow() {
+                    BattlePointer::Default
+                }
+                else if mode.is_attack_move() {
+                    if traversable { BattlePointer::Attack } else { BattlePointer::NoMove }
                 }
                 else {
-                    if add {
-                        self.local.select_add(game, id);
-                        tracing::info!("加选实体 #{} @({},{}) · 选中 {:?}", id.0, unit_cell.0, unit_cell.1, self.local.selected);
-                    }
-                    else {
-                        self.local.select_only(game, id);
-                        tracing::info!("选中实体 #{} @({},{})", id.0, unit_cell.0, unit_cell.1);
-                    }
-                    self.pulse_action_lines_at(tick);
-                    return;
+                    BattlePointer::Default
+                };
+                (ResolvedPrimaryAction::Noop, pointer)
+            }
+            WorldClickIntent::Blocked => (ResolvedPrimaryAction::Noop, BattlePointer::NoMove),
+            WorldClickIntent::OutsideWorld { clear_selection: true } => (ResolvedPrimaryAction::Deselect, BattlePointer::Default),
+            WorldClickIntent::OutsideWorld { clear_selection: false } => (ResolvedPrimaryAction::Noop, BattlePointer::Default),
+            WorldClickIntent::PlaceBuilding { .. } => (ResolvedPrimaryAction::PlaceBuilding, BattlePointer::Default),
+            WorldClickIntent::Sell(_) => (ResolvedPrimaryAction::Sell, BattlePointer::Sell),
+            WorldClickIntent::Repair(_) => (ResolvedPrimaryAction::Repair, BattlePointer::Repair),
+            WorldClickIntent::AppendWaypoint { .. } => (
+                ResolvedPrimaryAction::AppendWaypoint,
+                if traversable { BattlePointer::Move } else { BattlePointer::NoMove },
+            ),
+            WorldClickIntent::Follow { .. } => (ResolvedPrimaryAction::Follow, BattlePointer::Select),
+            WorldClickIntent::FollowCancel => (ResolvedPrimaryAction::Noop, BattlePointer::Default),
+            WorldClickIntent::Select { add: true, .. } => (ResolvedPrimaryAction::AddSelect, BattlePointer::Select),
+            WorldClickIntent::Select { add: false, .. } => (ResolvedPrimaryAction::Select, BattlePointer::Select),
+            WorldClickIntent::Deploy => (ResolvedPrimaryAction::Deploy, BattlePointer::Deploy),
+            WorldClickIntent::SetPrimary(_) => (ResolvedPrimaryAction::SetPrimary, BattlePointer::Select),
+            WorldClickIntent::Attack { .. } => (ResolvedPrimaryAction::Attack, BattlePointer::Attack),
+            WorldClickIntent::Capture { .. } => (ResolvedPrimaryAction::Capture, BattlePointer::Attack),
+            WorldClickIntent::Infiltrate { .. } => (ResolvedPrimaryAction::Infiltrate, BattlePointer::Attack),
+            WorldClickIntent::Move { .. } => (
+                ResolvedPrimaryAction::Move,
+                if traversable { BattlePointer::Move } else { BattlePointer::NoMove },
+            ),
+            WorldClickIntent::AttackMove { .. } => (
+                ResolvedPrimaryAction::AttackMove,
+                if traversable { BattlePointer::Attack } else { BattlePointer::NoMove },
+            ),
+            WorldClickIntent::QueueMovePath { .. } => (
+                ResolvedPrimaryAction::QueueMovePath,
+                if traversable { BattlePointer::Move } else { BattlePointer::NoMove },
+            ),
+            WorldClickIntent::SetRally { .. } => (ResolvedPrimaryAction::SetRally, BattlePointer::Move),
+            WorldClickIntent::Deselect => (ResolvedPrimaryAction::Deselect, BattlePointer::Default),
+        };
+
+        ResolvedBattleHover {
+            recommended_pointer,
+            cell,
+            primary,
+        }
+    }
+
+    /// 可玩对局且未暂停 / 未结算时，壳层应捕获光标以支持边缘滚屏。
+    pub fn wants_cursor_capture(&self) -> bool {
+        self.session
+            .as_ref()
+            .and_then(|s| s.battle())
+            .is_some_and(|g| !g.paused && g.outcome.is_none() && !g.world.trigger_runtime.script_input_locked)
+    }
+
+    /// 左键释放：解析一次意图并执行（与光标同源）。
+    pub(super) fn handle_left_click(&mut self, renderer: &Renderer, window: &Window) {
+        self.sync_present_tick_fraction();
+        let (_hover, intent) = self.resolve_world_intent(renderer, window);
+        self.apply_world_click_intent(intent);
+    }
+
+    /// 执行战术区左键意图。
+    pub(super) fn apply_world_click_intent(&mut self, intent: WorldClickIntent) {
+        match intent {
+            WorldClickIntent::Noop | WorldClickIntent::Blocked => {}
+            WorldClickIntent::OutsideWorld { clear_selection: false } => {}
+            WorldClickIntent::OutsideWorld { clear_selection: true } | WorldClickIntent::Deselect => {
+                self.local.clear();
+            }
+            WorldClickIntent::PlaceBuilding { type_id, cell } => {
+                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                    tracing::info!("放置建筑 {type_id} @({},{})", cell.0, cell.1);
+                    game.order_place_building(type_id, cell.0, cell.1);
                 }
             }
-        }
-
-        // 已选单位 / 建筑：左键空地 → 移动、攻击移动、强制攻击近似或设集结点。
-        if let Some(cell) = game.image_to_cell(wx, wy) {
-            if has_mobile {
-                if queue_path
-                    && matches!(order_mod, super::super::battle_input::OrderClickModifier::None)
-                    && !self.interaction_mode.is_attack_move()
-                {
-                    // Shift+左键空地：追加路径点并下发整条路径。
-                    if self.planning_waypoints.last().copied() != Some(cell) {
-                        self.planning_waypoints.push(cell);
-                    }
-                    let points = self.planning_waypoints.clone();
-                    let pulse_tick = self.session.as_mut().and_then(|s| s.battle_mut()).map(|game| {
-                        let tick = game.world.tick;
-                        tracing::info!(count = points.len(), "Shift 路径 · 下发 MovePath → ({},{})", cell.0, cell.1);
-                        game.order_move_path(&selected, &points);
-                        tick
-                    });
-                    if let Some(tick) = pulse_tick {
-                        self.pulse_action_lines_at(tick);
-                    }
-                    return;
-                }
+            WorldClickIntent::Sell(building) => {
                 if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                    if matches!(order_mod, super::super::battle_input::OrderClickModifier::ForceAttack)
-                        || self.interaction_mode.is_attack_move()
-                    {
-                        tracing::info!("命令攻击移动 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
-                        game.order_attack_move(&selected, cell.0, cell.1);
-                    }
-                    else {
-                        tracing::info!("命令移动 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
-                        game.order_move(&selected, cell.0, cell.1);
-                    }
+                    tracing::info!("出售建筑 · #{}", building.0);
+                    game.order_sell_building(building);
                 }
+            }
+            WorldClickIntent::Repair(building) => {
+                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                    tracing::info!("修理建筑 · #{}", building.0);
+                    game.order_repair_building(building);
+                }
+            }
+            WorldClickIntent::AppendWaypoint { cell } => {
+                if self.planning_waypoints.last().copied() != Some(cell) {
+                    self.planning_waypoints.push(cell);
+                }
+                tracing::info!(count = self.planning_waypoints.len(), x = cell.0, y = cell.1, "路径点规划 · 追加航点");
+            }
+            WorldClickIntent::FollowCancel => {
+                self.interaction_mode = BattleInteractionMode::Normal;
+                tracing::info!(active = false, "跟随模式 · 选中无效，已退出");
+            }
+            WorldClickIntent::Follow { target } => {
+                let selected = self.local.selected.clone();
+                let tick = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.tick);
+                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                    tracing::info!("命令跟随 → #{}（选中 {:?}）", target.0, selected);
+                    game.order_follow(&selected, target);
+                }
+                self.interaction_mode = BattleInteractionMode::Normal;
+                if let Some(tick) = tick {
+                    self.pulse_action_lines_at(tick);
+                }
+            }
+            WorldClickIntent::Select { id, add } => {
+                let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+                else {
+                    return;
+                };
+                let unit_cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
+                let tick = game.world.tick;
+                if add {
+                    self.local.select_add(game, id);
+                    tracing::info!("加选实体 #{} @({},{}) · 选中 {:?}", id.0, unit_cell.0, unit_cell.1, self.local.selected);
+                }
+                else {
+                    self.local.select_only(game, id);
+                    tracing::info!("选中实体 #{} @({},{})", id.0, unit_cell.0, unit_cell.1);
+                }
+                self.pulse_action_lines_at(tick);
+            }
+            WorldClickIntent::Deploy => {
+                let tick = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.tick);
+                self.deploy_selection();
+                if let Some(tick) = tick {
+                    self.pulse_action_lines_at(tick);
+                }
+            }
+            WorldClickIntent::SetPrimary(id) => {
+                let selected = self.local.selected.clone();
+                let tick = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.tick);
+                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                    tracing::info!("设为主厂 → #{}（选中 {:?}）", id.0, selected);
+                    game.order_set_primary(&[id]);
+                }
+                if let Some(tick) = tick {
+                    self.pulse_action_lines_at(tick);
+                }
+            }
+            WorldClickIntent::Attack { target } => {
+                let selected = self.local.selected.clone();
+                let tick = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.tick);
+                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                    tracing::info!("命令攻击 → #{}（选中 {:?}）", target.0, selected);
+                    game.order_attack(&selected, target);
+                }
+                self.clear_order_tool_modes();
+                if let Some(tick) = tick {
+                    self.pulse_action_lines_at(tick);
+                }
+            }
+            WorldClickIntent::Capture { target } => {
+                let selected = self.local.selected.clone();
+                let tick = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.tick);
+                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                    tracing::info!("命令占领 → #{}（选中 {:?}）", target.0, selected);
+                    game.order_capture_building(&selected, target);
+                }
+                self.clear_order_tool_modes();
+                if let Some(tick) = tick {
+                    self.pulse_action_lines_at(tick);
+                }
+            }
+            WorldClickIntent::Infiltrate { target } => {
+                let selected = self.local.selected.clone();
+                let tick = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.tick);
+                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                    tracing::info!("命令渗透 → #{}（选中 {:?}）", target.0, selected);
+                    game.order_infiltrate(&selected, target);
+                }
+                self.clear_order_tool_modes();
+                if let Some(tick) = tick {
+                    self.pulse_action_lines_at(tick);
+                }
+            }
+            WorldClickIntent::Move { cell, queue_path } => {
+                let selected = self.local.selected.clone();
+                let tick = self.session.as_mut().and_then(|s| s.battle_mut()).map(|game| {
+                    tracing::info!("命令移动 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
+                    game.order_move(&selected, cell.0, cell.1);
+                    game.world.tick
+                });
                 if !queue_path {
                     self.planning_waypoints.clear();
                 }
-                if self.interaction_mode.is_attack_move() || self.interaction_mode.is_follow() {
-                    self.interaction_mode = BattleInteractionMode::Normal;
+                self.clear_order_tool_modes();
+                if let Some(tick) = tick {
+                    self.pulse_action_lines_at(tick);
                 }
-                self.pulse_action_lines_at(tick);
-                return;
             }
-            if has_structure {
-                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+            WorldClickIntent::AttackMove { cell } => {
+                let selected = self.local.selected.clone();
+                let tick = self.session.as_mut().and_then(|s| s.battle_mut()).map(|game| {
+                    tracing::info!("命令攻击移动 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
+                    game.order_attack_move(&selected, cell.0, cell.1);
+                    game.world.tick
+                });
+                self.planning_waypoints.clear();
+                self.clear_order_tool_modes();
+                if let Some(tick) = tick {
+                    self.pulse_action_lines_at(tick);
+                }
+            }
+            WorldClickIntent::QueueMovePath { cell } => {
+                if self.planning_waypoints.last().copied() != Some(cell) {
+                    self.planning_waypoints.push(cell);
+                }
+                let points = self.planning_waypoints.clone();
+                let selected = self.local.selected.clone();
+                let tick = self.session.as_mut().and_then(|s| s.battle_mut()).map(|game| {
+                    tracing::info!(count = points.len(), "Shift 路径 · 下发 MovePath → ({},{})", cell.0, cell.1);
+                    game.order_move_path(&selected, &points);
+                    game.world.tick
+                });
+                if let Some(tick) = tick {
+                    self.pulse_action_lines_at(tick);
+                }
+            }
+            WorldClickIntent::SetRally { cell } => {
+                let selected = self.local.selected.clone();
+                let tick = self.session.as_mut().and_then(|s| s.battle_mut()).map(|game| {
                     tracing::info!("设置集结点 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
                     game.order_rally(&selected, cell.0, cell.1);
+                    game.world.tick
+                });
+                if let Some(tick) = tick {
+                    self.pulse_action_lines_at(tick);
                 }
-                self.pulse_action_lines_at(tick);
-                return;
             }
-            if !add {
-                self.local.clear();
-                tracing::debug!("点空地 ({},{})，清空选中", cell.0, cell.1);
-            }
-            return;
         }
+    }
 
-        if !add && !selected.is_empty() {
-            self.local.clear();
+    /// 攻击 / 移动等下令后退出攻击移动与跟随工具态。
+    pub(super) fn clear_order_tool_modes(&mut self) {
+        if self.interaction_mode.is_attack_move() || self.interaction_mode.is_follow() {
+            self.interaction_mode = BattleInteractionMode::Normal;
         }
     }
 

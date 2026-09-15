@@ -145,13 +145,68 @@ impl BattleInteractionMode {
     }
 }
 
-/// 战术区悬停一次解析的呈现摘要（光标 / 提示共用；实体 id 留在控制器探针里）。
+/// 战术区一次解析后的主动作种类（光标 / 左键 / 提示共用同一枚举）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ResolvedPrimaryAction {
+    /// 无有效动作（或仅更新光标）。
+    #[default]
+    Noop,
+    /// 建造放置。
+    PlaceBuilding,
+    /// 出售建筑。
+    Sell,
+    /// 修理建筑。
+    Repair,
+    /// 规划模式追加航点。
+    AppendWaypoint,
+    /// 跟随目标。
+    Follow,
+    /// 点选本方。
+    Select,
+    /// Shift 加选。
+    AddSelect,
+    /// 部署已选可部署单位。
+    Deploy,
+    /// 设为主厂。
+    SetPrimary,
+    /// 攻击敌方。
+    Attack,
+    /// 工程师占领。
+    Capture,
+    /// 间谍渗透。
+    Infiltrate,
+    /// 移动 / 采集。
+    Move,
+    /// 攻击移动。
+    AttackMove,
+    /// Shift 路径移动。
+    QueueMovePath,
+    /// 建筑集结点。
+    SetRally,
+    /// 清空选中。
+    Deselect,
+}
+
+/// 战术区悬停一次解析的呈现摘要（光标 / 提示 / 左键共用）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResolvedBattleHover {
     /// 建议指针（不含边缘滚屏；由 `BattlePointer::resolve` 再叠边缘）。
     pub recommended_pointer: BattlePointer,
     /// 光标下地图格（窗外 / 非战术区为 `None`）。
     pub cell: Option<(u16, u16)>,
+    /// 左键将执行的主动作（与 `recommended_pointer` 同源）。
+    pub primary: ResolvedPrimaryAction,
+}
+
+impl ResolvedBattleHover {
+    /// 窗外 / 非战术区默认悬停。
+    pub const fn empty() -> Self {
+        Self {
+            recommended_pointer: BattlePointer::Default,
+            cell: None,
+            primary: ResolvedPrimaryAction::Noop,
+        }
+    }
 }
 
 /// 左键按下锁定的捕获层（释放必须对照同一捕获；HUD 与战术区互斥）。
@@ -220,11 +275,19 @@ impl BattleInputFrame {
 pub struct BattlePresentationState {
     /// 当前应显示的指针。
     pub pointer: BattlePointer,
+    /// 悬停格（调试 / 状态栏可共用）。
+    pub hover_cell: Option<(u16, u16)>,
+    /// 悬停主动作。
+    pub hover_primary: ResolvedPrimaryAction,
 }
 
 impl Default for BattlePresentationState {
     fn default() -> Self {
-        Self { pointer: BattlePointer::Default }
+        Self {
+            pointer: BattlePointer::Default,
+            hover_cell: None,
+            hover_primary: ResolvedPrimaryAction::Noop,
+        }
     }
 }
 
@@ -645,5 +708,60 @@ impl LeftGesture {
             }
         };
         (Self::Idle, action)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn order_click_modifier_ctrl_beats_alt() {
+        assert_eq!(OrderClickModifier::from_keys(true, true), OrderClickModifier::ForceAttack);
+        assert_eq!(OrderClickModifier::from_keys(true, false), OrderClickModifier::ForceAttack);
+        assert_eq!(OrderClickModifier::from_keys(false, true), OrderClickModifier::ForceMove);
+        assert_eq!(OrderClickModifier::from_keys(false, false), OrderClickModifier::None);
+    }
+
+    #[test]
+    fn mobile_selection_disables_friendly_soft_pick() {
+        assert!(allow_friendly_image_soft_pick(false));
+        assert!(!allow_friendly_image_soft_pick(true));
+        assert!(allow_cell_neighbor_friendly_pick(false));
+        assert!(!allow_cell_neighbor_friendly_pick(true));
+    }
+
+    #[test]
+    fn soft_hit_off_unit_cell_orders_not_reselects() {
+        assert!(!friendly_soft_hit_should_order_not_reselect(false, Some((1, 1)), Some((2, 2))));
+        assert!(friendly_soft_hit_should_order_not_reselect(true, Some((1, 1)), Some((2, 2))));
+        assert!(!friendly_soft_hit_should_order_not_reselect(true, Some((3, 3)), Some((3, 3))));
+        assert!(!friendly_soft_hit_should_order_not_reselect(true, None, Some((1, 1))));
+    }
+
+    #[test]
+    fn primary_action_covers_pointer_aligned_orders() {
+        // 光标 / 左键共用的主动作枚举须覆盖下令族，避免再分叉。
+        let orders = [
+            ResolvedPrimaryAction::Move,
+            ResolvedPrimaryAction::AttackMove,
+            ResolvedPrimaryAction::QueueMovePath,
+            ResolvedPrimaryAction::Attack,
+            ResolvedPrimaryAction::Capture,
+            ResolvedPrimaryAction::Infiltrate,
+            ResolvedPrimaryAction::Deploy,
+            ResolvedPrimaryAction::Select,
+            ResolvedPrimaryAction::Deselect,
+        ];
+        assert_eq!(orders.len(), 9);
+        assert_ne!(ResolvedPrimaryAction::Move, ResolvedPrimaryAction::AttackMove);
+    }
+
+    #[test]
+    fn presentation_default_clears_hover_primary() {
+        let p = BattlePresentationState::default();
+        assert_eq!(p.pointer, BattlePointer::Default);
+        assert_eq!(p.hover_cell, None);
+        assert_eq!(p.hover_primary, ResolvedPrimaryAction::Noop);
     }
 }
