@@ -831,31 +831,14 @@ impl BattleController {
                 BattleNav::None
             }
             WindowEvent::MouseWheel { delta, .. } => {
-                if gameplay_open && self.cursor_over_cameo_band(window) {
-                    let steps = match delta {
-                        MouseScrollDelta::LineDelta(_, y) => {
-                            if *y > 0.0 {
-                                -1
-                            }
-                            else if *y < 0.0 {
-                                1
-                            }
-                            else {
-                                0
-                            }
-                        }
-                        MouseScrollDelta::PixelDelta(p) => {
-                            if p.y > 0.0 {
-                                -1
-                            }
-                            else if p.y < 0.0 {
-                                1
-                            }
-                            else {
-                                0
-                            }
-                        }
+                use super::super::battle_input::{cameo_scroll_steps_from_delta_y, should_apply_cameo_wheel};
+                let over_cameo = self.cursor_over_cameo_band(window);
+                if should_apply_cameo_wheel(gameplay_open, over_cameo) {
+                    let dy = match delta {
+                        MouseScrollDelta::LineDelta(_, y) => f64::from(*y),
+                        MouseScrollDelta::PixelDelta(p) => p.y,
                     };
+                    let steps = cameo_scroll_steps_from_delta_y(dy);
                     if steps != 0 {
                         self.input_tracker.add_wheel_steps(steps);
                         self.scroll_cameos(window, steps);

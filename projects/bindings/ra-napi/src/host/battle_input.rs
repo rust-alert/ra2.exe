@@ -520,6 +520,24 @@ pub fn arrow_key_ingest(gameplay_open: bool, down: bool, hotkey_bound: bool) -> 
     }
 }
 
+/// 滚轮符号 → 侧栏 cameo 滚动步进（上滚负、下滚正）。
+pub fn cameo_scroll_steps_from_delta_y(delta_y: f64) -> i32 {
+    if delta_y > 0.0 {
+        -1
+    }
+    else if delta_y < 0.0 {
+        1
+    }
+    else {
+        0
+    }
+}
+
+/// 仅可玩且光标在 cameo 带上时消费滚轮（瞬时输入，不驱动相机）。
+pub fn should_apply_cameo_wheel(gameplay_open: bool, over_cameo_band: bool) -> bool {
+    gameplay_open && over_cameo_band
+}
+
 /// 命令条捕获：仅当释放命中同一槽才触发。
 pub fn hud_command_release_fires(capture_slot: usize, release_hit_slot: Option<usize>) -> bool {
     release_hit_slot == Some(capture_slot)
@@ -2153,5 +2171,15 @@ mod tests {
         assert!(!t.edges.pan_pressed.left);
         // 暂停：策略要求静默清平移，恢复后不得自动续平移。
         assert_eq!(arrow_key_ingest(false, true, false), ArrowKeyIngest::SilentClearPan);
+    }
+
+    #[test]
+    fn cameo_wheel_steps_and_gate() {
+        assert_eq!(cameo_scroll_steps_from_delta_y(1.0), -1);
+        assert_eq!(cameo_scroll_steps_from_delta_y(-3.0), 1);
+        assert_eq!(cameo_scroll_steps_from_delta_y(0.0), 0);
+        assert!(should_apply_cameo_wheel(true, true));
+        assert!(!should_apply_cameo_wheel(true, false));
+        assert!(!should_apply_cameo_wheel(false, true));
     }
 }
