@@ -1016,9 +1016,11 @@ impl BattleController {
                 // 可玩时始终更新 `camera_pan_keys`；若该键同时被热键表占用，按下仍走热键分发。
                 if matches!(code, KeyCode::ArrowLeft | KeyCode::ArrowRight | KeyCode::ArrowUp | KeyCode::ArrowDown) {
                     if !gameplay_open {
+                        // 暂停 / 锁输入：静默清空按住，不记抬起边沿（恢复后不应自动续平移）。
                         self.camera_pan_keys.clear();
                         return BattleNav::None;
                     }
+                    let prev = self.camera_pan_keys;
                     match code {
                         KeyCode::ArrowLeft => self.camera_pan_keys.left = down,
                         KeyCode::ArrowRight => self.camera_pan_keys.right = down,
@@ -1026,6 +1028,7 @@ impl BattleController {
                         KeyCode::ArrowDown => self.camera_pan_keys.down = down,
                         _ => {}
                     }
+                    self.input_tracker.note_camera_pan(prev, self.camera_pan_keys);
                     // 未被热键占用，或按键抬起：只更新平移态。
                     if hotkey.is_none() || !down {
                         return BattleNav::None;

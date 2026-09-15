@@ -353,6 +353,10 @@ pub struct BattleInputEdges {
     pub focus_lost: bool,
     /// 滚轮步进累计（负=上、正=下，与 cameo 滚动同号）。
     pub wheel_steps: i32,
+    /// 方向键本帧刚按下（持续平移的边沿，供调试 / 热键冲突对照）。
+    pub pan_pressed: CameraPanKeys,
+    /// 方向键本帧刚抬起。
+    pub pan_released: CameraPanKeys,
 }
 
 /// 窗口事件归一化后的按键 / 焦点追踪（纯逻辑，可供单测覆盖失焦幽灵序列）。
@@ -417,6 +421,20 @@ impl BattleInputTracker {
     /// 累计滚轮步进。
     pub fn add_wheel_steps(&mut self, steps: i32) {
         self.edges.wheel_steps = self.edges.wheel_steps.saturating_add(steps);
+    }
+
+    /// 记录方向键按住变化的边沿（`prev` → `next`；调用方已写回 `camera_pan_keys`）。
+    ///
+    /// 失焦 / `reset_transient` 直接清空按住时**不要**调用本方法，以免误报抬起边沿。
+    pub fn note_camera_pan(&mut self, prev: CameraPanKeys, next: CameraPanKeys) {
+        self.edges.pan_pressed.left |= !prev.left && next.left;
+        self.edges.pan_pressed.right |= !prev.right && next.right;
+        self.edges.pan_pressed.up |= !prev.up && next.up;
+        self.edges.pan_pressed.down |= !prev.down && next.down;
+        self.edges.pan_released.left |= prev.left && !next.left;
+        self.edges.pan_released.right |= prev.right && !next.right;
+        self.edges.pan_released.up |= prev.up && !next.up;
+        self.edges.pan_released.down |= prev.down && !next.down;
     }
 
     /// 强制清空按住态（`reset_transient_input_state` / 脚本锁）。
@@ -1036,6 +1054,40 @@ mod tests {
         assert!(t.edges.focus_lost);
         assert!(!t.buttons.left);
         assert!(!t.edges.left_released);
+    }
+
+    #[test]
+    fn tracker_camera_pan_edges_and_silent_clear() {
+        let mut t = BattleInputTracker::default();
+        let mut keys = CameraPanKeys::default();
+        t.begin_frame();
+        let prev = keys;
+        keys.left = true;
+        t.note_camera_pan(prev, keys);
+        assert!(t.edges.pan_pressed.left);
+        assert!(!t.edges.pan_released.left);
+        t.begin_frame();
+        let prev = keys;
+        keys.left = false;
+        t.note_camera_pan(prev, keys);
+        assert!(t.edges.pan_released.left);
+        // 暂停静默清空：不调用 note_camera_pan → 无抬起边沿。
+        t.begin_frame();
+        keys.right = true;
+        keys.clear();
+        assert!(!t.edges.pan_released.any());
+        assert!(!keys.any());
+    }
+
+    #[test]
+    fn pause_while_holding_pan_must_clear_held_keys() {
+        // 按住方向键 → 暂停静默 clear → 恢复后不得继续平移。
+        let mut keys = CameraPanKeys { left: true, right: false, up: true, down: false };
+        assert!(keys.any());
+        keys.clear();
+        assert!(!keys.any());
+        let (dx, dy) = keyboard_pan_screen_delta(keys, 640.0, 1.0 / 60.0);
+        assert_eq!((dx, dy), (0.0, 0.0));
     }
 
     #[test]
