@@ -309,6 +309,10 @@ pub struct BattleInputFrame {
     pub marquee: Option<ScreenRect>,
     /// 当前捕获层种类。
     pub capture: BattleUiCapture,
+    /// 指针按键按住态。
+    pub buttons: PointerButtons,
+    /// 本帧边沿（自上次 `BattleInputTracker::begin_frame` 起累计）。
+    pub edges: BattleInputEdges,
 }
 
 impl BattleInputFrame {
@@ -316,6 +320,122 @@ impl BattleInputFrame {
     pub fn cursor_i32(self) -> (i32, i32) {
         (self.cursor.0 as i32, self.cursor.1 as i32)
     }
+}
+
+/// 指针按键按住态（持续；失焦时必须清空且不派发释放动作）。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct PointerButtons {
+    /// 左键。
+    pub left: bool,
+    /// 右键。
+    pub right: bool,
+}
+
+impl PointerButtons {
+    /// 是否有任一键按住。
+    pub const fn any(self) -> bool {
+        self.left || self.right
+    }
+}
+
+/// 本帧输入边沿（瞬时；每帧 `begin_frame` 清零后由事件累计）。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct BattleInputEdges {
+    /// 左键刚按下。
+    pub left_pressed: bool,
+    /// 左键刚抬起（正常释放；失焦取消不置位）。
+    pub left_released: bool,
+    /// 右键刚按下。
+    pub right_pressed: bool,
+    /// 右键刚抬起。
+    pub right_released: bool,
+    /// 本帧失焦。
+    pub focus_lost: bool,
+    /// 滚轮步进累计（负=上、正=下，与 cameo 滚动同号）。
+    pub wheel_steps: i32,
+}
+
+/// 窗口事件归一化后的按键 / 焦点追踪（纯逻辑，可供单测覆盖失焦幽灵序列）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BattleInputTracker {
+    /// 按住态。
+    pub buttons: PointerButtons,
+    /// 窗口是否拥有焦点。
+    pub focused: bool,
+    /// 本帧边沿。
+    pub edges: BattleInputEdges,
+}
+
+impl Default for BattleInputTracker {
+    fn default() -> Self {
+        Self {
+            buttons: PointerButtons::default(),
+            // 进对局假定已聚焦，直至收到 `Focused(false)`（避免首失焦时 focused 已是 false 而不清按住）。
+            focused: true,
+            edges: BattleInputEdges::default(),
+        }
+    }
+}
+
+impl BattleInputTracker {
+    /// 新帧开始：清边沿，保留按住与焦点。
+    pub fn begin_frame(&mut self) {
+        self.edges = BattleInputEdges::default();
+    }
+
+    /// 左键按下 / 抬起。
+    pub fn set_left(&mut self, down: bool) {
+        if down && !self.buttons.left {
+            self.edges.left_pressed = true;
+        }
+        else if !down && self.buttons.left {
+            self.edges.left_released = true;
+        }
+        self.buttons.left = down;
+    }
+
+    /// 右键按下 / 抬起。
+    pub fn set_right(&mut self, down: bool) {
+        if down && !self.buttons.right {
+            self.edges.right_pressed = true;
+        }
+        else if !down && self.buttons.right {
+            self.edges.right_released = true;
+        }
+        self.buttons.right = down;
+    }
+
+    /// 焦点变化。失焦时清空按住态且**不**产生 released 边沿（取消捕获，勿误触点击）。
+    pub fn set_focused(&mut self, focused: bool) {
+        if self.focused && !focused {
+            self.edges.focus_lost = true;
+            self.buttons = PointerButtons::default();
+        }
+        self.focused = focused;
+    }
+
+    /// 累计滚轮步进。
+    pub fn add_wheel_steps(&mut self, steps: i32) {
+        self.edges.wheel_steps = self.edges.wheel_steps.saturating_add(steps);
+    }
+
+    /// 强制清空按住态（`reset_transient_input_state` / 脚本锁）。
+    ///
+    /// 不清除本帧边沿：失焦的 `focus_lost` 等需保留到本帧呈现 / 调试消费完毕，
+    /// 由下一帧 `begin_frame` 统一清零。
+    pub fn reset_transient(&mut self) {
+        self.buttons = PointerButtons::default();
+    }
+}
+
+/// 命令条捕获：仅当释放命中同一槽才触发。
+pub fn hud_command_release_fires(capture_slot: usize, release_hit_slot: Option<usize>) -> bool {
+    release_hit_slot == Some(capture_slot)
+}
+
+/// 侧栏捕获：释放命中必须与按下命中相等（由调用方比较具体 `BattleHudHit`）。
+pub fn hud_sidebar_release_fires(pressed_same_control: bool) -> bool {
+    pressed_same_control
 }
 
 /// 对局呈现快照：壳层只应用，不重新跑业务判断。
@@ -857,5 +977,102 @@ mod tests {
         assert!(!w && !e && !n && !s);
         let (w, e, n, s) = edge_scroll_axes(2.0, 300.0, 800, 600, 16.0);
         assert!(w && !e && !n && !s);
+    }
+
+    #[test]
+    fn tracker_left_press_release_edges() {
+        let mut t = BattleInputTracker::default();
+        t.focused = true;
+        t.begin_frame();
+        t.set_left(true);
+        assert!(t.edges.left_pressed);
+        assert!(t.buttons.left);
+        t.begin_frame();
+        assert!(!t.edges.left_pressed);
+        assert!(t.buttons.left);
+        t.set_left(false);
+        assert!(t.edges.left_released);
+        assert!(!t.buttons.left);
+    }
+
+    #[test]
+    fn tracker_focus_lost_clears_held_without_release_edge() {
+        // 序列：左键按下 → 失焦 → 恢复 → 移动 → 释放，不得把失焦当成点击释放。
+        let mut t = BattleInputTracker { focused: true, ..Default::default() };
+        t.begin_frame();
+        t.set_left(true);
+        assert!(t.buttons.left);
+        t.begin_frame();
+        t.set_focused(false);
+        assert!(t.edges.focus_lost);
+        assert!(!t.buttons.left);
+        assert!(!t.edges.left_released, "focus loss must cancel hold, not fire release");
+        t.begin_frame();
+        t.set_focused(true);
+        t.set_left(false);
+        assert!(!t.edges.left_released, "button already clear, spurious up is ignored");
+    }
+
+    #[test]
+    fn tracker_reset_transient_drops_buttons_keeps_frame_edges() {
+        let mut t = BattleInputTracker { focused: true, ..Default::default() };
+        t.set_left(true);
+        t.set_right(true);
+        t.add_wheel_steps(2);
+        t.reset_transient();
+        assert!(!t.buttons.any());
+        assert_eq!(t.edges.wheel_steps, 2, "reset_transient keeps frame edges until begin_frame");
+        assert!(t.focused, "reset_transient keeps focus flag");
+        t.begin_frame();
+        assert_eq!(t.edges, BattleInputEdges::default());
+    }
+
+    #[test]
+    fn tracker_default_focused_so_first_blur_clears_hold() {
+        let mut t = BattleInputTracker::default();
+        assert!(t.focused);
+        t.set_left(true);
+        t.set_focused(false);
+        assert!(t.edges.focus_lost);
+        assert!(!t.buttons.left);
+        assert!(!t.edges.left_released);
+    }
+
+    #[test]
+    fn left_gesture_slop_becomes_marquee_then_release() {
+        let g = LeftGesture::begin(10.0, 20.0);
+        let g = g.on_cursor_moved(12.0, 22.0);
+        assert!(matches!(g, LeftGesture::MaybeClick { .. }));
+        let g = g.on_cursor_moved(10.0 + f64::from(CLICK_SLOP_PX) + 1.0, 20.0);
+        assert!(matches!(g, LeftGesture::Marquee { .. }));
+        let rect = g.marquee_rect().expect("marquee rect");
+        assert!(rect.w >= CLICK_SLOP_PX);
+        let (idle, action) = g.release();
+        assert_eq!(idle, LeftGesture::Idle);
+        assert!(matches!(action, LeftReleaseAction::Marquee(_)));
+    }
+
+    #[test]
+    fn left_gesture_small_move_stays_click() {
+        let g = LeftGesture::begin(0.0, 0.0).on_cursor_moved(2.0, 2.0);
+        let (_, action) = g.release();
+        assert_eq!(action, LeftReleaseAction::Click);
+    }
+
+    #[test]
+    fn hud_command_release_requires_same_slot() {
+        assert!(hud_command_release_fires(3, Some(3)));
+        assert!(!hud_command_release_fires(3, Some(4)));
+        assert!(!hud_command_release_fires(3, None));
+        assert!(hud_sidebar_release_fires(true));
+        assert!(!hud_sidebar_release_fires(false));
+    }
+
+    #[test]
+    fn world_capture_not_replaced_by_hud_move_rule() {
+        // 战术区按下后移入 HUD：捕获仍为 World（由 ingest 不改 capture 保证）。
+        let cap = BattleUiCapture::World;
+        assert!(cap.is_world());
+        assert!(!cap.is_hud());
     }
 }
