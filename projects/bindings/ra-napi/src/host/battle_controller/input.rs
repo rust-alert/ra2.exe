@@ -84,11 +84,14 @@ impl BattleController {
                 .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
         });
         let selected_naval_only = has_mobile
-            && selected.iter().filter(|&&id| {
-                game.world
-                    .ecs_identity(id)
-                    .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
-            }).all(|&id| game.world.entity_is_naval(id));
+            && selected
+                .iter()
+                .filter(|&&id| {
+                    game.world
+                        .ecs_identity(id)
+                        .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
+                })
+                .all(|&id| game.world.entity_is_naval(id));
 
         // 悬停已选可部署单位 → Deploy（先于攻击 / 移动，避免被友军格 Move 盖住）。
         if let Some(id) = game.pick_local_mobile_near_image(wx, wy, 72.0) {
@@ -109,8 +112,7 @@ impl BattleController {
             if game.pick_hostile_near_image(wx, wy, 72.0).is_some() {
                 return BattlePointer::Attack;
             }
-            let ok = game.world.pass_grid.in_bounds(cell.0, cell.1)
-                && game.world.pass_grid.is_traversable(cell.0, cell.1, selected_naval_only);
+            let ok = game.world.pass_grid.in_bounds(cell.0, cell.1) && game.world.pass_grid.is_traversable(cell.0, cell.1, selected_naval_only);
             return if ok { BattlePointer::Attack } else { BattlePointer::NoMove };
         }
 
@@ -119,8 +121,7 @@ impl BattleController {
             return BattlePointer::Attack;
         }
 
-        let ok = game.world.pass_grid.in_bounds(cell.0, cell.1)
-            && game.world.pass_grid.is_traversable(cell.0, cell.1, selected_naval_only);
+        let ok = game.world.pass_grid.in_bounds(cell.0, cell.1) && game.world.pass_grid.is_traversable(cell.0, cell.1, selected_naval_only);
         if ok { BattlePointer::Move } else { BattlePointer::NoMove }
     }
 
@@ -254,52 +255,7 @@ impl BattleController {
         let order_mod = super::super::battle_input::OrderClickModifier::from_keys(self.ctrl_down, self.alt_down);
         let queue_path = self.shift_down;
 
-        // 本方单位 / 建筑优先：选择（或加选），不发移动 / 攻击。
-        // Alt 强制移动时跳过友军点选，允许点到友军所占格仍下令移动。
-        let skip_friendly_pick = matches!(order_mod, super::super::battle_input::OrderClickModifier::ForceMove) && has_mobile;
-        if !skip_friendly_pick {
-            let local_picked =
-                game.pick_local_mobile_near_image(wx, wy, 72.0).or_else(|| Self::pick_local_building_at_image(game, wx, wy)).or_else(|| {
-                    let cell = game.image_to_cell(wx, wy)?;
-                    if let Some(house) = local_house.as_deref() {
-                        game.pick_mobile_at_owned(cell.0, cell.1, Some(house))
-                    }
-                    else {
-                        game.pick_mobile_at(cell.0, cell.1)
-                    }
-                });
-            if let Some(id) = local_picked {
-                let cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
-                // 西木：左键点已选可部署单位 → 立即部署（非 Shift 加选）。
-                if !add && self.local.selected.contains(&id) && game.entity_can_deploy(id) {
-                    let tick = game.world.tick;
-                    self.deploy_selection();
-                    self.pulse_action_lines_at(tick);
-                    return;
-                }
-                // 再点已选生产厂 → 设为主厂（PRI）。
-                if !add && self.local.selected.contains(&id) && game.selection_has_primary_factory(&[id]) {
-                    if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                        tracing::info!("设为主厂 → #{}（选中 {:?}）", id.0, selected);
-                        game.order_set_primary(&[id]);
-                    }
-                    self.pulse_action_lines_at(tick);
-                    return;
-                }
-                if add {
-                    self.local.select_add(game, id);
-                    tracing::info!("加选实体 #{} @({},{}) · 选中 {:?}", id.0, cell.0, cell.1, self.local.selected);
-                }
-                else {
-                    self.local.select_only(game, id);
-                    tracing::info!("选中实体 #{} @({},{})", id.0, cell.0, cell.1);
-                }
-                self.pulse_action_lines_at(tick);
-                return;
-            }
-        }
-
-        // 已选机动单位：左键敌方 → 攻击 / 占领 / 渗透（Alt 强制移动则跳过，改走落点移动）。
+        // 已选机动：先敌后友（与 Attack / Move 光标一致），避免邻矿被友军松散点选吞掉。
         if has_mobile && !matches!(order_mod, super::super::battle_input::OrderClickModifier::ForceMove) {
             if let Some(target) = game.pick_hostile_near_image(wx, wy, 72.0) {
                 let is_structure = game.world.ecs_identity(target).is_some_and(|(_, kind)| kind == MapEntityKind::Structure);
@@ -322,6 +278,83 @@ impl BattleController {
                 self.follow_mode = false;
                 self.pulse_action_lines_at(tick);
                 return;
+            }
+        }
+
+        // 本方单位 / 建筑：选择（或加选）。Alt 强制移动时跳过，允许点到友军所占格仍下令移动。
+        let skip_friendly_pick = matches!(order_mod, super::super::battle_input::OrderClickModifier::ForceMove) && has_mobile;
+        if !skip_friendly_pick {
+            // 有机动选中：只认落点格（禁止 72px 车身软命中），否则点邻矿会被吞成重选、左键采矿无反应。
+            let local_picked = if super::super::battle_input::allow_friendly_image_soft_pick(has_mobile) {
+                game.pick_local_mobile_near_image(wx, wy, 72.0)
+                    .or_else(|| Self::pick_local_building_at_image(game, wx, wy))
+                    .or_else(|| {
+                        if !super::super::battle_input::allow_cell_neighbor_friendly_pick(has_mobile) {
+                            return None;
+                        }
+                        let cell = game.image_to_cell(wx, wy)?;
+                        if let Some(house) = local_house.as_deref() {
+                            game.pick_mobile_at_owned(cell.0, cell.1, Some(house))
+                        }
+                        else {
+                            game.pick_mobile_at(cell.0, cell.1)
+                        }
+                    })
+            }
+            else {
+                game.image_to_cell(wx, wy).and_then(|(cx, cy)| {
+                    let house = local_house.as_deref()?;
+                    game.pick_mobile_at_owned(cx, cy, Some(house)).or_else(|| {
+                        game.pick_structure_at(cx, cy).filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house))
+                    })
+                })
+            };
+            if let Some(id) = local_picked {
+                let unit_cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
+                let click_cell = game.image_to_cell(wx, wy);
+                // 西木：左键点已选可部署单位 → 立即部署（非 Shift 加选）。
+                if !add && self.local.selected.contains(&id) && game.entity_can_deploy(id) {
+                    let tick = game.world.tick;
+                    self.deploy_selection();
+                    self.pulse_action_lines_at(tick);
+                    return;
+                }
+                // 再点已选生产厂 → 设为主厂（PRI）。
+                if !add && self.local.selected.contains(&id) && game.selection_has_primary_factory(&[id]) {
+                    if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                        tracing::info!("设为主厂 → #{}（选中 {:?}）", id.0, selected);
+                        game.order_set_primary(&[id]);
+                    }
+                    self.pulse_action_lines_at(tick);
+                    return;
+                }
+                // 点中建筑 Foundation 占地：视为点选建筑（锚点格≠落点格时不能当「异格移动」）。
+                let on_structure_footprint = game.world.ecs_identity(id).is_some_and(|(_, kind)| kind == MapEntityKind::Structure)
+                    && click_cell.is_some_and(|(cx, cy)| game.pick_structure_at(cx, cy) == Some(id));
+                // 兜底：若仍误走软命中且落点异格，与 Move 光标对齐改下令。
+                if !on_structure_footprint
+                    && super::super::battle_input::friendly_soft_hit_should_order_not_reselect(has_mobile, click_cell, Some(unit_cell))
+                {
+                    tracing::debug!(
+                        entity = id.0,
+                        ?click_cell,
+                        unit_x = unit_cell.0,
+                        unit_y = unit_cell.1,
+                        "友军软命中但落点异格 · 改下移动令"
+                    );
+                }
+                else {
+                    if add {
+                        self.local.select_add(game, id);
+                        tracing::info!("加选实体 #{} @({},{}) · 选中 {:?}", id.0, unit_cell.0, unit_cell.1, self.local.selected);
+                    }
+                    else {
+                        self.local.select_only(game, id);
+                        tracing::info!("选中实体 #{} @({},{})", id.0, unit_cell.0, unit_cell.1);
+                    }
+                    self.pulse_action_lines_at(tick);
+                    return;
+                }
             }
         }
 

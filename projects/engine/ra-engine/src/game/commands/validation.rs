@@ -47,8 +47,10 @@ impl crate::state::BattleState {
                         continue;
                     }
                     self.clear_deploy_stance_for_move(id);
+                    let harvest = self.ecs_get::<Identity>(id).is_some_and(|i| crate::gameplay::is_harvester(&self.definitions, i.type_id))
+                        && self.harvestable_ore_at(x, y).is_some();
                     let _ = self.with_identity_mut(id, |identity| {
-                        identity.mission = None;
+                        identity.mission = if harvest { Some(ra_types::MissionKind::Harvest) } else { None };
                     });
                     let _ = self.with_attack_mut(id, |attack| {
                         attack.target = None;
@@ -91,8 +93,10 @@ impl crate::state::BattleState {
                         continue;
                     };
                     let rest: Vec<(u16, u16)> = points.iter().skip(1).copied().collect();
+                    let harvest = self.ecs_get::<Identity>(id).is_some_and(|i| crate::gameplay::is_harvester(&self.definitions, i.type_id))
+                        && self.harvestable_ore_at(x, y).is_some();
                     let _ = self.with_identity_mut(id, |identity| {
-                        identity.mission = None;
+                        identity.mission = if harvest { Some(ra_types::MissionKind::Harvest) } else { None };
                     });
                     let _ = self.with_attack_mut(id, |attack| {
                         attack.target = None;

@@ -215,8 +215,9 @@ impl crate::state::BattleState {
         let warhead_id = weapon.and_then(|w| w.warhead_id).or(warhead_fallback);
         let attack_verses = verses_for(&self.definitions, warhead_id);
         let id = self.alloc_entity_id();
+        let mission = if tt.harvester { Some(ra_types::MissionKind::Harvest) } else { None };
         let unit_index = self.spawn_from_bundle(EntitySpawnBundle {
-            identity: Identity { entity_id: id, type_id: def_id, kind, mission: None, tag: None },
+            identity: Identity { entity_id: id, type_id: def_id, kind, mission, tag: None },
             owner: Owner { house: owner_id },
             transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
             health: Health { current: max_health, maximum: max_health, dead: false },

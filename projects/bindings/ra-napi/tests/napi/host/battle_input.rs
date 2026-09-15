@@ -126,3 +126,26 @@ fn order_click_modifier_ctrl_beats_alt() {
     assert_eq!(OrderClickModifier::from_keys(false, true), OrderClickModifier::ForceMove);
     assert_eq!(OrderClickModifier::from_keys(true, true), OrderClickModifier::ForceAttack);
 }
+
+#[test]
+fn selected_mobile_blocks_cell_neighbor_friendly_pick() {
+    assert!(!allow_cell_neighbor_friendly_pick(true));
+    assert!(allow_cell_neighbor_friendly_pick(false));
+}
+
+#[test]
+fn selected_mobile_blocks_friendly_image_soft_pick() {
+    // 有机动选中时禁止车身软命中，否则点邻矿被吞成重选。
+    assert!(!allow_friendly_image_soft_pick(true));
+    assert!(allow_friendly_image_soft_pick(false));
+}
+
+#[test]
+fn soft_hit_selected_harvester_on_neighbor_ore_orders_not_reselects() {
+    // 矿车在 (5,5)，左键点邻格矿 (6,5)：车身软命中仍摸到单位，但必须下移动 / 采集令。
+    assert!(friendly_soft_hit_should_order_not_reselect(true, Some((6, 5)), Some((5, 5))));
+    // 落点就是单位格：点选 / 部署，不改下令。
+    assert!(!friendly_soft_hit_should_order_not_reselect(true, Some((5, 5)), Some((5, 5))));
+    // 无机动选中：走点选。
+    assert!(!friendly_soft_hit_should_order_not_reselect(false, Some((6, 5)), Some((5, 5))));
+}

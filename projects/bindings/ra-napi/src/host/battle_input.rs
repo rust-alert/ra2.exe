@@ -1,4 +1,10 @@
 //! 对局指针手势：点选 / 框选状态机（左键不再驱动相机平移）。
+//!
+//! 坐标约定：Battle 布局 / 命中 / 光标一律使用**逻辑像素**（与壳层菜单、`DisplayMode` 同口径）。
+//! 物理表面尺寸仅用于 GPU scissor / 交换链。
+
+use winit::dpi::{LogicalSize, PhysicalPosition};
+use winit::window::Window;
 
 /// 左键位移小于该像素阈值时视为点选，否则进入框选。
 pub const CLICK_SLOP_PX: f32 = 6.0;
@@ -20,6 +26,135 @@ pub const EDGE_SCROLL_SPEED_PX_PER_SEC: f32 = 640.0;
 
 /// 方向键镜头平移速度（屏幕像素 / 秒）。与边缘滚屏同速；跟逻辑 tick / 系统按键重复无关。
 pub const KEYBOARD_PAN_SPEED_PX_PER_SEC: f32 = EDGE_SCROLL_SPEED_PX_PER_SEC;
+
+/// 对局表面度量：逻辑布局与物理表面拆分，命中与合成只读逻辑尺寸。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BattleSurfaceMetrics {
+    /// 逻辑客户区宽（与 `DisplayMode` / 菜单 `window_width` 同口径）。
+    pub logical_width: u32,
+    /// 逻辑客户区高。
+    pub logical_height: u32,
+    /// 物理表面宽（交换链 / `inner_size`）。
+    pub physical_width: u32,
+    /// 物理表面高。
+    pub physical_height: u32,
+    /// `winit` 缩放因子。
+    pub scale_factor: f64,
+}
+
+impl BattleSurfaceMetrics {
+    /// 由窗口当前物理尺寸与缩放因子构造。
+    pub fn from_window(window: &Window) -> Self {
+        let scale = window.scale_factor().max(0.0001);
+        let physical = window.inner_size();
+        let logical: LogicalSize<f64> = physical.to_logical(scale);
+        Self {
+            logical_width: logical.width.round().max(1.0) as u32,
+            logical_height: logical.height.round().max(1.0) as u32,
+            physical_width: physical.width.max(1),
+            physical_height: physical.height.max(1),
+            scale_factor: scale,
+        }
+    }
+
+    /// 物理光标位置 → 逻辑像素（与菜单 `CursorMoved` 同转换）。
+    pub fn cursor_from_physical(self, position: PhysicalPosition<f64>) -> (f64, f64) {
+        let logical = position.to_logical::<f64>(self.scale_factor);
+        (logical.x, logical.y)
+    }
+
+    /// 逻辑矩形 → 物理表面矩形（供 GPU `set_viewport` / scissor）。
+    pub fn layout_rect_to_physical(self, x: u32, y: u32, w: u32, h: u32) -> (u32, u32, u32, u32) {
+        let s = self.scale_factor;
+        let px = (f64::from(x) * s).round().max(0.0) as u32;
+        let py = (f64::from(y) * s).round().max(0.0) as u32;
+        let mut pw = (f64::from(w) * s).round().max(1.0) as u32;
+        let mut ph = (f64::from(h) * s).round().max(1.0) as u32;
+        // 夹到物理表面，避免舍入越界。
+        if px >= self.physical_width || py >= self.physical_height {
+            return (0, 0, 1, 1);
+        }
+        pw = pw.min(self.physical_width.saturating_sub(px).max(1));
+        ph = ph.min(self.physical_height.saturating_sub(py).max(1));
+        (px, py, pw, ph)
+    }
+}
+
+/// 对局互斥交互模式（工具态 / 命令条模式；Shift 排队等属修饰键，不进此枚举）。
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum BattleInteractionMode {
+    /// 常规点选 / 下令。
+    #[default]
+    Normal,
+    /// 建造放置（建筑类型键）。
+    PlaceBuilding {
+        /// rules / art 类型 id。
+        type_id: String,
+    },
+    /// 侧栏修理工具。
+    Repair,
+    /// 侧栏出售工具。
+    Sell,
+    /// 命令条路径点规划。
+    Planning,
+    /// 命令条攻击移动（下一次左键空地 / 敌方）。
+    AttackMove,
+    /// 跟随模式（左键点选目标）。
+    Follow,
+}
+
+impl BattleInteractionMode {
+    /// 当前是否为建造放置，并返回类型键。
+    pub fn place_type_id(&self) -> Option<&str> {
+        match self {
+            Self::PlaceBuilding { type_id } => Some(type_id.as_str()),
+            _ => None,
+        }
+    }
+
+    /// 是否为修理工具。
+    pub fn is_repair(&self) -> bool {
+        matches!(self, Self::Repair)
+    }
+
+    /// 是否为出售工具。
+    pub fn is_sell(&self) -> bool {
+        matches!(self, Self::Sell)
+    }
+
+    /// 是否为路径规划。
+    pub fn is_planning(&self) -> bool {
+        matches!(self, Self::Planning)
+    }
+
+    /// 是否为攻击移动。
+    pub fn is_attack_move(&self) -> bool {
+        matches!(self, Self::AttackMove)
+    }
+
+    /// 是否为跟随。
+    pub fn is_follow(&self) -> bool {
+        matches!(self, Self::Follow)
+    }
+
+    /// 是否为非 `Normal` 工具 / 命令模式（右键可取消）。
+    pub fn is_tool(&self) -> bool {
+        !matches!(self, Self::Normal)
+    }
+}
+
+/// 对局呈现快照：壳层只应用，不重新跑业务判断。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BattlePresentationState {
+    /// 当前应显示的指针。
+    pub pointer: BattlePointer,
+}
+
+impl Default for BattlePresentationState {
+    fn default() -> Self {
+        Self { pointer: BattlePointer::Default }
+    }
+}
 
 /// 方向键按住状态（由渲染帧 `dt` 推进镜头，不靠 OS key-repeat 跳格）。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -366,11 +501,38 @@ pub enum RightClickMapOutcome {
 
 /// 由「是否仍有工具态」决定右键地图语义。
 pub fn classify_right_click_map(tools_active: bool) -> RightClickMapOutcome {
-    if tools_active {
-        RightClickMapOutcome::CancelToolModes
+    if tools_active { RightClickMapOutcome::CancelToolModes } else { RightClickMapOutcome::Deselect }
+}
+
+/// 已选机动单位时，友军点选是否允许「逻辑格邻域回退」。
+///
+/// 有选中时悬停空地 / 矿为 Move；若仍用邻格松散命中，点邻矿会重选矿车，左键采矿无反应。
+pub fn allow_cell_neighbor_friendly_pick(has_mobile_selection: bool) -> bool {
+    !has_mobile_selection
+}
+
+/// 已选机动单位时，是否允许友军 **图像软命中**（`pick_*_near_image`）。
+///
+/// 西木：已选单位时左键空地 / 矿 = 下令。矿车等载具软半径很大，点邻矿常仍摸到车身，
+/// 若先走软命中再点选，表现就是「选中矿车左击矿没反应」。有机动选中时只认落点格。
+pub fn allow_friendly_image_soft_pick(has_mobile_selection: bool) -> bool {
+    !has_mobile_selection
+}
+
+/// 已选机动单位时：软命中友军，但落点格不是该单位所占格 → 应按 Move 下令，勿点选。
+///
+/// 兜底：若仍误走了软命中，与 Move 光标对齐，左键必须下发移动 / 采集。
+pub fn friendly_soft_hit_should_order_not_reselect(
+    has_mobile_selection: bool,
+    click_cell: Option<(u16, u16)>,
+    picked_cell: Option<(u16, u16)>,
+) -> bool {
+    if !has_mobile_selection {
+        return false;
     }
-    else {
-        RightClickMapOutcome::Deselect
+    match (click_cell, picked_cell) {
+        (Some(click), Some(picked)) => click != picked,
+        _ => false,
     }
 }
 
