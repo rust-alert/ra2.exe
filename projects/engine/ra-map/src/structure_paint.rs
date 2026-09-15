@@ -924,6 +924,46 @@ pub fn load_structure_buildup_clip(
     Some(StructureBuildupClip { x, y, sort_depth, cell_z, rate_ms: buildup.rate_ms, frames })
 }
 
+/// 装入出售 / 拆除擦底图用的精灵遮罩（Bib + 主体帧 0）。
+///
+/// 无 art 提示或 SHP 缺失时返回空；调用方再回退 Buildup 末帧或 Foundation 矩形。
+pub fn load_structure_erase_masks(
+    source: &dyn AssetSource,
+    map: &MapInfo,
+    paint: &mut crate::PaintDefinitions,
+    type_id: &str,
+    owner: &str,
+    remap_owner: &dyn Fn(&Palette, &str) -> Palette,
+) -> Vec<TileBlit> {
+    let techno = TechnoName::parse(type_id);
+    paint.ensure_structure_hint(&techno);
+    let Some(hint) = paint.structure_hint(&techno).cloned()
+    else {
+        return Vec::new();
+    };
+    let Some(obj_pal) = load_object_palette(source, map)
+    else {
+        return Vec::new();
+    };
+    let pal = structure_owner_palette(hint.remapable, owner, &obj_pal, remap_owner);
+    let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
+    let mut blit_cache: HashMap<(String, String, u16, i32), TileBlit> = HashMap::new();
+    let mut out = Vec::new();
+    if let Some(bib_key) = hint.bib_key.as_ref() {
+        if let Some(blit) =
+            load_structure_blit(source, map, bib_key, hint.bib_new_theater, 0, 0, &pal, &mut shp_cache, &mut blit_cache, owner)
+        {
+            out.push(blit);
+        }
+    }
+    if let Some(blit) =
+        load_structure_blit(source, map, hint.body_key.as_str(), hint.body_new_theater, 0, 0, &pal, &mut shp_cache, &mut blit_cache, owner)
+    {
+        out.push(blit);
+    }
+    out
+}
+
 /// 把 Buildup 某一帧叠到 RGBA 预览。
 pub fn paint_structure_buildup_onto_rgba(
     image: &mut image::RgbaImage,
