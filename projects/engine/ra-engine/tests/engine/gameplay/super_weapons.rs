@@ -103,3 +103,104 @@ fn order_fire_super_weapon_starts_lightning_storm() {
     assert!(item.charge_ticks < item.required_ticks);
     assert_eq!(item.disabled_reason, Some(CommandRejectReason::SuperWeaponNotReady));
 }
+
+#[test]
+fn order_fire_nuke_applies_weapon_damage_in_spread() {
+    let defs = defs_from_rules_ini(
+        b"[BuildingTypes]\n0=GACNST\n1=NAMISL\n\
+[VehicleTypes]\n0=TGT\n\
+[SuperWeaponTypes]\n0=NukeSpecial\n\
+[NukeSpecial]\nType=MultiMissile\nRechargeTime=1\nSidebarImage=NUKEICON\nWeapon=NukePayload\n\
+[NukePayload]\nDamage=80\nROF=1\nRange=10\nWarhead=NukeWH\n\
+[NukeWH]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\nSpread=1\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
+[NAMISL]\nPower=-50\nPowered=yes\nOwner=Americans\nStrength=800\nSight=5\nCost=1000\nTechLevel=1\nSuperWeapon=NukeSpecial\n\
+[TGT]\nStrength=200\nSpeed=0\nSight=1\nCost=100\nArmor=none\n",
+    );
+    let mut map = MapInfo::empty(GameEdition::Ra2, "sw-nuke");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GACNST".into(),
+            health: 256,
+            x: 1,
+            y: 1,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "NAMISL".into(),
+            health: 256,
+            x: 2,
+            y: 1,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: "SOVIETS".into(),
+            type_id: "TGT".into(),
+            health: 256,
+            x: 8,
+            y: 8,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: "SOVIETS".into(),
+            type_id: "TGT".into(),
+            health: 256,
+            x: 9,
+            y: 8,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: "SOVIETS".into(),
+            type_id: "TGT".into(),
+            health: 256,
+            x: 12,
+            y: 12,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+    ];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+    world.players[0].power_output = 200;
+    let mut session = Session::from_state(world, "sw-nuke");
+    for _ in 0..SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT {
+        session.expect_battle_mut().world.advance_tick();
+    }
+    assert!(
+        session.expect_battle().snapshot_capabilities(&[]).super_weapon_items.iter().any(|i| i.ready && i.enabled),
+        "expected ready Nuke"
+    );
+    let far_before = session.expect_battle().world.ecs_health(session.expect_battle().world.entity_id_at(4).expect("far")).expect("hp").0;
+    session.expect_battle_mut().order_fire_super_weapon("NukeSpecial", 8, 8);
+    session.expect_battle_mut().world.advance_tick();
+    assert!(session.expect_battle().world.last_rejects().is_empty(), "{:?}", session.expect_battle().world.last_rejects());
+    let near = session.expect_battle().world.ecs_health(session.expect_battle().world.entity_id_at(2).expect("near")).expect("hp").0;
+    let adjacent = session.expect_battle().world.ecs_health(session.expect_battle().world.entity_id_at(3).expect("adj")).expect("hp").0;
+    let far = session.expect_battle().world.ecs_health(session.expect_battle().world.entity_id_at(4).expect("far")).expect("hp").0;
+    assert_eq!(near, 120, "center victim should take 80 damage");
+    assert_eq!(adjacent, 120, "spread=1 victim should take 80 damage");
+    assert_eq!(far, far_before, "out-of-spread victim untouched");
+}

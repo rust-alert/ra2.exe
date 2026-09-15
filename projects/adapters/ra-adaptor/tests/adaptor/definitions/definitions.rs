@@ -103,18 +103,25 @@ fn build_runtime_definitions_parses_super_weapon_types_and_building_link() {
 #[test]
 fn unsupported_super_weapon_kind_emits_capability_gap_and_executor_flag() {
     let rules = rules_from(
-        b"[SuperWeaponTypes]\n0=NukeSpecial\n1=LightningStorm\n\
-[NukeSpecial]\nType=Nuke\nRechargeTime=10\n\
+        b"[SuperWeaponTypes]\n0=IronCurtain\n1=LightningStorm\n2=NukeSpecial\n\
+[IronCurtain]\nType=IronCurtain\nRechargeTime=10\n\
 [LightningStorm]\nType=LightningStorm\nRechargeTime=5\n\
+[NukeSpecial]\nType=Nuke\nRechargeTime=8\nWeapon=NukePayload\n\
+[NukePayload]\nDamage=200\nROF=1\nRange=10\nWarhead=NukeWH\n\
+[NukeWH]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\nSpread=2\n\
 [General]\nLightningStormDuration=120\nLightningDeferment=3\n\
 [CrateRules]\nCrateMoney=1500\nCrateMinimum=100\nCrateMaximum=3000\n",
     );
     let defs = build_runtime_definitions(&rules).expect("freeze");
-    let nuke = defs.super_weapons.get("NukeSpecial").expect("nuke");
-    assert!(!nuke.has_registered_executor());
-    assert!(defs.capability_gaps.iter().any(|g| g.code.contains("rules.superweapon.NUKE deferred")));
+    let iron = defs.super_weapons.get("IronCurtain").expect("iron");
+    assert!(!iron.has_registered_executor());
+    assert!(defs.capability_gaps.iter().any(|g| g.code.contains("rules.superweapon.IRONCURTAIN deferred")));
     let ls = defs.super_weapons.get("LightningStorm").expect("ls");
     assert!(ls.has_registered_executor());
+    let nuke = defs.super_weapons.get("NukeSpecial").expect("nuke");
+    assert!(nuke.has_registered_executor());
+    assert!(nuke.weapon_id.is_some());
+    assert!(!defs.capability_gaps.iter().any(|g| g.code.contains("rules.superweapon.NUKE deferred")));
     assert_eq!(defs.lightning_storm.duration_ticks, 120);
     assert_eq!(defs.lightning_storm.deferment_ticks, 3);
     assert_eq!(defs.crate_rules.default_credits, 1500);

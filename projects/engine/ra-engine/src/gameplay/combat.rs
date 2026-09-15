@@ -409,3 +409,66 @@ fn scale_damage(base: u32, verses: &[u32; 11], armor: ArmorKind) -> u32 {
     let pct = verses[armor.index()];
     ((u64::from(base) * u64::from(pct)) / 100) as u32
 }
+
+/// 超武／溅射：以武器伤害 + 弹头 Verses／Spread 对中心格邻域做一次瞬时打击。
+pub(crate) fn apply_weapon_strike_at(
+    world: &mut crate::state::BattleState,
+    center_x: u16,
+    center_y: u16,
+    weapon_id: ra_types::WeaponId,
+    killer_house: Option<&str>,
+) {
+    let Some(weapon) = world.definitions.weapons.get_by_id(weapon_id).cloned()
+    else {
+        return;
+    };
+    let warhead = weapon.warhead_id.and_then(|id| world.definitions.warheads.get_by_id(id).cloned());
+    let verses = warhead.as_ref().map(|w| w.verses.multipliers()).unwrap_or_else(crate::gameplay::full_verses);
+    let radius = warhead.as_ref().map(|w| w.spread as i32).unwrap_or(0);
+    let base_damage = weapon.damage;
+    if base_damage == 0 {
+        return;
+    }
+    let mut hit_indices = Vec::new();
+    for (index, entity) in world.entities.iter().enumerate() {
+        let id = entity.id;
+        if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+            continue;
+        }
+        let Some(xf) = world.ecs_get::<Transform>(id)
+        else {
+            continue;
+        };
+        let is_structure = world.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false);
+        let covers = if is_structure {
+            let type_id = world.ecs_get::<Identity>(id).map(|i| i.type_id);
+            let foundation =
+                type_id.and_then(|tid| world.definitions.structures.get_by_id(tid)).map(|s| s.foundation.clone()).unwrap_or_default();
+            let fw = foundation.width.max(1) as i32;
+            let fh = foundation.height.max(1) as i32;
+            let left = xf.x as i32;
+            let top = xf.y as i32;
+            let right = left + fw - 1;
+            let bottom = top + fh - 1;
+            let nearest_x = (center_x as i32).clamp(left, right);
+            let nearest_y = (center_y as i32).clamp(top, bottom);
+            (nearest_x - center_x as i32).abs().max((nearest_y - center_y as i32).abs()) <= radius
+        }
+        else {
+            let dx = (xf.x as i32 - center_x as i32).abs();
+            let dy = (xf.y as i32 - center_y as i32).abs();
+            dx.max(dy) <= radius
+        };
+        if covers {
+            hit_indices.push(index);
+        }
+    }
+    for index in hit_indices {
+        let id = world.entities[index].id;
+        let armor = world.ecs_get::<CombatStats>(id).map(|s| s.armor).unwrap_or(ArmorKind::None);
+        let dmg = scale_damage(base_damage, &verses, armor);
+        if dmg > 0 {
+            world.apply_damage_credited(index, dmg, killer_house);
+        }
+    }
+}

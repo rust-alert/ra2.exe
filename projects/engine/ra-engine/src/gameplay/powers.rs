@@ -373,6 +373,13 @@ pub fn try_fire_super_weapon(
             let rules = &world.definitions.lightning_storm;
             start_lightning_storm(world, x, y, rules.deferment_ticks as i32, rules.duration_ticks as i32);
         }
+        "MULTIMISSILE" | "NUKE" => {
+            let Some(weapon_id) = sw_def.weapon_id
+            else {
+                return Err(FireSuperWeaponError::UnsupportedKind);
+            };
+            super::combat::apply_weapon_strike_at(world, x, y, weapon_id, Some(house));
+        }
         _ => return Err(FireSuperWeaponError::UnsupportedKind),
     }
     world.super_weapon_runtime.reset_charge(house, &type_key);

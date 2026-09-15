@@ -316,7 +316,10 @@ impl SuperWeaponDefinition {
 
 /// 已注册的超武玩法执行器集合（扩展时在此登记，禁止在释放点散落字符串分支）。
 pub fn super_weapon_kind_has_executor(kind: &str) -> bool {
-    matches!(kind.trim().to_ascii_uppercase().as_str(), "LIGHTNINGSTORM")
+    matches!(
+        kind.trim().to_ascii_uppercase().as_str(),
+        "LIGHTNINGSTORM" | "MULTIMISSILE" | "NUKE"
+    )
 }
 
 /// 超级武器定义表（按外部 type_key 查询）。
