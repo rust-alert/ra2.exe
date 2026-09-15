@@ -45,6 +45,8 @@ fn factory_world() -> BattleState {
     ];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds("AMERICANS", 10_000));
+    // 预放工厂耗电；补足供电，避免测例落入低电半速。
+    world.players[0].power_output = 200;
     world
 }
 
@@ -54,13 +56,15 @@ fn produce_infantry_spawns_after_queue_ticks() {
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
-    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 200));
+    // 边造边扣：首 tick 只扣一步，不是全额。
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 200 / PRODUCE_TICKS as i32));
     assert_eq!(world.entity_count(), 2);
     for _ in 0..(PRODUCE_TICKS - 1) {
         assert_eq!(world.entity_count(), 2);
         world.advance_tick();
     }
     assert_eq!(world.entity_count(), 3);
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 200));
     let unit = world.entity_id_at(2).expect("entity");
     assert_eq!(unit, EntityId(3));
     let identity = world.ecs_identity(unit).expect("id");
@@ -70,13 +74,34 @@ fn produce_infantry_spawns_after_queue_ticks() {
 }
 
 #[test]
-fn produce_rejects_insufficient_funds() {
+fn produce_starts_with_insufficient_funds_and_pauses() {
     let mut world = factory_world();
     assert!(world.set_house_funds("AMERICANS", 50));
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });
     world.advance_tick();
-    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InsufficientFunds);
+    // 原版：钱不够也能开单；首步应付 10，有钱则推进。
+    assert!(world.last_rejects().is_empty(), "{:?}", world.last_rejects());
+    let factory = world.entity_id_at(0).expect("barracks");
+    assert!(world.ecs_produce_item(factory).expect("queue").is_some());
+    assert_eq!(world.house_funds("AMERICANS"), Some(50 - 200 / PRODUCE_TICKS as i32));
+
+    // 花光后推进应暂停（剩余 tick 不变）。
+    assert!(world.set_house_funds("AMERICANS", 0));
+    let rem_before = world.ecs_produce_remaining(factory).expect("queue").expect("item");
+    world.advance_tick();
+    let rem_after = world.ecs_produce_remaining(factory).expect("queue").expect("item");
+    assert_eq!(rem_after, rem_before, "broke production must pause");
     assert_eq!(world.entity_count(), 2);
+
+    // 补钱后自动继续，满 tick 出兵。
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+    for _ in 0..PRODUCE_TICKS {
+        if world.entity_count() >= 3 {
+            break;
+        }
+        world.advance_tick();
+    }
+    assert_eq!(world.entity_count(), 3);
 }
 
 #[test]
@@ -89,7 +114,8 @@ fn produce_enqueues_second_unit_while_busy() {
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: e1 });
     world.advance_tick();
     assert!(world.last_rejects().is_empty(), "unit FIFO should accept a second Produce: {:?}", world.last_rejects());
-    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 400));
+    // 候补未开工不扣款；两 tick 只扣队首两步。
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 2 * (200 / PRODUCE_TICKS as i32)));
     let factory = world.entity_id_at(0).expect("barracks");
     let queue = world.ecs_produce_unit_queue_len(factory).expect("queue");
     assert!(queue.0, "head item");
@@ -150,7 +176,8 @@ fn cancel_produce_refunds_and_clears_queue() {
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
-    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 200));
+    let paid = 200 / PRODUCE_TICKS as i32;
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - paid));
     assert!(world.take_eva_cues().is_empty());
 
     world.push_command(GameCommand::CancelProduce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });

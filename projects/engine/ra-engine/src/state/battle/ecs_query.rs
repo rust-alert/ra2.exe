@@ -170,17 +170,21 @@ impl BattleState {
     /// 读取 ECS 生产队列剩余 tick（测试与诊断）。
     pub fn ecs_produce_remaining(&self, id: EntityId) -> Option<Option<u32>> {
         let queue = self.ecs_get::<crate::state::components::ProductionQueue>(id)?;
-        Some(queue.item.as_ref().map(|(_, rem)| *rem))
+        Some(queue.item.as_ref().map(|s| s.remaining_ticks))
     }
 
     /// 读取 ECS 生产队列条目（测试与诊断）。
     pub fn ecs_produce_item(&self, id: EntityId) -> Option<Option<(std::sync::Arc<str>, u32)>> {
         let queue = self.ecs_get::<crate::state::components::ProductionQueue>(id)?;
-        Some(
-            queue
-                .item
-                .and_then(|(tid, rem)| self.definitions.techno.get_by_id(tid).map(|t| (std::sync::Arc::<str>::from(t.type_key.as_str()), rem))),
-        )
+        Some(queue.item.as_ref().and_then(|slot| {
+            self.definitions.techno.get_by_id(slot.type_id).map(|t| (std::sync::Arc::<str>::from(t.type_key.as_str()), slot.remaining_ticks))
+        }))
+    }
+
+    /// 读取队首已扣资金（测试与诊断）。
+    pub fn ecs_produce_paid(&self, id: EntityId) -> Option<Option<i32>> {
+        let queue = self.ecs_get::<crate::state::components::ProductionQueue>(id)?;
+        Some(queue.item.as_ref().map(|s| s.paid))
     }
 
     /// 读取单位厂 FIFO 长度：`(队首是否占用, 候补条数)`（测试与诊断）。

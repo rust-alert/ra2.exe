@@ -116,17 +116,39 @@ pub struct AttackState {
 /// 单位厂 FIFO 总长上限（队首 `item` + `pending`），对齐原版侧栏可连点排队的量级。
 pub const MAX_UNIT_QUEUE_LEN: usize = 30;
 
+/// 单槽在产项：边造边扣，取消退已扣部分。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProductionSlot {
+    /// 稳定类型 id。
+    pub type_id: TypeId,
+    /// 剩余推进 tick（没钱时不递减）。
+    pub remaining_ticks: u32,
+    /// 开工时总 tick（按比例扣款，末步补齐 `Cost`）。
+    pub total_ticks: u32,
+    /// 本项已从资金扣除的数额。
+    pub paid: i32,
+}
+
+impl ProductionSlot {
+    /// 新开单项：尚未扣款，剩余 = 总 tick。
+    pub fn new(type_id: TypeId, total_ticks: u32) -> Self {
+        let total_ticks = total_ticks.max(1);
+        Self { type_id, remaining_ticks: total_ticks, total_ticks, paid: 0 }
+    }
+}
+
 /// 工厂生产队列与集结格。
 ///
 /// - **单位厂**：`item` 为队首推进项，`pending` 为 FIFO 候补；无 `ready`。
 /// - **建造场**：建筑栏用 `item`/`ready`，防御栏（`BuildCat=Combat`）用 `defense_item`/`defense_ready`，
 ///   两轨并发；结构队列无 backlog（完工待落位占槽，落位或取消后才可再开单）。
+/// - **扣款**：队首按 tick 边造边扣；候补未开工不扣；没钱则暂停推进。
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ProductionQueue {
-    /// 建筑栏 / 单位厂队首：稳定类型 id 与剩余 tick。
-    pub item: Option<(TypeId, u32)>,
+    /// 建筑栏 / 单位厂队首。
+    pub item: Option<ProductionSlot>,
     /// 建造场防御栏队首（与 `item` 并发；单位厂不用）。
-    pub defense_item: Option<(TypeId, u32)>,
+    pub defense_item: Option<ProductionSlot>,
     /// 建造场建筑栏已完工、待点选落位的稳定类型 id。
     pub ready: Option<TypeId>,
     /// 建造场防御栏已完工、待点选落位的稳定类型 id。
@@ -173,8 +195,8 @@ impl ProductionQueue {
 
     /// 任一槽位是否持有该类型（在产 / 待落位 / 候补）。
     pub fn holds_type(&self, type_id: TypeId) -> bool {
-        self.item.is_some_and(|(t, _)| t == type_id)
-            || self.defense_item.is_some_and(|(t, _)| t == type_id)
+        self.item.as_ref().is_some_and(|s| s.type_id == type_id)
+            || self.defense_item.as_ref().is_some_and(|s| s.type_id == type_id)
             || self.ready == Some(type_id)
             || self.defense_ready == Some(type_id)
             || self.pending.iter().any(|&t| t == type_id)

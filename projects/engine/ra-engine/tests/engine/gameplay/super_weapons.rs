@@ -45,6 +45,8 @@ fn sw_world() -> ra_engine::BattleState {
     ];
     let mut world = battle_from_defs(GameEdition::Ra2, sw_defs(), map);
     assert!(world.set_house_funds("AMERICANS", 10_000));
+    // 预放 GAPILE 耗电；补足供电，否则超武充能在低电下停摆。
+    world.players[0].power_output = 200;
     world
 }
 

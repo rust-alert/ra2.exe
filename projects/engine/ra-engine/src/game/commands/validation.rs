@@ -17,7 +17,7 @@ impl crate::state::BattleState {
             spatial::{is_mobile, nearest_adjacent_to_footprint},
             state::components::{
                 AnimationState, AttackState, CashProducerState, CombatStats, DeployStance, EntitySpawnBundle, HarvesterState, Health, Identity,
-                Locomotor, MovementState, Owner, ProductionQueue, Transform,
+                Locomotor, MovementState, Owner, ProductionQueue, ProductionSlot, Transform,
             },
         };
 
@@ -370,7 +370,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InsufficientPower);
                         continue;
                     }
-                    // 必须先在建造场完工（Produce），再点选落位；费用已在排队时扣除。
+                    // 必须先在建造场完工（Produce），再点选落位；费用已在建造推进时边造边扣。
                     let Some(yard_id) = self.find_yard_with_ready(house.as_ref(), tt.id)
                     else {
                         self.reject(command_index, CommandRejectReason::MissingPrerequisite);
@@ -531,27 +531,21 @@ impl crate::state::BattleState {
                         }
                         continue;
                     };
-                    let cost = tt.cost;
-                    if self.players[player_index].funds < cost {
-                        self.reject(command_index, CommandRejectReason::InsufficientFunds);
-                        continue;
-                    }
-                    self.players[player_index].funds -= cost;
-                    self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_add(cost);
+                    // 原版：点即开工，边造边扣；不足全额也可开单，没钱时推进暂停。
                     let factory_id = self.entities[factory_index].id;
                     let queued = tt.id;
                     let ticks = produce_ticks_for(tt);
                     let _ = self.with_production_mut(factory_id, |queue| {
                         if kind == TechnoClass::Building {
                             if defense_track {
-                                queue.defense_item = Some((queued, ticks));
+                                queue.defense_item = Some(ProductionSlot::new(queued, ticks));
                             }
                             else {
-                                queue.item = Some((queued, ticks));
+                                queue.item = Some(ProductionSlot::new(queued, ticks));
                             }
                         }
                         else if queue.item.is_none() {
-                            queue.item = Some((queued, ticks));
+                            queue.item = Some(ProductionSlot::new(queued, ticks));
                         }
                         else {
                             queue.pending.push(queued);
@@ -570,12 +564,11 @@ impl crate::state::BattleState {
                         continue;
                     };
                     let house = self.players[player_index].house.clone();
-                    let Some(tt) = self.definitions.techno.get_by_id(type_id)
+                    let Some((want, ready_refund)) = self.definitions.techno.get_by_id(type_id).map(|tt| (tt.id, tt.cost))
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     };
-                    let want = tt.id;
                     let Some(factory_id) = self.entities.iter().find_map(|e| {
                         let id = e.id;
                         if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
@@ -594,31 +587,34 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     };
-                    let refund = tt.cost;
-                    let promote = self
+                    // 退款：在产退已扣；完工待落位退全额；候补未开工不退。
+                    let (promote, refund) = self
                         .with_production_mut(factory_id, |queue| {
-                            // 单位：优先取消候补末件；否则取消队首并尝试提拔候补。
                             if let Some(pos) = queue.pending.iter().rposition(|&t| t == want) {
                                 queue.pending.remove(pos);
-                                return None;
+                                return (None, 0);
                             }
-                            if queue.item.is_some_and(|(t, _)| t == want) {
+                            if queue.item.as_ref().is_some_and(|s| s.type_id == want) {
+                                let paid = queue.item.as_ref().map(|s| s.paid).unwrap_or(0);
                                 queue.item = None;
-                                return queue.pending.first().copied();
+                                return (queue.pending.first().copied(), paid);
                             }
-                            if queue.defense_item.is_some_and(|(t, _)| t == want) {
+                            if queue.defense_item.as_ref().is_some_and(|s| s.type_id == want) {
+                                let paid = queue.defense_item.as_ref().map(|s| s.paid).unwrap_or(0);
                                 queue.defense_item = None;
-                                return None;
+                                return (None, paid);
                             }
                             if queue.ready == Some(want) {
                                 queue.ready = None;
+                                return (None, ready_refund);
                             }
-                            else if queue.defense_ready == Some(want) {
+                            if queue.defense_ready == Some(want) {
                                 queue.defense_ready = None;
+                                return (None, ready_refund);
                             }
-                            None
+                            (None, 0)
                         })
-                        .flatten();
+                        .unwrap_or((None, 0));
                     if let Some(next_id) = promote {
                         if let Some(ticks) = self.definitions.techno.get_by_id(next_id).map(produce_ticks_for) {
                             let _ = self.with_production_mut(factory_id, |queue| {
@@ -629,7 +625,7 @@ impl crate::state::BattleState {
                                     return;
                                 }
                                 queue.pending.remove(0);
-                                queue.item = Some((next_id, ticks));
+                                queue.item = Some(ProductionSlot::new(next_id, ticks));
                             });
                         }
                         else {

@@ -391,14 +391,14 @@ impl BattleSession {
                     let key = std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&self.world.definitions, type_id));
                     out.push(SnapshotProduceQueue { factory: id, type_id: key, remaining_ticks, total_ticks, rally_x, rally_y });
                 };
-                if let Some((type_id, remaining_ticks)) = queue.item {
-                    push_slot(type_id, remaining_ticks);
+                if let Some(slot) = queue.item.as_ref() {
+                    push_slot(slot.type_id, slot.remaining_ticks);
                 }
                 else if let Some(ready) = queue.ready {
                     push_slot(ready, 0);
                 }
-                if let Some((type_id, remaining_ticks)) = queue.defense_item {
-                    push_slot(type_id, remaining_ticks);
+                if let Some(slot) = queue.defense_item.as_ref() {
+                    push_slot(slot.type_id, slot.remaining_ticks);
                 }
                 else if let Some(ready) = queue.defense_ready {
                     push_slot(ready, 0);

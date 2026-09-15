@@ -35,7 +35,7 @@ fn economy_session() -> Session {
     Session::from_state(world, "orders")
 }
 
-/// 排队建造并推进至建造场 `ready`（费用在排队时扣除）。
+/// 排队建造并推进至建造场 `ready`（费用在建造推进时边造边扣）。
 fn produce_until_ready(session: &mut Session, engine: &ra_engine::Engine, type_id: &str) {
     session.expect_battle_mut().order_produce(type_id);
     session.tick(&engine.runtime());

@@ -9,7 +9,7 @@ use crate::{
         ATTACK_COOLDOWN_TICKS, BUILD_TIME_TICKS_PER_UNIT, PRODUCE_TICKS,
         components::{
             AnimationState, AttackState, CashProducerState, CombatStats, DeployStance, EntitySpawnBundle, HarvesterState, Health, Identity,
-            Locomotor, MovementState, Owner, ProductionQueue, Transform,
+            Locomotor, MovementState, Owner, ProductionQueue, ProductionSlot, Transform,
         },
     },
 };
@@ -19,6 +19,21 @@ use crate::{
 /// `build_time == 0`（缺省）回退 [`PRODUCE_TICKS`]。否则为 `build_time * BUILD_TIME_TICKS_PER_UNIT`，至少 1。
 pub fn produce_ticks_for(techno: &TechnoDefinition) -> u32 {
     if techno.build_time == 0 { PRODUCE_TICKS } else { techno.build_time.saturating_mul(BUILD_TIME_TICKS_PER_UNIT).max(1) }
+}
+
+/// 下一步推进应付金额：按已完成比例对齐 `Cost`，末步补齐差额。没钱则不应调用方推进。
+pub fn produce_step_due(cost: i32, total_ticks: u32, remaining_ticks: u32, paid: i32) -> i32 {
+    if cost <= 0 || total_ticks == 0 || remaining_ticks == 0 {
+        return 0;
+    }
+    let completed_after = total_ticks.saturating_sub(remaining_ticks).saturating_add(1);
+    let target = if remaining_ticks <= 1 || completed_after >= total_ticks {
+        cost
+    }
+    else {
+        ((i64::from(cost) * i64::from(completed_after)) / i64::from(total_ticks)) as i32
+    };
+    (target - paid).max(0)
 }
 
 impl crate::state::BattleState {
@@ -33,27 +48,17 @@ impl crate::state::BattleState {
             if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 continue;
             }
-            let tick = self.tick;
             let low_power = self
                 .ecs_get::<Owner>(id)
                 .and_then(|o| self.players.iter().find(|p| p.house_id == Some(o.house)))
                 .is_some_and(|p| p.low_power());
-            let finished = self
-                .with_production_mut(id, |queue| {
-                    let mut done: Vec<(TypeId, bool)> = Vec::new();
-                    if Self::advance_slot(&mut queue.item, low_power, tick) {
-                        if let Some((type_id, _)) = queue.item.take() {
-                            done.push((type_id, false));
-                        }
-                    }
-                    if Self::advance_slot(&mut queue.defense_item, low_power, tick) {
-                        if let Some((type_id, _)) = queue.defense_item.take() {
-                            done.push((type_id, true));
-                        }
-                    }
-                    done
-                })
-                .unwrap_or_default();
+            let mut finished: Vec<(TypeId, bool)> = Vec::new();
+            if let Some(type_id) = self.try_advance_factory_slot(id, false, low_power) {
+                finished.push((type_id, false));
+            }
+            if let Some(type_id) = self.try_advance_factory_slot(id, true, low_power) {
+                finished.push((type_id, true));
+            }
             for (type_id, defense) in finished {
                 let is_building = self.definitions.techno.get_by_id(type_id).is_some_and(|t| t.class == TechnoClass::Building);
                 if is_building {
@@ -108,27 +113,57 @@ impl crate::state::BattleState {
                     return;
                 }
                 queue.pending.remove(0);
-                queue.item = Some((next_id, ticks));
+                queue.item = Some(ProductionSlot::new(next_id, ticks));
             });
             self.mark_entity_dirty(factory_id);
         }
     }
 
-    /// 推进单槽：返回是否本 tick 完工（调用方负责 `take`）。
-    fn advance_slot(slot: &mut Option<(TypeId, u32)>, low_power: bool, tick: u64) -> bool {
-        let Some((_, remaining)) = slot.as_mut()
-        else {
-            return false;
-        };
+    /// 推进工厂单轨：边造边扣；资金不足则暂停。返回本 tick 完工的类型。
+    fn try_advance_factory_slot(&mut self, factory_id: EntityId, defense: bool, low_power: bool) -> Option<TypeId> {
         // 低电：每隔一 tick 才推进，等效半速（与供电不足反馈一致）。
-        if low_power && tick % 2 == 1 {
-            return false;
+        if low_power && self.tick % 2 == 1 {
+            return None;
         }
-        if *remaining > 1 {
-            *remaining -= 1;
-            return false;
+        let owner_house = self.ecs_get::<Owner>(factory_id).map(|o| o.house)?;
+        let house_key = crate::gameplay::house_key_of(&self.definitions, owner_house);
+        let player_index = self.players.iter().position(|p| {
+            p.house_id == Some(owner_house) || p.house.as_ref().eq_ignore_ascii_case(house_key)
+        })?;
+        let snapshot = self.ecs_get::<ProductionQueue>(factory_id).and_then(|q| {
+            let slot = if defense { q.defense_item.as_ref() } else { q.item.as_ref() }?;
+            Some((slot.type_id, slot.remaining_ticks, slot.total_ticks, slot.paid))
+        })?;
+        let (type_id, remaining, total, paid) = snapshot;
+        let cost = self.definitions.techno.get_by_id(type_id).map(|t| t.cost).unwrap_or(0);
+        let due = produce_step_due(cost, total, remaining, paid);
+        if due > 0 && self.players[player_index].funds < due {
+            return None;
         }
-        true
+        let finished = self
+            .with_production_mut(factory_id, |queue| {
+                let slot_opt = if defense { &mut queue.defense_item } else { &mut queue.item };
+                let Some(slot) = slot_opt.as_mut()
+                else {
+                    return None;
+                };
+                if slot.type_id != type_id || slot.remaining_ticks != remaining {
+                    return None;
+                }
+                slot.paid = slot.paid.saturating_add(due);
+                if slot.remaining_ticks > 1 {
+                    slot.remaining_ticks -= 1;
+                    return Some(false);
+                }
+                *slot_opt = None;
+                Some(true)
+            })
+            .flatten()?;
+        if due > 0 {
+            self.players[player_index].funds -= due;
+            self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_add(due);
+        }
+        finished.then_some(type_id)
     }
 
     #[doc(hidden)]

@@ -182,14 +182,21 @@ fn place_building_rejects_overlap_even_if_pass_grid_unsealed() {
 }
 
 #[test]
-fn produce_building_rejects_insufficient_funds() {
+fn produce_building_starts_with_low_funds_and_pauses() {
     let mut world = yard_world();
     assert!(world.set_house_funds("AMERICANS", 100));
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("GAPOWR").expect("GAPOWR").id });
     world.advance_tick();
-    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InsufficientFunds);
+    assert!(world.last_rejects().is_empty(), "{:?}", world.last_rejects());
     assert_eq!(world.entity_count(), 1);
-    assert_eq!(world.house_funds("AMERICANS"), Some(100));
+    let step = 600 / PRODUCE_TICKS as i32;
+    assert_eq!(world.house_funds("AMERICANS"), Some(100 - step));
+    let yard = world.entity_id_at(0).expect("yard");
+    let rem_before = world.ecs_produce_remaining(yard).expect("queue").expect("item");
+    assert!(world.set_house_funds("AMERICANS", 0));
+    world.advance_tick();
+    assert_eq!(world.ecs_produce_remaining(yard).expect("queue").expect("item"), rem_before);
+    assert_eq!(world.house_funds("AMERICANS"), Some(0));
 }
 
 #[test]
@@ -462,6 +469,8 @@ fn place_building_ignores_non_base_normal_as_anchor() {
     ];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds("AMERICANS", 10_000));
+    // 预放 GAPILL 耗电；补足供电以免建造半速拖垮 queue_until_ready。
+    world.players[0].power_output = 200;
     assert_eq!(world.definitions.structures.get("GAPILL").map(|s| s.base_normal), Some(false));
 
     queue_until_ready(&mut world, "GAPOWR");

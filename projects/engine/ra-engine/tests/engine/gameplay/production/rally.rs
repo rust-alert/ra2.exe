@@ -29,6 +29,7 @@ fn barracks_world() -> BattleState {
     }];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds("AMERICANS", 10_000));
+    world.players[0].power_output = 200;
     world
 }
 

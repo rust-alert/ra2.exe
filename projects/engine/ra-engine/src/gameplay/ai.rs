@@ -8,9 +8,7 @@
 
 use crate::{
     BattleState, GameCommand,
-    gameplay::{
-        TechTreePlayer, deploy_into_type, factory_matches_category, is_construction_yard, is_type_eligible_id, living_structure_keys,
-    },
+    gameplay::{TechTreePlayer, deploy_into_type, factory_matches_category, is_construction_yard, is_type_eligible_id, living_structure_keys},
     state::components::{AttackState, CombatStats, Health, Identity, Owner, ProductionQueue, Transform},
 };
 use ra_map::MapEntityKind;
@@ -332,21 +330,12 @@ fn count_house_structures(world: &BattleState, house: &str) -> u32 {
 fn house_iq(world: &BattleState, house: &str) -> i32 {
     let from_map = world.prepared.houses.iter().find_map(|h| {
         let key = world.definitions.houses.get_by_id(h.country)?.type_key.as_str();
-        if key.eq_ignore_ascii_case(house) || h.name.eq_ignore_ascii_case(house) {
-            Some(h.iq)
-        }
-        else {
-            None
-        }
+        if key.eq_ignore_ascii_case(house) || h.name.eq_ignore_ascii_case(house) { Some(h.iq) } else { None }
     });
     from_map.unwrap_or(world.definitions.ai_controls.max_iq_levels)
 }
 
-fn pick_from_candidates<'a>(
-    world: &'a BattleState,
-    house: &str,
-    candidates: &[TypeId],
-) -> Option<&'a ra_types::StructureDefinition> {
+fn pick_from_candidates<'a>(world: &'a BattleState, house: &str, candidates: &[TypeId]) -> Option<&'a ra_types::StructureDefinition> {
     let living = living_structure_keys(world, house);
     let player = world.players.iter().find(|p| p.house.eq_ignore_ascii_case(house))?;
     let tech = TechTreePlayer::from_player(player);
@@ -388,12 +377,12 @@ pub fn produce_vehicle_commands(world: &BattleState, house: &str, player: Player
 }
 
 fn produce_unit(world: &BattleState, house: &str, player: PlayerId, unit: &ra_types::TechnoDefinition) -> Vec<GameCommand> {
-    let cost = unit.cost.max(0) as u32;
     let Some(funds) = world.house_funds(house)
     else {
         return Vec::new();
     };
-    if funds < cost as i32 {
+    // 原版可零首付开单；AI 仅在完全没钱时跳过，避免空转排队。
+    if funds <= 0 {
         return Vec::new();
     }
     vec![GameCommand::Produce { player, type_id: unit.id }]
@@ -403,17 +392,11 @@ fn queue_structure(world: &BattleState, house: &str, player: PlayerId, structure
     if !house_has_idle_yard(world, house) {
         return Vec::new();
     }
-    let cost = if structure.cost > 0 {
-        structure.cost.max(0) as u32
-    }
-    else {
-        world.definitions.techno.get_by_id(structure.id).map(|t| t.cost.max(0) as u32).unwrap_or(0)
-    };
     let Some(funds) = world.house_funds(house)
     else {
         return Vec::new();
     };
-    if funds < cost as i32 {
+    if funds <= 0 {
         return Vec::new();
     }
     vec![GameCommand::Produce { player, type_id: structure.id }]

@@ -143,14 +143,13 @@ impl BattleSession {
         let living = living_structure_keys(&self.world, house.as_ref());
 
         let deploy = selected.iter().find_map(|&id| self.project_deploy_cap(id));
-        let (build_items, defense_items) =
-            project_build_items(&self.world, tech_player, &living, funds, has_construction_yard, has_power_plant);
+        let (build_items, defense_items) = project_build_items(&self.world, tech_player, &living, has_construction_yard, has_power_plant);
         let infantry_items =
-            project_produce_items(&self.world, tech_player, &living, TechnoClass::Infantry, funds, has_infantry_factory, infantry_can_enqueue);
+            project_produce_items(&self.world, tech_player, &living, TechnoClass::Infantry, has_infantry_factory, infantry_can_enqueue);
         let vehicle_items =
-            project_produce_items(&self.world, tech_player, &living, TechnoClass::Vehicle, funds, has_vehicle_factory, vehicle_can_enqueue);
+            project_produce_items(&self.world, tech_player, &living, TechnoClass::Vehicle, has_vehicle_factory, vehicle_can_enqueue);
         let aircraft_items =
-            project_produce_items(&self.world, tech_player, &living, TechnoClass::Aircraft, funds, has_aircraft_factory, aircraft_can_enqueue);
+            project_produce_items(&self.world, tech_player, &living, TechnoClass::Aircraft, has_aircraft_factory, aircraft_can_enqueue);
         let super_weapon_items = project_super_weapon_items(&self.world, house.as_ref());
         let queues = project_house_produce_queues(&self.world, house.as_ref());
 
@@ -200,11 +199,11 @@ impl BattleSession {
 }
 
 /// 建造场没了 → 全部建筑科技掉级；需电建筑在无电厂时不可用；BuildLimit 满则灰掉。
+///
+/// 资金不足不灰掉：原版可开单，边造边扣，没钱时暂停推进。
 pub fn evaluate_build_availability(
     has_construction_yard: bool,
     has_power_plant: bool,
-    funds: i32,
-    cost: i32,
     requires_power: bool,
     build_limit_hit: bool,
 ) -> (bool, Option<CommandRejectReason>) {
@@ -217,20 +216,16 @@ pub fn evaluate_build_availability(
     if build_limit_hit {
         return (false, Some(CommandRejectReason::QueueFull));
     }
-    if funds < cost {
-        return (false, Some(CommandRejectReason::InsufficientFunds));
-    }
     (true, None)
 }
 
-/// 对应工厂没了 → 单位科技掉级；无法再入队 / BuildLimit → 队列满；资金不足单独标出。
+/// 对应工厂没了 → 单位科技掉级；无法再入队 / BuildLimit → 队列满。
 ///
 /// `factory_can_enqueue`：该生产类别仍有可入队工厂（空闲开单或 FIFO 未满），不是「必须空槽」。
+/// 资金不足不灰掉：原版可开单，边造边扣，没钱时暂停推进。
 pub fn evaluate_produce_availability(
     has_factory: bool,
     factory_can_enqueue: bool,
-    funds: i32,
-    cost: i32,
     build_limit_hit: bool,
 ) -> (bool, Option<CommandRejectReason>) {
     if !has_factory {
@@ -238,9 +233,6 @@ pub fn evaluate_produce_availability(
     }
     if !factory_can_enqueue || build_limit_hit {
         return (false, Some(CommandRejectReason::QueueFull));
-    }
-    if funds < cost {
-        return (false, Some(CommandRejectReason::InsufficientFunds));
     }
     (true, None)
 }
@@ -255,9 +247,9 @@ fn house_holds_structure_in_progress(world: &BattleState, house: &str, type_id: 
         if world.ecs_get::<Owner>(id).is_none_or(|o| crate::gameplay::house_id_of(&world.definitions, house) != Some(o.house)) {
             return false;
         }
-        world
-            .ecs_get::<ProductionQueue>(id)
-            .is_some_and(|q| q.item.is_some_and(|(queued, _)| queued == type_id) || q.defense_item.is_some_and(|(queued, _)| queued == type_id))
+        world.ecs_get::<ProductionQueue>(id).is_some_and(|q| {
+            q.item.as_ref().is_some_and(|s| s.type_id == type_id) || q.defense_item.as_ref().is_some_and(|s| s.type_id == type_id)
+        })
     })
 }
 
@@ -266,7 +258,6 @@ pub fn project_build_items(
     world: &BattleState,
     player: TechTreePlayer<'_>,
     living: &std::collections::HashSet<ra_types::TypeId>,
-    funds: i32,
     has_yard: bool,
     has_power: bool,
 ) -> (Vec<CapabilityItem>, Vec<CapabilityItem>) {
@@ -294,7 +285,7 @@ pub fn project_build_items(
             (false, Some(CommandRejectReason::QueueFull))
         }
         else {
-            evaluate_build_availability(has_yard, has_power, funds, cost, requires_power, limit_hit)
+            evaluate_build_availability(has_yard, has_power, requires_power, limit_hit)
         };
         let item = CapabilityItem { type_id: Arc::<str>::from(s.type_key.as_str()), cost, enabled, disabled_reason };
         if defense {
@@ -315,7 +306,6 @@ pub fn project_produce_items(
     player: TechTreePlayer<'_>,
     living: &std::collections::HashSet<ra_types::TypeId>,
     class: TechnoClass,
-    funds: i32,
     has_factory: bool,
     factory_can_enqueue: bool,
 ) -> Vec<CapabilityItem> {
@@ -330,7 +320,7 @@ pub fn project_produce_items(
         .map(|t| {
             let limit_hit = build_limit_reached(world, player.house, t);
             // 已在队列中的类型仍保持可点（宿主左键加队 / 右键取消）。
-            let (enabled, disabled_reason) = evaluate_produce_availability(has_factory, factory_can_enqueue, funds, t.cost, limit_hit);
+            let (enabled, disabled_reason) = evaluate_produce_availability(has_factory, factory_can_enqueue, limit_hit);
             CapabilityItem { type_id: Arc::<str>::from(t.type_key.as_str()), cost: t.cost, enabled, disabled_reason }
         })
         .collect();
@@ -357,14 +347,14 @@ fn project_house_produce_queues(world: &BattleState, house: &str) -> Vec<Snapsho
             let key = std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&world.definitions, type_id));
             out.push(SnapshotProduceQueue { factory: id, type_id: key, remaining_ticks, total_ticks, rally_x, rally_y });
         };
-        if let Some((type_id, remaining_ticks)) = queue.item {
-            push_slot(&mut out, type_id, remaining_ticks);
+        if let Some(slot) = queue.item.as_ref() {
+            push_slot(&mut out, slot.type_id, slot.remaining_ticks);
         }
         else if let Some(ready) = queue.ready {
             push_slot(&mut out, ready, 0);
         }
-        if let Some((type_id, remaining_ticks)) = queue.defense_item {
-            push_slot(&mut out, type_id, remaining_ticks);
+        if let Some(slot) = queue.defense_item.as_ref() {
+            push_slot(&mut out, slot.type_id, slot.remaining_ticks);
         }
         else if let Some(ready) = queue.defense_ready {
             push_slot(&mut out, ready, 0);

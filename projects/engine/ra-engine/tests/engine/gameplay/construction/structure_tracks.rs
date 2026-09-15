@@ -46,7 +46,10 @@ fn building_and_defense_tracks_produce_concurrently() {
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: pill });
     world.advance_tick();
     assert!(world.last_rejects().is_empty(), "defense track should be independent: {:?}", world.last_rejects());
-    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 600 - 400));
+    // 边造边扣：两 tick 内建筑轨两步 + 防御轨一步。
+    let power_step = 600 / PRODUCE_TICKS as i32;
+    let pill_step = 400 / PRODUCE_TICKS as i32;
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 2 * power_step - pill_step));
     assert!(world.ecs_produce_item(yard).expect("build track").is_some());
     assert_eq!(world.ecs_produce_defense_busy(yard), Some(true));
 
