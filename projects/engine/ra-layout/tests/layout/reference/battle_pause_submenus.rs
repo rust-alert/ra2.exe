@@ -1,6 +1,6 @@
 //! 放弃确认 / 局内选项 layout 冒烟。
 
-use ra_layout::{rect_px_from_snapshot, solve_battle_abort_confirm, solve_battle_hud, solve_battle_in_game_options, solve_battle_pause};
+use ra_layout::{rect_px_from_snapshot, solve_battle_abort_confirm, solve_battle_diplomacy, solve_battle_hud, solve_battle_in_game_options, solve_battle_pause};
 
 #[test]
 fn abort_confirm_and_options_share_sidebttn_rail() {
@@ -53,4 +53,19 @@ fn in_game_options_exposes_tracks_and_checks() {
     ] {
         assert!(snap.get(id).is_some(), "missing {id}");
     }
+}
+
+#[test]
+fn diplomacy_exposes_title_rows_and_back() {
+    let snap = solve_battle_diplomacy();
+    assert!(snap.get("title").is_some());
+    assert!(snap.get("local_label").is_some());
+    assert!(snap.get("row_name_0").is_some());
+    assert!(snap.get("row_status_0").is_some());
+    assert!(snap.get("back").is_some());
+    assert!(snap.get("list_band").is_some());
+    assert!(snap.get("sidebar").is_some());
+    let back = rect_px_from_snapshot(&snap, "back");
+    let opts_back = rect_px_from_snapshot(&solve_battle_in_game_options(), "back");
+    assert_eq!(back, opts_back, "diplomacy Back shares 0xBBB Back SIDEBTTN slot");
 }

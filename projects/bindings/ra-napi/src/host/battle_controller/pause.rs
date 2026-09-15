@@ -1,7 +1,8 @@
-//! 对局暂停层：主菜单 / 放弃确认 / 局内选项。
+//! 对局暂停层：主菜单 / 放弃确认 / 局内选项 / 外交。
 
 use ra_widgets::{
     battle_abort_confirm::{self, BattleAbortConfirmHit},
+    battle_diplomacy::{self, BattleDiplomacyHit},
     battle_in_game_options::{self, BattleInGameOptionsHit, BattleInGameOptionsState},
     battle_pause_layer::{BattlePauseLayer, EscapeRoute},
     battle_pause_menu::{self, BattlePauseMenuHit},
@@ -50,6 +51,17 @@ impl BattleController {
         self.pause_pressed = None;
     }
 
+    /// 打开外交子页（对局须已暂停；`diplo_btn` 入口）。
+    pub(super) fn open_diplomacy_layer(&mut self) {
+        self.pause_layer = BattlePauseLayer::Diplomacy;
+        self.leave_armed = false;
+        self.in_game_options.drag_track = None;
+        self.pause_stub_notice = None;
+        self.pause_hover = None;
+        self.pause_pressed = None;
+        self.log_diplomacy_allies();
+    }
+
     pub(super) fn refresh_pause_hover(&mut self, window: &Window) {
         let size = window.inner_size();
         let w = size.width.max(1);
@@ -60,6 +72,7 @@ impl BattleController {
             BattlePauseLayer::Menu => battle_pause_menu::hit_at(w, h, x, y, self.pause_saves_allowed()).map(|hit| hit.entry_id()),
             BattlePauseLayer::AbortConfirm => battle_abort_confirm::hit_at(w, h, x, y).map(|hit| hit.entry_id()),
             BattlePauseLayer::InGameOptions => battle_in_game_options::hit_at(w, h, x, y).map(|hit| hit.entry_id()),
+            BattlePauseLayer::Diplomacy => battle_diplomacy::hit_at(w, h, x, y).map(|hit| hit.entry_id()),
         };
     }
 
@@ -81,6 +94,7 @@ impl BattleController {
                         }
                         hit.map(|h| h.entry_id())
                     }
+                    BattlePauseLayer::Diplomacy => battle_diplomacy::hit_at(w, h, x, y).map(|hit| hit.entry_id()),
                 };
                 BattleNav::None
             }
@@ -93,6 +107,7 @@ impl BattleController {
                     BattlePauseLayer::Menu => battle_pause_menu::hit_at(w, h, x, y, self.pause_saves_allowed()).map(|hit| hit.entry_id()),
                     BattlePauseLayer::AbortConfirm => battle_abort_confirm::hit_at(w, h, x, y).map(|hit| hit.entry_id()),
                     BattlePauseLayer::InGameOptions => battle_in_game_options::hit_at(w, h, x, y).map(|hit| hit.entry_id()),
+                    BattlePauseLayer::Diplomacy => battle_diplomacy::hit_at(w, h, x, y).map(|hit| hit.entry_id()),
                 };
                 if pressed.is_some_and(|id| hit_id == Some(id)) {
                     if let Some(id) = hit_id {
@@ -167,6 +182,11 @@ impl BattleController {
             BattlePauseLayer::InGameOptions => {
                 if let Some(hit) = BattleInGameOptionsHit::from_entry_id(entry_id) {
                     return self.on_in_game_options_hit(hit);
+                }
+            }
+            BattlePauseLayer::Diplomacy => {
+                if let Some(hit) = BattleDiplomacyHit::from_entry_id(entry_id) {
+                    return self.on_diplomacy_hit(hit);
                 }
             }
         }
@@ -250,6 +270,21 @@ impl BattleController {
             }
             // 勾选 / 滑条在 press 阶段已处理。
             _ => BattleNav::None,
+        }
+    }
+
+    fn on_diplomacy_hit(&mut self, hit: BattleDiplomacyHit) -> BattleNav {
+        match hit {
+            BattleDiplomacyHit::Back => {
+                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                    if game.paused {
+                        game.toggle_pause();
+                    }
+                }
+                self.clear_pause_menu_input();
+                tracing::info!("外交 · 返回对局");
+                BattleNav::None
+            }
         }
     }
 

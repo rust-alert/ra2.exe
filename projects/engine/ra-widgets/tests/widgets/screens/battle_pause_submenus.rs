@@ -1,13 +1,14 @@
-//! 暂停二级页：放弃确认 / 局内选项。
+//! 暂停二级页：放弃确认 / 局内选项 / 外交。
 
 use ra_layout::{BATTLE_ABORT_CONFIRM_BUTTON_IDS, rect_px_from_snapshot};
 use ra_widgets::{
     battle_abort_confirm::{BattleAbortConfirmHit, button_rects as abort_rects, hit_at as abort_hit},
+    battle_diplomacy::{BattleDiplomacyHit, BattleDiplomacyRow, button_rects as diplo_rects, hit_at as diplo_hit},
     battle_in_game_options::{
         BattleInGameOptionsHit, BattleInGameOptionsState, button_rects as opts_rects, hit_at as opts_hit, options_snapshot,
     },
     battle_pause_layer::{BattlePauseLayer, EscapeRoute},
-    compose::{compose_battle_abort_confirm_overlay, compose_battle_in_game_options_overlay},
+    compose::{compose_battle_abort_confirm_overlay, compose_battle_diplomacy_overlay, compose_battle_in_game_options_overlay},
 };
 
 #[test]
@@ -48,8 +49,28 @@ fn compose_in_game_options_shows_stub_notice_alpha() {
 }
 
 #[test]
+fn diplomacy_hits_back() {
+    let back = diplo_rects(800, 600)[0];
+    assert_eq!(back.x, 800 - 147);
+    assert_eq!(diplo_hit(800, 600, back.x + 4, back.y + 4), Some(BattleDiplomacyHit::Back));
+}
+
+#[test]
+fn compose_diplomacy_roster_page() {
+    let rows = [BattleDiplomacyRow {
+        house: "FRANCE".into(),
+        display_name: "France".into(),
+        allied: true,
+    }];
+    let page = compose_battle_diplomacy_overlay(800, 600, &rows, "Americans", None, None, None, None, None, None, None).unwrap();
+    assert_eq!(page.width(), 800);
+    assert!(page.as_raw()[3] > 0);
+}
+
+#[test]
 fn pause_layer_escape_routes() {
     assert_eq!(BattlePauseLayer::Menu.on_escape(), EscapeRoute::ResumeMission);
     assert_eq!(BattlePauseLayer::AbortConfirm.on_escape(), EscapeRoute::ResumeMission);
+    assert_eq!(BattlePauseLayer::Diplomacy.on_escape(), EscapeRoute::ResumeMission);
     assert_eq!(BattlePauseLayer::InGameOptions.on_escape(), EscapeRoute::ToLayer(BattlePauseLayer::Menu));
 }

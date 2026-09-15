@@ -142,7 +142,7 @@ pub struct BattleController {
     pub(super) pause_hover: Option<&'static str>,
     /// 暂停菜单按下入口 id。
     pub(super) pause_pressed: Option<&'static str>,
-    /// 暂停子层（Menu / AbortConfirm / InGameOptions）。
+    /// 暂停子层（Menu / AbortConfirm / InGameOptions / Diplomacy）。
     pub(super) pause_layer: ra_widgets::battle_pause_layer::BattlePauseLayer,
     /// 局内选项 `0xBBB` 草稿。
     pub(super) in_game_options: ra_widgets::battle_in_game_options::BattleInGameOptionsState,

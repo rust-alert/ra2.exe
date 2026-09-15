@@ -2,6 +2,7 @@
 
 mod battle_abort_confirm;
 pub mod battle_hud;
+mod battle_diplomacy;
 mod battle_in_game_options;
 mod battle_pause;
 pub mod campaign_page;
@@ -15,6 +16,7 @@ pub mod shell_chrome;
 mod skirmish_score;
 
 pub use battle_abort_confirm::{BATTLE_ABORT_CONFIRM_BUTTON_IDS, solve_battle_abort_confirm, solve_battle_abort_confirm_at};
+pub use battle_diplomacy::{BATTLE_DIPLOMACY_BUTTON_IDS, BATTLE_DIPLOMACY_ROW_COUNT, solve_battle_diplomacy, solve_battle_diplomacy_at};
 pub use battle_hud::{
     BattleHudChromeMetrics, CAMEO_CELL_H, CAMEO_CELL_W, CAMEO_COL_STRIDE, CAMEO_COLS, CAMEO_ROW_STRIDE, COMMAND_BAR_BUTTON_COUNT,
     COMMAND_BAR_BUTTON_IDS, COMMAND_BAR_H, COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W, SIDEBAR_TAB_COUNT, SIDEBAR_TAB_IDS,

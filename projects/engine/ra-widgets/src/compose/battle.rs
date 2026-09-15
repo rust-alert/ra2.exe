@@ -16,7 +16,7 @@ pub struct BattleHudModel<'a> {
     pub tick: u64,
     /// 本地资金。
     pub funds: i32,
-    /// 供电。
+    /// 供电（有效供电；断电期间为 0）。
     pub power_output: i32,
     /// 耗电。
     pub power_drain: i32,
@@ -94,6 +94,9 @@ pub fn compose_battle_hud_overlay(
             paint.tick,
             paint.sidebar_tabs_visible,
             paint.sidebar_tab,
+            paint.power_output,
+            paint.power_drain,
+            paint.low_power,
         );
         crate::battle_hud::blit_battle_cameos(&mut page, &snap, metrics, paint.cameos, paint.tick);
     }
@@ -449,6 +452,101 @@ pub fn compose_battle_in_game_options_overlay(
     if let (Some(fnt), Some(notice)) = (fnt, stub_notice.filter(|s| !s.is_empty())) {
         let footer = rect_px_from_snapshot(&snap, "footer");
         blit_caption_top_left_clipped(&mut page, fnt, notice, footer.x, footer.y, footer.w, footer.h, MENU_TEXT_SECTION);
+    }
+
+    Some(page)
+}
+
+/// 合成外交子页整页（单层：pause hub + 只读同盟花名册 + Back）。
+pub fn compose_battle_diplomacy_overlay(
+    viewport_w: u32,
+    viewport_h: u32,
+    rows: &[crate::battle_diplomacy::BattleDiplomacyRow],
+    local_display_name: &str,
+    pressed_entry_id: Option<&str>,
+    hovered_entry_id: Option<&str>,
+    fnt: Option<&FntFile>,
+    csf: Option<&CsfFile>,
+    pause: Option<&BattlePauseChrome>,
+    hud_chrome: Option<&BattleHudChrome>,
+    funds: Option<i32>,
+) -> Option<RgbaImage> {
+    use crate::skin::text::{battle_diplomacy_csf_label, battle_diplomacy_fallback_label};
+    use ra_layout::{BATTLE_DIPLOMACY_BUTTON_IDS, BATTLE_DIPLOMACY_ROW_COUNT, rect_px_from_snapshot};
+
+    let w = viewport_w.max(1);
+    let h = viewport_h.max(1);
+    let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
+    let snap = crate::battle_diplomacy::diplomacy_snapshot(w, h);
+    let _metrics = paint_pause_hub_base(&mut page, hud_chrome, funds, fnt, &snap);
+
+    fill_rect(&mut page, rect_px_from_snapshot(&snap, "dim"), [0, 0, 0, 160]);
+
+    let label = |id: &str, fallback: &str| -> String {
+        let from = resolve_caption(csf, id, battle_diplomacy_csf_label(id));
+        if from == id.replace('_', " ") || from == *id {
+            battle_diplomacy_fallback_label(id).to_string()
+        } else if from.is_empty() {
+            fallback.to_string()
+        } else {
+            from
+        }
+    };
+
+    if let Some(fnt) = fnt {
+        let title = rect_px_from_snapshot(&snap, "title");
+        blit_caption_in_cell(&mut page, fnt, &label("title", "Diplomacy"), title.x, title.y, title.w, title.h, MENU_TEXT_SECTION);
+        let local_cell = rect_px_from_snapshot(&snap, "local_label");
+        let local_line = format!("{}: {}", label("local", "Local"), local_display_name);
+        blit_caption_top_left_clipped(&mut page, fnt, &local_line, local_cell.x, local_cell.y, local_cell.w, local_cell.h, MENU_TEXT_ENABLED);
+        let ally = label("ally", "Ally");
+        let enemy = label("enemy", "Enemy");
+        for i in 0..BATTLE_DIPLOMACY_ROW_COUNT {
+            let Some(row) = rows.get(i)
+            else {
+                break;
+            };
+            let name_cell = rect_px_from_snapshot(&snap, &format!("row_name_{i}"));
+            let status_cell = rect_px_from_snapshot(&snap, &format!("row_status_{i}"));
+            blit_caption_top_left_clipped(
+                &mut page,
+                fnt,
+                &row.display_name,
+                name_cell.x,
+                name_cell.y,
+                name_cell.w,
+                name_cell.h,
+                MENU_TEXT_ENABLED,
+            );
+            let status = if row.allied { ally.as_str() } else { enemy.as_str() };
+            let status_color = if row.allied { MENU_TEXT_ENABLED } else { MENU_TEXT_ACCENT };
+            blit_caption_top_left_clipped(
+                &mut page,
+                fnt,
+                status,
+                status_cell.x,
+                status_cell.y,
+                status_cell.w,
+                status_cell.h,
+                status_color,
+            );
+        }
+    }
+
+    let back = rect_px_from_snapshot(&snap, BATTLE_DIPLOMACY_BUTTON_IDS[0]);
+    let pressed = pressed_entry_id == Some("back");
+    let hovered = hovered_entry_id == Some("back");
+    let sprite = pause.and_then(|p| resolve_sidebttn(p, pressed, hovered));
+    if let Some(sprite) = sprite {
+        blit_stretched(&mut page, &sprite.image, back);
+    } else {
+        fill_rect(&mut page, back, [16, 24, 48, 255]);
+        stroke_rect(&mut page, back, [80, 120, 180, 255]);
+    }
+    if let Some(fnt) = fnt {
+        let caption = label("back", battle_diplomacy_fallback_label("back"));
+        let (tx, ty, tw, th) = owner_draw_caption_rect(back, pressed);
+        blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, MENU_TEXT_ENABLED);
     }
 
     Some(page)

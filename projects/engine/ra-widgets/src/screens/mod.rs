@@ -1,6 +1,7 @@
 //! 页面编排。
 
 pub mod battle_abort_confirm;
+pub mod battle_diplomacy;
 pub mod battle_hud;
 pub mod battle_in_game_options;
 pub mod battle_order_icons;

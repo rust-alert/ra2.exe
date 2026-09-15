@@ -19,8 +19,8 @@ use ra_widgets::{
     battle_hud::BattleCameoPaint,
     battle_pause_layer::BattlePauseLayer,
     compose::{
-        BattleHudModel, compose_battle_abort_confirm_overlay, compose_battle_hud_overlay, compose_battle_in_game_options_overlay,
-        compose_battle_pause_menu_overlay, paint_battle_outcome_hold_banner,
+BattleHudModel, compose_battle_abort_confirm_overlay, compose_battle_diplomacy_overlay, compose_battle_hud_overlay,
+    compose_battle_in_game_options_overlay, compose_battle_pause_menu_overlay, paint_battle_outcome_hold_banner,
     },
     fs_source::GameAssetSource,
     render::present,
@@ -547,6 +547,22 @@ impl BattleController {
                     self.hud_chrome.as_ref(),
                     funds,
                 ),
+                BattlePauseLayer::Diplomacy => {
+                    let (local_name, rows) = self.diplomacy_roster_rows(csf);
+                    compose_battle_diplomacy_overlay(
+                        w,
+                        h,
+                        &rows,
+                        &local_name,
+                        self.pause_pressed,
+                        self.pause_hover,
+                        fnt,
+                        csf,
+                        self.pause_menu_chrome.as_ref(),
+                        self.hud_chrome.as_ref(),
+                        funds,
+                    )
+                }
             };
             if let Some(page) = page {
                 let page = present::present_ui_page(page, present);

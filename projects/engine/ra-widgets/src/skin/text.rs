@@ -475,6 +475,29 @@ pub fn battle_in_game_options_fallback_label(entry_id: &str) -> &str {
     }
 }
 
+/// 外交子页钮 / 标题 → CSF。
+pub fn battle_diplomacy_csf_label(entry_id: &str) -> Option<&'static str> {
+    match entry_id {
+        "back" => Some("GUI:Back"),
+        "title" => Some("GUI:Diplomacy"),
+        "ally" => Some("GUI:Ally"),
+        "enemy" => Some("GUI:Enemy"),
+        _ => None,
+    }
+}
+
+/// 外交子页无 CSF 回退。
+pub fn battle_diplomacy_fallback_label(entry_id: &str) -> &str {
+    match entry_id {
+        "back" => "返回",
+        "title" => "外交",
+        "ally" => "同盟",
+        "enemy" => "敌对",
+        "local" => "本机",
+        _ => "外交",
+    }
+}
+
 /// 局内选项速度档位 CSF（滑条位置 0..=6）。
 pub fn battle_in_game_speed_label_key(pos: u8) -> &'static str {
     match pos.min(6) {

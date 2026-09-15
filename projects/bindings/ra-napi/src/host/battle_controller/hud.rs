@@ -340,7 +340,13 @@ impl BattleController {
                 BattleNav::None
             }
             BattleHudHit::Diplomacy => {
-                self.log_diplomacy_allies();
+                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                    if !game.paused {
+                        game.toggle_pause();
+                    }
+                }
+                self.open_diplomacy_layer();
+                tracing::info!("侧栏 · 打开外交");
                 BattleNav::None
             }
             BattleHudHit::Radar => BattleNav::None,
@@ -348,7 +354,7 @@ impl BattleController {
         }
     }
 
-    /// 外交钮：只读列出本机同盟（遭遇战改盟待接）。
+    /// 外交钮：只读列出本机同盟（遭遇战改盟待接；界面见 `BattlePauseLayer::Diplomacy`）。
     pub(super) fn log_diplomacy_allies(&self) {
         let Some(game) = self.session.as_ref().and_then(|s| s.battle())
         else {
@@ -367,8 +373,7 @@ impl BattleController {
             .iter()
             .filter(|p| p.id != local.id)
             .map(|p| {
-                let allied = local.allies.iter().any(|a| a.eq_ignore_ascii_case(p.house.as_ref()))
-                    || p.allies.iter().any(|a| a.eq_ignore_ascii_case(local.house.as_ref()));
+                let allied = ra_engine::houses_are_allied(&game.world, local.house.as_ref(), p.house.as_ref());
                 format!("{}={}", p.house, if allied { "同盟" } else { "敌对" })
             })
             .collect();
@@ -379,6 +384,34 @@ impl BattleController {
             roster = %roster,
             "外交 · 同盟只读（遭遇战改盟待接）"
         );
+    }
+
+    /// 从当前对局构建外交花名册行（跳过本机与氛围 house）。
+    pub(super) fn diplomacy_roster_rows(&self, csf: Option<&ra_assets::CsfFile>) -> (String, Vec<ra_widgets::battle_diplomacy::BattleDiplomacyRow>) {
+        use ra_widgets::{battle_diplomacy::BattleDiplomacyRow, skin::text::country_lobby_display_name};
+
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return (String::new(), Vec::new());
+        };
+        let Some(local) = game.world.players.iter().find(|p| p.id == game.world.local_player)
+        else {
+            return (String::new(), Vec::new());
+        };
+        let local_name = country_lobby_display_name(csf, local.house.as_ref(), "");
+        let rows = game
+            .world
+            .players
+            .iter()
+            .filter(|p| p.id != local.id)
+            .filter(|p| !ra_engine::is_ambient_house(p.house.as_ref()))
+            .map(|p| BattleDiplomacyRow {
+                house: p.house.to_string(),
+                display_name: country_lobby_display_name(csf, p.house.as_ref(), ""),
+                allied: ra_engine::houses_are_allied(&game.world, local.house.as_ref(), p.house.as_ref()),
+            })
+            .collect();
+        (local_name, rows)
     }
 
     /// 关闭建造放置 / 修理 / 出售 / 规划 / 攻击移动 / 跟随。有任一处于激活则返回 `true`。
