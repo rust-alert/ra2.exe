@@ -543,7 +543,7 @@ impl Shell {
                 let sfx = ctrl.drain_playable_battle_sfx();
                 for event_id in sfx {
                     if let Some(pcm) = self.play_battle_sfx_event(&event_id) {
-                        if event_id.starts_with("EVA_") {
+                        if crate::host::audio::is_eva_event_id(&event_id) {
                             if let Some(ctrl) = self.battle_controller.as_mut() {
                                 ctrl.note_eva_voice_started(&pcm);
                             }
@@ -573,7 +573,7 @@ impl Shell {
                 let sfx = ctrl.drain_playable_battle_sfx();
                 for event_id in sfx {
                     if let Some(pcm) = self.play_battle_sfx_event(&event_id) {
-                        if event_id.starts_with("EVA_") {
+                        if crate::host::audio::is_eva_event_id(&event_id) {
                             if let Some(ctrl) = self.battle_controller.as_mut() {
                                 ctrl.note_eva_voice_started(&pcm);
                             }

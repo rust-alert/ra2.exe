@@ -1,18 +1,31 @@
 //! 桌面音频输出：rodio 设备 + PCM 一次/循环播放。
 //!
 //! 解码在 `ra-assets`（Symphonia）；本模块只负责设备与播放生命周期。
+//!
+//! 通道约定：
+//! - **music**：BGM 单轨循环
+//! - **sfx**：短音效多实例（`MAX_SFX` FIFO 淘汰）
+//! - **voice**：EVA / 旁白单轨（替换上一句，不进短音淘汰池）
 
 use std::num::NonZero;
 
 use ra_assets::PcmAudio;
 use rodio::{DeviceSinkBuilder, MixerDeviceSink, Player, Source, buffer::SamplesBuffer};
 
-/// 壳层音频：BGM 单轨循环 + SFX 短音。
+/// 对局 / 壳层事件 id 是否应走语音轨（`EVA_*`）。
+#[inline]
+pub fn is_eva_event_id(event_id: &str) -> bool {
+    event_id.starts_with("EVA_")
+}
+
+/// 壳层音频：BGM 单轨循环 + SFX 短音 + EVA 独立语音轨。
 pub struct ShellAudio {
     _device: MixerDeviceSink,
     music: Option<Player>,
     /// 尚未播完的短音效播放器（下次 `play_sfx` 时清理已空轨）。
     sfx: Vec<Player>,
+    /// EVA / 语音单轨：不与战斗短音共享 `MAX_SFX` 淘汰，避免遇袭播报被开火音掐断。
+    voice: Option<Player>,
     /// 主菜单主题音量（相对全量）。
     music_volume: f32,
     /// 点击等音效音量。
@@ -25,7 +38,14 @@ impl ShellAudio {
         match DeviceSinkBuilder::open_default_sink() {
             Ok(device) => {
                 tracing::info!("音频输出已打开");
-                Some(Self { _device: device, music: None, sfx: Vec::new(), music_volume: 0.4, sfx_volume: 0.7 })
+                Some(Self {
+                    _device: device,
+                    music: None,
+                    sfx: Vec::new(),
+                    voice: None,
+                    music_volume: 0.4,
+                    sfx_volume: 0.7,
+                })
             }
             Err(e) => {
                 tracing::warn!(error = %e, "音频输出不可用，继续静音运行");
@@ -63,9 +83,17 @@ impl ShellAudio {
         }
     }
 
-    /// 停止全部短音效（进结算时掐断残留 EVA，避免压过 SCORE 主题）。
+    /// 停止全部短音效与语音轨（进结算时掐断残留 EVA，避免压过 SCORE 主题）。
     pub fn stop_sfx(&mut self) {
         for player in self.sfx.drain(..) {
+            player.stop();
+        }
+        self.stop_voice();
+    }
+
+    /// 停止 EVA 语音轨。
+    pub fn stop_voice(&mut self) {
+        if let Some(player) = self.voice.take() {
             player.stop();
         }
     }
@@ -83,9 +111,12 @@ impl ShellAudio {
         self.music_volume
     }
 
-    /// 设置短音效音量（0..1），作用于随后的 `play_sfx`。
+    /// 设置短音效 / 语音音量（0..1），作用于随后的 `play_sfx` / `play_voice`，并立刻作用于当前语音轨。
     pub fn set_sfx_volume(&mut self, volume: f32) {
         self.sfx_volume = volume.clamp(0.0, 1.0);
+        if let Some(player) = self.voice.as_ref() {
+            player.set_volume(self.sfx_volume);
+        }
     }
 
     /// 当前短音效音量（0..1）。
@@ -93,7 +124,7 @@ impl ShellAudio {
         self.sfx_volume
     }
 
-    /// 播放一次短音效（不打断 BGM）。
+    /// 播放一次短音效（不打断 BGM / EVA 语音轨）。
     pub fn play_sfx(&mut self, pcm: &PcmAudio) {
         self.sfx.retain(|p| !p.empty());
         // 连点时丢弃最旧实例，避免短音轨无限堆积。
@@ -113,6 +144,39 @@ impl ShellAudio {
         player.set_volume(self.sfx_volume);
         player.append(source);
         self.sfx.push(player);
+    }
+
+    /// 播放一句 EVA / 旁白（单轨替换；不进入短音 `MAX_SFX` 淘汰池）。
+    pub fn play_voice(&mut self, pcm: &PcmAudio) {
+        if self.voice.as_ref().is_some_and(|p| p.empty()) {
+            self.voice = None;
+        }
+        let Some(source) = pcm_to_source(pcm)
+        else {
+            tracing::warn!("语音采样无效，跳过播放");
+            return;
+        };
+        if let Some(player) = self.voice.take() {
+            player.stop();
+        }
+        let player = Player::connect_new(self._device.mixer());
+        player.set_volume(self.sfx_volume);
+        player.append(source);
+        self.voice = Some(player);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_eva_event_id;
+
+    #[test]
+    fn eva_event_id_prefix() {
+        assert!(is_eva_event_id("EVA_OurBaseIsUnderAttack"));
+        assert!(is_eva_event_id("EVA_UnitLost"));
+        assert!(!is_eva_event_id("PlaceBuilding"));
+        assert!(!is_eva_event_id("SellBuilding"));
+        assert!(!is_eva_event_id(""));
     }
 }
 

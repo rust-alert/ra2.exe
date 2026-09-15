@@ -425,13 +425,15 @@ impl Shell {
             }
         }
         if let (Some(audio), Some(pcm)) = (self.audio.as_mut(), self.campaign_side_sfx[slot].as_ref()) {
-            audio.play_sfx(pcm);
+            // 选边旁白走语音轨，避免与菜单点击短音争抢 `MAX_SFX`。
+            audio.play_voice(pcm);
         }
     }
 
     /// 对局短音效 / EVA：`sound.ini` 或 edition `eva.ini`/`evamd.ini` → `audio.bag` 或 MIX 内 `.wav`。
     ///
-    /// 成功解码时返回 PCM（供结算延迟按采样时长对齐）。
+    /// EVA 事件经 [`crate::host::audio::ShellAudio::play_voice`] 独立轨播放；
+    /// 其它事件走短音轨。成功解码时返回 PCM（供结算延迟按采样时长对齐）。
     pub(super) fn play_battle_sfx_event(&mut self, event_id: &str) -> Option<ra_assets::PcmAudio> {
         if event_id.is_empty() {
             return None;
@@ -439,7 +441,8 @@ impl Shell {
         self.ensure_audio_bag();
         let mut candidates: Vec<String> = Vec::new();
         let chrome = self.resolve_battle_ui_faction_chrome();
-        if event_id.starts_with("EVA_") || event_id.eq_ignore_ascii_case("EVA_BattleControlTerminated") {
+        let is_eva = crate::host::audio::is_eva_event_id(event_id);
+        if is_eva {
             candidates.extend(self.eva_sample_names(event_id, chrome.as_ref()));
             let tag = chrome.as_ref().and_then(|c| c.eva_tag.as_deref());
             for fallback in ra_widgets::skirmish_setup::eva_fallback_sample_names(event_id, tag) {
@@ -475,7 +478,13 @@ impl Shell {
             return None;
         };
         if let Some(audio) = self.audio.as_mut() {
-            audio.play_sfx(&pcm);
+            // 设备层：EVA → voice；开火 Report / UI 短音 → sfx（互不抢 `MAX_SFX`）。
+            if is_eva {
+                audio.play_voice(&pcm);
+            }
+            else {
+                audio.play_sfx(&pcm);
+            }
             tracing::info!(%event_id, frames = pcm.samples.len(), "已播放对局音效/EVA");
         }
         Some(pcm)

@@ -209,7 +209,7 @@ pub struct BattleController {
     pub(super) deploy_watch: Option<ra_types::EntityId>,
     /// 对局短音效 / EVA 事件 id 队列（如 `PlaceBuilding`、`EVA_UnitLost`；由壳层播放）。
     pub(super) pending_battle_sfx: Vec<String>,
-    /// EVA 语音通道占用截止（原版 Vox：同通道一次只播一句，到期后再放下一句）。
+    /// EVA 串播门闩截止（逻辑层：同通道一次只放一句；设备层由 `ShellAudio::play_voice` 独立轨承载）。
     pub(super) eva_voice_until: Option<Instant>,
     /// 本机低电 EVA 已闩住（恢复供电后清闩，再掉电才再播）。
     pub(super) eva_low_power_latched: bool,
@@ -583,7 +583,9 @@ impl BattleController {
         self.outcome_hold_until = None;
     }
 
-    /// 本帧可立即开播的事件：非 EVA 可并行取出；EVA 仅在语音通道空闲时取队首一句。
+    /// 本帧可立即开播的事件：非 EVA 可并行取出；EVA 仅在语音门闩空闲时取队首一句。
+    ///
+    /// 短音与语音在设备层已分轨；本门闩只保证 EVA 不叠播，不压制开火 Report。
     pub fn drain_playable_battle_sfx(&mut self) -> Vec<String> {
         let now = Instant::now();
         let voice_free = self.eva_voice_until.map(|until| now >= until).unwrap_or(true);
@@ -591,7 +593,7 @@ impl BattleController {
         let mut deferred = Vec::new();
         let mut took_eva = false;
         for event in self.pending_battle_sfx.drain(..) {
-            let is_eva = event.starts_with("EVA_");
+            let is_eva = crate::host::audio::is_eva_event_id(&event);
             if is_eva {
                 if voice_free && !took_eva {
                     play_now.push(event);
@@ -609,9 +611,9 @@ impl BattleController {
         play_now
     }
 
-    /// 是否仍有未播 EVA，或语音通道仍占用。
+    /// 是否仍有未播 EVA，或语音门闩仍占用。
     pub fn eva_voice_busy(&self) -> bool {
-        if self.pending_battle_sfx.iter().any(|e| e.starts_with("EVA_")) {
+        if self.pending_battle_sfx.iter().any(|e| crate::host::audio::is_eva_event_id(e)) {
             return true;
         }
         self.eva_voice_until.is_some_and(|until| Instant::now() < until)
