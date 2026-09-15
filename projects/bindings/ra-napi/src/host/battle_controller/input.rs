@@ -1,5 +1,7 @@
 //! 对局页控制器：输入意图、命令、tick、快照；不含窗口与页面导航外壳。
 
+use super::super::battle_input::BattleInteractionMode;
+
 use ra_layout::{cameo_visible_slot_count, rect_px_from_snapshot};
 use ra_map::{MapEntityKind, iso_to_screen};
 use ra_renderer::Renderer;
@@ -17,6 +19,29 @@ use super::super::battle_input::{
 
 use super::{BattleController, BattleNav};
 
+/// 战术区一次 soft-pick 探针（光标建议与左键命令共用同一组命中结果）。
+#[derive(Debug, Clone, Copy)]
+pub(super) struct BattleWorldProbe {
+    /// 图像空间 X。
+    pub world_x: f32,
+    /// 图像空间 Y。
+    pub world_y: f32,
+    /// 光标下地图格。
+    pub cell: Option<(u16, u16)>,
+    /// 本方机动软命中。
+    pub local_mobile: Option<EntityId>,
+    /// 本方建筑命中。
+    pub local_building: Option<EntityId>,
+    /// 敌方软命中。
+    pub hostile: Option<EntityId>,
+    /// 任意阵营机动（跟随模式）。
+    pub any_mobile: Option<EntityId>,
+    /// 当前选中是否含机动单位。
+    pub has_mobile_selected: bool,
+    /// 当前选中相对该格是否可通行。
+    pub traversable: bool,
+}
+
 impl BattleController {
     /// 把 `Session::tick_fraction` 写入战斗会话，供点选 / 框选与烤图同一滑移脚点。
     pub(super) fn sync_present_tick_fraction(&mut self) {
@@ -29,55 +54,42 @@ impl BattleController {
     /// 对局指针：边缘滚屏优先，否则按悬停格给出 Select / Move / Attack 等。
     pub fn battle_pointer(&self, renderer: &Renderer, window: &Window) -> super::super::battle_input::BattlePointer {
         use super::super::battle_input::BattlePointer;
-        let context = self.battle_pointer_context(renderer, window);
-        BattlePointer::resolve(self.edge_scroll_cursor, context)
+        let hover = self.resolve_battle_hover(renderer, window);
+        BattlePointer::resolve(self.edge_scroll_cursor, hover.recommended_pointer)
     }
 
-    /// 战术区悬停上下文（不含边缘滚屏）。
+    /// 战术区一次解析：光标与点击命令共用同一探针与指针建议。
     ///
     /// 西木口径：悬停**已选**可部署单位显示 Deploy；`D` / 命令条立即下发，无单独部署工具态。
-    pub(super) fn battle_pointer_context(&self, renderer: &Renderer, window: &Window) -> super::super::battle_input::BattlePointer {
-        use super::super::battle_input::BattlePointer;
-        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+    pub(super) fn resolve_battle_hover(
+        &self,
+        renderer: &Renderer,
+        window: &Window,
+    ) -> super::super::battle_input::ResolvedBattleHover {
+        use super::super::battle_input::{BattlePointer, ResolvedBattleHover};
+        let Some(probe) = self.probe_battle_world(renderer, window)
         else {
-            return BattlePointer::Default;
+            return ResolvedBattleHover {
+                recommended_pointer: BattlePointer::Default,
+                cell: None,
+            };
         };
-        let selected = &self.local.selected;
-        let Some(cell) = self.cursor_cell(renderer, window)
-        else {
-            return BattlePointer::Default;
-        };
+        ResolvedBattleHover {
+            recommended_pointer: self.pointer_from_world_probe(&probe),
+            cell: probe.cell,
+        }
+    }
+
+    /// 图像空间下的战场探针（一次 soft-pick，供光标与左键共用）。
+    pub(super) fn probe_battle_world(&self, renderer: &Renderer, window: &Window) -> Option<BattleWorldProbe> {
+        let game = self.session.as_ref()?.battle()?;
         let vp = self.map_viewport(window);
+        if !vp.contains_cursor(self.cursor.0 as i32, self.cursor.1 as i32) {
+            return None;
+        }
         let (wx, wy) = vp.screen_to_world(renderer.camera(), self.cursor.0 as f32, self.cursor.1 as f32);
-
-        // 出售工具：专用 Sell 光标（右键取消工具态）。
-        if self.sell_mode {
-            return BattlePointer::Sell;
-        }
-        // 修理工具：专用 Repair 光标（右键取消工具态）。
-        if self.repair_mode {
-            return BattlePointer::Repair;
-        }
-        // 建造放置：不伪装成可下令 Move（右键只取消放置）。
-        if self.place_mode.is_some() {
-            return BattlePointer::Default;
-        }
-
-        // 跟随模式：悬停任意存活机动单位时用点选光标（右键取消）。
-        if self.follow_mode {
-            if game.pick_any_mobile_near_image(wx, wy, 72.0).is_some() {
-                return BattlePointer::Select;
-            }
-            return BattlePointer::Default;
-        }
-
-        if selected.is_empty() {
-            if game.pick_local_mobile_near_image(wx, wy, 72.0).is_some() || Self::pick_local_building_at_image(game, wx, wy).is_some() {
-                return BattlePointer::Select;
-            }
-            return BattlePointer::Default;
-        }
-
+        let cell = game.image_to_cell(wx, wy);
+        let selected = &self.local.selected;
         let has_mobile = selected.iter().any(|&id| {
             game.world
                 .ecs_identity(id)
@@ -92,37 +104,91 @@ impl BattleController {
                         .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
                 })
                 .all(|&id| game.world.entity_is_naval(id));
+        let traversable = cell.is_some_and(|(cx, cy)| {
+            game.world.pass_grid.in_bounds(cx, cy) && game.world.pass_grid.is_traversable(cx, cy, selected_naval_only)
+        });
+        Some(BattleWorldProbe {
+            world_x: wx,
+            world_y: wy,
+            cell,
+            local_mobile: game.pick_local_mobile_near_image(wx, wy, 72.0),
+            local_building: Self::pick_local_building_at_image(game, wx, wy),
+            hostile: game.pick_hostile_near_image(wx, wy, 72.0),
+            any_mobile: game.pick_any_mobile_near_image(wx, wy, 72.0),
+            has_mobile_selected: has_mobile,
+            traversable,
+        })
+    }
 
-        // 悬停已选可部署单位 → Deploy（先于攻击 / 移动，避免被友军格 Move 盖住）。
-        if let Some(id) = game.pick_local_mobile_near_image(wx, wy, 72.0) {
+    /// 由探针与交互模式推导建议指针（不含边缘滚屏）。
+    pub(super) fn pointer_from_world_probe(&self, probe: &BattleWorldProbe) -> super::super::battle_input::BattlePointer {
+        use super::super::battle_input::BattlePointer;
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return BattlePointer::Default;
+        };
+        let selected = &self.local.selected;
+
+        if self.interaction_mode.is_sell() {
+            return BattlePointer::Sell;
+        }
+        if self.interaction_mode.is_repair() {
+            return BattlePointer::Repair;
+        }
+        if self.interaction_mode.place_type_id().is_some() {
+            return BattlePointer::Default;
+        }
+        if self.interaction_mode.is_follow() {
+            return if probe.any_mobile.is_some() {
+                BattlePointer::Select
+            } else {
+                BattlePointer::Default
+            };
+        }
+
+        let Some(_cell) = probe.cell
+        else {
+            return BattlePointer::Default;
+        };
+
+        if selected.is_empty() {
+            if probe.local_mobile.is_some() || probe.local_building.is_some() {
+                return BattlePointer::Select;
+            }
+            return BattlePointer::Default;
+        }
+
+        if let Some(id) = probe.local_mobile {
             if selected.contains(&id) && game.entity_can_deploy(id) {
                 return BattlePointer::Deploy;
             }
         }
-
-        // 悬停已选生产厂 → Select（再点左键设 PRI；空地仍走下方 Move 设集结）。
-        if let Some(id) = Self::pick_local_building_at_image(game, wx, wy) {
+        if let Some(id) = probe.local_building {
             if selected.contains(&id) && game.selection_has_primary_factory(&[id]) {
                 return BattlePointer::Select;
             }
         }
 
-        // 攻击移动模式：空地与敌方均显示攻击光标（右键取消模式）。
-        if self.attack_move_mode && has_mobile {
-            if game.pick_hostile_near_image(wx, wy, 72.0).is_some() {
+        if self.interaction_mode.is_attack_move() && probe.has_mobile_selected {
+            if probe.hostile.is_some() {
                 return BattlePointer::Attack;
             }
-            let ok = game.world.pass_grid.in_bounds(cell.0, cell.1) && game.world.pass_grid.is_traversable(cell.0, cell.1, selected_naval_only);
-            return if ok { BattlePointer::Attack } else { BattlePointer::NoMove };
+            return if probe.traversable {
+                BattlePointer::Attack
+            } else {
+                BattlePointer::NoMove
+            };
         }
 
-        // 已选机动单位时：异阵营目标用图像软命中（与左键攻击同口径）。
-        if has_mobile && game.pick_hostile_near_image(wx, wy, 72.0).is_some() {
+        if probe.has_mobile_selected && probe.hostile.is_some() {
             return BattlePointer::Attack;
         }
 
-        let ok = game.world.pass_grid.in_bounds(cell.0, cell.1) && game.world.pass_grid.is_traversable(cell.0, cell.1, selected_naval_only);
-        if ok { BattlePointer::Move } else { BattlePointer::NoMove }
+        if probe.traversable {
+            BattlePointer::Move
+        } else {
+            BattlePointer::NoMove
+        }
     }
 
     /// 可玩对局且未暂停 / 未结算时，壳层应捕获光标以支持边缘滚屏。
@@ -136,20 +202,20 @@ impl BattleController {
     pub(super) fn handle_left_click(&mut self, renderer: &Renderer, window: &Window) {
         self.sync_present_tick_fraction();
         let add = self.shift_down;
-        let vp = self.map_viewport(window);
-        if !vp.contains_cursor(self.cursor.0 as i32, self.cursor.1 as i32) {
+        let Some(probe) = self.probe_battle_world(renderer, window)
+        else {
             if !add {
                 self.local.clear();
             }
             return;
-        }
+        };
+        let (wx, wy) = (probe.world_x, probe.world_y);
         let Some(game) = self.session.as_ref().and_then(|s| s.battle())
         else {
             return;
         };
-        let (wx, wy) = vp.screen_to_world(renderer.camera(), self.cursor.0 as f32, self.cursor.1 as f32);
-        if let Some(type_id) = self.place_mode.clone() {
-            let Some(cell) = game.image_to_cell(wx, wy)
+        if let Some(type_id) = self.interaction_mode.place_type_id().map(str::to_string) {
+            let Some(cell) = probe.cell
             else {
                 return;
             };
@@ -175,10 +241,9 @@ impl BattleController {
             }
             return;
         }
-        if self.sell_mode {
-            // 出售：先占地格，再立面菱形（与点选同序，勿先软命中再漏格）。
-            let building = Self::pick_local_building_at_image(game, wx, wy);
-            if let Some(building) = building {
+        if self.interaction_mode.is_sell() {
+            // 出售：与悬停探针同一建筑命中。
+            if let Some(building) = probe.local_building {
                 if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                     tracing::info!("出售建筑 · #{}", building.0);
                     game.order_sell_building(building);
@@ -186,9 +251,8 @@ impl BattleController {
             }
             return;
         }
-        if self.repair_mode {
-            let building = Self::pick_local_building_at_image(game, wx, wy);
-            if let Some(building) = building {
+        if self.interaction_mode.is_repair() {
+            if let Some(building) = probe.local_building {
                 if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                     tracing::info!("修理建筑 · #{}", building.0);
                     game.order_repair_building(building);
@@ -197,8 +261,8 @@ impl BattleController {
             return;
         }
         // 路径点规划：左键追加航点（右键只负责取消）。
-        if self.planning_mode {
-            let Some(cell) = game.image_to_cell(wx, wy)
+        if self.interaction_mode.is_planning() {
+            let Some(cell) = probe.cell
             else {
                 return;
             };
@@ -213,20 +277,15 @@ impl BattleController {
             return;
         }
         // 跟随模式：左键点选任意机动单位作为跟随目标。
-        if self.follow_mode {
+        if self.interaction_mode.is_follow() {
             let selected = self.local.selected.clone();
-            let has_mobile = selected.iter().any(|&id| {
-                game.world
-                    .ecs_identity(id)
-                    .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
-            });
-            if selected.is_empty() || !has_mobile {
-                self.follow_mode = false;
+            if selected.is_empty() || !probe.has_mobile_selected {
+                self.interaction_mode = BattleInteractionMode::Normal;
                 tracing::info!(active = false, "跟随模式 · 选中无效，已退出");
                 return;
             }
             let tick = game.world.tick;
-            if let Some(target) = game.pick_any_mobile_near_image(wx, wy, 72.0) {
+            if let Some(target) = probe.any_mobile {
                 if selected.contains(&target) {
                     tracing::info!("跟随 · 目标在当前选中内，忽略");
                     return;
@@ -235,7 +294,7 @@ impl BattleController {
                     tracing::info!("命令跟随 → #{}（选中 {:?}）", target.0, selected);
                     game.order_follow(&selected, target);
                 }
-                self.follow_mode = false;
+                self.interaction_mode = BattleInteractionMode::Normal;
                 self.pulse_action_lines_at(tick);
                 return;
             }
@@ -246,18 +305,14 @@ impl BattleController {
         let local_house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.to_string());
         let tick = game.world.tick;
         let selected = self.local.selected.clone();
-        let has_mobile = selected.iter().any(|&id| {
-            game.world
-                .ecs_identity(id)
-                .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
-        });
+        let has_mobile = probe.has_mobile_selected;
         let has_structure = game.selection_has_structure(&selected);
         let order_mod = super::super::battle_input::OrderClickModifier::from_keys(self.ctrl_down, self.alt_down);
         let queue_path = self.shift_down;
 
         // 已选机动：先敌后友（与 Attack / Move 光标一致），避免邻矿被友军松散点选吞掉。
         if has_mobile && !matches!(order_mod, super::super::battle_input::OrderClickModifier::ForceMove) {
-            if let Some(target) = game.pick_hostile_near_image(wx, wy, 72.0) {
+            if let Some(target) = probe.hostile {
                 let is_structure = game.world.ecs_identity(target).is_some_and(|(_, kind)| kind == MapEntityKind::Structure);
                 let force_attack = matches!(order_mod, super::super::battle_input::OrderClickModifier::ForceAttack);
                 if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
@@ -274,8 +329,9 @@ impl BattleController {
                         game.order_attack(&selected, target);
                     }
                 }
-                self.attack_move_mode = false;
-                self.follow_mode = false;
+                if self.interaction_mode.is_attack_move() || self.interaction_mode.is_follow() {
+                    self.interaction_mode = BattleInteractionMode::Normal;
+                }
                 self.pulse_action_lines_at(tick);
                 return;
             }
@@ -361,7 +417,7 @@ impl BattleController {
         // 已选单位 / 建筑：左键空地 → 移动、攻击移动、强制攻击近似或设集结点。
         if let Some(cell) = game.image_to_cell(wx, wy) {
             if has_mobile {
-                if queue_path && matches!(order_mod, super::super::battle_input::OrderClickModifier::None) && !self.attack_move_mode {
+                if queue_path && matches!(order_mod, super::super::battle_input::OrderClickModifier::None) && !self.interaction_mode.is_attack_move() {
                     // Shift+左键空地：追加路径点并下发整条路径。
                     if self.planning_waypoints.last().copied() != Some(cell) {
                         self.planning_waypoints.push(cell);
@@ -379,7 +435,7 @@ impl BattleController {
                     return;
                 }
                 if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                    if matches!(order_mod, super::super::battle_input::OrderClickModifier::ForceAttack) || self.attack_move_mode {
+                    if matches!(order_mod, super::super::battle_input::OrderClickModifier::ForceAttack) || self.interaction_mode.is_attack_move() {
                         tracing::info!("命令攻击移动 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
                         game.order_attack_move(&selected, cell.0, cell.1);
                     }
@@ -391,8 +447,9 @@ impl BattleController {
                 if !queue_path {
                     self.planning_waypoints.clear();
                 }
-                self.attack_move_mode = false;
-                self.follow_mode = false;
+                if self.interaction_mode.is_attack_move() || self.interaction_mode.is_follow() {
+                    self.interaction_mode = BattleInteractionMode::Normal;
+                }
                 self.pulse_action_lines_at(tick);
                 return;
             }
@@ -522,8 +579,12 @@ impl BattleController {
             self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.outcome.is_some() || g.pending_savour_outcome.is_some());
         // 收束窗 / EVA 播报：仍在 Battle 页，但不再接受对局/暂停输入。
         if accept_commands && outcome_hold {
-            if let WindowEvent::CursorMoved { position, .. } = event {
-                self.cursor = (position.x, position.y);
+            match event {
+                WindowEvent::CursorMoved { position, .. } => {
+                    self.set_cursor_from_physical(window, *position);
+                }
+                // 非光标事件：清瞬时按住态，避免收束期残留到回局。
+                _ => self.reset_transient_input_state(true),
             }
             return BattleNav::None;
         }
@@ -615,10 +676,7 @@ impl BattleController {
                 nav
             }
             WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } if !accept_commands => {
-                self.left_gesture = LeftGesture::Idle;
-                self.command_pressed = None;
-                self.sidebar_pressed = None;
-                self.pause_pressed = None;
+                self.reset_transient_input_state(false);
                 BattleNav::None
             }
             WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. } if gameplay_open => {
@@ -629,27 +687,28 @@ impl BattleController {
                 BattleNav::None
             }
             WindowEvent::CursorMoved { position, .. } => {
-                self.cursor = (position.x, position.y);
+                self.set_cursor_from_physical(window, *position);
                 if battle_paused {
                     self.left_gesture = LeftGesture::Idle;
                     self.refresh_pause_hover(window);
                     self.handle_pause_layer_drag(window);
                 }
                 else if script_locked {
-                    self.left_gesture = LeftGesture::Idle;
-                    self.camera_pan_keys.clear();
+                    self.reset_transient_input_state(false);
                 }
                 else {
                     // 建造放置模式只认点选，拖拽不升为框选。
-                    if accept_commands && self.place_mode.is_none() && self.command_pressed.is_none() && self.sidebar_pressed.is_none() {
-                        self.left_gesture = self.left_gesture.on_cursor_moved(position.x, position.y);
+                    let placing = self.interaction_mode.place_type_id().is_some();
+                    if accept_commands && !placing && self.command_pressed.is_none() && self.sidebar_pressed.is_none() {
+                        self.left_gesture = self.left_gesture.on_cursor_moved(self.cursor.0, self.cursor.1);
                     }
                     self.refresh_command_hover(window);
                 }
                 BattleNav::None
             }
             WindowEvent::Focused(false) => {
-                self.camera_pan_keys.clear();
+                // 失焦保留工具模式，但必须清按住态与修饰键，避免幽灵输入。
+                self.reset_transient_input_state(false);
                 BattleNav::None
             }
             WindowEvent::MouseWheel { delta, .. } => {
@@ -693,33 +752,25 @@ impl BattleController {
                 let vk = super::super::battle_hotkeys::key_code_to_vk(code);
                 let hotkey = vk.and_then(|vk| self.hotkeys.action_for(vk, self.shift_down, self.ctrl_down, self.alt_down));
 
-                // 方向键：未被 `keyboard.ini` 占用时才作镜头平移；侧栏箭头热键走查表。
+                // 方向键：持续镜头平移与 `keyboard.ini` 瞬时热键解耦。
+                // 可玩时始终更新 `camera_pan_keys`；若该键同时被热键表占用，按下仍走热键分发。
                 if matches!(code, KeyCode::ArrowLeft | KeyCode::ArrowRight | KeyCode::ArrowUp | KeyCode::ArrowDown) {
                     if !gameplay_open {
                         self.camera_pan_keys.clear();
                         return BattleNav::None;
                     }
-                    let claimed = hotkey.is_some();
-                    if !claimed {
-                        match code {
-                            KeyCode::ArrowLeft => self.camera_pan_keys.left = down,
-                            KeyCode::ArrowRight => self.camera_pan_keys.right = down,
-                            KeyCode::ArrowUp => self.camera_pan_keys.up = down,
-                            KeyCode::ArrowDown => self.camera_pan_keys.down = down,
-                            _ => {}
-                        }
+                    match code {
+                        KeyCode::ArrowLeft => self.camera_pan_keys.left = down,
+                        KeyCode::ArrowRight => self.camera_pan_keys.right = down,
+                        KeyCode::ArrowUp => self.camera_pan_keys.up = down,
+                        KeyCode::ArrowDown => self.camera_pan_keys.down = down,
+                        _ => {}
+                    }
+                    // 未被热键占用，或按键抬起：只更新平移态。
+                    if hotkey.is_none() || !down {
                         return BattleNav::None;
                     }
-                    if !down {
-                        match code {
-                            KeyCode::ArrowLeft => self.camera_pan_keys.left = false,
-                            KeyCode::ArrowRight => self.camera_pan_keys.right = false,
-                            KeyCode::ArrowUp => self.camera_pan_keys.up = false,
-                            KeyCode::ArrowDown => self.camera_pan_keys.down = false,
-                            _ => {}
-                        }
-                        return BattleNav::None;
-                    }
+                    // 已被占用且按下：继续落入下方热键分发（平移态已写入）。
                 }
 
                 if !down {
@@ -911,37 +962,38 @@ impl BattleController {
                 BattleNav::None
             }
             HotkeyAction::ToggleRepair => {
-                self.sell_mode = false;
-                self.planning_mode = false;
-                self.planning_waypoints.clear();
-                self.repair_mode = !self.repair_mode;
-                if self.repair_mode {
-                    self.place_mode = None;
+                let next = if self.interaction_mode.is_repair() {
+                    BattleInteractionMode::Normal
+                } else {
+                    BattleInteractionMode::Repair
+                };
+                if self.interaction_mode.is_planning() {
+                    self.planning_waypoints.clear();
                 }
-                tracing::info!(active = self.repair_mode, "ToggleRepair");
+                self.interaction_mode = next;
+                tracing::info!(active = self.interaction_mode.is_repair(), "ToggleRepair");
                 BattleNav::None
             }
             HotkeyAction::ToggleSell => {
-                self.repair_mode = false;
-                self.planning_mode = false;
-                self.planning_waypoints.clear();
-                self.sell_mode = !self.sell_mode;
-                if self.sell_mode {
-                    self.place_mode = None;
+                let next = if self.interaction_mode.is_sell() {
+                    BattleInteractionMode::Normal
+                } else {
+                    BattleInteractionMode::Sell
+                };
+                if self.interaction_mode.is_planning() {
+                    self.planning_waypoints.clear();
                 }
-                tracing::info!(active = self.sell_mode, "ToggleSell");
+                self.interaction_mode = next;
+                tracing::info!(active = self.interaction_mode.is_sell(), "ToggleSell");
                 BattleNav::None
             }
             HotkeyAction::PlanningMode => {
-                if self.planning_mode {
+                if self.interaction_mode.is_planning() {
                     self.commit_planning_waypoints();
                 }
                 else {
-                    self.planning_mode = true;
                     self.planning_waypoints.clear();
-                    self.place_mode = None;
-                    self.repair_mode = false;
-                    self.sell_mode = false;
+                    self.interaction_mode = BattleInteractionMode::Planning;
                     tracing::info!(active = true, "PlanningMode");
                 }
                 BattleNav::None
@@ -1087,7 +1139,7 @@ impl BattleController {
 
     /// 关闭规划并下发暂存航点；无航点则仅退出规划。
     pub(super) fn commit_planning_waypoints(&mut self) {
-        self.planning_mode = false;
+        self.interaction_mode = BattleInteractionMode::Normal;
         let points = std::mem::take(&mut self.planning_waypoints);
         if points.is_empty() {
             tracing::info!(active = false, "命令条 · 路径点规划（无航点）");

@@ -23,10 +23,11 @@ use ra_widgets::{
         compose_battle_in_game_options_overlay, compose_battle_pause_menu_overlay, paint_battle_outcome_hold_banner,
     },
     fs_source::GameAssetSource,
-    paint_selection_power_tip, power_tip_rgba_from_primary, selection_power_drain_caption, structure_selection_center_preview,
-    POWER_TIP_TEXT_FALLBACK,
+    paint_selection_power_tip, power_tip_rgba_from_primary,
     render::present,
+    selection_power_drain_caption,
     skin::text::{battle_outcome_banner_csf_key, battle_outcome_banner_fallback, command_button_csf_tooltip, resolve_csf_text},
+    structure_selection_center_preview, POWER_TIP_TEXT_FALLBACK,
 };
 use winit::window::Window;
 
@@ -93,13 +94,10 @@ impl BattleController {
         self.ensure_cameo_cache(assets);
         self.ensure_outcome_banner(assets);
         self.ensure_start_view(renderer);
-        let (vw, vh) = window
-            .map(|w| {
-                let s = w.inner_size();
-                (s.width.max(1), s.height.max(1))
-            })
-            .unwrap_or((800, 600));
-        self.sync_world_view(renderer, vw, vh);
+        let (vw, vh) = window.map(|w| Self::logical_surface_size(w)).unwrap_or((800, 600));
+        if let Some(w) = window {
+            self.sync_world_view(renderer, w);
+        }
         let hover = self.tactical_hover_entity(renderer, window);
         renderer.set_selection_status(hover, self.condition_yellow, self.condition_red);
         self.tick_deploy_visuals(assets, renderer);
@@ -421,7 +419,11 @@ impl BattleController {
         self.weather.paint_onto(image);
     }
 
-    /// 放置模式下在光标格画占地幽灵：可放绿、不可放红（按格着色）。
+    /// 放置模式下在光标格画占地幽灵（按格着色）。
+    ///
+    /// - 绿：可落
+    /// - 红：超建区（格本身可放，但不在 `BaseNormal`/`Adjacent` 或墙链内）
+    /// - 橙：格不可建（矿 / 树 / 占用 / 高度不平 / 陆地类型等）
     pub(super) fn paint_placement_ghost(&self, page: &mut RgbaImage, renderer: &Renderer, window_w: u32, window_h: u32, type_id: &str) {
         let Some(game) = self.session.as_ref().and_then(|s| s.battle())
         else {
@@ -445,6 +447,8 @@ impl BattleController {
         let width = foundation.width.max(1);
         let height = foundation.height.max(1);
         let house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.as_ref());
+        let in_zone = house.is_some_and(|h| game.world.building_in_build_zone(h, sdef.id, ox, oy));
+        let height_flat = game.world.structure_footprint_height_flat(ox, oy, width, height);
         let place_ok = house.is_some_and(|h| game.world.can_place_building_for(h, sdef.id, ox, oy));
         let fill_cells: std::collections::HashSet<(u16, u16)> = house
             .filter(|_| place_ok && sdef.wall)
@@ -453,8 +457,13 @@ impl BattleController {
         let cam = renderer.camera();
         let half_w = (TILE_WIDTH / 2) as f32;
         let half_h = (TILE_HEIGHT / 2) as f32;
-        // 墙链：先画补段幽灵，再画点击占地。
-        let mut ghost_cells: Vec<(u16, u16, bool)> = fill_cells.iter().filter(|c| **c != (ox, oy)).map(|&(cx, cy)| (cx, cy, true)).collect();
+        // 0=可落绿，1=超建区红，2=格不可建橙。
+        let mut ghost_cells: Vec<(u16, u16, u8)> = Vec::new();
+        for &(cx, cy) in fill_cells.iter().filter(|c| **c != (ox, oy)) {
+            let cell_ok = game.world.cell_ok_for_structure(cx, cy, water_bound);
+            let kind = if !cell_ok { 2 } else if !in_zone { 1 } else { 0 };
+            ghost_cells.push((cx, cy, kind));
+        }
         for dy in 0..height {
             for dx in 0..width {
                 let Some(cx) = ox.checked_add(dx)
@@ -465,13 +474,25 @@ impl BattleController {
                 else {
                     continue;
                 };
-                let cell_ok = place_ok && game.world.cell_ok_for_structure(cx, cy, water_bound);
-                ghost_cells.push((cx, cy, cell_ok));
+                let cell_ok = game.world.cell_ok_for_structure(cx, cy, water_bound);
+                let kind = if !cell_ok || !height_flat {
+                    2
+                }
+                else if !in_zone {
+                    1
+                }
+                else {
+                    0
+                };
+                ghost_cells.push((cx, cy, kind));
             }
         }
-        for (cx, cy, ok) in ghost_cells {
-            let fill = if ok { [40u8, 220, 70, 90] } else { [220u8, 40, 40, 110] };
-            let stroke = if ok { [80u8, 255, 100, 230] } else { [255u8, 70, 70, 240] };
+        for (cx, cy, kind) in ghost_cells {
+            let (fill, stroke) = match kind {
+                0 => ([40u8, 220, 70, 90], [80u8, 255, 100, 230]),
+                1 => ([220u8, 40, 40, 110], [255u8, 70, 70, 240]),
+                _ => ([230u8, 140, 40, 110], [255u8, 170, 60, 240]),
+            };
             let z = game.world.pass_grid.cell_height(cx, cy);
             let (sx, sy) = iso_to_screen(i32::from(cx), i32::from(cy), z);
             let center_wx = (sx - game.preview_origin_x) as f32 + half_w;
@@ -492,7 +513,7 @@ impl BattleController {
         }
     }
 
-    /// 选中供电建筑时叠 TXT_POWER_DRAIN2：所属 house 的**全局**有效供电与负载，阵营色。
+    /// 选中供电建筑时叠 `TXT_POWER_DRAIN2`：所属 house 的**全局**有效供电与负载，阵营色。
     pub(super) fn paint_selected_power_plant_tip(
         &self,
         page: &mut RgbaImage,
@@ -537,7 +558,9 @@ impl BattleController {
             .lobby_primaries
             .get(&unit.owner.to_ascii_uppercase())
             .map(|c| power_tip_rgba_from_primary(c.r, c.g, c.b))
-            .or_else(|| ra_assets::owner_primary_color(unit.owner.as_ref()).map(|c| power_tip_rgba_from_primary(c.r, c.g, c.b)))
+            .or_else(|| {
+                ra_assets::owner_primary_color(unit.owner.as_ref()).map(|c| power_tip_rgba_from_primary(c.r, c.g, c.b))
+            })
             .unwrap_or(POWER_TIP_TEXT_FALLBACK);
         paint_selection_power_tip(page, fnt, &caption, sx.round() as i32, sy.round() as i32, window_w as i32, window_h as i32, faction);
     }
@@ -600,12 +623,12 @@ impl BattleController {
                     funds,
                 ),
                 BattlePauseLayer::Diplomacy => {
-                    let (local_name, rows) = self.diplomacy_roster_rows(csf);
+                    let (map_name, rows) = self.diplomacy_roster_rows(csf);
                     compose_battle_diplomacy_overlay(
                         w,
                         h,
                         &rows,
-                        &local_name,
+                        &map_name,
                         self.pause_pressed,
                         self.pause_hover,
                         fnt,
@@ -678,7 +701,7 @@ impl BattleController {
                     image: self.cameo_cache.get(key).and_then(|opt| opt.as_ref()).map(|s| &s.image),
                     enabled: item.enabled,
                     selected: matches!(self.sidebar_tab, 0 | 1)
-                        && (self.place_mode.as_deref() == Some(key)
+                        && (self.interaction_mode.place_type_id() == Some(key)
                             || self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.is_local_ready_to_place(key))),
                     progress,
                 }
@@ -696,10 +719,10 @@ impl BattleController {
             produce_queue: queue.as_deref(),
             reject,
             command_pressed: self.command_pressed.or_else(|| {
-                if self.planning_mode {
+                if self.interaction_mode.is_planning() {
                     ra_widgets::skin::text::SKIRMISH_COMMAND_BAR.iter().position(|&n| n == "PlanningMode")
                 }
-                else if self.attack_move_mode {
+                else if self.interaction_mode.is_attack_move() {
                     ra_widgets::skin::text::SKIRMISH_COMMAND_BAR.iter().position(|&n| n == "AttackMove")
                 }
                 else {
@@ -708,8 +731,8 @@ impl BattleController {
             }),
             command_hovered: self.command_hover,
             command_tip: tip_owned.as_deref(),
-            repair_active: self.repair_mode,
-            sell_active: self.sell_mode,
+            repair_active: self.interaction_mode.is_repair(),
+            sell_active: self.interaction_mode.is_sell(),
             radar_online: self.radar_online_latched,
             radar_open_started_tick: self.radar_open_started_tick,
             radar_minimap: self.radar_minimap.as_ref(),
@@ -723,7 +746,7 @@ impl BattleController {
                 stroke_marquee_rect(&mut page, rect);
             }
             // 防御：放置态若因异步漏清，无完工件时不画绿框（常态由 `sync_place_mode_with_ready` 退出）。
-            if let Some(type_id) = self.place_mode.clone() {
+            if let Some(type_id) = self.interaction_mode.place_type_id().map(str::to_string) {
                 let paint_ghost = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.is_local_ready_to_place(&type_id));
                 if paint_ghost {
                     self.paint_placement_ghost(&mut page, renderer, w, h, &type_id);
@@ -769,14 +792,14 @@ impl BattleController {
                 let queue =
                     hud.produce_queues.first().map(|q| format!("q:{}:{}", q.type_id, q.remaining_ticks)).unwrap_or_else(|| "q:-".into());
                 let reject = hud.last_rejects.first().map(|r| r.reason.as_hud_label()).unwrap_or("-");
-                let place = self.place_mode.as_deref().unwrap_or("-");
+                let place = self.interaction_mode.place_type_id().unwrap_or("-");
                 if screen_label == "results" {
                     format!("{} · [results] · t{} · Enter确认 Esc离开", self.title_base, hud.tick)
                 }
                 else if hud.paused {
                     format!("{} · [{screen_label}] · t{} · 暂停菜单 · Esc/回到游戏 · 放弃回大厅", self.title_base, hud.tick)
                 }
-                else if self.place_mode.is_some() {
+                else if self.interaction_mode.place_type_id().is_some() {
                     let nsel = self.local.selected.len();
                     let sel = self.local.selected.first().copied();
                     let sel_part = match (sel, nsel) {

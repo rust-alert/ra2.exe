@@ -71,7 +71,12 @@ impl Shell {
             return;
         };
         let cur = if self.screen == ra_widgets::original_screen::OriginalScreen::Battle {
-            self.battle_controller.as_ref().map(|c| c.battle_pointer(&self.renderer, &window)).unwrap_or(BattlePointer::Default)
+            if let Some(ctrl) = self.battle_controller.as_mut() {
+                ctrl.update_presentation(&self.renderer, &window);
+                ctrl.presentation().pointer
+            } else {
+                BattlePointer::Default
+            }
         }
         else {
             BattlePointer::Default

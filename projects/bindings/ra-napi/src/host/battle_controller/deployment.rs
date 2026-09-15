@@ -1,11 +1,14 @@
 //! 对局页控制器：输入意图、命令、tick、快照；不含窗口与页面导航外壳。
 
+use super::super::battle_input::BattleInteractionMode;
+
 use std::time::Instant;
 
 use ra_map::{
     MapEntity, MapEntityKind, MobilePaintPose, StructureBuildupClip, collect_structure_anim_bank, load_structure_buildup_clip,
     load_structure_erase_masks, paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba,
-    paint_structures_onto_rgba, paint_terrain_anims_onto_rgba, restore_structure_blit_from_ground, restore_structure_foundation_from_ground,
+    paint_structures_onto_rgba, paint_structures_onto_rgba_filtered, paint_terrain_anims_onto_rgba, restore_structure_blit_from_ground,
+    restore_structure_foundation_from_ground, wall_link_refresh_cells,
 };
 use ra_renderer::Renderer;
 use ra_types::{EntityId, HouseName, TechnoName};
@@ -70,11 +73,14 @@ impl BattleController {
             return;
         };
         self.deploy_watch = Some(id);
-        self.follow_mode = false;
-        self.attack_move_mode = false;
-        if self.planning_mode {
-            self.planning_mode = false;
+        if self.interaction_mode.is_planning() {
             self.planning_waypoints.clear();
+        }
+        if self.interaction_mode.is_follow()
+            || self.interaction_mode.is_attack_move()
+            || self.interaction_mode.is_planning()
+        {
+            self.interaction_mode = BattleInteractionMode::Normal;
         }
         if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
             tracing::info!("部署选中 · {:?}", selected);
@@ -142,16 +148,15 @@ impl BattleController {
             tracing::info!("攻击移动 · 无选中单位，忽略");
             return;
         }
-        self.place_mode = None;
-        self.repair_mode = false;
-        self.sell_mode = false;
-        self.follow_mode = false;
-        if self.planning_mode {
-            self.planning_mode = false;
+        if self.interaction_mode.is_planning() {
             self.planning_waypoints.clear();
         }
-        self.attack_move_mode = !self.attack_move_mode;
-        tracing::info!(active = self.attack_move_mode, "命令条 · 攻击移动");
+        self.interaction_mode = if self.interaction_mode.is_attack_move() {
+            BattleInteractionMode::Normal
+        } else {
+            BattleInteractionMode::AttackMove
+        };
+        tracing::info!(active = self.interaction_mode.is_attack_move(), "命令条 · 攻击移动");
     }
 
     /// 切换跟随模式（热键 Follow；左键点选目标下发 `order_follow`）。
@@ -169,19 +174,20 @@ impl BattleController {
         });
         if !has_mobile {
             tracing::info!("跟随 · 选中无机动单位，忽略");
-            self.follow_mode = false;
+            if self.interaction_mode.is_follow() {
+                self.interaction_mode = BattleInteractionMode::Normal;
+            }
             return;
         }
-        self.place_mode = None;
-        self.repair_mode = false;
-        self.sell_mode = false;
-        self.attack_move_mode = false;
-        if self.planning_mode {
-            self.planning_mode = false;
+        if self.interaction_mode.is_planning() {
             self.planning_waypoints.clear();
         }
-        self.follow_mode = !self.follow_mode;
-        tracing::info!(active = self.follow_mode, "命令条 · 跟随模式");
+        self.interaction_mode = if self.interaction_mode.is_follow() {
+            BattleInteractionMode::Normal
+        } else {
+            BattleInteractionMode::Follow
+        };
+        tracing::info!(active = self.interaction_mode.is_follow(), "命令条 · 跟随模式");
     }
 
     /// 根据权威世界更新部署中 / 完成 / 拒绝状态。
@@ -471,6 +477,18 @@ impl BattleController {
         clip: Option<&StructureBuildupClip>,
         cell_z: u8,
     ) {
+        self.erase_structure_cells_from_preview(assets, job, clip, cell_z, true);
+    }
+
+    /// 擦除一格建筑像素；`repaint_all` 时随后全图重烤存活建筑（拆除路径）。
+    fn erase_structure_cells_from_preview(
+        &mut self,
+        assets: &GameAssetSource,
+        job: &TeardownVisualJob,
+        clip: Option<&StructureBuildupClip>,
+        cell_z: u8,
+        repaint_all: bool,
+    ) {
         let origin = self.preview_origin;
         let body_masks = if let Some(rules) = self.rules.as_ref() {
             let Some(game) = self.session.as_ref().and_then(|s| s.battle())
@@ -534,8 +552,10 @@ impl BattleController {
                 );
             }
         }
-        // 遮罩 / 矩形擦除会清掉邻接建筑在屏幕重叠处的像素，必须按深度重烤存活建筑。
-        self.repaint_living_structures_onto_preview(assets);
+        if repaint_all {
+            // 遮罩 / 矩形擦除会清掉邻接建筑在屏幕重叠处的像素，必须按深度重烤存活建筑。
+            self.repaint_living_structures_onto_preview(assets);
+        }
     }
 
     /// 把仍存活的建筑按深度重叠到 `preview_clean` / underlay（拆除擦除后补邻接残缺）。
@@ -601,6 +621,8 @@ impl BattleController {
     }
 
     /// 把已展开建造场烤进 `preview_clean`。主体 SHP 缺失时用 Buildup 末帧。
+    ///
+    /// 围墙走 [`Self::settle_wall_with_links`]：擦锚点+正交邻墙后按全墙 bitmask 烤邻域。
     pub(super) fn settle_deployed_structure(
         &mut self,
         assets: &GameAssetSource,
@@ -617,6 +639,10 @@ impl BattleController {
             .and_then(|g| g.world.players.iter().find(|p| p.id == g.world.local_player).map(|p| p.house.to_string()));
         if local_house.as_deref().is_some_and(|house| owner.eq_ignore_ascii_case(house)) {
             self.queue_battle_sfx_once("EVA_ConstructionComplete");
+        }
+        if self.paint.structure_is_wall(&TechnoName::parse(type_id)) {
+            self.settle_wall_with_links(assets, type_id, owner, x, y, clip);
+            return;
         }
         let origin = self.preview_origin;
         let painted = {
@@ -713,6 +739,154 @@ impl BattleController {
             cell: Some((x, y)),
         });
         self.rebuild_preview_base_with_mobiles(assets);
+    }
+
+    /// 围墙定格：擦锚点+正交邻墙，再以全部存活墙算 bitmask 只烤邻域。
+    fn settle_wall_with_links(
+        &mut self,
+        assets: &GameAssetSource,
+        type_id: &str,
+        owner: &str,
+        x: u16,
+        y: u16,
+        clip: Option<&StructureBuildupClip>,
+    ) {
+        let _ = owner;
+        let living_walls = self.collect_living_wall_entities();
+        let wall_cells: std::collections::HashSet<(u16, u16)> = living_walls.iter().map(|e| (e.x, e.y)).collect();
+        let refresh = wall_link_refresh_cells(x, y, &wall_cells);
+        for &(cx, cy) in &refresh {
+            let Some(ent) = living_walls.iter().find(|e| e.x == cx && e.y == cy)
+            else {
+                continue;
+            };
+            let cell_z = self
+                .session
+                .as_ref()
+                .and_then(|s| s.battle())
+                .map(|g| g.world.pass_grid.cell_height(cx, cy))
+                .unwrap_or(0);
+            let job = TeardownVisualJob {
+                entity: EntityId(0),
+                type_id: ent.type_id.to_string(),
+                owner: ent.owner.to_string(),
+                x: cx,
+                y: cy,
+                foundation_w: 1,
+                foundation_h: 1,
+            };
+            self.erase_structure_cells_from_preview(assets, &job, if cx == x && cy == y { clip } else { None }, cell_z, false);
+        }
+
+        let origin = self.preview_origin;
+        let Some(rules) = self.rules.as_ref()
+        else {
+            return;
+        };
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return;
+        };
+        let mut map = game.world.map.clone();
+        map.entities = living_walls;
+        let lobby = self.lobby_primaries.clone();
+        let remap = |base: &ra_assets::Palette, own: &str| remap_owner_palette(rules, Some(&lobby), base, own);
+        let mut painted = 0usize;
+        if let Some(clean) = self.preview_clean.as_mut() {
+            painted = paint_structures_onto_rgba_filtered(
+                assets,
+                &map,
+                clean,
+                origin.0,
+                origin.1,
+                &mut self.paint,
+                &remap,
+                Some(&refresh),
+            );
+            if painted == 0 {
+                if let Some(clip) = clip {
+                    if let Some(last) = clip.frames.len().checked_sub(1) {
+                        if paint_structure_buildup_onto_rgba(clean, origin.0, origin.1, clip, last) {
+                            painted = 1;
+                            tracing::info!("定格 · {} Buildup 末帧 #{}", type_id, last);
+                        }
+                    }
+                }
+            }
+            else {
+                tracing::info!("定格 · {} 围墙衔接（邻域 {} 格）", type_id, refresh.len());
+            }
+        }
+        if painted == 0 {
+            tracing::warn!("定格失败 · {} 无主体也无 Buildup 帧，保留原预览", type_id);
+            return;
+        }
+        if let Some(underlay) = self.preview_ore_underlay.as_mut() {
+            let _ = paint_structures_onto_rgba_filtered(
+                assets,
+                &map,
+                underlay,
+                origin.0,
+                origin.1,
+                &mut self.paint,
+                &remap,
+                Some(&refresh),
+            );
+        }
+        for &(cx, cy) in &refresh {
+            self.structure_anims.layers.retain(|layer| !(layer.x == cx && layer.y == cy));
+        }
+        let mut anim_map = map.clone();
+        anim_map.entities.retain(|e| refresh.contains(&(e.x, e.y)));
+        let bank = collect_structure_anim_bank(assets, &anim_map, &mut self.paint, &remap);
+        self.structure_anims.extend_from(bank);
+        self.last_anim_sig = u64::MAX;
+        self.pending_battle_sfx.push(super::PendingBattleSfx {
+            event: "PlaceBuilding".into(),
+            cell: Some((x, y)),
+        });
+        self.rebuild_preview_base_with_mobiles(assets);
+    }
+
+    /// 收集权威侧仍存活的围墙实体（用于邻接 bitmask）。
+    fn collect_living_wall_entities(&self) -> Vec<MapEntity> {
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return Vec::new();
+        };
+        game.world
+            .entity_ids()
+            .into_iter()
+            .filter_map(|id| {
+                let (cur, max, dead) = game.world.ecs_health(id)?;
+                if dead {
+                    return None;
+                }
+                let (type_id, kind) = game.world.ecs_identity(id)?;
+                if kind != MapEntityKind::Structure {
+                    return None;
+                }
+                let techno = TechnoName::parse(type_id.as_ref());
+                if !self.paint.structure_is_wall(&techno) {
+                    return None;
+                }
+                let owner = game.world.ecs_owner(id)?;
+                let (x, y, _) = game.world.ecs_transform(id)?;
+                let health = if max == 0 { 256 } else { ((u64::from(cur) * 256) / u64::from(max)).min(256) as u16 };
+                Some(MapEntity {
+                    kind: MapEntityKind::Structure,
+                    owner: HouseName::parse(owner.as_ref()),
+                    type_id: techno,
+                    health,
+                    x,
+                    y,
+                    facing: 0,
+                    sub_cell: 0,
+                    mission: Default::default(),
+                    tag: Default::default(),
+                })
+            })
+            .collect()
     }
 
     /// `preview_base` = 已定格底图（含展开后的建造场）+ 当前存活移动单位。

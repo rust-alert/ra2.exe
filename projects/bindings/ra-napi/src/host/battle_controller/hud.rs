@@ -1,5 +1,7 @@
 //! 对局页控制器：输入意图、命令、tick、快照；不含窗口与页面导航外壳。
 
+use super::super::battle_input::BattleInteractionMode;
+
 use std::sync::Arc;
 
 use ra_engine::{BattleCapabilitiesSnapshot, CapabilityItem};
@@ -24,9 +26,7 @@ impl BattleController {
     }
 
     pub(super) fn hud_snap_for_window(&self, window: &Window) -> ra_layout::LayoutSnapshot {
-        let size = window.inner_size();
-        let w = size.width.max(1);
-        let h = size.height.max(1);
+        let (w, h) = Self::logical_surface_size(window);
         let metrics = self.hud_chrome.as_ref().map(|c| BattleHudChromeMetrics::for_mix(&c.mix)).unwrap_or_else(BattleHudChromeMetrics::sidec01);
         solve_battle_hud_with_metrics(w, h, metrics)
     }
@@ -90,7 +90,9 @@ impl BattleController {
             self.sidebar_tab = tab;
             self.cameo_scroll = 0;
             if tab > 1 {
-                self.place_mode = None;
+                if self.interaction_mode.place_type_id().is_some() {
+                    self.interaction_mode = BattleInteractionMode::Normal;
+                }
             }
             tracing::info!("侧栏页签 · {tab}（热键）");
         }
@@ -118,7 +120,7 @@ impl BattleController {
             return;
         };
         let type_id = item.type_id.as_ref();
-        if self.place_mode.as_deref() == Some(type_id) {
+        if self.interaction_mode.place_type_id() == Some(type_id) {
             return;
         }
         self.enter_place_mode(type_id);
@@ -127,13 +129,10 @@ impl BattleController {
 
     /// 进入建筑放置模式，并清掉互斥的侧栏 / 命令条工具态。
     pub(super) fn enter_place_mode(&mut self, type_id: &str) {
-        self.repair_mode = false;
-        self.sell_mode = false;
-        self.planning_mode = false;
         self.planning_waypoints.clear();
-        self.attack_move_mode = false;
-        self.follow_mode = false;
-        self.place_mode = Some(type_id.to_string());
+        self.interaction_mode = BattleInteractionMode::PlaceBuilding {
+            type_id: type_id.to_string(),
+        };
     }
 
     /// 放置态与建造场完工件对齐。
@@ -143,13 +142,13 @@ impl BattleController {
     /// 则退出放置（成功落位或完工件被取消均适用）。拒单时完工件仍在，放置态保持，
     /// 便于继续点合法格。
     pub(super) fn sync_place_mode_with_ready(&mut self) {
-        let Some(type_id) = self.place_mode.clone()
+        let Some(type_id) = self.interaction_mode.place_type_id().map(str::to_string)
         else {
             return;
         };
         let still_ready = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.is_local_ready_to_place(&type_id));
         if !still_ready {
-            self.place_mode = None;
+            self.interaction_mode = BattleInteractionMode::Normal;
             tracing::info!("建造模式 · 完工件已消耗，已退出");
         }
     }
@@ -164,7 +163,9 @@ impl BattleController {
             self.sidebar_tab = next;
             self.cameo_scroll = 0;
             if next > 1 {
-                self.place_mode = None;
+                if self.interaction_mode.place_type_id().is_some() {
+                    self.interaction_mode = BattleInteractionMode::Normal;
+                }
             }
         }
     }
@@ -238,7 +239,7 @@ impl BattleController {
                     self.sidebar_tab = tab;
                     self.cameo_scroll = 0;
                     if tab > 1 {
-                        self.place_mode = None;
+                        self.interaction_mode = BattleInteractionMode::Normal;
                     }
                     tracing::info!("侧栏页签 · {tab}");
                 }
@@ -266,8 +267,8 @@ impl BattleController {
                         let type_id = item.type_id.as_ref();
                         if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
                             if game.is_local_ready_to_place(type_id) {
-                                if self.place_mode.as_deref() == Some(type_id) {
-                                    self.place_mode = None;
+                                if self.interaction_mode.place_type_id() == Some(type_id) {
+                                    self.interaction_mode = BattleInteractionMode::Normal;
                                     tracing::info!("建造模式 · 已关闭");
                                 }
                                 else {
@@ -281,7 +282,7 @@ impl BattleController {
                                     tracing::info!("取消建造 · {type_id}");
                                     game.order_cancel_produce(type_id.to_string());
                                 }
-                                self.place_mode = None;
+                                self.interaction_mode = BattleInteractionMode::Normal;
                                 return BattleNav::None;
                             }
                         }
@@ -289,7 +290,7 @@ impl BattleController {
                             tracing::info!("开始建造 · {type_id}");
                             game.order_produce(type_id.to_string());
                         }
-                        self.place_mode = None;
+                        self.interaction_mode = BattleInteractionMode::Normal;
                     }
                     2 | 3 => {
                         // 单位线左键始终入队（FIFO）；取消走右键 cameo。
@@ -314,29 +315,29 @@ impl BattleController {
                 BattleNav::None
             }
             BattleHudHit::Repair => {
-                self.sell_mode = false;
-                self.planning_mode = false;
-                self.planning_waypoints.clear();
-                self.attack_move_mode = false;
-                self.follow_mode = false;
-                self.repair_mode = !self.repair_mode;
-                if self.repair_mode {
-                    self.place_mode = None;
+                let next = if self.interaction_mode.is_repair() {
+                    BattleInteractionMode::Normal
+                } else {
+                    BattleInteractionMode::Repair
+                };
+                if self.interaction_mode.is_planning() {
+                    self.planning_waypoints.clear();
                 }
-                tracing::info!(active = self.repair_mode, "侧栏 · 修理工具");
+                self.interaction_mode = next;
+                tracing::info!(active = self.interaction_mode.is_repair(), "侧栏 · 修理工具");
                 BattleNav::None
             }
             BattleHudHit::Sell => {
-                self.repair_mode = false;
-                self.planning_mode = false;
-                self.planning_waypoints.clear();
-                self.attack_move_mode = false;
-                self.follow_mode = false;
-                self.sell_mode = !self.sell_mode;
-                if self.sell_mode {
-                    self.place_mode = None;
+                let next = if self.interaction_mode.is_sell() {
+                    BattleInteractionMode::Normal
+                } else {
+                    BattleInteractionMode::Sell
+                };
+                if self.interaction_mode.is_planning() {
+                    self.planning_waypoints.clear();
                 }
-                tracing::info!(active = self.sell_mode, "侧栏 · 出售工具");
+                self.interaction_mode = next;
+                tracing::info!(active = self.interaction_mode.is_sell(), "侧栏 · 出售工具");
                 BattleNav::None
             }
             BattleHudHit::Diplomacy => {
@@ -386,70 +387,65 @@ impl BattleController {
         );
     }
 
-    /// 从当前对局构建外交花名册行（跳过本机与氛围 house）。
-    pub(super) fn diplomacy_roster_rows(&self, csf: Option<&ra_assets::CsfFile>) -> (String, Vec<ra_widgets::battle_diplomacy::BattleDiplomacyRow>) {
-        use ra_widgets::{battle_diplomacy::BattleDiplomacyRow, skin::text::country_lobby_display_name};
+    /// 从当前对局构建外交花名册（含本机，跳过氛围 house）。
+    pub(super) fn diplomacy_roster_rows(
+        &self,
+        csf: Option<&ra_assets::CsfFile>,
+    ) -> (String, Vec<ra_widgets::battle_diplomacy::BattleDiplomacyRow>) {
+        use ra_widgets::{battle_diplomacy::BattleDiplomacyRow, skin::text::resolve_caption, skirmish_setup::LOBBY_COLORS};
 
         let Some(game) = self.session.as_ref().and_then(|s| s.battle())
         else {
             return (String::new(), Vec::new());
         };
-        let Some(local) = game.world.players.iter().find(|p| p.id == game.world.local_player)
-        else {
-            return (String::new(), Vec::new());
+        let map_name = game.world.map.name.clone();
+        let players: Vec<_> = game.world.players.iter().filter(|p| !ra_engine::is_ambient_house(p.house.as_ref())).collect();
+        let local_id = game.world.local_player;
+        let me = {
+            let t = resolve_caption(csf, "me", Some("GUI:You"));
+            if t == "me" || t.is_empty() { "我".to_string() } else { t }
         };
-        let local_name = country_lobby_display_name(csf, local.house.as_ref(), "");
-        let rows = game
-            .world
-            .players
+        let computer = {
+            let t = resolve_caption(csf, "computer", Some("GUI:ComputerPlayer"));
+            if t == "computer" || t.is_empty() { "电脑".to_string() } else { t }
+        };
+        let rows = players
             .iter()
-            .filter(|p| p.id != local.id)
-            .filter(|p| !ra_engine::is_ambient_house(p.house.as_ref()))
-            .map(|p| BattleDiplomacyRow {
-                house: p.house.to_string(),
-                display_name: country_lobby_display_name(csf, p.house.as_ref(), ""),
-                allied: ra_engine::houses_are_allied(&game.world, local.house.as_ref(), p.house.as_ref()),
+            .enumerate()
+            .map(|(i, p)| {
+                let is_local = p.id == local_id;
+                BattleDiplomacyRow {
+                    display_name: if is_local { me.clone() } else { computer.clone() },
+                    color_rgb: LOBBY_COLORS[i % LOBBY_COLORS.len()],
+                    team: p.team,
+                    kills: p.kills,
+                }
             })
             .collect();
-        (local_name, rows)
+        (map_name, rows)
     }
 
     /// 关闭建造放置 / 修理 / 出售 / 规划 / 攻击移动 / 跟随。有任一处于激活则返回 `true`。
     /// 西木右键优先走此路径：只关工具态、保留选中，不下 `order_stop`。
     /// 部署不是工具态（悬停已选单位 / `D` / 命令条立即下发）。
     pub(super) fn clear_sidebar_tool_modes(&mut self) -> bool {
-        let mut cleared = false;
-        if self.place_mode.take().is_some() {
-            tracing::info!("建造模式 · 已关闭");
-            cleared = true;
+        if matches!(self.interaction_mode, BattleInteractionMode::Normal) {
+            return false;
         }
-        if self.repair_mode {
-            self.repair_mode = false;
-            tracing::info!(active = false, "侧栏 · 修理工具");
-            cleared = true;
+        match &self.interaction_mode {
+            BattleInteractionMode::PlaceBuilding { .. } => tracing::info!("建造模式 · 已关闭"),
+            BattleInteractionMode::Repair => tracing::info!(active = false, "侧栏 · 修理工具"),
+            BattleInteractionMode::Sell => tracing::info!(active = false, "侧栏 · 出售工具"),
+            BattleInteractionMode::Planning => {
+                self.planning_waypoints.clear();
+                tracing::info!(active = false, "命令条 · 路径点规划（已丢弃航点）");
+            }
+            BattleInteractionMode::AttackMove => tracing::info!(active = false, "命令条 · 攻击移动"),
+            BattleInteractionMode::Follow => tracing::info!(active = false, "命令条 · 跟随模式"),
+            BattleInteractionMode::Normal => {}
         }
-        if self.sell_mode {
-            self.sell_mode = false;
-            tracing::info!(active = false, "侧栏 · 出售工具");
-            cleared = true;
-        }
-        if self.planning_mode {
-            self.planning_mode = false;
-            self.planning_waypoints.clear();
-            tracing::info!(active = false, "命令条 · 路径点规划（已丢弃航点）");
-            cleared = true;
-        }
-        if self.attack_move_mode {
-            self.attack_move_mode = false;
-            tracing::info!(active = false, "命令条 · 攻击移动");
-            cleared = true;
-        }
-        if self.follow_mode {
-            self.follow_mode = false;
-            tracing::info!(active = false, "命令条 · 跟随模式");
-            cleared = true;
-        }
-        cleared
+        self.interaction_mode = BattleInteractionMode::Normal;
+        true
     }
 
     pub(super) fn refresh_command_hover(&mut self, window: &Window) {
@@ -491,17 +487,12 @@ impl BattleController {
             "Team01" => self.handle_control_team(0),
             "Team02" => self.handle_control_team(1),
             "PlanningMode" => {
-                if self.planning_mode {
+                if self.interaction_mode.is_planning() {
                     self.commit_planning_waypoints();
                 }
                 else {
-                    self.planning_mode = true;
                     self.planning_waypoints.clear();
-                    self.place_mode = None;
-                    self.repair_mode = false;
-                    self.sell_mode = false;
-                    self.attack_move_mode = false;
-                    self.follow_mode = false;
+                    self.interaction_mode = BattleInteractionMode::Planning;
                     tracing::info!(active = true, "命令条 · 路径点规划");
                 }
             }

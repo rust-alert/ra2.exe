@@ -33,6 +33,7 @@ impl BattleController {
 
     /// 打开暂停主菜单（已暂停时切到 Menu 层）。
     pub(super) fn open_pause_menu_layer(&mut self) {
+        self.reset_transient_input_state(false);
         self.pause_layer = BattlePauseLayer::Menu;
         self.leave_armed = false;
         self.in_game_options.drag_track = None;
@@ -63,9 +64,7 @@ impl BattleController {
     }
 
     pub(super) fn refresh_pause_hover(&mut self, window: &Window) {
-        let size = window.inner_size();
-        let w = size.width.max(1);
-        let h = size.height.max(1);
+        let (w, h) = Self::logical_surface_size(window);
         let x = self.cursor.0 as i32;
         let y = self.cursor.1 as i32;
         self.pause_hover = match self.pause_layer {
@@ -77,9 +76,7 @@ impl BattleController {
     }
 
     pub(super) fn handle_pause_menu_mouse(&mut self, state: ElementState, window: &Window) -> BattleNav {
-        let size = window.inner_size();
-        let w = size.width.max(1);
-        let h = size.height.max(1);
+        let (w, h) = Self::logical_surface_size(window);
         let x = self.cursor.0 as i32;
         let y = self.cursor.1 as i32;
         match state {
@@ -128,8 +125,8 @@ impl BattleController {
         else {
             return;
         };
-        let size = window.inner_size();
-        let snap = battle_in_game_options::options_snapshot(size.width.max(1), size.height.max(1));
+        let (w, h) = Self::logical_surface_size(window);
+        let snap = battle_in_game_options::options_snapshot(w, h);
         let track = ra_layout::rect_px_from_snapshot(&snap, track_id);
         let value = battle_in_game_options::track_value_at(track, self.cursor.0 as i32, 6);
         match track_id {
@@ -275,14 +272,14 @@ impl BattleController {
 
     fn on_diplomacy_hit(&mut self, hit: BattleDiplomacyHit) -> BattleNav {
         match hit {
-            BattleDiplomacyHit::Back => {
+            BattleDiplomacyHit::Continue => {
                 if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                     if game.paused {
                         game.toggle_pause();
                     }
                 }
                 self.clear_pause_menu_input();
-                tracing::info!("外交 · 返回对局");
+                tracing::info!("外交 · 继续对局");
                 BattleNav::None
             }
         }

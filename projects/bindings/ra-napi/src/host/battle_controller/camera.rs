@@ -18,11 +18,10 @@ impl BattleController {
         if !self.start_view_pending {
             return;
         }
-        let Some((vw, vh)) = renderer.surface_size_u32()
-        else {
+        // 表面未就绪则等下一帧；world_view 在带 Window 的 draw 路径按逻辑尺寸同步。
+        if renderer.surface_size_u32().is_none() {
             return;
-        };
-        self.sync_world_view(renderer, vw, vh);
+        }
         self.sync_camera_content_bounds(renderer);
         self.focus_camera_on_local_start(renderer);
         self.start_view_pending = false;
@@ -157,15 +156,16 @@ impl BattleController {
 
     /// 由窗口尺寸构造当前对局 `MapViewport`（命中 / 投影 / 裁切同一实例）。
     pub(super) fn map_viewport(&self, window: &Window) -> MapViewport {
-        let size = window.inner_size();
-        MapViewport::battle(size.width.max(1), size.height.max(1))
+        let (w, h) = Self::logical_surface_size(window);
+        MapViewport::battle(w, h)
     }
 
-    /// 将 renderer 世界 pass 与 `MapViewport` 对齐。
-    pub(super) fn sync_world_view(&self, renderer: &mut Renderer, window_w: u32, window_h: u32) {
-        let vp = MapViewport::battle(window_w.max(1), window_h.max(1));
+    /// 将 renderer 世界 pass 与逻辑 `MapViewport` 对齐（投影逻辑、scissor 物理）。
+    pub(super) fn sync_world_view(&self, renderer: &mut Renderer, window: &Window) {
+        let metrics = Self::surface_metrics(window);
+        let vp = MapViewport::battle(metrics.logical_width, metrics.logical_height);
         let (x, y, w, h) = vp.clip_rect_u32();
-        renderer.set_world_view_rect(x, y, w, h);
+        renderer.set_world_view_logical(x, y, w, h, metrics.scale_factor);
     }
 
     pub(super) fn cursor_cell(&self, renderer: &Renderer, window: &Window) -> Option<(u16, u16)> {
@@ -195,9 +195,7 @@ impl BattleController {
             self.camera_pan_keys.clear();
             return;
         }
-        let size = window.inner_size();
-        let sw = size.width.max(1);
-        let sh = size.height.max(1);
+        let (sw, sh) = Self::logical_surface_size(window);
         let (west, east, north, south) = edge_scroll_axes(self.cursor.0, self.cursor.1, sw, sh, EDGE_SCROLL_MARGIN_PX);
         let vp = self.map_viewport(window);
         let (can_west, can_east, can_north, can_south) = self.edge_scroll_can_axes(renderer, vp.proj_w(), vp.proj_h());

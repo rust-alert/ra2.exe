@@ -32,7 +32,10 @@ use ra_widgets::{
 };
 
 use super::{
-    battle_input::{CameraPanKeys, EdgeScrollCursor, LeftGesture},
+    battle_input::{
+        BattleInteractionMode, BattlePresentationState, BattlePointer, CameraPanKeys, EdgeScrollCursor,
+        LeftGesture,
+    },
     boot::BootResult,
     local_player::LocalPlayerController,
 };
@@ -92,7 +95,7 @@ pub struct BattleController {
     pub local: LocalPlayerController,
     /// 左键点选 / 框选手势（不再用拖拽平移相机）。
     pub(super) left_gesture: LeftGesture,
-    /// 最近光标位置（窗口像素）。
+    /// 最近光标位置（逻辑像素；与菜单 / `DisplayMode` 同口径）。
     pub(super) cursor: (f64, f64),
     /// 上一帧时间，用于固定仿真时钟。
     pub(super) last_pump: Instant,
@@ -110,18 +113,8 @@ pub struct BattleController {
     pub(super) hotkeys: super::battle_hotkeys::HotkeyMap,
     /// `View1`–`View4` 镜头书签（`SetView` 写入）。
     pub(super) view_bookmarks: [Option<ViewBookmark>; VIEW_BOOKMARK_COUNT],
-    /// 建造放置模式（建筑类型键）。
-    pub(super) place_mode: Option<String>,
-    /// 侧栏修理工具是否激活（与出售互斥；激活时贴按下帧）。
-    pub(super) repair_mode: bool,
-    /// 侧栏出售工具是否激活（与修理互斥；激活时贴按下帧）。
-    pub(super) sell_mode: bool,
-    /// 命令条路径点规划模式（激活时命令条贴按下帧）。
-    pub(super) planning_mode: bool,
-    /// 命令条攻击移动模式：下一次左键空地 / 敌方目标下发 `AttackMove` / `Attack`。
-    pub(super) attack_move_mode: bool,
-    /// 跟随模式：热键 Follow 进入；左键点选任意机动单位下发 `order_follow`，右键取消。
-    pub(super) follow_mode: bool,
+    /// 互斥交互模式（放置 / 修理 / 出售 / 规划 / 攻击移动 / 跟随）。
+    pub(super) interaction_mode: BattleInteractionMode,
     /// 规划中暂存的航点（关闭规划时对当前选中下发 `order_move_path`）。
     pub(super) planning_waypoints: Vec<(u16, u16)>,
     /// 侧栏分类页签（0=建筑 / 1=防御 / 2=步兵 / 3=载具+飞行器）。
@@ -255,6 +248,8 @@ pub struct BattleController {
     pub(super) outcome_banner_tried: bool,
     /// 当前边缘滚屏光标（整窗边缘；右栏 / 命令条有效）。
     pub(super) edge_scroll_cursor: EdgeScrollCursor,
+    /// 本帧呈现快照（壳层只应用指针，不重跑业务判断）。
+    pub(super) presentation: BattlePresentationState,
     /// 方向键按住状态（渲染帧推进镜头，不跟逻辑 tick / OS 按键重复）。
     pub(super) camera_pan_keys: CameraPanKeys,
     /// 选中行动线计时起点（仿真 tick；`None` 表示未启动）。
@@ -294,12 +289,7 @@ impl BattleController {
             alt_down: false,
             hotkeys: boot.hotkeys,
             view_bookmarks: [None; VIEW_BOOKMARK_COUNT],
-            place_mode: None,
-            repair_mode: false,
-            sell_mode: false,
-            planning_mode: false,
-            attack_move_mode: false,
-            follow_mode: false,
+            interaction_mode: BattleInteractionMode::Normal,
             planning_waypoints: Vec::new(),
             sidebar_tab: 0,
             cameo_scroll: 0,
@@ -369,6 +359,7 @@ impl BattleController {
             outcome_banner_accum: 0.0,
             outcome_banner_tried: false,
             edge_scroll_cursor: EdgeScrollCursor::Default,
+            presentation: BattlePresentationState::default(),
             camera_pan_keys: CameraPanKeys::default(),
             action_lines_start_tick: None,
             map_theater,
@@ -466,14 +457,10 @@ impl BattleController {
         self.engine = boot.engine;
         self.session = boot.session;
         self.local.clear();
+        self.reset_transient_input_state(true);
         self.logged_outcome = None;
         self.logged_reject = None;
-        self.place_mode = None;
-        self.repair_mode = false;
-        self.sell_mode = false;
-        self.planning_mode = false;
-        self.attack_move_mode = false;
-        self.follow_mode = false;
+        self.interaction_mode = BattleInteractionMode::Normal;
         self.planning_waypoints.clear();
         self.sidebar_tab = 0;
         self.cameo_scroll = 0;
@@ -583,6 +570,61 @@ impl BattleController {
             return false;
         };
         self.local.selected.iter().any(|&id| game.entity_can_deploy(id))
+    }
+
+
+    /// 窗口表面度量（逻辑布局 + 物理表面）。
+    pub(super) fn surface_metrics(window: &winit::window::Window) -> super::battle_input::BattleSurfaceMetrics {
+        super::battle_input::BattleSurfaceMetrics::from_window(window)
+    }
+
+    /// 逻辑客户区尺寸（命中 / HUD / 边缘滚屏）。
+    pub(super) fn logical_surface_size(window: &winit::window::Window) -> (u32, u32) {
+        let m = Self::surface_metrics(window);
+        (m.logical_width, m.logical_height)
+    }
+
+    /// 物理光标 → 逻辑像素写入 `cursor`。
+    pub(super) fn set_cursor_from_physical(
+        &mut self,
+        window: &winit::window::Window,
+        position: winit::dpi::PhysicalPosition<f64>,
+    ) {
+        self.cursor = Self::surface_metrics(window).cursor_from_physical(position);
+    }
+
+    /// 统一清理瞬时输入态（失焦 / 暂停 / 结算 / 页面切换 / 脚本锁）。
+    ///
+    /// `clear_tool_modes`：是否同时退出交互工具模式（进暂停菜单可清；失焦通常保留）。
+    pub fn reset_transient_input_state(&mut self, clear_tool_modes: bool) {
+        self.left_gesture = LeftGesture::Idle;
+        self.command_pressed = None;
+        self.sidebar_pressed = None;
+        self.pause_pressed = None;
+        self.shift_down = false;
+        self.ctrl_down = false;
+        self.alt_down = false;
+        self.camera_pan_keys.clear();
+        self.edge_scroll_cursor = EdgeScrollCursor::Default;
+        self.command_hover = None;
+        if clear_tool_modes {
+            let _ = self.clear_sidebar_tool_modes();
+        }
+        self.presentation = BattlePresentationState {
+            pointer: BattlePointer::Default,
+        };
+    }
+
+    /// 本帧呈现快照（壳层只读应用）。
+    pub fn presentation(&self) -> BattlePresentationState {
+        self.presentation
+    }
+
+    /// 按当前边缘滚屏与悬停上下文刷新呈现快照。
+    pub fn update_presentation(&mut self, renderer: &Renderer, window: &winit::window::Window) {
+        let hover = self.resolve_battle_hover(renderer, window);
+        let pointer = BattlePointer::resolve(self.edge_scroll_cursor, hover.recommended_pointer);
+        self.presentation = BattlePresentationState { pointer };
     }
 
     /// 结算页标题刷新（不推进）。

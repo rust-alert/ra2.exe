@@ -149,3 +149,47 @@ fn soft_hit_selected_harvester_on_neighbor_ore_orders_not_reselects() {
     // 无机动选中：走点选。
     assert!(!friendly_soft_hit_should_order_not_reselect(false, Some((6, 5)), Some((5, 5))));
 }
+
+#[test]
+fn interaction_mode_is_mutually_exclusive() {
+    let place = BattleInteractionMode::PlaceBuilding {
+        type_id: "GACNST".into(),
+    };
+    assert_eq!(place.place_type_id(), Some("GACNST"));
+    assert!(place.is_tool());
+    assert!(!place.is_repair());
+    assert!(BattleInteractionMode::Repair.is_repair());
+    assert!(BattleInteractionMode::Sell.is_sell());
+    assert!(BattleInteractionMode::Planning.is_planning());
+    assert!(BattleInteractionMode::AttackMove.is_attack_move());
+    assert!(BattleInteractionMode::Follow.is_follow());
+    assert!(!BattleInteractionMode::Normal.is_tool());
+}
+
+#[test]
+fn surface_metrics_cursor_scales_with_factor() {
+    let metrics = BattleSurfaceMetrics {
+        logical_width: 800,
+        logical_height: 600,
+        physical_width: 1600,
+        physical_height: 1200,
+        scale_factor: 2.0,
+    };
+    let (x, y) = metrics.cursor_from_physical(winit::dpi::PhysicalPosition::new(200.0, 100.0));
+    assert!((x - 100.0).abs() < 1e-6);
+    assert!((y - 50.0).abs() < 1e-6);
+    let (px, py, pw, ph) = metrics.layout_rect_to_physical(10, 20, 100, 50);
+    assert_eq!((px, py, pw, ph), (20, 40, 200, 100));
+}
+
+#[test]
+fn resolved_hover_carries_pointer_and_cell() {
+    let hover = ResolvedBattleHover {
+        recommended_pointer: BattlePointer::Move,
+        cell: Some((12, 34)),
+    };
+    assert_eq!(hover.recommended_pointer, BattlePointer::Move);
+    assert_eq!(hover.cell, Some((12, 34)));
+    let with_edge = BattlePointer::resolve(EdgeScrollCursor::Scroll(EdgeScrollDir::East), hover.recommended_pointer);
+    assert_eq!(with_edge, BattlePointer::Edge(EdgeScrollCursor::Scroll(EdgeScrollDir::East)));
+}

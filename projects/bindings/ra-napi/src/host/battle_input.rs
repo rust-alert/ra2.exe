@@ -143,6 +143,15 @@ impl BattleInteractionMode {
     }
 }
 
+/// 战术区悬停一次解析的呈现摘要（光标 / 提示共用；实体 id 留在控制器探针里）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ResolvedBattleHover {
+    /// 建议指针（不含边缘滚屏；由 `BattlePointer::resolve` 再叠边缘）。
+    pub recommended_pointer: BattlePointer,
+    /// 光标下地图格（窗外 / 非战术区为 `None`）。
+    pub cell: Option<(u16, u16)>,
+}
+
 /// 对局呈现快照：壳层只应用，不重新跑业务判断。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BattlePresentationState {
