@@ -383,6 +383,8 @@ pub struct BattleInputEdges {
     pub mod_pressed: ModifierButtons,
     /// 修饰键本帧刚抬起（正常 `ModifiersChanged`；失焦静默清空不置位）。
     pub mod_released: ModifierButtons,
+    /// 本帧已分发一次性 `keyboard.ini` 热键（与方向键持续平移解耦）。
+    pub hotkey_fired: bool,
 }
 
 /// 窗口事件归一化后的按键 / 焦点追踪（纯逻辑，可供单测覆盖失焦幽灵序列）。
@@ -486,6 +488,35 @@ impl BattleInputTracker {
     pub fn reset_transient(&mut self) {
         self.buttons = PointerButtons::default();
         self.modifiers = ModifierButtons::default();
+    }
+
+    /// 记录本帧已分发一次性热键（方向键平移仍可同时发生）。
+    pub fn note_hotkey_fired(&mut self) {
+        self.edges.hotkey_fired = true;
+    }
+}
+
+/// 方向键按下 / 抬起后，持续平移与瞬时热键如何分流。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArrowKeyIngest {
+    /// 暂停 / 锁输入：静默清空平移按住，不记抬起边沿、不分发热键。
+    SilentClearPan,
+    /// 只更新持续平移（抬起，或该键未被 `keyboard.ini` 占用）。
+    PanOnly,
+    /// 更新平移并继续热键分发（占用且按下）。
+    PanAndHotkey,
+}
+
+/// 方向键：可玩时始终进平移；仅占用热键的按下才额外分发。
+pub fn arrow_key_ingest(gameplay_open: bool, down: bool, hotkey_bound: bool) -> ArrowKeyIngest {
+    if !gameplay_open {
+        ArrowKeyIngest::SilentClearPan
+    }
+    else if down && hotkey_bound {
+        ArrowKeyIngest::PanAndHotkey
+    }
+    else {
+        ArrowKeyIngest::PanOnly
     }
 }
 
@@ -2096,5 +2127,31 @@ mod tests {
         assert_eq!(tool_after_issued_order(BattleToolKind::Repair), BattleToolKind::Repair);
         assert_eq!(tool_after_issued_order(BattleToolKind::PlaceBuilding), BattleToolKind::PlaceBuilding);
         assert_eq!(tool_after_issued_order(BattleToolKind::Normal), BattleToolKind::Normal);
+    }
+
+    #[test]
+    fn arrow_key_ingest_pan_vs_hotkey_and_pause() {
+        assert_eq!(arrow_key_ingest(false, true, true), ArrowKeyIngest::SilentClearPan);
+        assert_eq!(arrow_key_ingest(true, false, true), ArrowKeyIngest::PanOnly);
+        assert_eq!(arrow_key_ingest(true, true, false), ArrowKeyIngest::PanOnly);
+        assert_eq!(arrow_key_ingest(true, true, true), ArrowKeyIngest::PanAndHotkey);
+    }
+
+    #[test]
+    fn sequence_arrow_hold_with_hotkey_binding_still_pans() {
+        // 方向键按住 → 同时触发 keyboard.ini 绑定时：平移边沿与热键边沿可同帧存在。
+        let mut t = BattleInputTracker::default();
+        t.begin_frame();
+        let prev = CameraPanKeys::default();
+        let next = CameraPanKeys { left: true, ..CameraPanKeys::default() };
+        t.note_camera_pan(prev, next);
+        t.note_hotkey_fired();
+        assert!(t.edges.pan_pressed.left);
+        assert!(t.edges.hotkey_fired);
+        t.begin_frame();
+        assert!(!t.edges.hotkey_fired);
+        assert!(!t.edges.pan_pressed.left);
+        // 暂停：策略要求静默清平移，恢复后不得自动续平移。
+        assert_eq!(arrow_key_ingest(false, true, false), ArrowKeyIngest::SilentClearPan);
     }
 }

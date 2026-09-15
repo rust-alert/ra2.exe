@@ -990,27 +990,29 @@ impl BattleController {
                 let hotkey = vk.and_then(|vk| self.hotkeys.action_for(vk, mods.shift, mods.ctrl, mods.alt));
 
                 // 方向键：持续镜头平移与 `keyboard.ini` 瞬时热键解耦。
-                // 可玩时始终更新 `camera_pan_keys`；若该键同时被热键表占用，按下仍走热键分发。
                 if matches!(code, KeyCode::ArrowLeft | KeyCode::ArrowRight | KeyCode::ArrowUp | KeyCode::ArrowDown) {
-                    if !gameplay_open {
-                        // 暂停 / 锁输入：静默清空按住，不记抬起边沿（恢复后不应自动续平移）。
-                        self.camera_pan_keys.clear();
-                        return BattleNav::None;
+                    use super::super::battle_input::{ArrowKeyIngest, arrow_key_ingest};
+                    let ingest = arrow_key_ingest(gameplay_open, down, hotkey.is_some());
+                    match ingest {
+                        ArrowKeyIngest::SilentClearPan => {
+                            self.camera_pan_keys.clear();
+                            return BattleNav::None;
+                        }
+                        ArrowKeyIngest::PanOnly | ArrowKeyIngest::PanAndHotkey => {
+                            let prev = self.camera_pan_keys;
+                            match code {
+                                KeyCode::ArrowLeft => self.camera_pan_keys.left = down,
+                                KeyCode::ArrowRight => self.camera_pan_keys.right = down,
+                                KeyCode::ArrowUp => self.camera_pan_keys.up = down,
+                                KeyCode::ArrowDown => self.camera_pan_keys.down = down,
+                                _ => {}
+                            }
+                            self.input_tracker.note_camera_pan(prev, self.camera_pan_keys);
+                            if matches!(ingest, ArrowKeyIngest::PanOnly) {
+                                return BattleNav::None;
+                            }
+                        }
                     }
-                    let prev = self.camera_pan_keys;
-                    match code {
-                        KeyCode::ArrowLeft => self.camera_pan_keys.left = down,
-                        KeyCode::ArrowRight => self.camera_pan_keys.right = down,
-                        KeyCode::ArrowUp => self.camera_pan_keys.up = down,
-                        KeyCode::ArrowDown => self.camera_pan_keys.down = down,
-                        _ => {}
-                    }
-                    self.input_tracker.note_camera_pan(prev, self.camera_pan_keys);
-                    // 未被热键占用，或按键抬起：只更新平移态。
-                    if hotkey.is_none() || !down {
-                        return BattleNav::None;
-                    }
-                    // 已被占用且按下：继续落入下方热键分发（平移态已写入）。
                 }
 
                 if !down {
@@ -1059,12 +1061,14 @@ impl BattleController {
                 // 剧本锁输入：仍允许 Options/Esc 进暂停，其它对局热键吞掉。
                 if script_locked {
                     if matches!(hotkey, Some(super::super::battle_hotkeys::HotkeyAction::Options)) {
+                        self.input_tracker.note_hotkey_fired();
                         return self.dispatch_hotkey_action(super::super::battle_hotkeys::HotkeyAction::Options, renderer, window);
                     }
                     return BattleNav::None;
                 }
 
                 if let Some(action) = hotkey {
+                    self.input_tracker.note_hotkey_fired();
                     return self.dispatch_hotkey_action(action, renderer, window);
                 }
                 BattleNav::None
