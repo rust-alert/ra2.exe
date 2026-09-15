@@ -54,16 +54,17 @@ pub use land::{LandType, TMP_TERRAIN_TO_LAND, ground_passable, land_buildable, l
 pub use locomotor::LocomotorDefinitions;
 pub use map::{
     AiTriggerCompareOp, AiTriggerConditionKind, AiTriggerName, DEFAULT_AI_TRIGGER_WEIGHT, GameModeName, MapAction, MapActionCommand,
-    MapAiTrigger, MapCellTag, MapDefinition, MapEvent, MapEventCondition, MapFileName, MapHouse, MapIsoCell, MapLighting, MapLocalSize,
-    MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapScriptStep, MapScriptType, MapSmudge, MapTag, MapTaskForce, MapTaskForceEntry,
-    MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, MapWeatherKind, MissionKind, MissionName, PreparedAction, PreparedActionCommand,
-    PreparedAiTrigger, PreparedCellTag, PreparedEvent, PreparedHouse, PreparedMap, PreparedPlacement, PreparedScriptType, PreparedTag,
-    PreparedTaskForce, PreparedTaskForceEntry, PreparedTeamType, PreparedTrigger, ScriptTypeName, SmudgeName, TagName, TaskForceName,
-    TeamTypeName, TerrainName, TriggerName, occupancy_kind,
+    MapAiTrigger, MapBaseNode, MapBasePlan, MapCellTag, MapDefinition, MapEvent, MapEventCondition, MapFileName, MapHouse, MapIsoCell,
+    MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapScriptStep, MapScriptType, MapSmudge, MapTag,
+    MapTaskForce, MapTaskForceEntry, MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, MapWeatherKind, MissionKind, MissionName,
+    PreparedAction, PreparedActionCommand, PreparedAiTrigger, PreparedBaseNode, PreparedBasePlan, PreparedCellTag, PreparedEvent,
+    PreparedHouse, PreparedMap, PreparedPlacement, PreparedScriptType, PreparedTag, PreparedTaskForce, PreparedTaskForceEntry,
+    PreparedTeamType, PreparedTrigger, ScriptTypeName, SmudgeName, TagName, TaskForceName, TeamTypeName, TerrainName, TriggerName,
+    occupancy_kind,
 };
 pub use map_bind::{
-    bind_map_actions, bind_map_ai_triggers, bind_map_cell_tags, bind_map_events, bind_map_houses, bind_map_placements, bind_map_script_types,
-    bind_map_tags, bind_map_task_forces, bind_map_team_types, bind_map_triggers, bind_prepared_map_placements,
+    bind_map_actions, bind_map_ai_triggers, bind_map_base, bind_map_cell_tags, bind_map_events, bind_map_houses, bind_map_placements,
+    bind_map_script_types, bind_map_tags, bind_map_task_forces, bind_map_team_types, bind_map_triggers, bind_prepared_map_placements,
     reseal_prepared_layers_from_placements, validate_placement_geometry,
 };
 pub use map_edge::MapEdge;

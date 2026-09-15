@@ -63,6 +63,28 @@ fn parse_map_scripting_triggers_and_teams() {
 }
 
 #[test]
+fn parse_map_base_section() {
+    let text = b"\
+[Map]\nSize=0,0,20,20\nTheater=TEMPERATE\n\
+[Base]\nPlayer=Soviets\nCount=2\n\
+0=NAPOWR,14,10\n\
+1=NAREFN,16,12,extra\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "base.map", text).unwrap();
+    let plan = map.scripting.base.expect("Base section");
+    assert_eq!(plan.player.as_str(), "SOVIETS");
+    assert_eq!(plan.count, Some(2));
+    assert_eq!(plan.nodes.len(), 2);
+    assert_eq!(plan.nodes[0].type_name.as_str(), "NAPOWR");
+    assert_eq!(plan.nodes[0].x, 14);
+    assert_eq!(plan.nodes[0].y, 10);
+    assert_eq!(plan.nodes[1].type_name.as_str(), "NAREFN");
+    assert_eq!(plan.nodes[1].x, 16);
+    assert_eq!(plan.nodes[1].y, 12);
+    assert!(!map.scripting.unknown_sections.iter().any(|s| s.eq_ignore_ascii_case("Base")));
+}
+
+#[test]
 fn parse_map_scripting_standalone() {
     let doc = IniDocument::parse(b"[Tags]\nA=2,Obj,B\n").unwrap();
     let s = parse_map_scripting(&doc);

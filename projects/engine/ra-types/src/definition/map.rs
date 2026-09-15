@@ -1066,6 +1066,8 @@ pub struct MapDefinition {
     pub team_types: Vec<MapTeamType>,
     /// `[AITriggerTypes]` AI 产队触发（字段子集）。
     pub ai_triggers: Vec<MapAiTrigger>,
+    /// `[Base]` AI 基建节点计划；缺节为 `None`。
+    pub base: Option<MapBasePlan>,
     /// `[Preview] Size` 宽（缺节或无效为 0）。
     pub preview_width: u32,
     /// `[Preview] Size` 高（缺节或无效为 0）。
@@ -1108,6 +1110,7 @@ impl Default for MapDefinition {
             script_types: Vec::new(),
             team_types: Vec::new(),
             ai_triggers: Vec::new(),
+            base: None,
             preview_width: 0,
             preview_height: 0,
             digest: String::new(),
@@ -1297,6 +1300,28 @@ pub struct MapHouse {
     pub color: ColorName,
     /// `Allies=` 逗号列表（装载期一次解码为大写房屋键）。
     pub allies: Vec<HouseName>,
+}
+
+/// 地图 `[Base]` 单个建造节点（运行契约；装载侧见 `ra-map`）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapBaseNode {
+    /// 建筑类型名（装载期大写）。
+    pub type_name: TechnoName,
+    /// 落点格 X（建筑锚点）。
+    pub x: u16,
+    /// 落点格 Y（建筑锚点）。
+    pub y: u16,
+}
+
+/// 地图 `[Base]` AI 基建计划（运行契约）。
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MapBasePlan {
+    /// `Player=`（国家 / 房屋键；可空）。
+    pub player: HouseName,
+    /// `Count=`（可选核对）。
+    pub count: Option<u32>,
+    /// 按编号顺序的节点。
+    pub nodes: Vec<MapBaseNode>,
 }
 
 /// Tag 绑定（运行契约；来自地图 `[Tags]` 语义，非 INI 行镜像）。
@@ -1826,6 +1851,8 @@ pub struct PreparedMap {
     pub team_types: Vec<PreparedTeamType>,
     /// 地图 `[AITriggerTypes]` 绑定表；骨架路径为空。
     pub ai_triggers: Vec<PreparedAiTrigger>,
+    /// 地图 `[Base]` 绑定后的 AI 基建计划；缺节或 `Player=` 无法解析时为空。
+    pub base_plan: Option<PreparedBasePlan>,
 }
 
 /// 地图 `[Houses]` 绑定后的运行形状（稳定 country / allies id）。
@@ -1849,6 +1876,26 @@ pub struct PreparedHouse {
     pub color: ColorName,
     /// `Allies=` 绑定后的稳定房屋 id。
     pub allies: Vec<crate::HouseId>,
+}
+
+/// 绑定后的单个 `[Base]` 节点。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedBaseNode {
+    /// 建筑稳定类型 id。
+    pub type_id: crate::TypeId,
+    /// 落点格 X（建筑锚点）。
+    pub x: u16,
+    /// 落点格 Y（建筑锚点）。
+    pub y: u16,
+}
+
+/// 绑定后的 `[Base]` 计划（AI 只读消费，不展开为开局放置）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedBasePlan {
+    /// `Player=` 对应房屋稳定 id。
+    pub house: crate::HouseId,
+    /// 按序节点（未知类型已在绑定时剔除）。
+    pub nodes: Vec<PreparedBaseNode>,
 }
 
 /// 地图 `[Triggers]` 绑定后的运行形状（稳定 id）。

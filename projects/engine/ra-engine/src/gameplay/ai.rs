@@ -137,9 +137,9 @@ pub fn deploy_mcv_commands(world: &BattleState, house: &str) -> Vec<GameCommand>
 
 /// 有建造场时推进下一座基建（每 tick 至多一座）。
 ///
-/// 候选与门闩只读 [`AiControls`]（rules `[AI]` / `[IQ]`）。类别推进顺序固定，
-/// **类型内容来自表**。`include_army_factories=false` 时只走供电 / 矿场等经济类。
-/// 若建造场已有完工件，则先落位该类型（不插队改造其它）。
+/// 若地图有该房主的 `[Base]` 计划且仍有未完成节点：只按节点类型生产 / 落位。
+/// 节点耗尽后回落 [`AiControls`]；有节点的地图另受 `BaseSizeAdd` 总建筑封顶。
+/// 无 `[Base]` 时行为与仅读 [`AiControls`] 时一致（不套用 `BaseSizeAdd` 封顶）。
 pub fn next_structure_commands(world: &BattleState, house: &str, player: PlayerId, include_army_factories: bool) -> Vec<GameCommand> {
     if !house_has_yard(world, house) {
         return Vec::new();
@@ -150,6 +150,28 @@ pub fn next_structure_commands(world: &BattleState, house: &str, player: PlayerI
             return Vec::new();
         };
         return place_structure(world, house, player, structure);
+    }
+    if let Some(node) = next_incomplete_base_node(world, house) {
+        let Some(structure) = world.definitions.structures.get_by_id(node.type_id)
+        else {
+            return Vec::new();
+        };
+        if structure.construction_yard {
+            return Vec::new();
+        }
+        let living = living_structure_keys(world, house);
+        let Some(p) = world.players.iter().find(|p| p.house.eq_ignore_ascii_case(house))
+        else {
+            return Vec::new();
+        };
+        let tech = TechTreePlayer::from_player(p);
+        if !is_type_eligible_id(&world.definitions, tech, &living, node.type_id) {
+            return Vec::new();
+        }
+        return queue_structure(world, house, player, structure);
+    }
+    if base_plan_for_house(world, house).is_some() && !base_size_add_allows_freeform(world, house) {
+        return Vec::new();
     }
     let controls = &world.definitions.ai_controls;
     let iq = house_iq(world, house);
@@ -403,6 +425,17 @@ fn queue_structure(world: &BattleState, house: &str, player: PlayerId, structure
 }
 
 fn place_structure(world: &BattleState, house: &str, player: PlayerId, structure: &ra_types::StructureDefinition) -> Vec<GameCommand> {
+    // 当前未完成 Base 节点且类型吻合时，优先落在节点坐标。
+    if let Some(node) = next_incomplete_base_node(world, house) {
+        if node.type_id == structure.id {
+            let gap = world.definitions.ai_base_spacing;
+            if world.can_place_building_for_ai(house, structure.id, node.x, node.y, gap)
+                || world.can_place_building_for_ai(house, structure.id, node.x, node.y, 0)
+            {
+                return vec![GameCommand::PlaceBuilding { player, type_id: structure.id, x: node.x, y: node.y }];
+            }
+        }
+    }
     let Some((ox, oy)) = yard_placement_origin(world, house)
     else {
         return Vec::new();
@@ -413,6 +446,72 @@ fn place_structure(world: &BattleState, house: &str, player: PlayerId, structure
         return Vec::new();
     };
     vec![GameCommand::PlaceBuilding { player, type_id: structure.id, x, y }]
+}
+
+fn base_plan_for_house<'a>(world: &'a BattleState, house: &str) -> Option<&'a ra_types::PreparedBasePlan> {
+    let plan = world.prepared.base_plan.as_ref()?;
+    let key = world.definitions.houses.get_by_id(plan.house)?.type_key.as_str();
+    if key.eq_ignore_ascii_case(house) {
+        Some(plan)
+    }
+    else {
+        None
+    }
+}
+
+fn next_incomplete_base_node(world: &BattleState, house: &str) -> Option<ra_types::PreparedBaseNode> {
+    let plan = base_plan_for_house(world, house)?;
+    for node in &plan.nodes {
+        if !base_node_satisfied(world, house, node) {
+            return Some(node.clone());
+        }
+    }
+    None
+}
+
+fn base_node_satisfied(world: &BattleState, house: &str, node: &ra_types::PreparedBaseNode) -> bool {
+    let (fw, fh) = world
+        .definitions
+        .structures
+        .get_by_id(node.type_id)
+        .map(|s| (s.foundation.width.max(1), s.foundation.height.max(1)))
+        .unwrap_or((1, 1));
+    world.entities.iter().any(|e| {
+        let id = e.id;
+        if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+            return false;
+        }
+        if !world.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&world.definitions, house) == Some(o.house)).unwrap_or(false) {
+            return false;
+        }
+        let Some(identity) = world.ecs_get::<Identity>(id)
+        else {
+            return false;
+        };
+        if identity.kind != MapEntityKind::Structure || identity.type_id != node.type_id {
+            return false;
+        }
+        let Some(xf) = world.ecs_get::<Transform>(id)
+        else {
+            return false;
+        };
+        // 节点落在该建筑 Foundation 内，或锚点恰好等于节点。
+        let nx = i32::from(node.x);
+        let ny = i32::from(node.y);
+        let ax = i32::from(xf.x);
+        let ay = i32::from(xf.y);
+        nx >= ax && ny >= ay && nx < ax + i32::from(fw) && ny < ay + i32::from(fh)
+    })
+}
+
+/// 有 `[Base]` 且节点已完成时：己方建筑数须小于「节点数 + BaseSizeAdd」才允许自由 AiControls 扩。
+fn base_size_add_allows_freeform(world: &BattleState, house: &str) -> bool {
+    let Some(plan) = base_plan_for_house(world, house)
+    else {
+        return true;
+    };
+    let cap = (plan.nodes.len() as u32).saturating_add(world.definitions.ai_controls.base_size_add);
+    count_house_structures(world, house) < cap
 }
 
 /// 为指定阵营的空闲可攻击单位生成对最近敌军的 `Attack` 命令。

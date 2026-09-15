@@ -3,12 +3,12 @@
 use std::collections::HashMap;
 
 use crate::{
-    AiTriggerConditionKind, AiTriggerId, HouseId, HouseName, MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapEvent, MapHouse,
-    MapPlacedEntity, MapPlacedEntityKind, MapScriptType, MapTag, MapTaskForce, MapTeamType, MapTrigger, MissionKind, MissionName,
-    PreparedAction, PreparedActionCommand, PreparedAiTrigger, PreparedCellTag, PreparedEvent, PreparedHouse, PreparedMap, PreparedPlacement,
-    PreparedScriptType, PreparedTag, PreparedTaskForce, PreparedTaskForceEntry, PreparedTeamType, PreparedTrigger, RaError, RaResult,
-    RuntimeDefinitions, ScriptTypeId, ScriptTypeName, StructureDefinitions, SuperWeaponName, TagId, TagName, TaskForceId, TaskForceName,
-    TeamTypeId, TechnoName, TriggerId, TriggerName, TypeId, occupancy_kind,
+    AiTriggerConditionKind, AiTriggerId, HouseId, HouseName, MapAction, MapActionCommand, MapAiTrigger, MapBasePlan, MapCellTag, MapEvent,
+    MapHouse, MapPlacedEntity, MapPlacedEntityKind, MapScriptType, MapTag, MapTaskForce, MapTeamType, MapTrigger, MissionKind, MissionName,
+    PreparedAction, PreparedActionCommand, PreparedAiTrigger, PreparedBaseNode, PreparedBasePlan, PreparedCellTag, PreparedEvent,
+    PreparedHouse, PreparedMap, PreparedPlacement, PreparedScriptType, PreparedTag, PreparedTaskForce, PreparedTaskForceEntry,
+    PreparedTeamType, PreparedTrigger, RaError, RaResult, RuntimeDefinitions, ScriptTypeId, ScriptTypeName, StructureDefinitions,
+    SuperWeaponName, TagId, TagName, TaskForceId, TaskForceName, TeamTypeId, TechnoName, TriggerId, TriggerName, TypeId, occupancy_kind,
 };
 
 /// 将 `[Houses]` 投影为稳定 [`PreparedHouse`] 表。
@@ -509,6 +509,39 @@ pub fn bind_map_ai_triggers(
     Ok(out)
 }
 
+/// 将地图 `[Base]` 软绑定为 [`PreparedBasePlan`]。
+///
+/// - 缺节 / 空 `Player=` / 未知房屋 → [`None`]（不拒图）
+/// - 未知建筑类型节点跳过；全部跳过后若无节点 → [`None`]
+pub fn bind_map_base(plan: Option<&MapBasePlan>, defs: &RuntimeDefinitions) -> RaResult<Option<PreparedBasePlan>> {
+    let Some(plan) = plan
+    else {
+        return Ok(None);
+    };
+    if plan.player.is_empty() || plan.player.is_none_sentinel() {
+        return Ok(None);
+    }
+    let Some(house_def) = defs.houses.get_name(&plan.player)
+    else {
+        return Ok(None);
+    };
+    let mut nodes = Vec::with_capacity(plan.nodes.len());
+    for node in &plan.nodes {
+        if node.type_name.is_empty() {
+            continue;
+        }
+        let Some(structure) = defs.structures.get_name(&node.type_name)
+        else {
+            continue;
+        };
+        nodes.push(PreparedBaseNode { type_id: structure.id, x: node.x, y: node.y });
+    }
+    if nodes.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(PreparedBasePlan { house: house_def.id, nodes }))
+}
+
 /// 就地填充 [`PreparedMap`] 绑定表；失败时不改动已有字段。
 ///
 /// 绑定成功后先 [`validate_placement_geometry`]（越界 / 结构足迹重叠），再按
@@ -525,6 +558,7 @@ pub fn bind_prepared_map_placements(prepared: &mut PreparedMap, defs: &RuntimeDe
     let team_types = bind_map_team_types(&prepared.definition.team_types, defs, &script_types, &task_forces, &tags)?;
     let actions = bind_map_actions(&prepared.definition.actions, &triggers, &team_types, &tags, defs)?;
     let ai_triggers = bind_map_ai_triggers(&prepared.definition.ai_triggers, defs, &team_types)?;
+    let base_plan = bind_map_base(prepared.definition.base.as_ref(), defs)?;
     prepared.houses = houses;
     prepared.triggers = triggers;
     prepared.events = events;
@@ -536,6 +570,7 @@ pub fn bind_prepared_map_placements(prepared: &mut PreparedMap, defs: &RuntimeDe
     prepared.script_types = script_types;
     prepared.team_types = team_types;
     prepared.ai_triggers = ai_triggers;
+    prepared.base_plan = base_plan;
     validate_placement_geometry(prepared, &defs.structures)?;
     reseal_prepared_layers_from_placements(prepared, &defs.structures);
     Ok(())

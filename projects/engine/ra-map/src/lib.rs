@@ -93,10 +93,10 @@ pub use radiation_light::{
     radiation_site_light, radiation_site_radius_leptons,
 };
 pub use scripting::{
-    MapAction, MapActionCommand, MapActionKind, MapAiTrigger, MapCapabilityGap, MapCellTag, MapEvent, MapEventCondition, MapEventKind,
-    MapHouse, MapScriptStep, MapScriptType, MapScripting, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType, MapTrigger,
-    campaign_blocking_capability_message, is_campaign_blocking_action_gap, map_scripting_capability_gaps, merge_global_ai_scripting,
-    parse_map_houses, parse_map_scripting,
+    MapAction, MapActionCommand, MapActionKind, MapAiTrigger, MapBaseNode, MapBasePlan, MapCapabilityGap, MapCellTag, MapEvent,
+    MapEventCondition, MapEventKind, MapHouse, MapScriptStep, MapScriptType, MapScripting, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType,
+    MapTrigger, campaign_blocking_capability_message, is_campaign_blocking_action_gap, map_scripting_capability_gaps,
+    merge_global_ai_scripting, parse_map_base, parse_map_houses, parse_map_scripting,
 };
 pub use skirmish_preview::{
     BootPreviewResult, SkirmishPreviewStats, compose_boot_preview, compose_skirmish_preview, paint_mobiles_onto_preview_rgba,
@@ -108,10 +108,10 @@ pub use structure_damage::{
 };
 pub use structure_paint::{
     StructureAnimBank, StructureAnimLayer, StructureAnimMode, StructureBuildupClip, buildup_frame_index, buildup_frame_index_reverse,
-    collect_structure_anim_bank, load_structure_buildup_clip, load_structure_erase_masks, paint_map_structures,
-    paint_map_structures_filtered, paint_structure_anim_bank, paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba,
-    paint_structures_onto_rgba, paint_structures_onto_rgba_filtered, restore_structure_blit_from_ground,
-    restore_structure_foundation_from_ground, structure_anim_frame, wall_link_refresh_cells,
+    collect_structure_anim_bank, load_structure_buildup_clip, load_structure_erase_masks, paint_map_structures, paint_map_structures_filtered,
+    paint_structure_anim_bank, paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba,
+    paint_structures_onto_rgba_filtered, restore_structure_blit_from_ground, restore_structure_foundation_from_ground, structure_anim_frame,
+    wall_link_refresh_cells,
 };
 pub use terrain_objects::{TerrainObject, parse_terrain_objects};
 pub use terrain_paint::{
@@ -355,6 +355,7 @@ impl MapInfo {
             script_types: self.scripting.script_types.iter().map(map_script_type_to_definition).collect(),
             team_types: self.scripting.team_types.iter().map(map_team_type_to_definition).collect(),
             ai_triggers: self.scripting.ai_triggers.iter().map(map_ai_trigger_to_definition).collect(),
+            base: self.scripting.base.as_ref().map(map_base_to_definition),
             preview_width: self.preview_width,
             preview_height: self.preview_height,
             digest: self.digest.clone(),
@@ -434,6 +435,7 @@ impl MapInfo {
             script_types: Vec::new(),
             team_types: Vec::new(),
             ai_triggers: Vec::new(),
+            base_plan: None,
         }
     }
 
@@ -709,6 +711,18 @@ fn map_ai_trigger_to_definition(trigger: &crate::scripting::MapAiTrigger) -> ra_
         min_weight: trigger.min_weight,
         max_weight: trigger.max_weight,
         team2: trigger.team2.clone(),
+    }
+}
+
+fn map_base_to_definition(plan: &crate::scripting::MapBasePlan) -> ra_types::MapBasePlan {
+    ra_types::MapBasePlan {
+        player: plan.player.clone(),
+        count: plan.count,
+        nodes: plan
+            .nodes
+            .iter()
+            .map(|n| ra_types::MapBaseNode { type_name: n.type_name.clone(), x: n.x, y: n.y })
+            .collect(),
     }
 }
 

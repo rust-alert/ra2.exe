@@ -1,6 +1,7 @@
 //! 地图剧本相关节：Houses / Tags / Triggers / Events / Actions / CellTags / Teams。
 
 pub use ai_triggers::{MapAiTrigger, parse_ai_trigger_types_enable, parse_ai_triggers};
+pub use base::{MapBaseNode, MapBasePlan, parse_map_base};
 pub use capability::{MapCapabilityGap, campaign_blocking_capability_message, is_campaign_blocking_action_gap, map_scripting_capability_gaps};
 pub use houses::{MapHouse, parse_map_houses};
 pub use kinds::{MapActionKind, MapEventKind};
@@ -13,6 +14,7 @@ pub use triggers::{
 };
 
 mod ai_triggers;
+mod base;
 pub mod capability;
 mod houses;
 mod kinds;
@@ -46,6 +48,8 @@ pub struct MapScripting {
     pub ai_triggers: Vec<MapAiTrigger>,
     /// `[AITriggerTypesEnable]`：触发 id → 是否启用；`None` 表示缺节。
     pub ai_trigger_types_enable: Option<Vec<(ra_types::AiTriggerName, bool)>>,
+    /// `[Base]` AI 基建节点计划；缺节为 `None`。
+    pub base: Option<MapBasePlan>,
     /// `[Ranking]` 键值（装载保留；结算后置）。
     pub ranking: Vec<(String, String)>,
     /// `[SpecialFlags]` 键值（装载保留；玩法开关后置）。
@@ -84,6 +88,7 @@ const KNOWN_SECTIONS: &[&str] = &[
     "TeamTypes",
     "AITriggerTypes",
     "AITriggerTypesEnable",
+    "Base",
     "Ranking",
     "SpecialFlags",
     "VariableNames",
@@ -105,6 +110,7 @@ pub fn parse_map_scripting(doc: &IniDocument) -> MapScripting {
         team_types: parse_team_types(doc),
         ai_triggers: parse_ai_triggers(doc),
         ai_trigger_types_enable,
+        base: parse_map_base(doc),
         ranking: parse_named_string_section(doc, "Ranking"),
         special_flags: parse_named_string_section(doc, "SpecialFlags"),
         variable_names: parse_named_string_section(doc, "VariableNames"),
