@@ -23,7 +23,8 @@ use ra_widgets::{
         compose_battle_in_game_options_overlay, compose_battle_pause_menu_overlay, paint_battle_outcome_hold_banner,
     },
     fs_source::GameAssetSource,
-    paint_selection_power_tip, selection_power_drain_caption, structure_selection_center_preview,
+    paint_selection_power_tip, power_tip_rgba_from_primary, selection_power_drain_caption, structure_selection_center_preview,
+    POWER_TIP_TEXT_FALLBACK,
     render::present,
     skin::text::{battle_outcome_banner_csf_key, battle_outcome_banner_fallback, command_button_csf_tooltip, resolve_csf_text},
 };
@@ -491,7 +492,7 @@ impl BattleController {
         }
     }
 
-    /// 选中供电建筑时在占地中心叠 TXT_POWER_DRAIN2（电力 / 负载）。
+    /// 选中供电建筑时叠 TXT_POWER_DRAIN2：所属 house 的**全局**有效供电与负载，阵营色。
     pub(super) fn paint_selected_power_plant_tip(
         &self,
         page: &mut RgbaImage,
@@ -524,15 +525,21 @@ impl BattleController {
         else {
             return;
         };
-        let Some(power) = game.world.definitions.structures.get(unit.type_id.as_ref()).map(|s| s.power)
+        let Some(player) = game.world.players.iter().find(|p| p.house.as_ref().eq_ignore_ascii_case(unit.owner.as_ref()))
         else {
             return;
         };
         let (cx, cy) = structure_selection_center_preview(unit.screen_x, unit.screen_y, unit.foundation_w, unit.foundation_h, unit.art_height);
         let vp = MapViewport::battle(window_w.max(1), window_h.max(1));
         let (sx, sy) = vp.world_to_screen(renderer.camera(), cx, cy);
-        let caption = selection_power_drain_caption(csf, power.output, power.drain);
-        paint_selection_power_tip(page, fnt, &caption, sx.round() as i32, sy.round() as i32, window_w as i32, window_h as i32);
+        let caption = selection_power_drain_caption(csf, player.effective_power_output(), player.power_drain);
+        let faction = self
+            .lobby_primaries
+            .get(&unit.owner.to_ascii_uppercase())
+            .map(|c| power_tip_rgba_from_primary(c.r, c.g, c.b))
+            .or_else(|| ra_assets::owner_primary_color(unit.owner.as_ref()).map(|c| power_tip_rgba_from_primary(c.r, c.g, c.b)))
+            .unwrap_or(POWER_TIP_TEXT_FALLBACK);
+        paint_selection_power_tip(page, fnt, &caption, sx.round() as i32, sy.round() as i32, window_w as i32, window_h as i32, faction);
     }
 
     pub(super) fn upload_battle_hud(

@@ -1,4 +1,7 @@
 //! 选中供电建筑时的「电力 / 负载」浮动条（对齐零售 `TXT_POWER_DRAIN2`）。
+//!
+//! 数值为本方（建筑所属 house）**全局**有效供电与总负载，不是单座建筑的 `Power=`。
+//! 文字与边框用阵营色。
 
 use ra_assets::{CsfFile, FntFile};
 use ra_layout::RectPx;
@@ -14,12 +17,10 @@ pub const TXT_POWER_DRAIN2: &str = "TXT_POWER_DRAIN2";
 /// 双行模板（回退）：`电力=%d \n 负载=%d`。
 pub const TXT_POWER_DRAIN: &str = "TXT_POWER_DRAIN";
 
-/// 浮动条文字色（金黄，对齐零售选中提示）。
-pub const POWER_TIP_TEXT: [u8; 4] = [255, 220, 100, 255];
-/// 浮动条边框。
-pub const POWER_TIP_BORDER: [u8; 4] = [200, 160, 60, 255];
-/// 浮动条底色。
+/// 浮动条底色（黑底）。
 pub const POWER_TIP_BG: [u8; 4] = [0, 0, 0, 220];
+/// 缺阵营色时的回退文字色。
+pub const POWER_TIP_TEXT_FALLBACK: [u8; 4] = [220, 220, 220, 255];
 
 /// 将 CSF 模板中的 `%d` 按序替换为整型参数。
 pub fn format_csf_percent_d(template: &str, values: &[i32]) -> String {
@@ -51,8 +52,23 @@ pub fn selection_power_drain_caption(csf: Option<&CsfFile>, power: i32, load: i3
     format_csf_percent_d(&template, &[power, load])
 }
 
-/// 在窗口像素 `(center_x, center_y)` 居中绘制黑底金边电力提示。
-pub fn paint_selection_power_tip(page: &mut RgbaImage, fnt: &FntFile, caption: &str, center_x: i32, center_y: i32, page_w: i32, page_h: i32) {
+/// 把阵营主色调亮一点，便于黑底可读。
+pub fn power_tip_rgba_from_primary(r: u8, g: u8, b: u8) -> [u8; 4] {
+    let lift = |c: u8| -> u8 { c.saturating_add((255u16.saturating_sub(u16::from(c)) / 3) as u8) };
+    [lift(r), lift(g), lift(b), 255]
+}
+
+/// 在窗口像素 `(center_x, center_y)` 居中绘制黑底阵营色电力提示。
+pub fn paint_selection_power_tip(
+    page: &mut RgbaImage,
+    fnt: &FntFile,
+    caption: &str,
+    center_x: i32,
+    center_y: i32,
+    page_w: i32,
+    page_h: i32,
+    faction_rgba: [u8; 4],
+) {
     let lines: Vec<&str> = caption.lines().filter(|l| !l.trim().is_empty()).collect();
     if lines.is_empty() {
         return;
@@ -82,12 +98,12 @@ pub fn paint_selection_power_tip(page: &mut RgbaImage, fnt: &FntFile, caption: &
         by = (page_h - box_h).max(0);
     }
     fill_rect(page, RectPx::new(bx, by, box_w, box_h), POWER_TIP_BG);
-    stroke_rect(page, RectPx::new(bx, by, box_w, box_h), POWER_TIP_BORDER);
+    stroke_rect(page, RectPx::new(bx, by, box_w, box_h), faction_rgba);
     let mut ty = by + pad_y;
     for line in lines {
         let tw = fnt.text_width(line) as i32;
         let tx = bx + (box_w - tw) / 2;
-        blit_text_colored(page, fnt, line, tx, ty, POWER_TIP_TEXT);
+        blit_text_colored(page, fnt, line, tx, ty, faction_rgba);
         ty += line_h + line_gap;
     }
 }

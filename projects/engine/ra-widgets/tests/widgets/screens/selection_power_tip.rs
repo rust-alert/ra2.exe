@@ -1,6 +1,6 @@
 //! 选中供电建筑的电力 / 负载文案。
 
-use ra_widgets::{format_csf_percent_d, selection_power_drain_caption, structure_selection_center_preview};
+use ra_widgets::{format_csf_percent_d, power_tip_rgba_from_primary, selection_power_drain_caption, structure_selection_center_preview};
 
 #[test]
 fn format_replaces_percent_d_in_order() {
@@ -24,4 +24,11 @@ fn structure_center_sits_above_footprint() {
     let (cx, cy) = structure_selection_center_preview(100, 80, 2, 2, 3);
     assert!((cx - 100.0).abs() < 0.01);
     assert!(cy < 80.0 + (2.0 + 2.0) * 7.5);
+}
+
+#[test]
+fn faction_tip_color_lifts_dark_primary() {
+    let rgba = power_tip_rgba_from_primary(0, 80, 220);
+    assert_eq!(rgba[3], 255);
+    assert!(rgba[2] > 220);
 }

@@ -19,8 +19,8 @@ pub use campaign_setup::*;
 pub use options_dialog::*;
 pub use page::*;
 pub use selection_power_tip::{
-    TXT_POWER_DRAIN, TXT_POWER_DRAIN2, format_csf_percent_d, paint_selection_power_tip, selection_power_drain_caption,
-    structure_selection_center_preview,
+    POWER_TIP_TEXT_FALLBACK, TXT_POWER_DRAIN, TXT_POWER_DRAIN2, format_csf_percent_d, paint_selection_power_tip, power_tip_rgba_from_primary,
+    selection_power_drain_caption, structure_selection_center_preview,
 };
 pub use skirmish_setup::*;
 pub use startup_splash::*;
