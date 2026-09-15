@@ -82,6 +82,7 @@ impl BattleController {
     /// 由通行格陆地类型与实体色点合成俯视小地图。
     pub(super) fn compose_radar_minimap_image(&self, view: Option<(u16, u16, u16, u16)>) -> Option<RgbaImage> {
         let game = self.session.as_ref()?.battle()?;
+        let local_house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.as_ref())?;
         let grid = &game.world.pass_grid;
         let w = grid.width.max(1);
         let h = grid.height.max(1);
@@ -113,15 +114,28 @@ impl BattleController {
             else {
                 continue;
             };
-            let rgba = self
-                .lobby_primaries
-                .get(owner.as_ref())
-                .map(|c| [c.r, c.g, c.b, 255])
-                .unwrap_or([220, 220, 220, 255]);
+            let rgba = self.radar_blip_rgba(&game.world, local_house, owner.as_ref());
             let structure = matches!(kind, MapEntityKind::Structure);
             blips.push(RadarMinimapBlip { x: tx, y: ty, rgba, structure });
         }
         compose_radar_minimap(w, h, &land, &blips, view)
+    }
+
+    /// 小地图色点：氛围灰，优先大厅主色，否则本机绿 / 同盟青 / 敌方红。
+    pub(super) fn radar_blip_rgba(&self, world: &ra_engine::BattleState, local_house: &str, owner: &str) -> [u8; 4] {
+        if ra_engine::is_ambient_house(owner) {
+            return [160, 160, 160, 255];
+        }
+        if let Some(c) = self.lobby_primaries.get(owner) {
+            return [c.r, c.g, c.b, 255];
+        }
+        if owner.eq_ignore_ascii_case(local_house) {
+            return [40, 220, 80, 255];
+        }
+        if ra_engine::houses_are_allied(world, local_house, owner) {
+            return [40, 200, 220, 255];
+        }
+        [220, 60, 60, 255]
     }
 
     /// 战术区四角对应的地图格 AABB（画镜头框）。
