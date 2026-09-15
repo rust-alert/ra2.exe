@@ -1,11 +1,11 @@
 use crate::{
     game::reject::CommandReject,
     state::{
-        BattleState,
+        BattleState, CELL_MOVE_COST,
         components::{AnimationState, AttackState, Health, Identity, MovementState, Owner, ProductionQueue, Transform},
     },
 };
-use ra_map::{MapEntityKind, iso_to_screen};
+use ra_map::{MapEntityKind, infantry_sub_cell_offsets, iso_to_screen, slide_offset_along_path};
 use ra_types::{EntityId, GameEdition};
 
 use super::{
@@ -198,6 +198,7 @@ impl BattleSession {
         let hva_frame = self.world.ecs_get::<AnimationState>(id).map(|a| a.hva_frame).unwrap_or(0);
         let z = self.world.pass_grid.cell_height(xf.x, xf.y);
         let (sx, sy) = iso_to_screen(i32::from(xf.x), i32::from(xf.y), z);
+        let (foot_x, foot_y) = self.mobile_foot_pixel_offset(id, identity.kind, &xf);
         let deployable =
             !matches!(identity.kind, MapEntityKind::Structure) && crate::gameplay::type_can_deploy(&self.world.definitions, identity.type_id);
         let movement = self.world.ecs_get::<MovementState>(id);
@@ -217,8 +218,11 @@ impl BattleSession {
             });
         let attack_target = self.world.ecs_get::<AttackState>(id).and_then(|a| a.target);
         let attack_target_screen = attack_target.and_then(|tid| {
+            let t_identity = self.world.ecs_get::<Identity>(tid)?;
             let txf = self.world.ecs_get::<Transform>(tid).copied()?;
-            Some(self.cell_anchor_screen(txf.x, txf.y))
+            let (ax, ay) = self.cell_anchor_screen(txf.x, txf.y);
+            let (fx, fy) = self.mobile_foot_pixel_offset(tid, t_identity.kind, &txf);
+            Some((ax + fx, ay + fy))
         });
         let (foundation_w, foundation_h, art_height) = if matches!(identity.kind, MapEntityKind::Structure) {
             self.world
@@ -239,8 +243,8 @@ impl BattleSession {
             owner: std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.world.definitions, owner.house)),
             x: xf.x,
             y: xf.y,
-            screen_x: sx - self.preview_origin_x,
-            screen_y: sy - self.preview_origin_y,
+            screen_x: sx - self.preview_origin_x + foot_x,
+            screen_y: sy - self.preview_origin_y + foot_y,
             facing: xf.facing,
             turret_facing: xf.turret_facing,
             hva_frame,
@@ -258,6 +262,51 @@ impl BattleSession {
             bracket_delta,
             is_primary,
         })
+    }
+
+    /// 移动单位脚点相对逻辑格原点的像素偏移（步兵 `sub_cell` + 格内滑移）。
+    pub fn mobile_foot_pixel_offset(&self, id: EntityId, kind: MapEntityKind, xf: &Transform) -> (i32, i32) {
+        if !matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
+            return (0, 0);
+        }
+        let mut ox = 0i32;
+        let mut oy = 0i32;
+        if matches!(kind, MapEntityKind::Infantry) {
+            let (sx, sy) = infantry_sub_cell_offsets(xf.sub_cell);
+            ox = ox.saturating_add(sx);
+            oy = oy.saturating_add(sy);
+        }
+        if let Some(movement) = self.world.ecs_get::<MovementState>(id) {
+            if movement.destination_x.is_some() || !movement.path.is_empty() {
+                let speed = self.world.ecs_speed(id).unwrap_or(0);
+                let (sx, sy) = slide_offset_along_path(
+                    xf.x,
+                    xf.y,
+                    &movement.path,
+                    movement.move_accum,
+                    speed,
+                    self.present_tick_fraction,
+                    CELL_MOVE_COST,
+                    |x, y| self.world.pass_grid.cell_height(x, y),
+                );
+                ox = ox.saturating_add(sx);
+                oy = oy.saturating_add(sy);
+            }
+        }
+        (ox, oy)
+    }
+
+    /// 按实体 id 计算脚点像素偏移（供 host / 框选等无法直接读 ECS 组件的路径）。
+    pub fn mobile_foot_pixel_offset_for(&self, id: EntityId) -> (i32, i32) {
+        let Some(identity) = self.world.ecs_get::<Identity>(id)
+        else {
+            return (0, 0);
+        };
+        let Some(xf) = self.world.ecs_get::<Transform>(id).copied()
+        else {
+            return (0, 0);
+        };
+        self.mobile_foot_pixel_offset(id, identity.kind, &xf)
     }
 
     /// 逻辑格 → 预览图锚点（与选中环中心同口径：`iso` 后再加菱形视觉偏移）。

@@ -15,7 +15,7 @@ fn empty_mobiles_noop() {
     let map = MapInfo::empty(GameEdition::Ra2, "t");
     let mut image = TerrainImage::blank(1, 1);
     let mut paint = PaintDefinitions::default();
-    assert_eq!(paint_map_mobiles(&EmptySource, &map, &mut image, &mut paint, &|p, _| p.clone(), &|_| MobilePaintPose::default()), 0);
+    assert_eq!(paint_map_mobiles(&EmptySource, &map, &mut image, &mut paint, &|p, _| p.clone(), &|_, _| MobilePaintPose::default()), 0);
 }
 
 // 自顶层 `mobile_paint_unit.rs` 并入。
@@ -104,6 +104,25 @@ fn mobile_shp_offsets_anchor_to_cell_center() {
 }
 
 #[test]
+fn infantry_sub_cell_offsets_spread_around_center() {
+    assert_eq!(infantry_sub_cell_offsets(0), (0, 0));
+    assert_eq!(infantry_sub_cell_offsets(1), (-14, -7));
+    assert_eq!(infantry_sub_cell_offsets(2), (14, -7));
+    assert_eq!(infantry_sub_cell_offsets(3), (-14, 7));
+    assert_eq!(infantry_sub_cell_offsets(4), (14, 7));
+    assert_eq!(infantry_sub_cell_offsets(9), (0, 0));
+}
+
+#[test]
+fn slide_offset_moves_toward_next_cell() {
+    let path = [(2u16, 1u16)];
+    let (ox0, oy0) = slide_offset_along_path(1, 1, &path, 0, 0, 0.0, 64, |_, _| 0);
+    assert_eq!((ox0, oy0), (0, 0));
+    let (ox, oy) = slide_offset_along_path(1, 1, &path, 32, 0, 0.0, 64, |_, _| 0);
+    assert!(ox != 0 || oy != 0, "mid-cell slide must leave cell origin");
+}
+
+#[test]
 fn missing_mobile_body_notes_type_key() {
     use std::collections::HashMap;
 
@@ -149,7 +168,7 @@ fn missing_mobile_body_notes_type_key() {
 
     let mut paint = PaintDefinitionsLoader::load_sealed(&source, "art.ini", "rules.ini", &Default::default(), &map);
     let mut image = TerrainImage::blank(64, 64);
-    let painted = paint_map_mobiles(&source, &map, &mut image, &mut paint, &|p, _| p.clone(), &|_| MobilePaintPose::default());
+    let painted = paint_map_mobiles(&source, &map, &mut image, &mut paint, &|p, _| p.clone(), &|_, _| MobilePaintPose::default());
     assert_eq!(painted, 0);
     assert!(paint.mobile_types_missing_shp().contains("E1"));
     assert_eq!(paint.mobile_types_missing_shp().len(), 1);

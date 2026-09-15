@@ -1,12 +1,15 @@
-//! 对局页控制器：输入意图、命令、tick、快照；不含窗口与页面导航外壳。
+//! 对局页控制器：移动单位烤图姿态。
 
 use ra_engine::CELL_MOVE_COST;
-use ra_map::{MobilePaintPose, iso_to_screen};
+use ra_map::MobilePaintPose;
 use ra_types::EntityId;
+
+pub use ra_map::slide_offset_along_path;
 
 /// 由权威移动状态计算步兵/载具烤图姿态（含格内滑移偏移）。
 ///
 /// `tick_fraction` 为距下一逻辑 tick 的进度，用于在渲染帧之间继续滑移，避免整格瞬移。
+/// 步兵 `sub_cell` 脚点由 [`ra_map::paint_map_mobiles`] 按 `MapEntity.sub_cell` 叠加，不在此重复。
 pub fn mobile_paint_pose_for(game: &ra_engine::BattleSession, id: EntityId, cell_x: u16, cell_y: u16, tick_fraction: f64) -> MobilePaintPose {
     let fire_flash = game.world.ecs_fire_flash(id).unwrap_or(0);
     let firing = fire_flash > 0;
@@ -39,37 +42,4 @@ pub fn mobile_paint_pose_for(game: &ra_engine::BattleSession, id: EntityId, cell
         offset_y,
         turret_facing: game.world.ecs_turret_facing(id),
     }
-}
-
-/// 相对当前逻辑格，沿 `path[0]` 单边插值屏幕偏移。
-///
-/// 只用「当前格 → 下一格」一条边：`t = (move_accum + speed * tick_fraction) / cell_cost`，
-/// 钳到 `[0, 1]`。不跨后续路点预测，避免 repath 时呈现跳格。
-pub fn slide_offset_along_path(
-    cell_x: u16,
-    cell_y: u16,
-    path: &[(u16, u16)],
-    move_accum: u32,
-    speed: u32,
-    tick_fraction: f64,
-    cell_cost: u32,
-    cell_z: impl Fn(u16, u16) -> u8,
-) -> (i32, i32) {
-    if cell_cost == 0 || path.is_empty() {
-        return (0, 0);
-    }
-    let Some(&(nx, ny)) = path.first()
-    else {
-        return (0, 0);
-    };
-    let cost = cell_cost as f32;
-    let visual = move_accum as f32 + speed as f32 * (tick_fraction as f32).clamp(0.0, 1.0);
-    let t = (visual / cost).clamp(0.0, 1.0);
-    let z0 = cell_z(cell_x, cell_y);
-    let z1 = cell_z(nx, ny);
-    let (sx0, sy0) = iso_to_screen(i32::from(cell_x), i32::from(cell_y), z0);
-    let (sx1, sy1) = iso_to_screen(i32::from(nx), i32::from(ny), z1);
-    let sx = sx0 as f32 + (sx1 - sx0) as f32 * t;
-    let sy = sy0 as f32 + (sy1 - sy0) as f32 * t;
-    ((sx - sx0 as f32).round() as i32, (sy - sy0 as f32).round() as i32)
 }

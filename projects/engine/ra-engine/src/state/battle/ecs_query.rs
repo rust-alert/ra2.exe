@@ -107,6 +107,11 @@ impl BattleState {
         Some((transform.x, transform.y, transform.facing))
     }
 
+    /// 读取 ECS 步兵子格（`0..=4`；载具通常为 `0`）。
+    pub fn ecs_sub_cell(&self, id: EntityId) -> Option<u8> {
+        self.ecs_get::<crate::state::components::Transform>(id).map(|t| t.sub_cell)
+    }
+
     /// 读取 ECS 炮塔朝向（测试与诊断）。
     pub fn ecs_turret_facing(&self, id: EntityId) -> Option<u8> {
         self.ecs_get::<crate::state::components::Transform>(id).map(|t| t.turret_facing)

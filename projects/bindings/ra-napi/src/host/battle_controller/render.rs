@@ -58,12 +58,14 @@ impl BattleController {
                 self.refresh_title(renderer, window, screen_label, None);
                 return;
             };
+            let tick_fraction = session.tick_fraction();
             let Some(game) = session.battle_mut()
             else {
                 renderer.draw_frame(None);
                 self.refresh_title(renderer, window, screen_label, None);
                 return;
             };
+            game.present_tick_fraction = tick_fraction;
             let pres_started = Instant::now();
             if force_full {
                 let snap = game.snapshot(&selected);

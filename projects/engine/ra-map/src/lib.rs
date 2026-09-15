@@ -71,7 +71,9 @@ pub use lighting::{
     cell_light_scalar, cell_tint, cell_tint_with_lights, collect_structure_point_lights, light_value_to_units, parse_lighting,
     parse_map_lighting, point_light_at, point_light_from_profile, radiation_point_light, terrain_tint,
 };
-pub use mobile_paint::{MobilePaintPose, infantry_facing_slot, paint_map_mobiles};
+pub use mobile_paint::{
+    MobilePaintPose, infantry_facing_slot, infantry_sub_cell_offsets, paint_map_mobiles, slide_offset_along_path,
+};
 pub use overlay::{NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID, OverlayCell, decode_overlay_packs};
 pub use overlay_paint::{
     OverlayLayerFilter, flat_tiberium_display_names, flat_tiberium_display_type_name, is_bridge_overlay_name, paint_map_overlays,

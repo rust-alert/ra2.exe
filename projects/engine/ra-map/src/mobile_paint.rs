@@ -161,14 +161,16 @@ pub const INFANTRY_FACING_SLOT_TABLE: [u8; 32] =
 /// 图像键解析顺序：`rules.ini` 的 `Image` → `art.ini` 的 `Image` → 类型 id 本身。
 /// （例如 `AMCV` 的 rules `Image=MCV` → `mcv.vxl`，不可误读成不存在的 `amcv.vxl`。）
 ///
-/// `pose_of` 提供行走帧；大厅预览可传 `|_| MobilePaintPose::default()`。
+/// `pose_of(index, ent)` 提供行走帧；大厅预览可传 `|_, _| MobilePaintPose::default()`。
+///
+/// `index` 为过滤后移动单位列表下标，避免同格同类型姿态互相覆盖。
 pub fn paint_map_mobiles(
     source: &dyn AssetSource,
     map: &MapInfo,
     image: &mut TerrainImage,
     paint: &mut crate::PaintDefinitions,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
-    pose_of: &dyn Fn(&MapEntity) -> MobilePaintPose,
+    pose_of: &dyn Fn(usize, &MapEntity) -> MobilePaintPose,
 ) -> usize {
     let mobiles: Vec<_> =
         map.entities.iter().filter(|e| matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)).collect();
@@ -196,14 +198,19 @@ pub fn paint_map_mobiles(
     let mut blit_cache: HashMap<(String, u16, HouseName, u8, u8, u32), TileBlit> = HashMap::new();
     let mut items: Vec<CellSpriteItem> = Vec::new();
 
-    for ent in mobiles {
+    for (mobile_index, ent) in mobiles.into_iter().enumerate() {
         let Some(hint) = paint.mobile_hint(&ent.type_id)
         else {
             continue;
         };
         let image_key = hint.image_key.clone();
         let prefer_voxel = hint.prefer_voxel;
-        let pose = pose_of(ent);
+        let mut pose = pose_of(mobile_index, ent);
+        if matches!(ent.kind, MapEntityKind::Infantry) {
+            let (sx, sy) = infantry_sub_cell_offsets(ent.sub_cell);
+            pose.offset_x = pose.offset_x.saturating_add(sx);
+            pose.offset_y = pose.offset_y.saturating_add(sy);
+        }
         let frame_index = resolve_mobile_shp_frame_from_hints(hint, ent, pose);
         let turret_facing = pose.turret_facing.unwrap_or(ent.facing);
         let vxl_hva_frame = mobile_vxl_hva_frame(pose);
@@ -538,6 +545,49 @@ pub fn mobile_shp_cell_offsets(frame_x: u16, frame_y: u16, shp_w: u16, shp_h: u1
         i32::from(frame_x as i16) - i32::from(shp_w) / 2 + TILE_WIDTH / 2,
         i32::from(frame_y as i16) - i32::from(shp_h) / 2 + TILE_HEIGHT / 2,
     )
+}
+
+/// 步兵子格相对钻石中心的像素偏移（地图 `sub_cell` 0..=4）。
+///
+/// 布局：`0` 中心，`1` 左上，`2` 右上，`3` 左下，`4` 右下。越界回退中心。
+pub fn infantry_sub_cell_offsets(sub_cell: u8) -> (i32, i32) {
+    const TABLE: [(i32, i32); 5] = [(0, 0), (-14, -7), (14, -7), (-14, 7), (14, 7)];
+    TABLE.get(usize::from(sub_cell)).copied().unwrap_or((0, 0))
+}
+
+/// 相对当前逻辑格，沿 `path[0]` 单边插值屏幕偏移。
+///
+/// 只用「当前格 → 下一格」一条边：`t = (move_accum + speed * tick_fraction) / cell_cost`，
+/// 钳到 `[0, 1]`。不跨后续路点预测，避免 repath 时呈现跳格。
+pub fn slide_offset_along_path(
+    cell_x: u16,
+    cell_y: u16,
+    path: &[(u16, u16)],
+    move_accum: u32,
+    speed: u32,
+    tick_fraction: f64,
+    cell_cost: u32,
+    cell_z: impl Fn(u16, u16) -> u8,
+) -> (i32, i32) {
+    use crate::iso_math::iso_to_screen;
+
+    if cell_cost == 0 || path.is_empty() {
+        return (0, 0);
+    }
+    let Some(&(nx, ny)) = path.first()
+    else {
+        return (0, 0);
+    };
+    let cost = cell_cost as f32;
+    let visual = move_accum as f32 + speed as f32 * (tick_fraction as f32).clamp(0.0, 1.0);
+    let t = (visual / cost).clamp(0.0, 1.0);
+    let z0 = cell_z(cell_x, cell_y);
+    let z1 = cell_z(nx, ny);
+    let (sx0, sy0) = iso_to_screen(i32::from(cell_x), i32::from(cell_y), z0);
+    let (sx1, sy1) = iso_to_screen(i32::from(nx), i32::from(ny), z1);
+    let sx = sx0 as f32 + (sx1 - sx0) as f32 * t;
+    let sy = sy0 as f32 + (sy1 - sy0) as f32 * t;
+    ((sx - sx0 as f32).round() as i32, (sy - sy0 as f32).round() as i32)
 }
 
 /// 受击闪白：不透明像素向白拉近一半（预览烤图层；GPU 路径另有 `AnimState::TakeDamage`）。

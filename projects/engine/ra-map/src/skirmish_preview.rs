@@ -159,7 +159,7 @@ pub fn compose_skirmish_preview(
     let structureless_clean = structureless_clean.image;
     let structureless_underlay = structureless_underlay.image;
     let anim_bank = collect_structure_anim_bank(source, map, paint, remap_owner);
-    let mobiles = paint_map_mobiles(source, map, &mut image, paint, remap_owner, &|_| MobilePaintPose::default());
+    let mobiles = paint_map_mobiles(source, map, &mut image, paint, remap_owner, &|_, _| MobilePaintPose::default());
     let base_without_anims = image.image.clone();
     // 旗帜等常循环地形在刷新时叠在建筑主体之上。
     let terrain_anim_n = paint_terrain_anim_bank(&mut image, &terrain_anim_bank, anim_clock_ms);
@@ -198,7 +198,7 @@ pub fn paint_mobiles_onto_preview_rgba(
     origin_y: i32,
     paint: &mut crate::PaintDefinitions,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
-    pose_of: &dyn Fn(&crate::MapEntity) -> MobilePaintPose,
+    pose_of: &dyn Fn(usize, &crate::MapEntity) -> MobilePaintPose,
 ) -> usize {
     let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
     let n = paint_map_mobiles(source, entities_map, &mut terrain, paint, remap_owner, pose_of);

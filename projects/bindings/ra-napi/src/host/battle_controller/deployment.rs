@@ -1,6 +1,6 @@
 //! 对局页控制器：输入意图、命令、tick、快照；不含窗口与页面导航外壳。
 
-use std::{collections::HashMap, time::Instant};
+use std::time::Instant;
 
 use ra_map::{
     MapEntity, MapEntityKind, MobilePaintPose, StructureBuildupClip, collect_structure_anim_bank, load_structure_buildup_clip,
@@ -732,7 +732,7 @@ impl BattleController {
         };
         let mut mobile_map = game.world.map.clone();
         mobile_map.entities.clear();
-        let mut poses: HashMap<(u16, u16, TechnoName, HouseName), MobilePaintPose> = HashMap::new();
+        let mut poses: Vec<MobilePaintPose> = Vec::new();
         for id in game.world.entity_ids() {
             if game.world.ecs_health(id).map(|(_, _, dead)| dead).unwrap_or(true) {
                 continue;
@@ -752,9 +752,10 @@ impl BattleController {
             else {
                 continue;
             };
+            let sub_cell = game.world.ecs_sub_cell(id).unwrap_or(0);
             let owner_s = HouseName::parse(owner.as_ref());
             let type_s = TechnoName::parse(type_id.as_ref());
-            poses.insert((x, y, type_s.clone(), owner_s.clone()), mobile_paint_pose_for(game, id, x, y, tick_fraction));
+            poses.push(mobile_paint_pose_for(game, id, x, y, tick_fraction));
             mobile_map.entities.push(MapEntity {
                 kind,
                 owner: owner_s,
@@ -763,7 +764,7 @@ impl BattleController {
                 x,
                 y,
                 facing,
-                sub_cell: 0,
+                sub_cell,
                 mission: Default::default(),
                 tag: Default::default(),
             });
@@ -778,7 +779,7 @@ impl BattleController {
             self.preview_origin.1,
             &mut self.paint,
             &|pal, owner| remap_owner_palette(rules, Some(lobby), pal, owner),
-            &|ent| poses.get(&(ent.x, ent.y, ent.type_id.clone(), ent.owner.clone())).copied().unwrap_or_default(),
+            &|i, _| poses.get(i).copied().unwrap_or_default(),
         );
         self.preview_base = Some(base);
         self.last_anim_sig = u64::MAX;
@@ -801,7 +802,7 @@ impl BattleController {
         };
         let mut mobile_map = game.world.map.clone();
         mobile_map.entities.clear();
-        let mut poses: HashMap<(u16, u16, TechnoName, HouseName), MobilePaintPose> = HashMap::new();
+        let mut poses: Vec<MobilePaintPose> = Vec::new();
         for id in game.world.entity_ids() {
             if game.world.ecs_health(id).map(|(_, _, dead)| dead).unwrap_or(true) {
                 continue;
@@ -821,9 +822,10 @@ impl BattleController {
             else {
                 continue;
             };
+            let sub_cell = game.world.ecs_sub_cell(id).unwrap_or(0);
             let owner_s = HouseName::parse(owner.as_ref());
             let type_s = TechnoName::parse(type_id.as_ref());
-            poses.insert((x, y, type_s.clone(), owner_s.clone()), mobile_paint_pose_for(game, id, x, y, tick_fraction));
+            poses.push(mobile_paint_pose_for(game, id, x, y, tick_fraction));
             mobile_map.entities.push(MapEntity {
                 kind,
                 owner: owner_s,
@@ -832,7 +834,7 @@ impl BattleController {
                 x,
                 y,
                 facing,
-                sub_cell: 0,
+                sub_cell,
                 mission: Default::default(),
                 tag: Default::default(),
             });
@@ -847,7 +849,7 @@ impl BattleController {
             self.preview_origin.1,
             &mut self.paint,
             &|pal, owner| remap_owner_palette(rules, Some(&lobby), pal, owner),
-            &|ent| poses.get(&(ent.x, ent.y, ent.type_id.clone(), ent.owner.clone())).copied().unwrap_or_default(),
+            &|i, _| poses.get(i).copied().unwrap_or_default(),
         );
         for pending in &self.pending_buildups {
             let elapsed = pending.started.elapsed().as_millis() as u64;

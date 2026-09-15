@@ -43,6 +43,8 @@ pub struct BattleSession {
     pub savour_until_tick: Option<u64>,
     /// 收束窗内暂存的胜负（到期提交）。
     pub pending_savour_outcome: Option<BattleOutcome>,
+    /// 呈现用 tick 分数（`Session::tick_fraction`），驱动快照/点选与烤图同一滑移脚点。
+    pub present_tick_fraction: f64,
 }
 
 impl BattleSession {
@@ -65,6 +67,7 @@ impl BattleSession {
             short_game: true,
             savour_until_tick: None,
             pending_savour_outcome: None,
+            present_tick_fraction: 0.0,
         }
     }
 

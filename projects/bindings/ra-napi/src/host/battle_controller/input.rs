@@ -18,6 +18,14 @@ use super::super::battle_input::{
 use super::{BattleController, BattleNav};
 
 impl BattleController {
+    /// 把 `Session::tick_fraction` 写入战斗会话，供点选 / 框选与烤图同一滑移脚点。
+    pub(super) fn sync_present_tick_fraction(&mut self) {
+        let tick_fraction = self.session.as_ref().map(|s| s.tick_fraction()).unwrap_or(0.0);
+        if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+            game.present_tick_fraction = tick_fraction;
+        }
+    }
+
     /// 对局指针：边缘滚屏优先，否则按悬停格给出 Select / Move / Attack 等。
     pub fn battle_pointer(&self, renderer: &Renderer, window: &Window) -> super::super::battle_input::BattlePointer {
         use super::super::battle_input::BattlePointer;
@@ -125,6 +133,7 @@ impl BattleController {
     }
 
     pub(super) fn handle_left_click(&mut self, renderer: &Renderer, window: &Window) {
+        self.sync_present_tick_fraction();
         let add = self.shift_down;
         let vp = self.map_viewport(window);
         if !vp.contains_cursor(self.cursor.0 as i32, self.cursor.1 as i32) {
@@ -376,6 +385,7 @@ impl BattleController {
 
     /// 框选：按实体屏幕包围盒与拖拽矩形相交，选中本方可控移动单位。
     pub(super) fn handle_marquee_select(&mut self, renderer: &Renderer, window: &Window, rect: ScreenRect) {
+        self.sync_present_tick_fraction();
         let add = self.shift_down;
         let Some(game) = self.session.as_ref().and_then(|s| s.battle())
         else {
@@ -409,9 +419,10 @@ impl BattleController {
             };
             let z = game.world.pass_grid.cell_height(x, y);
             let (sx, sy) = iso_to_screen(i32::from(x), i32::from(y), z);
+            let (fx, fy) = game.mobile_foot_pixel_offset_for(id);
             // 与标记 / `pick_local_mobile_near_image` 同一脚点锚；载具再上移以覆盖 VXL 车身。
-            let wx = (sx - game.preview_origin_x) as f32 + 30.0;
-            let wy = (sy - game.preview_origin_y) as f32 + 15.0;
+            let wx = (sx - game.preview_origin_x + fx) as f32 + 30.0;
+            let wy = (sy - game.preview_origin_y + fy) as f32 + 15.0;
             let (cx, cy) = vp.world_to_screen(cam, wx, wy);
             let (hit_cx, hit_cy, half) = match kind {
                 MapEntityKind::Infantry => (cx, cy, MARQUEE_HIT_HALF_INFANTRY_PX),
@@ -437,6 +448,7 @@ impl BattleController {
     }
 
     pub(super) fn handle_right_click(&mut self, renderer: &Renderer, window: &Window) {
+        self.sync_present_tick_fraction();
         let _ = renderer;
         // 西木右键：先取消工具态（保留选中），不是停止，也不是下令。
         if self.clear_sidebar_tool_modes() {

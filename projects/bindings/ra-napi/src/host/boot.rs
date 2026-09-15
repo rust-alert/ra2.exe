@@ -302,6 +302,7 @@ fn paint_session_mobiles_onto_preview(
         if game.world.ecs_health(id).map(|(_, _, dead)| dead).unwrap_or(true) {
             continue;
         }
+        let sub_cell = game.world.ecs_sub_cell(id).unwrap_or(0);
         paint_map.entities.push(MapEntity {
             kind,
             owner: HouseName::parse(owner.as_ref()),
@@ -310,7 +311,7 @@ fn paint_session_mobiles_onto_preview(
             x,
             y,
             facing,
-            sub_cell: 0,
+            sub_cell,
             mission: Default::default(),
             tag: Default::default(),
         });
@@ -326,7 +327,7 @@ fn paint_session_mobiles_onto_preview(
         origin.1,
         paint,
         &|base, owner| remap_owner_palette(rules, Some(lobby_primaries), base, owner),
-        &|_| MobilePaintPose::default(),
+        &|_, _| MobilePaintPose::default(),
     )
 }
 

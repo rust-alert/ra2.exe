@@ -5,6 +5,13 @@ use ra_types::EntityId;
 use super::session::BattleSession;
 
 impl BattleSession {
+    /// 机动单位在预览图上的脚点中心（钻石中心 + `sub_cell` / 滑移）。
+    fn mobile_image_foot_center(&self, id: EntityId, kind: MapEntityKind, xf: &Transform) -> (f32, f32) {
+        let z = self.world.pass_grid.cell_height(xf.x, xf.y);
+        let (sx, sy) = iso_to_screen(i32::from(xf.x), i32::from(xf.y), z);
+        let (fx, fy) = self.mobile_foot_pixel_offset(id, kind, xf);
+        ((sx - self.preview_origin_x + fx) as f32 + 30.0, (sy - self.preview_origin_y + fy) as f32 + 15.0)
+    }
     /// 预览图像素 → 地图格（粗逆变换，再用格高修正一次）。
     pub fn image_to_cell(&self, image_x: f32, image_y: f32) -> Option<(u16, u16)> {
         let px = image_x.round() as i32 + self.preview_origin_x;
@@ -111,11 +118,8 @@ impl BattleSession {
             else {
                 continue;
             };
-            let z = self.world.pass_grid.cell_height(xf.x, xf.y);
-            let (sx, sy) = iso_to_screen(i32::from(xf.x), i32::from(xf.y), z);
-            // 与标记绘制一致：菱形落在格子视觉中心附近。
-            let cx = (sx - self.preview_origin_x) as f32 + 30.0;
-            let cy = (sy - self.preview_origin_y) as f32 + 15.0;
+            // 与标记绘制一致：钻石中心 + 步兵子格 / 格内滑移。
+            let (cx, cy) = self.mobile_image_foot_center(id, identity.kind, &xf);
             let dx = cx - image_x;
             let dy = cy - image_y;
             let dist = (dx * dx + dy * dy).sqrt();
@@ -153,10 +157,7 @@ impl BattleSession {
             else {
                 continue;
             };
-            let z = self.world.pass_grid.cell_height(xf.x, xf.y);
-            let (sx, sy) = iso_to_screen(i32::from(xf.x), i32::from(xf.y), z);
-            let cx = (sx - self.preview_origin_x) as f32 + 30.0;
-            let cy = (sy - self.preview_origin_y) as f32 + 15.0;
+            let (cx, cy) = self.mobile_image_foot_center(id, identity.kind, &xf);
             let dx = cx - image_x;
             let dy = cy - image_y;
             let dist = (dx * dx + dy * dy).sqrt();
@@ -199,10 +200,7 @@ impl BattleSession {
             else {
                 continue;
             };
-            let z = self.world.pass_grid.cell_height(xf.x, xf.y);
-            let (sx, sy) = iso_to_screen(i32::from(xf.x), i32::from(xf.y), z);
-            let cx = (sx - self.preview_origin_x) as f32 + 30.0;
-            let cy = (sy - self.preview_origin_y) as f32 + 15.0;
+            let (cx, cy) = self.mobile_image_foot_center(id, identity.kind, &xf);
             let dx = cx - image_x;
             let dy = cy - image_y;
             let dist = (dx * dx + dy * dy).sqrt();
