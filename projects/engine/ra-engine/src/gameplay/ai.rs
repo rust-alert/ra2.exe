@@ -2,6 +2,9 @@
 //!
 //! 候选建筑 / 单位由冻结定义 + Owner 过滤选出，不硬编码外部类型名。
 //!
+//! 基建单票顺序：供电（含低电补厂）→ 矿场 → 兵营 → 车厂。落点以建造场
+//! 占地中心为原点；矿场额外优先靠近可采矿，并尊重 `AIBaseSpacing`。
+//!
 //! 有 `[AITriggerTypes]` 覆盖的房主：经济基建可由本模块补齐，作战部队交给
 //! `tick_ai_triggers` → Create Team / ScriptTypes，避免与启发式工厂量产叠刷。
 
@@ -137,52 +140,80 @@ pub fn deploy_mcv_commands(world: &BattleState, house: &str) -> Vec<GameCommand>
     out
 }
 
-/// 有建造场且无供电时：若电厂已完工则落位，否则排队建造。
-pub fn place_power_commands(world: &BattleState, house: &str, player: PlayerId) -> Vec<GameCommand> {
-    if !house_has_yard(world, house) || house_has_power(world, house) {
+/// 有建造场时推进下一座基建（每 tick 至多一座）。
+///
+/// 基建表：供电 → 矿场 →（`include_army_factories`）兵营 → 车厂。
+/// 若建造场已有完工件，则先落位该类型（不插队改造其它）。
+pub fn next_structure_commands(world: &BattleState, house: &str, player: PlayerId, include_army_factories: bool) -> Vec<GameCommand> {
+    if !house_has_yard(world, house) {
         return Vec::new();
     }
-    let Some(power) = pick_structure(world, house, |s| s.power.output > 0)
-    else {
-        return Vec::new();
-    };
-    build_or_place(world, house, player, power)
+    if let Some(ready) = world.house_ready_building(house) {
+        let Some(structure) = world.definitions.structures.get_by_id(ready)
+        else {
+            return Vec::new();
+        };
+        return place_structure(world, house, player, structure);
+    }
+    for step in ai_build_plan(include_army_factories) {
+        if !step_needed(world, house, step) {
+            continue;
+        }
+        let Some(structure) = pick_for_step(world, house, step)
+        else {
+            // 供电步若连候选都没有且仍无电厂，卡死后续；已有电厂仅低电时允许跳过。
+            if matches!(step, AiBuildStep::Power) && !house_has_power(world, house) {
+                return Vec::new();
+            }
+            continue;
+        };
+        return queue_structure(world, house, player, structure);
+    }
+    Vec::new()
 }
 
-/// 有供电且无兵营时：若兵营已完工则落位，否则排队建造。
-pub fn place_barracks_commands(world: &BattleState, house: &str, player: PlayerId) -> Vec<GameCommand> {
-    if !house_has_power(world, house) || house_has_factory(world, house, ProductionCategory::Infantry) {
-        return Vec::new();
-    }
-    let Some(barracks) = pick_structure(world, house, |s| s.production.as_ref().is_some_and(|p| p.category == ProductionCategory::Infantry))
-    else {
-        return Vec::new();
-    };
-    build_or_place(world, house, player, barracks)
+/// 遭遇战启发式基建步骤（按表顺序单票推进）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AiBuildStep {
+    /// 无电或低电时补电厂。
+    Power,
+    /// 首座矿场。
+    Refinery,
+    /// 步兵工厂。
+    InfantryFactory,
+    /// 载具工厂。
+    VehicleFactory,
 }
 
-/// 有供电且无战车工厂时：若车厂已完工则落位，否则排队建造。
-pub fn place_war_factory_commands(world: &BattleState, house: &str, player: PlayerId) -> Vec<GameCommand> {
-    if !house_has_power(world, house) || house_has_factory(world, house, ProductionCategory::Vehicle) {
-        return Vec::new();
+fn ai_build_plan(include_army_factories: bool) -> Vec<AiBuildStep> {
+    let mut steps = vec![AiBuildStep::Power, AiBuildStep::Refinery];
+    if include_army_factories {
+        steps.push(AiBuildStep::InfantryFactory);
+        steps.push(AiBuildStep::VehicleFactory);
     }
-    let Some(wf) = pick_structure(world, house, |s| s.production.as_ref().is_some_and(|p| p.category == ProductionCategory::Vehicle))
-    else {
-        return Vec::new();
-    };
-    build_or_place(world, house, player, wf)
+    steps
 }
 
-/// 有供电且无矿场时：若矿场已完工则落位，否则排队建造。
-pub fn place_refinery_commands(world: &BattleState, house: &str, player: PlayerId) -> Vec<GameCommand> {
-    if !house_has_power(world, house) || house_has_refinery(world, house) {
-        return Vec::new();
+fn step_needed(world: &BattleState, house: &str, step: AiBuildStep) -> bool {
+    match step {
+        AiBuildStep::Power => !house_has_power(world, house) || house_is_low_power(world, house),
+        AiBuildStep::Refinery => !house_has_refinery(world, house),
+        AiBuildStep::InfantryFactory => !house_has_factory(world, house, ProductionCategory::Infantry),
+        AiBuildStep::VehicleFactory => !house_has_factory(world, house, ProductionCategory::Vehicle),
     }
-    let Some(refinery) = pick_structure(world, house, |s| s.refinery)
-    else {
-        return Vec::new();
-    };
-    build_or_place(world, house, player, refinery)
+}
+
+fn pick_for_step<'a>(world: &'a BattleState, house: &str, step: AiBuildStep) -> Option<&'a ra_types::StructureDefinition> {
+    match step {
+        AiBuildStep::Power => pick_structure(world, house, |s| s.power.output > 0),
+        AiBuildStep::Refinery => pick_structure(world, house, |s| s.refinery),
+        AiBuildStep::InfantryFactory => {
+            pick_structure(world, house, |s| s.production.as_ref().is_some_and(|p| p.category == ProductionCategory::Infantry))
+        }
+        AiBuildStep::VehicleFactory => {
+            pick_structure(world, house, |s| s.production.as_ref().is_some_and(|p| p.category == ProductionCategory::Vehicle))
+        }
+    }
 }
 
 /// 有空闲兵营时生产一名步兵。
@@ -221,15 +252,7 @@ fn produce_unit(world: &BattleState, house: &str, player: PlayerId, unit: &ra_ty
     vec![GameCommand::Produce { player, type_id: unit.id }]
 }
 
-/// 建造场已有该类型完工件则落位，否则在空闲建造场排队 `Produce`。
-fn build_or_place(world: &BattleState, house: &str, player: PlayerId, structure: &ra_types::StructureDefinition) -> Vec<GameCommand> {
-    if let Some(ready) = world.house_ready_building(house) {
-        if ready != structure.id {
-            // 另有完工建筑待落位，先不插队。
-            return Vec::new();
-        }
-        return place_near_yard(world, house, player, structure);
-    }
+fn queue_structure(world: &BattleState, house: &str, player: PlayerId, structure: &ra_types::StructureDefinition) -> Vec<GameCommand> {
     if !house_has_idle_yard(world, house) {
         return Vec::new();
     }
@@ -249,12 +272,13 @@ fn build_or_place(world: &BattleState, house: &str, player: PlayerId, structure:
     vec![GameCommand::Produce { player, type_id: structure.id }]
 }
 
-fn place_near_yard(world: &BattleState, house: &str, player: PlayerId, structure: &ra_types::StructureDefinition) -> Vec<GameCommand> {
-    let Some((yx, yy)) = yard_cell(world, house)
+fn place_structure(world: &BattleState, house: &str, player: PlayerId, structure: &ra_types::StructureDefinition) -> Vec<GameCommand> {
+    let Some((ox, oy)) = yard_placement_origin(world, house)
     else {
         return Vec::new();
     };
-    let Some((x, y)) = find_open_near(world, house, structure.id, yx, yy)
+    let prefer_ore = structure.refinery;
+    let Some((x, y)) = find_best_open(world, house, structure.id, ox, oy, prefer_ore)
     else {
         return Vec::new();
     };
@@ -317,7 +341,14 @@ where
         .definitions
         .structures
         .iter()
-        .find(|s| pred(s) && !s.construction_yard && is_type_eligible_id(&world.definitions, tech, &living, s.id))
+        .filter(|s| pred(s) && !s.construction_yard && is_type_eligible_id(&world.definitions, tech, &living, s.id))
+        // 优先低科技、低造价的基础款（避免 `.find` 吃到反应堆/黑市等后置类型）。
+        .min_by_key(|s| {
+            let techno = world.definitions.techno.get_by_id(s.id);
+            let tech_level = techno.map(|t| t.tech_level).unwrap_or(0);
+            let cost = if s.cost > 0 { s.cost } else { techno.map(|t| t.cost).unwrap_or(0) };
+            (tech_level, cost, s.type_key.as_str())
+        })
 }
 
 fn pick_techno<'a>(world: &'a BattleState, house: &str, category: ProductionCategory) -> Option<&'a ra_types::TechnoDefinition> {
@@ -378,6 +409,10 @@ fn house_has_power(world: &BattleState, house: &str) -> bool {
     living_house_structure(world, house, |w, i| is_power_plant(&w.definitions, i.type_id))
 }
 
+fn house_is_low_power(world: &BattleState, house: &str) -> bool {
+    world.players.iter().find(|p| p.house.eq_ignore_ascii_case(house)).map(|p| p.low_power()).unwrap_or(false)
+}
+
 fn house_has_factory(world: &BattleState, house: &str, category: ProductionCategory) -> bool {
     living_house_structure(world, house, |w, i| factory_matches_category(&w.definitions, i.type_id, category))
 }
@@ -397,7 +432,7 @@ fn house_has_refinery(world: &BattleState, house: &str) -> bool {
     living_house_structure(world, house, |w, i| is_refinery(&w.definitions, i.type_id))
 }
 
-fn yard_cell(world: &BattleState, house: &str) -> Option<(u16, u16)> {
+fn yard_cell(world: &BattleState, house: &str) -> Option<(u16, u16, u16, u16)> {
     world.entities.iter().find_map(|e| {
         let id = e.id;
         if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
@@ -410,27 +445,36 @@ fn yard_cell(world: &BattleState, house: &str) -> Option<(u16, u16)> {
         if identity.kind != MapEntityKind::Structure || !is_construction_yard(&world.definitions, identity.type_id) {
             return None;
         }
-        world.ecs_get::<Transform>(id).map(|t| (t.x, t.y))
+        let xf = world.ecs_get::<Transform>(id)?;
+        let (fw, fh) = world
+            .definitions
+            .structures
+            .get_by_id(identity.type_id)
+            .map(|s| (s.foundation.width.max(1), s.foundation.height.max(1)))
+            .unwrap_or((1, 1));
+        Some((xf.x, xf.y, fw, fh))
     })
 }
 
-/// 在建造场附近按完整占地找可放置格（左上角）。
+/// 建造场占地中心（用于落点搜索原点，避免只围着西北角扩）。
+fn yard_placement_origin(world: &BattleState, house: &str) -> Option<(u16, u16)> {
+    let (x, y, fw, fh) = yard_cell(world, house)?;
+    Some((x.saturating_add((fw - 1) / 2), y.saturating_add((fh - 1) / 2)))
+}
+
+/// 在建造场附近按完整占地选最优可放格（左上角）。
 ///
-/// AI 用 `AIBaseSpacing`（及可选 `WantsExtraSpace`）代替人类 `Adjacent`。
-/// 先找优先间距，再回落到基础间距（与零售 `WantsExtraSpace` 注释一致）。
-fn find_open_near(world: &BattleState, house: &str, type_id: ra_types::TypeId, fx: u16, fy: u16) -> Option<(u16, u16)> {
+/// - 搜索原点为建造场占地中心。
+/// - 评分：默认靠近原点；矿场额外优先靠近可采矿。
+/// - 间距仍走 `AIBaseSpacing` / `WantsExtraSpace`（及船厂最大距）。
+fn find_best_open(world: &BattleState, house: &str, type_id: ra_types::TypeId, ox: u16, oy: u16, prefer_ore: bool) -> Option<(u16, u16)> {
     let sdef = world.definitions.structures.get_by_id(type_id);
     let base_gap = world.definitions.ai_base_spacing;
     let prefer_gap = if sdef.is_some_and(|s| s.wants_extra_space) { base_gap.saturating_add(1) } else { base_gap };
     let water_bound = sdef.is_some_and(|s| s.water_bound);
-    let max_radius = if water_bound {
-        world.definitions.ai_naval_yard_adjacency.max(1) as i32
-    }
-    else {
-        16
-    };
+    let max_radius = if water_bound { world.definitions.ai_naval_yard_adjacency.max(1) as i32 } else { 16 };
     for &gap in &[prefer_gap, base_gap] {
-        if let Some(cell) = find_open_near_with_gap(world, house, type_id, fx, fy, max_radius, gap) {
+        if let Some(cell) = find_best_open_with_gap(world, house, type_id, ox, oy, max_radius, gap, prefer_ore) {
             return Some(cell);
         }
         if gap == base_gap {
@@ -440,34 +484,53 @@ fn find_open_near(world: &BattleState, house: &str, type_id: ra_types::TypeId, f
     None
 }
 
-fn find_open_near_with_gap(
+fn find_best_open_with_gap(
     world: &BattleState,
     house: &str,
     type_id: ra_types::TypeId,
-    fx: u16,
-    fy: u16,
+    ox: u16,
+    oy: u16,
     max_radius: i32,
     min_gap_cells: u32,
+    prefer_ore: bool,
 ) -> Option<(u16, u16)> {
-    for radius in 1..=max_radius {
-        for dx in -radius..=radius {
-            for dy in -radius..=radius {
-                if dx.abs() != radius && dy.abs() != radius {
-                    continue;
-                }
-                let x = i32::from(fx) + dx;
-                let y = i32::from(fy) + dy;
-                if x < 0 || y < 0 {
-                    continue;
-                }
-                let (x, y) = (x as u16, y as u16);
-                if world.can_place_building_for_ai(house, type_id, x, y, min_gap_cells) {
-                    return Some((x, y));
-                }
+    let (fw, fh) =
+        world.definitions.structures.get_by_id(type_id).map(|s| (s.foundation.width.max(1), s.foundation.height.max(1))).unwrap_or((1, 1));
+    let mut best: Option<(u32, u32, u16, u16)> = None;
+    for dx in -max_radius..=max_radius {
+        for dy in -max_radius..=max_radius {
+            let x = i32::from(ox) + dx;
+            let y = i32::from(oy) + dy;
+            if x < 0 || y < 0 {
+                continue;
+            }
+            let (x, y) = (x as u16, y as u16);
+            if !world.can_place_building_for_ai(house, type_id, x, y, min_gap_cells) {
+                continue;
+            }
+            let cx = x.saturating_add((fw - 1) / 2);
+            let cy = y.saturating_add((fh - 1) / 2);
+            let yard_dist = chebyshev_u16(cx, cy, ox, oy);
+            let ore_dist = if prefer_ore {
+                world.nearest_harvestable_ore(cx, cy).map(|(ore_x, ore_y)| chebyshev_u16(cx, cy, ore_x, ore_y)).unwrap_or(10_000)
+            }
+            else {
+                0
+            };
+            // 矿场：先贴矿，再贴基地；其它：贴基地。再以坐标打破平局（稳定）。
+            let key = if prefer_ore { (ore_dist, yard_dist, x, y) } else { (yard_dist, 0, x, y) };
+            if best.is_none_or(|b| key < b) {
+                best = Some(key);
             }
         }
     }
-    None
+    best.map(|(_, _, x, y)| (x, y))
+}
+
+fn chebyshev_u16(ax: u16, ay: u16, bx: u16, by: u16) -> u32 {
+    let dx = (i32::from(ax) - i32::from(bx)).unsigned_abs();
+    let dy = (i32::from(ay) - i32::from(by)).unsigned_abs();
+    dx.max(dy)
 }
 
 fn nearest_enemy(world: &BattleState, from: usize, house: &str) -> Option<usize> {

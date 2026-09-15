@@ -4,9 +4,9 @@ impl BattleSession {
     /// 为所有非本地、非氛围阵营下发本 tick 的 AI 命令（经 `push_command`）。
     ///
     /// `Neutral` / `Civilian` 地图装饰房主不参与遭遇战 AI。
-    /// 若该房主已由 `[AITriggerTypes]` 驱动产队：只做 MCV / 供电 / 矿场等经济基建，
+    /// 若该房主已由 `[AITriggerTypes]` 驱动产队：只做 MCV + 电/矿经济基建，
     /// **不下发**兵营、车厂、工厂量产与全图追打（部队由 AITrigger → Create Team / Script 负责）。
-    /// 否则走启发式基建，并对工厂量产做节流，避免空闲工厂每 tick 乱刷最便宜单位。
+    /// 否则走启发式基建单票（电→矿→兵营→车厂），并对工厂量产做节流。
     /// `Easy`：奇数 tick 跳过生产与自动进攻，仅保留部署/建造节奏。
     /// `Normal`：每 4 个 tick 跳过一拍进攻/生产（略弱于 Hard）。
     /// `Hard`：每 tick 完整下发，并追加一轮生产尝试（仍受上述节流约束）。
@@ -30,20 +30,19 @@ impl BattleSession {
             }
             let mut cmds = Vec::new();
             cmds.extend(crate::gameplay::ai::deploy_mcv_commands(&self.world, house));
-            cmds.extend(crate::gameplay::ai::place_power_commands(&self.world, house, *player));
-            cmds.extend(crate::gameplay::ai::place_refinery_commands(&self.world, house, *player));
 
             let ai_trigger_army = crate::gameplay::ai::house_army_driven_by_ai_triggers(&self.world, house);
+            // 基建单票：电 → 矿 →（非 Trigger 产队时）兵营 → 车厂。有完工待放则先落位。
+            cmds.extend(crate::gameplay::ai::next_structure_commands(&self.world, house, *player, !ai_trigger_army));
+
             if ai_trigger_army {
-                // 产队 / 脚本路径负责作战单位，启发式不再造兵营车厂与量产。
+                // 产队 / 脚本路径负责作战单位，启发式不再量产与追打。
                 for cmd in cmds {
                     self.world.push_player_command(*player, cmd);
                 }
                 continue;
             }
 
-            cmds.extend(crate::gameplay::ai::place_barracks_commands(&self.world, house, *player));
-            cmds.extend(crate::gameplay::ai::place_war_factory_commands(&self.world, house, *player));
             if !skip_offensive {
                 if crate::gameplay::ai::heuristic_should_produce_army(&self.world, house) {
                     cmds.extend(crate::gameplay::ai::produce_infantry_commands(&self.world, house, *player));

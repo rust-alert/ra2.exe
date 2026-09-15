@@ -189,8 +189,8 @@ impl crate::state::BattleState {
         }
     }
 
-    /// 最近可采矿格（切比雪夫距离）。
-    fn nearest_harvestable_ore(&self, from_x: u16, from_y: u16) -> Option<(u16, u16)> {
+    /// 最近可采矿格（切比雪夫距离）。AI 矿场落点与采矿车共用。
+    pub(crate) fn nearest_harvestable_ore(&self, from_x: u16, from_y: u16) -> Option<(u16, u16)> {
         let mut best: Option<(u32, u16, u16)> = None;
         for cell in &self.map.overlays {
             if !self.overlay_types.is_harvestable(cell.overlay_id) {
