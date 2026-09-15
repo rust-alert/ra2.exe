@@ -597,6 +597,11 @@ pub fn script_lock_allows_options_hotkey(is_options_action: bool) -> bool {
     is_options_action
 }
 
+/// 暂停菜单打开时是否消费 Options / Esc 热键（子层路由）。
+pub fn pause_consumes_options_hotkey(is_options_action: bool) -> bool {
+    is_options_action
+}
+
 /// 命令条捕获：仅当释放命中同一槽才触发。
 pub fn hud_command_release_fires(capture_slot: usize, release_hit_slot: Option<usize>) -> bool {
     release_hit_slot == Some(capture_slot)
@@ -2285,5 +2290,57 @@ mod tests {
         assert!(t.edges.left_pressed, "reset keeps frame edges until begin_frame");
         t.begin_frame();
         assert!(!t.edges.left_pressed);
+    }
+
+    #[test]
+    fn intent_kind_primary_pointer_round_trip() {
+        // 每种意图种类 → primary → pointer 必须可构造，避免 hover / click 再分叉漏映射。
+        let kinds = [
+            WorldIntentKind::Noop,
+            WorldIntentKind::Blocked,
+            WorldIntentKind::OutsideClear,
+            WorldIntentKind::OutsideKeep,
+            WorldIntentKind::PlaceBuilding,
+            WorldIntentKind::Sell,
+            WorldIntentKind::Repair,
+            WorldIntentKind::AppendWaypoint,
+            WorldIntentKind::Follow,
+            WorldIntentKind::FollowCancel,
+            WorldIntentKind::Select,
+            WorldIntentKind::AddSelect,
+            WorldIntentKind::Deploy,
+            WorldIntentKind::SetPrimary,
+            WorldIntentKind::Attack,
+            WorldIntentKind::Capture,
+            WorldIntentKind::Infiltrate,
+            WorldIntentKind::Move,
+            WorldIntentKind::AttackMove,
+            WorldIntentKind::QueueMovePath,
+            WorldIntentKind::SetRally,
+            WorldIntentKind::Deselect,
+        ];
+        assert_eq!(kinds.len(), 22);
+        for kind in kinds {
+            let primary = primary_for_intent_kind(kind);
+            let hover = build_resolved_hover(primary, Some((1, 2)), true, BattleToolKind::Normal);
+            assert_eq!(hover.primary, primary);
+            assert_eq!(hover.cell, Some((1, 2)));
+            assert_eq!(
+                hover.recommended_pointer,
+                recommended_pointer_for_primary(primary, true, BattleToolKind::Normal)
+            );
+        }
+        let blocked = build_resolved_hover(ResolvedPrimaryAction::Blocked, None, false, BattleToolKind::AttackMove);
+        assert_eq!(blocked.recommended_pointer, BattlePointer::NoMove);
+    }
+
+    #[test]
+    fn pause_and_script_lock_options_gates_align() {
+        assert!(pause_consumes_options_hotkey(true));
+        assert!(!pause_consumes_options_hotkey(false));
+        assert_eq!(
+            pause_consumes_options_hotkey(true),
+            script_lock_allows_options_hotkey(true)
+        );
     }
 }

@@ -1033,7 +1033,8 @@ impl BattleController {
 
                 // 暂停中：Esc / Options 热键走暂停子层路由（选项回 Menu，确认/主菜单恢复对局）。
                 if battle_paused {
-                    if matches!(hotkey, Some(super::super::battle_hotkeys::HotkeyAction::Options)) {
+                    let is_options = matches!(hotkey, Some(super::super::battle_hotkeys::HotkeyAction::Options));
+                    if super::super::battle_input::pause_consumes_options_hotkey(is_options) {
                         return self.handle_pause_layer_escape();
                     }
                     return BattleNav::None;
