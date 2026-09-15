@@ -223,7 +223,7 @@ pub fn decode_battle_hud_chrome_with(
             repair_pressed: None,
             sell: None,
             sell_pressed: None,
-            powerp: None,
+            powerp: [None, None, None, None, None],
             tabs: [None, None, None, None],
             tabs_pressed: [None, None, None, None],
             optbtn: None,
@@ -301,7 +301,19 @@ pub fn decode_battle_hud_chrome_with(
             let asset = UiAssetRef::with_palette_frame("sell.shp", BATTLE_HUD_PAL, 1);
             decode_asset_ref_candidates(source, &asset, &mixes).ok()
         },
-        powerp: try_decode(source, &mixes, "powerp.shp", BATTLE_HUD_PAL, 0, &mut errors),
+        powerp: {
+            let mut powerp = [None, None, None, None, None];
+            for frame in 0..crate::battle_hud::POWERP_FRAME_COUNT {
+                if frame == 0 {
+                    powerp[0] = try_decode(source, &mixes, "powerp.shp", BATTLE_HUD_PAL, 0, &mut errors);
+                }
+                else {
+                    let mut sink = Vec::new();
+                    powerp[frame] = try_decode(source, &mixes, "powerp.shp", BATTLE_HUD_PAL, frame as u16, &mut sink);
+                }
+            }
+            powerp
+        },
         tabs,
         tabs_pressed,
         optbtn: try_decode(source, &mixes, "optbtn.shp", BATTLE_HUD_PAL, 0, &mut errors),

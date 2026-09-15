@@ -312,6 +312,10 @@ pub fn tick_super_weapon_charges(world: &mut BattleState) {
         else {
             continue;
         };
+        // 低电 / 断电时超武建筑停止充能（与雷达、周期产钱一致）。
+        if world.house_is_low_power(&owner) {
+            continue;
+        }
         active.push((owner, sw_def.type_key.clone(), required_ticks_for_sw(sw_def)));
     }
 

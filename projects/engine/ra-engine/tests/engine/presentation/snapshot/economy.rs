@@ -64,3 +64,40 @@ fn snapshot_exposes_funds_power_queue_and_rejects() {
     let snap = session.expect_battle().snapshot(&[]);
     assert_eq!(snap.last_rejects[0].reason, CommandRejectReason::QueueFull);
 }
+
+#[test]
+fn snapshot_power_output_uses_effective_during_blackout() {
+    let engine = test_engine();
+    let defs = defs_from_rules_ini(
+        b"[BuildingTypes]\n0=GAPOWR\n\
+[GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\nFoundation=2x2\n",
+    );
+    let mut map = MapInfo::empty(GameEdition::Ra2, "hud-blackout");
+    map.width = 12;
+    map.height = 12;
+    map.entities = vec![MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "AMERICANS".into(),
+        type_id: "GAPOWR".into(),
+        health: 256,
+        x: 3,
+        y: 3,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    }];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    world.players[0].power_output = 200;
+    world.players[0].power_drain = 50;
+    world.players[0].power_blackout_ticks = 10;
+    assert!(world.players[0].low_power());
+    assert_eq!(world.players[0].effective_power_output(), 0);
+
+    let session = Session::from_state(world, "hud-blackout");
+    let snap = session.expect_battle().snapshot_hud();
+    assert_eq!(snap.players[0].power_output, 0);
+    assert_eq!(snap.players[0].power_drain, 50);
+    assert!(snap.players[0].low_power);
+    let _ = engine;
+}

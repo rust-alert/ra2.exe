@@ -5,6 +5,7 @@ mod command_bar;
 mod decode;
 mod hit_test;
 mod layout;
+mod power_meter;
 mod radar_minimap;
 mod render;
 
@@ -14,6 +15,10 @@ pub use decode::{
     radar_open_animation_done, radar_open_frame_index, radar_open_frame_range,
 };
 pub use hit_test::{BattleCameoPaint, BattleHudHit, hit_at, hit_at_with_chrome};
+pub use power_meter::{
+    POWER_METER_FULL_LEVEL, POWERP_FRAME_COUNT, POWERP_FRAME_GRAY, POWERP_FRAME_GREEN, POWERP_FRAME_RED, POWERP_FRAME_TRACK, POWERP_FRAME_YELLOW,
+    PowerMeterColor, PowerMeterPaint, power_meter_paint,
+};
 pub use radar_minimap::{
     RADAR_CONTENT_INSET, RadarMinimapBlip, blit_radar_minimap_into_slot, compose_radar_minimap, land_type_radar_rgba, radar_content_rect,
     radar_fit_xy_to_cell, radar_minimap_fit_rect,

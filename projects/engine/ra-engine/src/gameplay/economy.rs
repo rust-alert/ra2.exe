@@ -150,6 +150,11 @@ impl crate::state::BattleState {
                 });
                 continue;
             }
+            // 需电建筑在低电 / 断电时停发周期资金。
+            let requires_power = self.definitions.structures.get_by_id(type_id).is_some_and(|s| s.power.requires_power);
+            if requires_power && self.house_is_low_power(owner.as_ref()) {
+                continue;
+            }
             let ready = self
                 .with_cash_producer_mut(id, |c| {
                     c.accum = c.accum.saturating_add(1);
@@ -324,6 +329,11 @@ impl crate::state::BattleState {
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| is_power_plant(&self.definitions, i.type_id)).unwrap_or(false)
         })
+    }
+
+    /// 该 house 是否处于低电 / 断电（见 [`crate::state::PlayerState::low_power`]）。
+    pub(crate) fn house_is_low_power(&self, house: &str) -> bool {
+        self.players.iter().find(|p| p.house.eq_ignore_ascii_case(house)).is_some_and(|p| p.low_power())
     }
 
     /// 本 house 是否仍有存活雷达建筑（`Radar=yes`）。

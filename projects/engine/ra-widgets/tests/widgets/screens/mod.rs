@@ -9,5 +9,6 @@ mod choose_map_scroll;
 mod discover_maps;
 mod options_dialog;
 mod page;
+mod power_meter;
 mod skirmish_setup;
 mod startup_splash;

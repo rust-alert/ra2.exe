@@ -44,8 +44,8 @@ pub struct BattleHudChrome {
     pub sell: Option<DecodedUiSprite>,
     /// `sell.shp` 按下高亮帧（frame 1；缺帧时回退常态）。
     pub sell_pressed: Option<DecodedUiSprite>,
-    /// `powerp.shp`（电表）。
-    pub powerp: Option<DecodedUiSprite>,
+    /// `powerp.shp` 电表色带（帧 0 空轨 / 1 绿 / 2 黄 / 3 红 / 4 灰）。
+    pub powerp: [Option<DecodedUiSprite>; crate::battle_hud::POWERP_FRAME_COUNT],
     /// `tab00`…`tab03` 常态帧（frame 0）。
     pub tabs: [Option<DecodedUiSprite>; 4],
     /// `tab00`…`tab03` 按下高亮帧（frame 1；缺帧时回退常态）。

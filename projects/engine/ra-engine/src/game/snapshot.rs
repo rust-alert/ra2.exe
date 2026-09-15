@@ -73,7 +73,7 @@ pub struct SnapshotPlayer {
     pub house: std::sync::Arc<str>,
     /// 当前资金。
     pub funds: i32,
-    /// 供电量。
+    /// 当前有效供电（断电期间为 0）。
     pub power_output: i32,
     /// 耗电量。
     pub power_drain: i32,
@@ -370,7 +370,8 @@ impl BattleSession {
             .map(|p| SnapshotPlayer {
                 house: p.house.clone(),
                 funds: p.funds,
-                power_output: p.power_output,
+                // HUD 展示有效供电（断电期间为 0），与 `low_power` / 电表一致。
+                power_output: p.effective_power_output(),
                 power_drain: p.power_drain,
                 low_power: p.low_power(),
             })

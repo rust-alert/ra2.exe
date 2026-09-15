@@ -84,8 +84,10 @@ impl PlayerState {
         if self.power_blackout_ticks > 0 { 0 } else { self.power_output }
     }
 
-    /// 是否处于低电（耗电大于有效供电）。
+    /// 是否处于低电（断电中，或耗电大于名义供电）。
+    ///
+    /// 渗透电厂等触发的 `power_blackout_ticks` 即使耗电为 0 也视为低电（雷达关图、生产半速）。
     pub fn low_power(&self) -> bool {
-        self.power_drain > self.effective_power_output()
+        self.power_blackout_ticks > 0 || self.power_drain > self.power_output
     }
 }

@@ -14,6 +14,7 @@ use super::{
     command_bar::command_bar_shp_index_for_visual,
     decode::{radar_open_animation_done, radar_open_frame_index},
     hit_test::BattleCameoPaint,
+    power_meter::{POWERP_FRAME_TRACK, power_meter_paint},
     radar_minimap::blit_radar_minimap_into_slot,
 };
 
@@ -73,6 +74,20 @@ pub(super) fn blit_stretched(dst: &mut RgbaImage, src: &RgbaImage, rect: RectPx)
             let di = ((dy as u32 * dst.width() + dx as u32) * 4) as usize;
             dst.as_mut()[di..di + 4].copy_from_slice(&raw[si..si + 4]);
         }
+    }
+}
+
+/// 将 `powerp` 窄条带沿 `[y_top, y_bottom)` 纵向平铺（勿整段拉高）。
+fn blit_power_strip_tiles(page: &mut RgbaImage, strip: &RgbaImage, x: i32, y_top: i32, y_bottom: i32, meter_w: i32) {
+    if y_bottom <= y_top || meter_w <= 0 {
+        return;
+    }
+    let strip_h = strip.height().max(1) as i32;
+    let mut y = y_top;
+    while y < y_bottom {
+        let h = (y_bottom - y).min(strip_h);
+        blit_stretched(page, strip, RectPx::new(x, y, meter_w, h));
+        y += strip_h;
     }
 }
 
@@ -238,6 +253,9 @@ pub fn blit_battle_hud_chrome_with_state(
         0,
         [true; SIDEBAR_TAB_COUNT],
         0,
+        0,
+        0,
+        false,
     );
 }
 
@@ -253,6 +271,8 @@ pub fn blit_battle_hud_chrome_with_state(
 ///
 /// `radar_online`：本机有电且有雷达。`radar_open_started_tick` 为开图起点；缺省视为已开完。
 /// 开图播完后叠 `radar_minimap`（俯视格网），再贴开图末帧边框。
+///
+/// `power_output` / `power_drain` / `low_power`：驱动 `powerp` 电表满度与绿/黄/红。
 pub fn blit_battle_hud_chrome_ex(
     page: &mut RgbaImage,
     chrome: &BattleHudChrome,
@@ -267,6 +287,9 @@ pub fn blit_battle_hud_chrome_ex(
     tick: u64,
     tabs_visible: [bool; SIDEBAR_TAB_COUNT],
     active_tab: usize,
+    power_output: i32,
+    power_drain: i32,
+    low_power: bool,
 ) {
     let sidebar = rect_px_from_snapshot(snap, "sidebar");
     let credits = rect_px_from_snapshot(snap, "credits");
@@ -365,16 +388,23 @@ pub fn blit_battle_hud_chrome_ex(
     if let Some(s) = sell_sprite {
         blit_button_in_cell(page, &s.image, sell);
     }
-    if let Some(s) = &chrome.powerp {
-        // `powerp.shp` 为窄条带，沿 cameo 左缘纵向平铺成电表，勿整帧拉高。
+    if chrome.powerp[POWERP_FRAME_TRACK].is_some() || chrome.powerp.iter().any(|s| s.is_some()) {
+        // 空轨铺满 cameo 高；色带自底向上按供需比例与绿/黄/红帧平铺。
         let meter_w = power_meter_w.min(sidebar.w).max(1);
-        let strip_h = s.image.height().max(1) as i32;
-        let mut y = cameo_band.y;
-        let bottom = cameo_band.y + cameo_band.h;
-        while y < bottom {
-            let h = (bottom - y).min(strip_h);
-            blit_stretched(page, &s.image, RectPx::new(sidebar.x, y, meter_w, h));
-            y += strip_h;
+        let meter_x = sidebar.x;
+        let band_top = cameo_band.y;
+        let band_bottom = cameo_band.y + cameo_band.h;
+        let band_h = cameo_band.h.max(0);
+        if let Some(track) = chrome.powerp[POWERP_FRAME_TRACK].as_ref().or(chrome.powerp.iter().find_map(|s| s.as_ref())) {
+            blit_power_strip_tiles(page, &track.image, meter_x, band_top, band_bottom, meter_w);
+        }
+        let paint = power_meter_paint(band_h, power_output, power_drain, low_power);
+        if paint.fill_h > 0 {
+            let fill_top = (band_bottom - paint.fill_h).max(band_top);
+            let frame = paint.color.frame_index();
+            if let Some(fill) = chrome.powerp.get(frame).and_then(|s| s.as_ref()).or(chrome.powerp[POWERP_FRAME_TRACK].as_ref()) {
+                blit_power_strip_tiles(page, &fill.image, meter_x, fill_top, band_bottom, meter_w);
+            }
         }
     }
     // 四分类页签贴入布局槽位，勿压住修理/出售拱钮。

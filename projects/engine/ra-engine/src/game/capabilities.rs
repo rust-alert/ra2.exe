@@ -78,7 +78,7 @@ pub struct BattleCapabilitiesSnapshot {
     pub house: Arc<str>,
     /// 资金。
     pub funds: i32,
-    /// 供电。
+    /// 当前有效供电（断电期间为 0）。
     pub power_output: i32,
     /// 耗电。
     pub power_drain: i32,
@@ -120,7 +120,7 @@ impl BattleSession {
         let local = self.world.players.iter().find(|p| p.id == self.world.local_player);
         let house = local.map(|p| p.house.clone()).unwrap_or_else(|| Arc::<str>::from(""));
         let funds = local.map(|p| p.funds).unwrap_or(0);
-        let power_output = local.map(|p| p.power_output).unwrap_or(0);
+        let power_output = local.map(|p| p.effective_power_output()).unwrap_or(0);
         let power_drain = local.map(|p| p.power_drain).unwrap_or(0);
         let tech_player = local.map(TechTreePlayer::from_player).unwrap_or(TechTreePlayer {
             house: house.as_ref(),
