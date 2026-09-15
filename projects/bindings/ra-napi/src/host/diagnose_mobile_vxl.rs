@@ -1,4 +1,4 @@
-//! 载具 VXL 分图层诊断（供 `ra2 diagnose-mobile-vxl`）。
+//! 载具 VXL 分图层分析（供 `ra2 analyze vxl`）。
 //!
 //! 挂载安装 VFS 后，对词干或 techno 类型解析出的 `Image=` 词干做 body/turret/barrel/shadow
 //! 尺寸与原点偏移取证。不写盘、不改叠画路径。
@@ -61,12 +61,12 @@ pub struct DiagnoseMobileVxlResult {
 /// 挂载安装目录并对载具 VXL 做分图层诊断。
 pub fn diagnose_mobile_vxl_install(req: &DiagnoseMobileVxlRequest) -> RaResult<DiagnoseMobileVxlResult> {
     if req.ra2_dir.as_os_str().is_empty() {
-        return Err(RaError::Msg("diagnose-mobile-vxl: --path must not be empty".into()));
+        return Err(RaError::Msg("analyze vxl: --path must not be empty".into()));
     }
     let sweep_flags = u8::from(req.sweep_body) + u8::from(req.sweep_turret) + u8::from(req.sweep_hva);
     if sweep_flags > 1 {
         return Err(RaError::Msg(
-            "diagnose-mobile-vxl: --sweep-body, --sweep-turret, and --sweep-hva are mutually exclusive".into(),
+            "analyze vxl: --sweep-body, --sweep-turret, and --sweep-hva are mutually exclusive".into(),
         ));
     }
 
@@ -108,7 +108,7 @@ fn resolve_stem(source: &dyn AssetSource, stem: Option<&str>, type_id: Option<&s
         return Ok(s.to_ascii_lowercase());
     }
     let Some(type_id) = type_id.map(str::trim).filter(|s| !s.is_empty()) else {
-        return Err(RaError::Msg("diagnose-mobile-vxl: --stem or --type is required".into()));
+        return Err(RaError::Msg("analyze vxl: --stem or --type is required".into()));
     };
     let rules = source.read("rules.ini").ok().and_then(|b| IniDocument::parse(&b).ok());
     let art = source.read("art.ini").ok().and_then(|b| IniDocument::parse(&b).ok());

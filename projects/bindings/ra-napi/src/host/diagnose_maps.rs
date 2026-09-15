@@ -1,4 +1,4 @@
-//! 遭遇战地图包装载／准备／能力缺口诊断（供 `ra2 diagnose-maps`）。
+//! 遭遇战地图包装载／准备／能力缺口分析（供 `ra2 analyze maps`）。
 //!
 //! 不打开 GUI：枚举 `missions.pkt`（空则回退扫描），对每张图做解析、剧本缺口与
 //! [`ra_engine::validate_map_for_battle`]。结果供验收清单三态统计，禁止把「能列出来」写成可玩。
@@ -89,7 +89,7 @@ pub fn classify_skirmish_tri_state(parse_ok: bool, prepare_ok: bool, blocking_ga
 /// 枚举并诊断遭遇战地图包。
 pub fn diagnose_skirmish_maps(req: &DiagnoseMapsRequest) -> RaResult<DiagnoseMapsReport> {
     if req.ra2_dir.as_os_str().is_empty() {
-        return Err(RaError::Msg("diagnose-maps: --path must not be empty".into()));
+        return Err(RaError::Msg("analyze maps: --path must not be empty".into()));
     }
     let explicit = match req.edition.as_deref() {
         Some(s) => Some(GameEdition::parse(s)?),

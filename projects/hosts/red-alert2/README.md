@@ -26,22 +26,24 @@ ra2 unpack --path "C:/Games/RA2" --out ./unpacked
 ra2 unpack --path "C:/Games/RA2" --out ./unpacked --names-file ./extra_names.txt
 ```
 
-遭遇战地图包装载／准备／能力缺口三态诊断（`success` / `reject` / `missing`；不是整局可玩验收）：
+分析类命令（`ra2 analyze <topic>`）：
+
+遭遇战地图包装载／准备／能力缺口三态（`success` / `reject` / `missing`；不是整局可玩验收）：
 
 ```bash
-ra2 diagnose-maps --path "C:/Games/RA2" --edition ra2
-ra2 diagnose-maps --path "C:/Games/RA2" --edition ra2 --limit 5
-ra2 diagnose-maps --path "C:/Games/RA2" --edition ra2 --json
+ra2 analyze maps --path "C:/Games/RA2" --edition ra2
+ra2 analyze maps --path "C:/Games/RA2" --edition ra2 --limit 5
+ra2 analyze maps --path "C:/Games/RA2" --edition ra2 --json
 ```
 
 `--json` 输出与 N-API `diagnoseMaps` 相同的报告对象，便于回填验收清单。
 
-载具 VXL 分图层诊断（车身 / 炮塔 / 炮管 / 合成 / 落影的尺寸与原点偏移；只读取安装资源，不写盘）：
+载具 VXL 分图层（车身／炮塔／炮管／合成／落影的尺寸与原点偏移；只读安装资源，不写盘）：
 
 ```bash
-ra2 diagnose-mobile-vxl --path "C:/Games/RA2" --edition ra2 --stem mtnk
-ra2 diagnose-mobile-vxl --path "C:/Games/RA2" --edition ra2 --type MTNK --sweep-turret
-ra2 diagnose-mobile-vxl --path "C:/Games/RA2" --edition ra2 --stem mtnk --sweep-hva --hva-frames 3 --json
+ra2 analyze vxl --path "C:/Games/RA2" --edition ra2 --stem mtnk
+ra2 analyze vxl --path "C:/Games/RA2" --edition ra2 --type MTNK --sweep-turret
+ra2 analyze vxl --path "C:/Games/RA2" --edition ra2 --stem mtnk --sweep-hva --hva-frames 3 --json
 ```
 
 合集盘须加 `--edition ra2`。`--sweep-body` / `--sweep-turret` / `--sweep-hva` 三者互斥。

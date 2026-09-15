@@ -6,8 +6,8 @@ function printUsage() {
   ra2 emulate --path <game-dir> [--edition ra2|yr] [--screen skirmish|main|campaign|...]
   ra2 extract --path <game-dir> --out <dir> [--edition ra2|yr] [--theater temperate|snow|...] [--palette name.pal] [--decode-shp] [--decode-csf] [--] <name>...
   ra2 unpack --path <game-dir> --out <dir> [--edition ra2|yr] [--names-file <txt>] [--decode-csf]
-  ra2 diagnose-maps --path <game-dir> [--edition ra2|yr] [--limit N] [--json]
-  ra2 diagnose-mobile-vxl --path <game-dir> (--stem <stem> | --type <TYPE>) [--edition ra2|yr]
+  ra2 analyze maps --path <game-dir> [--edition ra2|yr] [--limit N] [--json]
+  ra2 analyze vxl --path <game-dir> (--stem <stem> | --type <TYPE>) [--edition ra2|yr]
       [--body-facing N] [--turret-facing N] [--hva-frame N]
       [--sweep-body | --sweep-turret | --sweep-hva] [--hva-frames N] [--json]
   ra2 --version
@@ -23,12 +23,271 @@ Examples:
   ra2 extract --path "C:/Games/RA2" --out ./out --decode-csf -- ra2.csf
   ra2 unpack --path "C:/Games/RA2" --out ./unpacked
   ra2 unpack --path "C:/Games/RA2" --out ./unpacked --names-file ./extra_names.txt --decode-csf
-  ra2 diagnose-maps --path "C:/Games/RA2" --edition ra2
-  ra2 diagnose-maps --path "C:/Games/RA2" --edition ra2 --limit 5
-  ra2 diagnose-maps --path "C:/Games/RA2" --edition ra2 --json
-  ra2 diagnose-mobile-vxl --path "C:/Games/RA2" --edition ra2 --stem mtnk
-  ra2 diagnose-mobile-vxl --path "C:/Games/RA2" --edition ra2 --type MTNK --sweep-turret --json
-  ra2 diagnose-mobile-vxl --path "C:/Games/RA2" --edition ra2 --stem mtnk --sweep-hva --hva-frames 3`);
+  ra2 analyze maps --path "C:/Games/RA2" --edition ra2
+  ra2 analyze maps --path "C:/Games/RA2" --edition ra2 --limit 5 --json
+  ra2 analyze vxl --path "C:/Games/RA2" --edition ra2 --stem mtnk
+  ra2 analyze vxl --path "C:/Games/RA2" --edition ra2 --type MTNK --sweep-turret --json
+  ra2 analyze vxl --path "C:/Games/RA2" --edition ra2 --stem mtnk --sweep-hva --hva-frames 3`);
+}
+
+function printAnalyzeUsage() {
+    console.log(`Usage:
+  ra2 analyze maps --path <game-dir> [--edition ra2|yr] [--limit N] [--json]
+  ra2 analyze vxl --path <game-dir> (--stem <stem> | --type <TYPE>) [--edition ra2|yr]
+      [--body-facing N] [--turret-facing N] [--hva-frame N]
+      [--sweep-body | --sweep-turret | --sweep-hva] [--hva-frames N] [--json]
+
+Subcommands:
+  maps   Skirmish map pack load/prepare/capability gaps (success/reject/missing)
+  vxl    Vehicle VXL layer metrics (body/turret/barrel/composed/shadow offsets)
+
+Aliases: analyze mobile-vxl → analyze vxl`);
+}
+
+async function runAnalyzeMaps(args, commandLabel) {
+    let gamePath = null;
+    let edition;
+    let limit;
+    let asJson = false;
+    for (let i = 0; i < args.length; i += 1) {
+        const a = args[i];
+        if (a === '--path') {
+            gamePath = args[i + 1];
+            if (!gamePath) {
+                console.error(`${commandLabel}: --path requires a directory`);
+                process.exit(1);
+            }
+            i += 1;
+        } else if (a === '--edition') {
+            edition = args[i + 1];
+            if (!edition) {
+                console.error(`${commandLabel}: --edition requires a value`);
+                process.exit(1);
+            }
+            i += 1;
+        } else if (a === '--limit') {
+            const raw = args[i + 1];
+            if (!raw) {
+                console.error(`${commandLabel}: --limit requires a number`);
+                process.exit(1);
+            }
+            limit = Number.parseInt(raw, 10);
+            if (!Number.isFinite(limit) || limit < 0) {
+                console.error(`${commandLabel}: --limit must be a non-negative integer`);
+                process.exit(1);
+            }
+            i += 1;
+        } else if (a === '--json') {
+            asJson = true;
+        } else {
+            console.error(`${commandLabel}: unknown argument ${a}`);
+            printAnalyzeUsage();
+            process.exit(1);
+        }
+    }
+    if (!gamePath) {
+        console.error(`${commandLabel}: --path is required`);
+        printAnalyzeUsage();
+        process.exit(1);
+    }
+    const { diagnoseMaps } = await import('../dist/native.js');
+    const report = diagnoseMaps({ path: gamePath, edition, limit });
+    if (asJson) {
+        console.log(JSON.stringify(report, null, 2));
+        return;
+    }
+    console.log(
+        `edition=${report.edition} source=${report.source} candidates=${report.candidateCount} success=${report.success} reject=${report.reject} missing=${report.missing}`,
+    );
+    for (const row of report.maps) {
+        const gaps = [...row.blockingGaps, ...row.stubGaps, ...row.deferredGaps, ...row.otherGaps];
+        const gapText = gaps.length > 0 ? ` gaps=${gaps.join('|')}` : '';
+        const err =
+            row.parseError != null
+                ? ` parse_error=${row.parseError}`
+                : row.prepareError != null
+                  ? ` prepare_error=${row.prepareError}`
+                  : '';
+        console.log(`${row.triState}\t${row.fileName}\tparse=${row.parseOk}\tprepare=${row.prepareOk}${err}${gapText}`);
+    }
+}
+
+async function runAnalyzeVxl(args, commandLabel) {
+    let gamePath = null;
+    let edition;
+    let stem;
+    let typeId;
+    let bodyFacing;
+    let turretFacing;
+    let hvaFrame;
+    let sweepBody = false;
+    let sweepTurret = false;
+    let sweepHva = false;
+    let hvaFrameCount;
+    let asJson = false;
+    for (let i = 0; i < args.length; i += 1) {
+        const a = args[i];
+        if (a === '--path') {
+            gamePath = args[i + 1];
+            if (!gamePath) {
+                console.error(`${commandLabel}: --path requires a directory`);
+                process.exit(1);
+            }
+            i += 1;
+        } else if (a === '--edition') {
+            edition = args[i + 1];
+            if (!edition) {
+                console.error(`${commandLabel}: --edition requires a value`);
+                process.exit(1);
+            }
+            i += 1;
+        } else if (a === '--stem') {
+            stem = args[i + 1];
+            if (!stem) {
+                console.error(`${commandLabel}: --stem requires a value`);
+                process.exit(1);
+            }
+            i += 1;
+        } else if (a === '--type') {
+            typeId = args[i + 1];
+            if (!typeId) {
+                console.error(`${commandLabel}: --type requires a value`);
+                process.exit(1);
+            }
+            i += 1;
+        } else if (a === '--body-facing') {
+            const raw = args[i + 1];
+            if (!raw) {
+                console.error(`${commandLabel}: --body-facing requires a number`);
+                process.exit(1);
+            }
+            bodyFacing = Number.parseInt(raw, 10);
+            if (!Number.isFinite(bodyFacing) || bodyFacing < 0 || bodyFacing > 255) {
+                console.error(`${commandLabel}: --body-facing must be 0..255`);
+                process.exit(1);
+            }
+            i += 1;
+        } else if (a === '--turret-facing') {
+            const raw = args[i + 1];
+            if (!raw) {
+                console.error(`${commandLabel}: --turret-facing requires a number`);
+                process.exit(1);
+            }
+            turretFacing = Number.parseInt(raw, 10);
+            if (!Number.isFinite(turretFacing) || turretFacing < 0 || turretFacing > 255) {
+                console.error(`${commandLabel}: --turret-facing must be 0..255`);
+                process.exit(1);
+            }
+            i += 1;
+        } else if (a === '--hva-frame') {
+            const raw = args[i + 1];
+            if (!raw) {
+                console.error(`${commandLabel}: --hva-frame requires a number`);
+                process.exit(1);
+            }
+            hvaFrame = Number.parseInt(raw, 10);
+            if (!Number.isFinite(hvaFrame) || hvaFrame < 0) {
+                console.error(`${commandLabel}: --hva-frame must be a non-negative integer`);
+                process.exit(1);
+            }
+            i += 1;
+        } else if (a === '--hva-frames') {
+            const raw = args[i + 1];
+            if (!raw) {
+                console.error(`${commandLabel}: --hva-frames requires a number`);
+                process.exit(1);
+            }
+            hvaFrameCount = Number.parseInt(raw, 10);
+            if (!Number.isFinite(hvaFrameCount) || hvaFrameCount < 1) {
+                console.error(`${commandLabel}: --hva-frames must be a positive integer`);
+                process.exit(1);
+            }
+            i += 1;
+        } else if (a === '--sweep-body') {
+            sweepBody = true;
+        } else if (a === '--sweep-turret') {
+            sweepTurret = true;
+        } else if (a === '--sweep-hva') {
+            sweepHva = true;
+        } else if (a === '--json') {
+            asJson = true;
+        } else {
+            console.error(`${commandLabel}: unknown argument ${a}`);
+            printAnalyzeUsage();
+            process.exit(1);
+        }
+    }
+    if (!gamePath) {
+        console.error(`${commandLabel}: --path is required`);
+        printAnalyzeUsage();
+        process.exit(1);
+    }
+    if (!stem && !typeId) {
+        console.error(`${commandLabel}: --stem or --type is required`);
+        printAnalyzeUsage();
+        process.exit(1);
+    }
+    const sweepCount = Number(sweepBody) + Number(sweepTurret) + Number(sweepHva);
+    if (sweepCount > 1) {
+        console.error(`${commandLabel}: --sweep-body, --sweep-turret, and --sweep-hva are mutually exclusive`);
+        process.exit(1);
+    }
+    if (hvaFrameCount != null && !sweepHva) {
+        console.error(`${commandLabel}: --hva-frames requires --sweep-hva`);
+        process.exit(1);
+    }
+    const { diagnoseMobileVxl } = await import('../dist/native.js');
+    const result = diagnoseMobileVxl({
+        path: gamePath,
+        edition,
+        stem,
+        typeId,
+        bodyFacing,
+        turretFacing,
+        hvaFrame,
+        sweepBody,
+        sweepTurret,
+        sweepHva,
+        hvaFrameCount,
+    });
+    if (asJson) {
+        console.log(JSON.stringify(result, null, 2));
+        return;
+    }
+    const typeText = result.typeId != null ? ` type=${result.typeId}` : '';
+    console.log(
+        `edition=${result.edition} stem=${result.stem}${typeText} root_mix=${result.mountedRoot} nested=${result.mountedNested} reports=${result.reports.length}`,
+    );
+    for (const report of result.reports) {
+        console.log(`--- body_facing=${report.bodyFacing} turret_facing=${report.turretFacing} hva_frame=${report.hvaFrame}`);
+        for (const note of report.notes) {
+            console.log(`note\t${note}`);
+        }
+        console.log(
+            'role\tvxl\thva\tvxl_hit\thva_hit\tfacing\tw\th\toffset_x\toffset_y\tcell_ox\tcell_oy\torigin_px\torigin_py',
+        );
+        for (const layer of report.layers) {
+            const dash = (v) => (v == null ? '-' : String(v));
+            console.log(
+                [
+                    layer.role,
+                    layer.vxlName || '-',
+                    layer.hvaName || '-',
+                    layer.vxlHit,
+                    layer.hvaHit,
+                    dash(layer.facing),
+                    dash(layer.width),
+                    dash(layer.height),
+                    dash(layer.offsetX),
+                    dash(layer.offsetY),
+                    dash(layer.cellOffsetX),
+                    dash(layer.cellOffsetY),
+                    dash(layer.originPx),
+                    dash(layer.originPy),
+                ].join('\t'),
+            );
+        }
+    }
 }
 
 function parsePathEditionOut(args, command) {
@@ -293,254 +552,35 @@ async function main() {
         return;
     }
 
-    if (args[0] === 'diagnose-maps') {
-        let gamePath = null;
-        let edition;
-        let limit;
-        let asJson = false;
-        for (let i = 1; i < args.length; i += 1) {
-            const a = args[i];
-            if (a === '--path') {
-                gamePath = args[i + 1];
-                if (!gamePath) {
-                    console.error('ra2 diagnose-maps: --path requires a directory');
-                    process.exit(1);
-                }
-                i += 1;
-            } else if (a === '--edition') {
-                edition = args[i + 1];
-                if (!edition) {
-                    console.error('ra2 diagnose-maps: --edition requires a value');
-                    process.exit(1);
-                }
-                i += 1;
-            } else if (a === '--limit') {
-                const raw = args[i + 1];
-                if (!raw) {
-                    console.error('ra2 diagnose-maps: --limit requires a number');
-                    process.exit(1);
-                }
-                limit = Number.parseInt(raw, 10);
-                if (!Number.isFinite(limit) || limit < 0) {
-                    console.error('ra2 diagnose-maps: --limit must be a non-negative integer');
-                    process.exit(1);
-                }
-                i += 1;
-            } else if (a === '--json') {
-                asJson = true;
-            } else {
-                console.error(`ra2 diagnose-maps: unknown argument ${a}`);
-                printUsage();
-                process.exit(1);
+    if (args[0] === 'analyze' || args[0] === 'diagnose-maps' || args[0] === 'diagnose-mobile-vxl') {
+        // Flat legacy aliases → analyze <topic>
+        let topic;
+        let topicArgs;
+        if (args[0] === 'diagnose-maps') {
+            topic = 'maps';
+            topicArgs = args.slice(1);
+        } else if (args[0] === 'diagnose-mobile-vxl') {
+            topic = 'vxl';
+            topicArgs = args.slice(1);
+        } else {
+            topic = args[1];
+            topicArgs = args.slice(2);
+            if (topic == null || topic === '--help' || topic === '-h') {
+                printAnalyzeUsage();
+                return;
             }
         }
-        if (!gamePath) {
-            console.error('ra2 diagnose-maps: --path is required');
-            printUsage();
-            process.exit(1);
-        }
-        const { diagnoseMaps } = await import('../dist/native.js');
-        const report = diagnoseMaps({ path: gamePath, edition, limit });
-        if (asJson) {
-            console.log(JSON.stringify(report, null, 2));
+        if (topic === 'maps') {
+            await runAnalyzeMaps(topicArgs, 'ra2 analyze maps');
             return;
         }
-        console.log(
-            `edition=${report.edition} source=${report.source} candidates=${report.candidateCount} success=${report.success} reject=${report.reject} missing=${report.missing}`,
-        );
-        for (const row of report.maps) {
-            const gaps = [...row.blockingGaps, ...row.stubGaps, ...row.deferredGaps, ...row.otherGaps];
-            const gapText = gaps.length > 0 ? ` gaps=${gaps.join('|')}` : '';
-            const err =
-                row.parseError != null
-                    ? ` parse_error=${row.parseError}`
-                    : row.prepareError != null
-                      ? ` prepare_error=${row.prepareError}`
-                      : '';
-            console.log(`${row.triState}\t${row.fileName}\tparse=${row.parseOk}\tprepare=${row.prepareOk}${err}${gapText}`);
-        }
-        return;
-    }
-
-    if (args[0] === 'diagnose-mobile-vxl') {
-        let gamePath = null;
-        let edition;
-        let stem;
-        let typeId;
-        let bodyFacing;
-        let turretFacing;
-        let hvaFrame;
-        let sweepBody = false;
-        let sweepTurret = false;
-        let sweepHva = false;
-        let hvaFrameCount;
-        let asJson = false;
-        for (let i = 1; i < args.length; i += 1) {
-            const a = args[i];
-            if (a === '--path') {
-                gamePath = args[i + 1];
-                if (!gamePath) {
-                    console.error('ra2 diagnose-mobile-vxl: --path requires a directory');
-                    process.exit(1);
-                }
-                i += 1;
-            } else if (a === '--edition') {
-                edition = args[i + 1];
-                if (!edition) {
-                    console.error('ra2 diagnose-mobile-vxl: --edition requires a value');
-                    process.exit(1);
-                }
-                i += 1;
-            } else if (a === '--stem') {
-                stem = args[i + 1];
-                if (!stem) {
-                    console.error('ra2 diagnose-mobile-vxl: --stem requires a value');
-                    process.exit(1);
-                }
-                i += 1;
-            } else if (a === '--type') {
-                typeId = args[i + 1];
-                if (!typeId) {
-                    console.error('ra2 diagnose-mobile-vxl: --type requires a value');
-                    process.exit(1);
-                }
-                i += 1;
-            } else if (a === '--body-facing') {
-                const raw = args[i + 1];
-                if (!raw) {
-                    console.error('ra2 diagnose-mobile-vxl: --body-facing requires a number');
-                    process.exit(1);
-                }
-                bodyFacing = Number.parseInt(raw, 10);
-                if (!Number.isFinite(bodyFacing) || bodyFacing < 0 || bodyFacing > 255) {
-                    console.error('ra2 diagnose-mobile-vxl: --body-facing must be 0..255');
-                    process.exit(1);
-                }
-                i += 1;
-            } else if (a === '--turret-facing') {
-                const raw = args[i + 1];
-                if (!raw) {
-                    console.error('ra2 diagnose-mobile-vxl: --turret-facing requires a number');
-                    process.exit(1);
-                }
-                turretFacing = Number.parseInt(raw, 10);
-                if (!Number.isFinite(turretFacing) || turretFacing < 0 || turretFacing > 255) {
-                    console.error('ra2 diagnose-mobile-vxl: --turret-facing must be 0..255');
-                    process.exit(1);
-                }
-                i += 1;
-            } else if (a === '--hva-frame') {
-                const raw = args[i + 1];
-                if (!raw) {
-                    console.error('ra2 diagnose-mobile-vxl: --hva-frame requires a number');
-                    process.exit(1);
-                }
-                hvaFrame = Number.parseInt(raw, 10);
-                if (!Number.isFinite(hvaFrame) || hvaFrame < 0) {
-                    console.error('ra2 diagnose-mobile-vxl: --hva-frame must be a non-negative integer');
-                    process.exit(1);
-                }
-                i += 1;
-            } else if (a === '--hva-frames') {
-                const raw = args[i + 1];
-                if (!raw) {
-                    console.error('ra2 diagnose-mobile-vxl: --hva-frames requires a number');
-                    process.exit(1);
-                }
-                hvaFrameCount = Number.parseInt(raw, 10);
-                if (!Number.isFinite(hvaFrameCount) || hvaFrameCount < 1) {
-                    console.error('ra2 diagnose-mobile-vxl: --hva-frames must be a positive integer');
-                    process.exit(1);
-                }
-                i += 1;
-            } else if (a === '--sweep-body') {
-                sweepBody = true;
-            } else if (a === '--sweep-turret') {
-                sweepTurret = true;
-            } else if (a === '--sweep-hva') {
-                sweepHva = true;
-            } else if (a === '--json') {
-                asJson = true;
-            } else {
-                console.error(`ra2 diagnose-mobile-vxl: unknown argument ${a}`);
-                printUsage();
-                process.exit(1);
-            }
-        }
-        if (!gamePath) {
-            console.error('ra2 diagnose-mobile-vxl: --path is required');
-            printUsage();
-            process.exit(1);
-        }
-        if (!stem && !typeId) {
-            console.error('ra2 diagnose-mobile-vxl: --stem or --type is required');
-            printUsage();
-            process.exit(1);
-        }
-        const sweepCount = Number(sweepBody) + Number(sweepTurret) + Number(sweepHva);
-        if (sweepCount > 1) {
-            console.error('ra2 diagnose-mobile-vxl: --sweep-body, --sweep-turret, and --sweep-hva are mutually exclusive');
-            process.exit(1);
-        }
-        if (hvaFrameCount != null && !sweepHva) {
-            console.error('ra2 diagnose-mobile-vxl: --hva-frames requires --sweep-hva');
-            process.exit(1);
-        }
-        const { diagnoseMobileVxl } = await import('../dist/native.js');
-        const result = diagnoseMobileVxl({
-            path: gamePath,
-            edition,
-            stem,
-            typeId,
-            bodyFacing,
-            turretFacing,
-            hvaFrame,
-            sweepBody,
-            sweepTurret,
-            sweepHva,
-            hvaFrameCount,
-        });
-        if (asJson) {
-            console.log(JSON.stringify(result, null, 2));
+        if (topic === 'vxl' || topic === 'mobile-vxl') {
+            await runAnalyzeVxl(topicArgs, 'ra2 analyze vxl');
             return;
         }
-        const typeText = result.typeId != null ? ` type=${result.typeId}` : '';
-        console.log(
-            `edition=${result.edition} stem=${result.stem}${typeText} root_mix=${result.mountedRoot} nested=${result.mountedNested} reports=${result.reports.length}`,
-        );
-        for (const report of result.reports) {
-            console.log(
-                `--- body_facing=${report.bodyFacing} turret_facing=${report.turretFacing} hva_frame=${report.hvaFrame}`,
-            );
-            for (const note of report.notes) {
-                console.log(`note\t${note}`);
-            }
-            console.log(
-                'role\tvxl\thva\tvxl_hit\thva_hit\tfacing\tw\th\toffset_x\toffset_y\tcell_ox\tcell_oy\torigin_px\torigin_py',
-            );
-            for (const layer of report.layers) {
-                const dash = (v) => (v == null ? '-' : String(v));
-                console.log(
-                    [
-                        layer.role,
-                        layer.vxlName || '-',
-                        layer.hvaName || '-',
-                        layer.vxlHit,
-                        layer.hvaHit,
-                        dash(layer.facing),
-                        dash(layer.width),
-                        dash(layer.height),
-                        dash(layer.offsetX),
-                        dash(layer.offsetY),
-                        dash(layer.cellOffsetX),
-                        dash(layer.cellOffsetY),
-                        dash(layer.originPx),
-                        dash(layer.originPy),
-                    ].join('\t'),
-                );
-            }
-        }
-        return;
+        console.error(`ra2 analyze: unknown topic ${topic}`);
+        printAnalyzeUsage();
+        process.exit(1);
     }
 
     console.error(`ra2: unknown command ${args[0]}`);

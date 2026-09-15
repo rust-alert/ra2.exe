@@ -1,5 +1,7 @@
 //! N-API 入口：`version` + `emulate` + `extract` + `unpack` + `diagnoseMaps` + `diagnoseMobileVxl`。
 //!
+//! CLI 面：`ra2 analyze maps` / `ra2 analyze vxl`（本绑定仍用历史 N-API 名）。
+//!
 //! 原生窗口与事件循环在 [`host`]。
 
 #![deny(clippy::all)]
@@ -231,7 +233,7 @@ pub fn unpack(options: UnpackOptions) -> Result<UnpackResultJs> {
     })
 }
 
-/// `ra2 diagnose-maps` 选项。
+/// `ra2 analyze maps` 选项。
 #[napi(object)]
 pub struct DiagnoseMapsOptions {
     /// 游戏安装根目录。
@@ -278,7 +280,7 @@ pub struct DiagnoseMapsReportJs {
 pub fn diagnose_maps(options: DiagnoseMapsOptions) -> Result<DiagnoseMapsReportJs> {
     let path = PathBuf::from(options.path.trim());
     if path.as_os_str().is_empty() {
-        return Err(Error::from_reason("diagnose-maps: --path must not be empty"));
+        return Err(Error::from_reason("analyze maps: --path must not be empty"));
     }
     let req = DiagnoseMapsRequest {
         ra2_dir: path,
@@ -314,7 +316,7 @@ pub fn diagnose_maps(options: DiagnoseMapsOptions) -> Result<DiagnoseMapsReportJ
     })
 }
 
-/// `ra2 diagnose-mobile-vxl` 选项。
+/// `ra2 analyze vxl` 选项。
 #[napi(object)]
 pub struct DiagnoseMobileVxlOptions {
     /// 游戏安装根目录。
@@ -391,7 +393,7 @@ fn clamp_facing_byte(v: Option<u32>, default: u8) -> u8 {
 pub fn diagnose_mobile_vxl(options: DiagnoseMobileVxlOptions) -> Result<DiagnoseMobileVxlResultJs> {
     let path = PathBuf::from(options.path.trim());
     if path.as_os_str().is_empty() {
-        return Err(Error::from_reason("diagnose-mobile-vxl: --path must not be empty"));
+        return Err(Error::from_reason("analyze vxl: --path must not be empty"));
     }
     let body_facing = clamp_facing_byte(options.body_facing, 0);
     let turret_facing = clamp_facing_byte(options.turret_facing, body_facing);
