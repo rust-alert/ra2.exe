@@ -123,6 +123,25 @@ fn unsupported_super_weapon_kind_emits_capability_gap_and_executor_flag() {
 }
 
 #[test]
+fn build_runtime_definitions_freezes_infiltration_profiles() {
+    let rules = rules_from(
+        b"[BuildingTypes]\n0=GAPOWR\n1=GAREFN\n2=GAPILE\n3=GATECH\n4=GAGAP\n\
+[GAPOWR]\nCost=600\nStrength=600\nPower=150\n\
+[GAREFN]\nCost=2000\nStrength=1000\nRefinery=yes\n\
+[GAPILE]\nCost=500\nStrength=600\nFactory=InfantryType\n\
+[GATECH]\nCost=1500\nStrength=600\n\
+[GAGAP]\nCost=100\nStrength=100\n\
+[General]\nPrerequisiteTech=GATECH\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    assert_eq!(defs.structures.get("GAPOWR").expect("pow").infiltration.effect, ra_types::InfiltrationEffect::PowerBlackout);
+    assert_eq!(defs.structures.get("GAREFN").expect("ref").infiltration.effect, ra_types::InfiltrationEffect::StealFunds);
+    assert_eq!(defs.structures.get("GAPILE").expect("pile").infiltration.effect, ra_types::InfiltrationEffect::PromoteInfantry);
+    assert_eq!(defs.structures.get("GATECH").expect("tech").infiltration.effect, ra_types::InfiltrationEffect::StealTech);
+    assert_eq!(defs.structures.get("GAGAP").expect("gap").infiltration.effect, ra_types::InfiltrationEffect::Generic);
+}
+
+#[test]
 fn build_runtime_definitions_reads_foundation_from_art() {
     let rules = rules_from_with_art(
         b"[BuildingTypes]\n0=NAWEAP\n\

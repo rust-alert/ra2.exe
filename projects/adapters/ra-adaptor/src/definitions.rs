@@ -5,7 +5,8 @@
 use ra_assets::TechnoKind;
 use ra_types::{
     BuiltinCapability, CapabilityGapReport, CrateRules, DeployableDefinition, DeploymentPlacement, GameEdition, HouseAllowList,
-    HouseDefinition, HouseId, HouseName, HouseRole, InfiltrationRules, LightningStormRules, PowerProfile, PrerequisiteGroups,
+    HouseDefinition, HouseId, HouseName, HouseRole, InfiltrationEffect, InfiltrationProfile, InfiltrationRules, LightningStormRules,
+    PowerProfile, PrerequisiteGroups,
     ProductionCategory, ProductionProfile, ProjectileDefinition, ProjectileId, ProjectileName, RaError, RaResult, RuntimeDefinitions,
     StolenTechKind, StructureDefinition, StructureLightProfile, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TechnoName, TypeId,
     WarheadDefinition, WarheadId, WarheadName, WeaponDefinition, WeaponId, WeaponName, super_weapon_kind_has_executor,
@@ -342,6 +343,12 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             super_weapon_id,
             light,
             capabilities,
+            infiltration: InfiltrationProfile::freeze_from_stock(
+                output > 0,
+                refinery,
+                tt.factory,
+                false,
+            ),
         });
     }
 
@@ -421,6 +428,12 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         proc: bind_techno_name_list(&defs, &prereq_proc, "PrerequisiteGroups:PrerequisiteProc")?,
         proc_alternate: bind_techno_name_list(&defs, &prereq_proc_alternate, "PrerequisiteGroups:PrerequisiteProcAlternate")?,
     };
+    // 科技建筑渗透效果：须在 `prerequisite_groups.tech` 绑定后回填（仅 Generic 可升级，避免覆盖工厂等更高优先级）。
+    for structure in defs.structures.iter_mut() {
+        if structure.infiltration.effect == InfiltrationEffect::Generic && defs.prerequisite_groups.is_tech_building(structure.id) {
+            structure.infiltration = InfiltrationProfile::new(InfiltrationEffect::StealTech);
+        }
+    }
     defs.base_units = bind_techno_name_list(&defs, &base_unit_names, "General:BaseUnit")?;
     // `[AI] Build*` 须在 techno 入库后绑定；未知名软跳过。
     defs.ai_controls = ra_types::AiControls {

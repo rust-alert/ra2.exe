@@ -173,6 +173,7 @@ fn prepared_map_skeleton_expands_structure_foundation() {
         super_weapon_id: None,
         light: None,
         capabilities: Vec::new(),
+        infiltration: Default::default(),
     });
     let prepared = map.to_prepared_map_skeleton_with_structures(&structures);
     assert_eq!(prepared.occupancy[1 * 4 + 1], 1);
@@ -245,6 +246,7 @@ fn prepared_map_skeleton_bound_applies_overlay_and_foundation() {
         super_weapon_id: None,
         light: None,
         capabilities: Vec::new(),
+        infiltration: Default::default(),
     });
     let rules = IniDocument::parse(b"[OverlayTypes]\n0=LOBRDG01\n[LOBRDG01]\nLand=Road\nNoUseTileLandType=yes\n").expect("rules");
     let overlays = overlay_types_from_rules(&rules);
@@ -322,6 +324,7 @@ fn from_prepared_pass_layers_roundtrips_bound_grid() {
         super_weapon_id: None,
         light: None,
         capabilities: Vec::new(),
+        infiltration: Default::default(),
     });
     let rules = IniDocument::parse(b"[OverlayTypes]\n").expect("rules");
     let overlays = overlay_types_from_rules(&rules);
@@ -407,6 +410,7 @@ fn reseal_from_placements_expands_foundation_by_type_id() {
         super_weapon_id: None,
         light: None,
         capabilities: Vec::new(),
+        infiltration: Default::default(),
     });
     prepared.placements.push(PreparedPlacement {
         kind: MapPlacedEntityKind::Structure,

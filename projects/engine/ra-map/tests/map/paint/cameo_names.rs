@@ -1,4 +1,4 @@
-﻿//! `PaintDefinitions::cameo_asset_names`：候选名解析，不暴露 `IniDocument`。
+//! `PaintDefinitions::cameo_asset_names`：候选名解析，不暴露 `IniDocument`。
 
 use ra_map::{PaintDefinitions, PaintDefinitionsLoader};
 use ra_types::{AssetSource, RaError, RaResult};
@@ -187,6 +187,7 @@ CameoPCX=gaicon
         super_weapon_id: None,
         light: None,
         capabilities: Vec::new(),
+        infiltration: Default::default(),
     });
     let mut map = MapInfo::empty(GameEdition::Ra2, "t");
     map.entities.push(MapEntity {

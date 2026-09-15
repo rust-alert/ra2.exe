@@ -607,6 +607,7 @@ Rate=50\n\
         super_weapon_id: None,
         light: None,
         capabilities: Vec::new(),
+        infiltration: Default::default(),
     });
     let mut paint = PaintDefinitionsLoader::load_sealed(&source, "art.ini", "rules.ini", &defs, &map);
     assert!(paint.documents_sealed());

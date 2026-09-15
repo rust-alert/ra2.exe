@@ -10,7 +10,8 @@ use serde::{
 use crate::id::{HouseId, TypeId};
 
 use super::{
-    ArmorKind, BuiltinCapability, Foundation, HouseAllowList, HouseName, HouseRole, ProductionProfile, SideName, StolenTechKind,
+    ArmorKind, BuiltinCapability, Foundation, HouseAllowList, HouseName, HouseRole, InfiltrationProfile, ProductionProfile, SideName,
+    StolenTechKind,
     SuperWeaponName, TechnoName,
 };
 
@@ -239,6 +240,8 @@ pub struct StructureDefinition {
     pub light: Option<StructureLightProfile>,
     /// 定义期能力声明。
     pub capabilities: Vec<BuiltinCapability>,
+    /// 被间谍渗透后的效果档案（装载期冻结）。
+    pub infiltration: InfiltrationProfile,
 }
 
 /// 单条阵营 / 房屋静态定义（由 rules `[Countries]` 投影）。

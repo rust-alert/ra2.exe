@@ -1,10 +1,9 @@
 //! 间谍渗透：邻接敌方建筑后结算效果并移除间谍。
 
 use ra_map::MapEntityKind;
-use ra_types::{EntityId, ProductionCategory, StolenTechKind};
+use ra_types::{EntityId, InfiltrationEffect, StolenTechKind};
 
 use crate::{
-    gameplay::{is_power_plant, is_refinery},
     spatial::{is_adjacent_to_footprint, nearest_adjacent_to_footprint},
     state::components::{AttackState, Health, Identity, Owner, Transform},
 };
@@ -111,6 +110,8 @@ impl crate::state::BattleState {
     }
 
     /// 结算渗透效果，并返回（行动方 EVA，受害方可选 EVA）。
+    ///
+    /// 效果类别只读冻结 [`ra_types::InfiltrationProfile`]，不在此按电厂／矿场等启发式分支。
     fn apply_infiltrate_effect(
         &mut self,
         agent_house: &str,
@@ -119,54 +120,64 @@ impl crate::state::BattleState {
     ) -> (&'static str, Option<&'static str>) {
         let blackout = self.definitions.infiltration.power_blackout_ticks;
         let steal_cap = self.definitions.infiltration.refinery_steal_funds;
-        if is_power_plant(&self.definitions, building_type) {
-            if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(victim_house)) {
-                player.power_blackout_ticks = blackout.max(player.power_blackout_ticks);
-            }
-            return ("EVA_BuildingInfiltratedPowerSabotaged", Some("EVA_PowerSabotaged"));
-        }
-        if is_refinery(&self.definitions, building_type) {
-            let stolen = self
-                .players
-                .iter()
-                .find(|p| p.house.eq_ignore_ascii_case(victim_house))
-                .map(|p| p.funds.min(steal_cap).max(0))
-                .unwrap_or(0);
-            if stolen > 0 {
-                if let Some(victim) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(victim_house)) {
-                    victim.funds -= stolen;
+        let effect = self
+            .definitions
+            .structures
+            .get_by_id(building_type)
+            .map(|s| s.infiltration.effect)
+            .unwrap_or(InfiltrationEffect::Generic);
+        match effect {
+            InfiltrationEffect::PowerBlackout => {
+                if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(victim_house)) {
+                    player.power_blackout_ticks = blackout.max(player.power_blackout_ticks);
                 }
-                if let Some(agent) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(agent_house)) {
-                    agent.funds = agent.funds.saturating_add(stolen);
-                }
+                ("EVA_BuildingInfiltratedPowerSabotaged", Some("EVA_PowerSabotaged"))
             }
-            return ("EVA_CashStolen", Some("EVA_BuildingInfiltrated"));
-        }
-        if let Some(prod) = self.definitions.structures.get_by_id(building_type).and_then(|s| s.production.as_ref()) {
-            if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(agent_house)) {
-                match prod.category {
-                    ProductionCategory::Infantry => player.promoted_infantry = true,
-                    ProductionCategory::Vehicle => player.promoted_vehicle = true,
-                    ProductionCategory::Aircraft | ProductionCategory::Building => {}
-                }
-            }
-            return ("EVA_BuildingInfiltrated", None);
-        }
-        if self.definitions.techno.get_by_id(building_type).is_some_and(|t| self.definitions.prerequisite_groups.is_tech_building(t.id)) {
-            if let Some(kind) =
-                crate::gameplay::house_id_of(&self.definitions, victim_house).and_then(|id| self.definitions.stolen_tech_by_house.get(id))
-            {
-                if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(agent_house)) {
-                    match kind {
-                        StolenTechKind::Allied => player.stolen_allied_tech = true,
-                        StolenTechKind::Soviet => player.stolen_soviet_tech = true,
-                        StolenTechKind::Third => player.stolen_third_tech = true,
+            InfiltrationEffect::StealFunds => {
+                let stolen = self
+                    .players
+                    .iter()
+                    .find(|p| p.house.eq_ignore_ascii_case(victim_house))
+                    .map(|p| p.funds.min(steal_cap).max(0))
+                    .unwrap_or(0);
+                if stolen > 0 {
+                    if let Some(victim) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(victim_house)) {
+                        victim.funds -= stolen;
+                    }
+                    if let Some(agent) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(agent_house)) {
+                        agent.funds = agent.funds.saturating_add(stolen);
                     }
                 }
+                ("EVA_CashStolen", Some("EVA_BuildingInfiltrated"))
             }
-            return ("EVA_NewTechnologyAcquired", Some("EVA_BuildingInfiltrated"));
+            InfiltrationEffect::PromoteInfantry => {
+                if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(agent_house)) {
+                    player.promoted_infantry = true;
+                }
+                ("EVA_BuildingInfiltrated", None)
+            }
+            InfiltrationEffect::PromoteVehicle => {
+                if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(agent_house)) {
+                    player.promoted_vehicle = true;
+                }
+                ("EVA_BuildingInfiltrated", None)
+            }
+            InfiltrationEffect::StealTech => {
+                if let Some(kind) =
+                    crate::gameplay::house_id_of(&self.definitions, victim_house).and_then(|id| self.definitions.stolen_tech_by_house.get(id))
+                {
+                    if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(agent_house)) {
+                        match kind {
+                            StolenTechKind::Allied => player.stolen_allied_tech = true,
+                            StolenTechKind::Soviet => player.stolen_soviet_tech = true,
+                            StolenTechKind::Third => player.stolen_third_tech = true,
+                        }
+                    }
+                }
+                ("EVA_NewTechnologyAcquired", Some("EVA_BuildingInfiltrated"))
+            }
+            InfiltrationEffect::Generic => ("EVA_BuildingInfiltrated", Some("EVA_BuildingInfiltrated")),
         }
-        ("EVA_BuildingInfiltrated", Some("EVA_BuildingInfiltrated"))
     }
 
     fn finish_infiltrating_agent(&mut self, agent_id: EntityId) {

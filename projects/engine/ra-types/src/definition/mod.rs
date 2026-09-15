@@ -58,7 +58,7 @@ pub use fingerprint::ContentFingerprint;
 pub use foundation::Foundation;
 pub use house_list::{ColorName, HouseAllowList, HouseIdAllowList, HouseName, SideName};
 pub use house_role::HouseRole;
-pub use infiltration::InfiltrationRules;
+pub use infiltration::{InfiltrationEffect, InfiltrationProfile, InfiltrationRules};
 pub use land::{LandType, TMP_TERRAIN_TO_LAND, ground_passable, land_buildable, land_passable, tmp_terrain_to_land_type};
 pub use lightning_storm_rules::LightningStormRules;
 pub use locomotor::LocomotorDefinitions;
