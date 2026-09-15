@@ -183,3 +183,37 @@ fn resolved_hover_carries_pointer_and_cell() {
     let with_edge = BattlePointer::resolve(EdgeScrollCursor::Scroll(EdgeScrollDir::East), hover.recommended_pointer);
     assert_eq!(with_edge, BattlePointer::Edge(EdgeScrollCursor::Scroll(EdgeScrollDir::East)));
 }
+
+#[test]
+fn ui_capture_hud_and_world_are_exclusive_kinds() {
+    assert!(BattleUiCapture::HudCommand(3).is_hud());
+    assert!(BattleUiCapture::HudSidebar.is_hud());
+    assert!(!BattleUiCapture::World.is_hud());
+    assert!(BattleUiCapture::World.is_world());
+    assert!(!BattleUiCapture::HudCommand(0).is_world());
+    let mut cap = BattleUiCapture::HudSidebar;
+    cap.clear();
+    assert_eq!(cap, BattleUiCapture::None);
+}
+
+#[test]
+fn input_frame_cursor_i32_truncates_toward_zero() {
+    let frame = BattleInputFrame {
+        metrics: BattleSurfaceMetrics {
+            logical_width: 800,
+            logical_height: 600,
+            physical_width: 800,
+            physical_height: 600,
+            scale_factor: 1.0,
+        },
+        cursor: (12.9, 40.1),
+        cursor_in_window: true,
+        cursor_in_world: true,
+        shift_down: false,
+        ctrl_down: false,
+        alt_down: false,
+        capture: BattleUiCapture::World,
+    };
+    assert_eq!(frame.cursor_i32(), (12, 40));
+    assert!(frame.capture.is_world());
+}

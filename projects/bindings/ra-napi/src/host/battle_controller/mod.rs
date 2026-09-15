@@ -32,7 +32,10 @@ use ra_widgets::{
 };
 
 use super::{
-    battle_input::{BattleInteractionMode, BattlePointer, BattlePresentationState, CameraPanKeys, EdgeScrollCursor, LeftGesture},
+    battle_input::{
+        BattleInteractionMode, BattlePointer, BattlePresentationState, BattleUiCapture, CameraPanKeys, EdgeScrollCursor,
+        LeftGesture,
+    },
     boot::BootResult,
     local_player::LocalPlayerController,
 };
@@ -118,8 +121,10 @@ pub struct BattleController {
     pub(super) sidebar_tab: usize,
     /// 当前页签 cameo 列表滚动起点（可视槽 0 对应的条目下标）。
     pub(super) cameo_scroll: usize,
-    /// 侧栏按下（页签 / cameo），松手命中一致时生效。
-    pub(super) sidebar_pressed: Option<BattleHudHit>,
+    /// 左键捕获层（HUD / 战术区互斥；释放必须对照按下捕获）。
+    pub(super) ui_capture: BattleUiCapture,
+    /// `HudSidebar` 捕获时的具体侧栏命中。
+    pub(super) sidebar_capture_hit: Option<BattleHudHit>,
     /// 建造栏图标缓存（按类型键；`None` 表示已尝试但缺图，避免每帧重解）。
     pub(super) cameo_cache: HashMap<String, Option<DecodedUiSprite>>,
     /// 测试旁路：曾表示「再按 Esc 回大厅」武装态；现由暂停菜单「放弃」离开，恒为 false。
@@ -161,8 +166,6 @@ pub struct BattleController {
     pub(super) condition_red: f32,
     /// 命令条悬停槽。
     pub(super) command_hover: Option<usize>,
-    /// 命令条按下槽（高亮）。
-    pub(super) command_pressed: Option<usize>,
     /// 不含建筑/地形活动层的预览底图（可含开局移动单位与已定格建造场）。
     pub(super) preview_base: Option<RgbaImage>,
     /// 无开局移动单位、可烘焙已定格动态建筑的底图。
@@ -290,7 +293,8 @@ impl BattleController {
             planning_waypoints: Vec::new(),
             sidebar_tab: 0,
             cameo_scroll: 0,
-            sidebar_pressed: None,
+            ui_capture: BattleUiCapture::None,
+            sidebar_capture_hit: None,
             cameo_cache: HashMap::new(),
             leave_armed: false,
             pause_menu_chrome: None,
@@ -311,7 +315,6 @@ impl BattleController {
             condition_yellow: 0.5,
             condition_red: 0.25,
             command_hover: None,
-            command_pressed: None,
             preview_base: boot.preview_base,
             preview_clean: boot.preview_clean,
             preview_ore_underlay: boot.preview_ore_underlay,
@@ -461,7 +464,8 @@ impl BattleController {
         self.planning_waypoints.clear();
         self.sidebar_tab = 0;
         self.cameo_scroll = 0;
-        self.sidebar_pressed = None;
+        self.ui_capture = BattleUiCapture::None;
+        self.sidebar_capture_hit = None;
         self.cameo_cache.clear();
         self.leave_armed = false;
         self.pause_menu_chrome = None;
@@ -478,7 +482,6 @@ impl BattleController {
         self.condition_yellow = 0.5;
         self.condition_red = 0.25;
         self.command_hover = None;
-        self.command_pressed = None;
         self.preview_base = boot.preview_base;
         self.preview_clean = boot.preview_clean;
         self.preview_ore_underlay = boot.preview_ore_underlay;
@@ -590,8 +593,8 @@ impl BattleController {
     /// `clear_tool_modes`：是否同时退出交互工具模式（进暂停菜单可清；失焦通常保留）。
     pub fn reset_transient_input_state(&mut self, clear_tool_modes: bool) {
         self.left_gesture = LeftGesture::Idle;
-        self.command_pressed = None;
-        self.sidebar_pressed = None;
+        self.ui_capture = BattleUiCapture::None;
+        self.sidebar_capture_hit = None;
         self.pause_pressed = None;
         self.shift_down = false;
         self.ctrl_down = false;
@@ -603,6 +606,32 @@ impl BattleController {
             let _ = self.clear_sidebar_tool_modes();
         }
         self.presentation = BattlePresentationState { pointer: BattlePointer::Default };
+    }
+
+    /// 构造当前不可变输入帧（命中 / 释放对照共用）。
+    pub(super) fn input_frame(&self, window: &winit::window::Window) -> super::battle_input::BattleInputFrame {
+        let metrics = Self::surface_metrics(window);
+        let (cx, cy) = self.cursor;
+        let cursor_in_window = cx >= 0.0 && cy >= 0.0 && cx < f64::from(metrics.logical_width) && cy < f64::from(metrics.logical_height);
+        let cursor_in_world = self.map_viewport(window).contains_cursor(cx as i32, cy as i32);
+        super::battle_input::BattleInputFrame {
+            metrics,
+            cursor: self.cursor,
+            cursor_in_window,
+            cursor_in_world,
+            shift_down: self.shift_down,
+            ctrl_down: self.ctrl_down,
+            alt_down: self.alt_down,
+            capture: self.ui_capture,
+        }
+    }
+
+    /// 命令条按下槽（渲染高亮）；非 `HudCommand` 捕获时为 `None`。
+    pub(super) fn command_button_pressed(&self) -> Option<usize> {
+        match self.ui_capture {
+            BattleUiCapture::HudCommand(slot) => Some(slot),
+            _ => None,
+        }
     }
 
     /// 本帧呈现快照（壳层只读应用）。

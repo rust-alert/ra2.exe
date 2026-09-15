@@ -9,8 +9,6 @@ use ra_widgets::{
 };
 use winit::{event::ElementState, window::Window};
 
-use super::super::battle_input::LeftGesture;
-
 use super::{BattleController, BattleNav};
 
 impl BattleController {
@@ -27,8 +25,7 @@ impl BattleController {
         self.in_game_options.drag_track = None;
         self.pause_stub_notice = None;
         self.command_hover = None;
-        self.command_pressed = None;
-        self.left_gesture = LeftGesture::Idle;
+        self.clear_pointer_capture();
     }
 
     /// 打开暂停主菜单（已暂停时切到 Menu 层）。

@@ -154,6 +154,67 @@ pub struct ResolvedBattleHover {
     pub cell: Option<(u16, u16)>,
 }
 
+/// 左键按下锁定的捕获层（释放必须对照同一捕获；HUD 与战术区互斥）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BattleUiCapture {
+    /// 无捕获。
+    #[default]
+    None,
+    /// 底边命令条槽。
+    HudCommand(usize),
+    /// 侧栏 / 修理 / 出售 / 雷达等（非命令条）。
+    HudSidebar,
+    /// 战术区点选 / 框选。
+    World,
+    /// 暂停菜单入口。
+    PauseMenu,
+}
+
+impl BattleUiCapture {
+    /// 是否为 HUD 控件捕获（命令条或侧栏）。
+    pub const fn is_hud(self) -> bool {
+        matches!(self, Self::HudCommand(_) | Self::HudSidebar)
+    }
+
+    /// 是否为战术区捕获。
+    pub const fn is_world(self) -> bool {
+        matches!(self, Self::World)
+    }
+
+    /// 清空。
+    pub fn clear(&mut self) {
+        *self = Self::None;
+    }
+}
+
+/// 一帧不可变输入快照（由控制器状态 + 表面度量构造；事件只更新底层状态）。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BattleInputFrame {
+    /// 表面度量。
+    pub metrics: BattleSurfaceMetrics,
+    /// 逻辑光标。
+    pub cursor: (f64, f64),
+    /// 光标是否在客户区内。
+    pub cursor_in_window: bool,
+    /// 光标是否在战术区 viewport 内。
+    pub cursor_in_world: bool,
+    /// Shift。
+    pub shift_down: bool,
+    /// Ctrl。
+    pub ctrl_down: bool,
+    /// Alt。
+    pub alt_down: bool,
+    /// 当前捕获层种类。
+    pub capture: BattleUiCapture,
+}
+
+impl BattleInputFrame {
+    /// 光标逻辑像素整数。
+    pub fn cursor_i32(self) -> (i32, i32) {
+        (self.cursor.0 as i32, self.cursor.1 as i32)
+    }
+}
+
 /// 对局呈现快照：壳层只应用，不重新跑业务判断。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BattlePresentationState {

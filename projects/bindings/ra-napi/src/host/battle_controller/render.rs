@@ -798,7 +798,7 @@ impl BattleController {
             deploy_hint: deploy_hint_owned.as_deref(),
             produce_queue: queue.as_deref(),
             reject,
-            command_pressed: self.command_pressed.or_else(|| {
+            command_pressed: self.command_button_pressed().or_else(|| {
                 if self.interaction_mode.is_planning() {
                     ra_widgets::skin::text::SKIRMISH_COMMAND_BAR.iter().position(|&n| n == "PlanningMode")
                 }

@@ -14,7 +14,8 @@ use winit::{
 };
 
 use super::super::battle_input::{
-    LeftGesture, LeftReleaseAction, MARQUEE_HIT_HALF_INFANTRY_PX, MARQUEE_HIT_HALF_VEHICLE_PX, MARQUEE_VEHICLE_LIFT_PX, ScreenRect,
+    BattleUiCapture, LeftGesture, LeftReleaseAction, MARQUEE_HIT_HALF_INFANTRY_PX, MARQUEE_HIT_HALF_VEHICLE_PX, MARQUEE_VEHICLE_LIFT_PX,
+    ScreenRect,
 };
 
 use super::{BattleController, BattleNav};
@@ -551,6 +552,17 @@ impl BattleController {
 
     /// 对局页输入。`accept_commands=false`（结算）时仅允许确认离开 / 战役下一关。
     pub fn handle_event(&mut self, event: &WindowEvent, renderer: &mut Renderer, window: &Window, accept_commands: bool) -> BattleNav {
+        self.ingest_event(event, renderer, window, accept_commands)
+    }
+
+    /// 窗口事件归一化：只更新输入态 / 捕获 / 手势，再解析瞬时动作。
+    pub(super) fn ingest_event(
+        &mut self,
+        event: &WindowEvent,
+        renderer: &mut Renderer,
+        window: &Window,
+        accept_commands: bool,
+    ) -> BattleNav {
         let battle_paused = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.paused);
         let script_locked = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.world.trigger_runtime.script_input_locked);
         let gameplay_open = accept_commands && !battle_paused && !script_locked;
@@ -577,91 +589,19 @@ impl BattleController {
             WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if accept_commands && battle_paused => {
                 self.handle_pause_menu_mouse(*state, window)
             }
-            WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if gameplay_open => {
-                let mut nav = BattleNav::None;
-                match state {
-                    ElementState::Pressed => {
-                        let x = self.cursor.0 as i32;
-                        let y = self.cursor.1 as i32;
-                        self.sidebar_pressed = None;
-                        match self.hit_hud_at(window, x, y) {
-                            Some(BattleHudHit::CommandButton(slot)) => {
-                                self.command_pressed = Some(slot);
-                                self.left_gesture = LeftGesture::Idle;
-                            }
-                            Some(
-                                hit @ (BattleHudHit::SidebarTab(_)
-                                | BattleHudHit::Cameo(_)
-                                | BattleHudHit::Repair
-                                | BattleHudHit::Sell
-                                | BattleHudHit::Options
-                                | BattleHudHit::Diplomacy
-                                | BattleHudHit::Radar),
-                            ) => {
-                                self.command_pressed = None;
-                                self.sidebar_pressed = Some(hit);
-                                self.left_gesture = LeftGesture::Idle;
-                            }
-                            None => {
-                                self.command_pressed = None;
-                                let vp = self.map_viewport(window);
-                                if vp.contains_cursor(x, y) {
-                                    self.left_gesture = LeftGesture::begin(self.cursor.0, self.cursor.1);
-                                }
-                                else {
-                                    self.left_gesture = LeftGesture::Idle;
-                                }
-                            }
-                        }
-                    }
-                    ElementState::Released => {
-                        let pressed_cmd = self.command_pressed.take();
-                        let pressed_side = self.sidebar_pressed.take();
-                        if let Some(slot) = pressed_cmd {
-                            let x = self.cursor.0 as i32;
-                            let y = self.cursor.1 as i32;
-                            if matches!(
-                                self.hit_hud_at(window, x, y),
-                                Some(BattleHudHit::CommandButton(s)) if s == slot
-                            ) {
-                                self.on_command_button(slot);
-                            }
-                            self.left_gesture = LeftGesture::Idle;
-                        }
-                        else if let Some(hit) = pressed_side {
-                            let x = self.cursor.0 as i32;
-                            let y = self.cursor.1 as i32;
-                            if self.hit_hud_at(window, x, y) == Some(hit) {
-                                if hit == BattleHudHit::Radar {
-                                    self.focus_radar_click(renderer, window, x, y);
-                                }
-                                else {
-                                    nav = self.on_sidebar_hit(hit);
-                                }
-                            }
-                            self.left_gesture = LeftGesture::Idle;
-                        }
-                        else {
-                            let (idle, action) = self.left_gesture.release();
-                            self.left_gesture = idle;
-                            match action {
-                                LeftReleaseAction::None => {}
-                                LeftReleaseAction::Click => self.handle_left_click(renderer, window),
-                                LeftReleaseAction::Marquee(rect) => self.handle_marquee_select(renderer, window, rect),
-                            }
-                        }
-                    }
+            WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if gameplay_open => match state {
+                ElementState::Pressed => {
+                    self.begin_left_capture(window);
+                    BattleNav::None
                 }
-                nav
-            }
+                ElementState::Released => self.end_left_capture(renderer, window),
+            },
             WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } if !accept_commands => {
                 self.reset_transient_input_state(false);
                 BattleNav::None
             }
             WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. } if gameplay_open => {
-                self.left_gesture = LeftGesture::Idle;
-                self.command_pressed = None;
-                self.sidebar_pressed = None;
+                self.clear_pointer_capture();
                 self.handle_right_click(renderer, window);
                 BattleNav::None
             }
@@ -676,10 +616,11 @@ impl BattleController {
                     self.reset_transient_input_state(false);
                 }
                 else {
-                    // 建造放置模式只认点选，拖拽不升为框选。
+                    let frame = self.input_frame(window);
+                    // 仅战术区捕获才推进框选；HUD 按下后移入战术区不得改捕获。
                     let placing = self.interaction_mode.place_type_id().is_some();
-                    if accept_commands && !placing && self.command_pressed.is_none() && self.sidebar_pressed.is_none() {
-                        self.left_gesture = self.left_gesture.on_cursor_moved(self.cursor.0, self.cursor.1);
+                    if accept_commands && !placing && frame.capture.is_world() {
+                        self.left_gesture = self.left_gesture.on_cursor_moved(frame.cursor.0, frame.cursor.1);
                     }
                     self.refresh_command_hover(window);
                 }
@@ -722,7 +663,114 @@ impl BattleController {
                 }
                 BattleNav::None
             }
-            WindowEvent::KeyboardInput { event, .. } => {
+            WindowEvent::KeyboardInput { event, .. } => self.ingest_keyboard(event, renderer, window, accept_commands, gameplay_open, battle_paused, script_locked),
+            _ => BattleNav::None,
+        }
+    }
+
+    /// 清空指针捕获与左键手势（右键取消 / 失焦路径共用）。
+    pub(super) fn clear_pointer_capture(&mut self) {
+        self.ui_capture = BattleUiCapture::None;
+        self.sidebar_capture_hit = None;
+        self.left_gesture = LeftGesture::Idle;
+    }
+
+    /// 左键按下：按 down 位置锁定唯一捕获（HUD 与战术区互斥）。
+    pub(super) fn begin_left_capture(&mut self, window: &Window) {
+        let frame = self.input_frame(window);
+        let (x, y) = frame.cursor_i32();
+        self.sidebar_capture_hit = None;
+        match self.hit_hud_at(window, x, y) {
+            Some(BattleHudHit::CommandButton(slot)) => {
+                self.ui_capture = BattleUiCapture::HudCommand(slot);
+                self.left_gesture = LeftGesture::Idle;
+            }
+            Some(
+                hit @ (BattleHudHit::SidebarTab(_)
+                | BattleHudHit::Cameo(_)
+                | BattleHudHit::Repair
+                | BattleHudHit::Sell
+                | BattleHudHit::Options
+                | BattleHudHit::Diplomacy
+                | BattleHudHit::Radar),
+            ) => {
+                self.ui_capture = BattleUiCapture::HudSidebar;
+                self.sidebar_capture_hit = Some(hit);
+                self.left_gesture = LeftGesture::Idle;
+            }
+            None => {
+                if frame.cursor_in_world {
+                    self.ui_capture = BattleUiCapture::World;
+                    self.left_gesture = LeftGesture::begin(frame.cursor.0, frame.cursor.1);
+                }
+                else {
+                    self.clear_pointer_capture();
+                }
+            }
+        }
+    }
+
+    /// 左键释放：只认按下时的捕获；HUD 须同控件抬起，战术区走手势结果。
+    pub(super) fn end_left_capture(&mut self, renderer: &mut Renderer, window: &Window) -> BattleNav {
+        let frame = self.input_frame(window);
+        let (x, y) = frame.cursor_i32();
+        let capture = self.ui_capture;
+        let sidebar_hit = self.sidebar_capture_hit.take();
+        self.ui_capture = BattleUiCapture::None;
+        match capture {
+            BattleUiCapture::HudCommand(slot) => {
+                self.left_gesture = LeftGesture::Idle;
+                if matches!(self.hit_hud_at(window, x, y), Some(BattleHudHit::CommandButton(s)) if s == slot) {
+                    self.on_command_button(slot);
+                }
+                BattleNav::None
+            }
+            BattleUiCapture::HudSidebar => {
+                self.left_gesture = LeftGesture::Idle;
+                let Some(hit) = sidebar_hit
+                else {
+                    return BattleNav::None;
+                };
+                if self.hit_hud_at(window, x, y) == Some(hit) {
+                    if hit == BattleHudHit::Radar {
+                        self.focus_radar_click(renderer, window, x, y);
+                        BattleNav::None
+                    }
+                    else {
+                        self.on_sidebar_hit(hit)
+                    }
+                }
+                else {
+                    BattleNav::None
+                }
+            }
+            BattleUiCapture::World => {
+                let (idle, action) = self.left_gesture.release();
+                self.left_gesture = idle;
+                match action {
+                    LeftReleaseAction::None => {}
+                    LeftReleaseAction::Click => self.handle_left_click(renderer, window),
+                    LeftReleaseAction::Marquee(rect) => self.handle_marquee_select(renderer, window, rect),
+                }
+                BattleNav::None
+            }
+            BattleUiCapture::None | BattleUiCapture::PauseMenu => {
+                self.left_gesture = LeftGesture::Idle;
+                BattleNav::None
+            }
+        }
+    }
+
+    fn ingest_keyboard(
+        &mut self,
+        event: &winit::event::KeyEvent,
+        renderer: &mut Renderer,
+        window: &Window,
+        accept_commands: bool,
+        gameplay_open: bool,
+        battle_paused: bool,
+        script_locked: bool,
+    ) -> BattleNav {
                 let PhysicalKey::Code(code) = event.physical_key
                 else {
                     return BattleNav::None;
@@ -807,9 +855,6 @@ impl BattleController {
                     return self.dispatch_hotkey_action(action, renderer, window);
                 }
                 BattleNav::None
-            }
-            _ => BattleNav::None,
-        }
     }
 
     /// 查表得到的 `HotkeyAction` 分发（键位来自 `keyboard.ini`，勿再写死 KeyCode）。

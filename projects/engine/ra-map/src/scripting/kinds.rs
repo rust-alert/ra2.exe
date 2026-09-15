@@ -410,6 +410,7 @@ impl MapActionKind {
                 | Self::PlaySpeech
                 | Self::PlayAnimAt
                 | Self::CenterCameraAtWaypoint
+                | Self::CreateRadarEvent
                 | Self::GrowShroud
                 | Self::ReshroudMap
                 | Self::PlaySoundEffect
