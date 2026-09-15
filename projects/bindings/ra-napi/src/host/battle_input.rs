@@ -832,6 +832,89 @@ pub fn resolve_friendly_click(shift_add: bool, already_selected: bool, can_deplo
     }
 }
 
+/// 点到敌方时的左键语义（需已有机动选中且非 ForceMove）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostileClickKind {
+    /// 工程师占领可俘建筑。
+    Capture,
+    /// 间谍渗透建筑。
+    Infiltrate,
+    /// 普通攻击（含 Ctrl 强攻）。
+    Attack,
+}
+
+/// 敌方命中语义：非强攻时占领 / 渗透优先于攻击。
+pub fn resolve_hostile_click(
+    force_attack: bool,
+    target_is_structure: bool,
+    selection_has_engineer: bool,
+    capturable: bool,
+    selection_has_agent: bool,
+) -> HostileClickKind {
+    if !force_attack && target_is_structure && selection_has_engineer && capturable {
+        HostileClickKind::Capture
+    }
+    else if !force_attack && target_is_structure && selection_has_agent {
+        HostileClickKind::Infiltrate
+    }
+    else {
+        HostileClickKind::Attack
+    }
+}
+
+/// 跟随工具态下左键语义。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FollowClickKind {
+    /// 选中无效 → 退出跟随模式。
+    Cancel,
+    /// 点到已选自身或无目标 → 无动作。
+    Noop,
+    /// 跟随光标下机动单位。
+    Follow,
+}
+
+/// 跟随模式左键：无机动选中则取消；点到非己选机动则跟随。
+pub fn resolve_follow_click(has_mobile_selected: bool, has_target: bool, target_already_selected: bool) -> FollowClickKind {
+    if !has_mobile_selected {
+        FollowClickKind::Cancel
+    }
+    else if !has_target || target_already_selected {
+        FollowClickKind::Noop
+    }
+    else {
+        FollowClickKind::Follow
+    }
+}
+
+/// 窗外 / 无格 / 空点时的清空语义。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MissClickKind {
+    /// 无动作（通常 Shift 加选空放）。
+    Noop,
+    /// 清空选中。
+    Deselect,
+}
+
+/// 未命中可下令目标时：无 Shift 且有选中则清空。
+pub fn resolve_miss_click(shift_add: bool, has_selection: bool) -> MissClickKind {
+    if !shift_add && has_selection {
+        MissClickKind::Deselect
+    }
+    else {
+        MissClickKind::Noop
+    }
+}
+
+/// ForceMove 时是否跳过本方点选（直接落点强移）。
+pub fn should_skip_friendly_pick(order_mod: OrderClickModifier, has_mobile_selected: bool) -> bool {
+    matches!(order_mod, OrderClickModifier::ForceMove) && has_mobile_selected
+}
+
+/// 是否应尝试敌方下令（有机动选中且非 ForceMove）。
+pub fn should_try_hostile_order(order_mod: OrderClickModifier, has_mobile_selected: bool) -> bool {
+    has_mobile_selected && !matches!(order_mod, OrderClickModifier::ForceMove)
+}
+
 impl EdgeScrollDir {
     /// 由轴向意图合成方向（可对角）。
     pub fn from_axes(west: bool, east: bool, north: bool, south: bool) -> Self {
@@ -1680,5 +1763,44 @@ mod tests {
             resolve_friendly_click(true, true, true, true),
             FriendlyClickKind::Select { add: true }
         );
+    }
+
+    #[test]
+    fn hostile_click_capture_infiltrate_before_attack() {
+        assert_eq!(
+            resolve_hostile_click(false, true, true, true, false),
+            HostileClickKind::Capture
+        );
+        assert_eq!(
+            resolve_hostile_click(false, true, false, false, true),
+            HostileClickKind::Infiltrate
+        );
+        assert_eq!(
+            resolve_hostile_click(true, true, true, true, true),
+            HostileClickKind::Attack
+        );
+        assert_eq!(
+            resolve_hostile_click(false, false, true, true, true),
+            HostileClickKind::Attack
+        );
+    }
+
+    #[test]
+    fn follow_click_cancel_noop_and_follow() {
+        assert_eq!(resolve_follow_click(false, true, false), FollowClickKind::Cancel);
+        assert_eq!(resolve_follow_click(true, false, false), FollowClickKind::Noop);
+        assert_eq!(resolve_follow_click(true, true, true), FollowClickKind::Noop);
+        assert_eq!(resolve_follow_click(true, true, false), FollowClickKind::Follow);
+    }
+
+    #[test]
+    fn miss_click_and_force_move_gates() {
+        assert_eq!(resolve_miss_click(false, true), MissClickKind::Deselect);
+        assert_eq!(resolve_miss_click(true, true), MissClickKind::Noop);
+        assert_eq!(resolve_miss_click(false, false), MissClickKind::Noop);
+        assert!(should_skip_friendly_pick(OrderClickModifier::ForceMove, true));
+        assert!(!should_skip_friendly_pick(OrderClickModifier::ForceMove, false));
+        assert!(should_try_hostile_order(OrderClickModifier::None, true));
+        assert!(!should_try_hostile_order(OrderClickModifier::ForceMove, true));
     }
 }

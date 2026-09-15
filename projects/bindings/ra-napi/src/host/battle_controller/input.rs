@@ -196,7 +196,10 @@ impl BattleController {
         let mode = &self.interaction_mode;
         let Some(probe) = self.probe_battle_world(renderer, window)
         else {
-            let intent = WorldClickIntent::OutsideWorld { clear_selection: !add };
+            use super::super::battle_input::{MissClickKind, resolve_miss_click};
+            // 窗外：有选中且无 Shift 时清空（与战术区落空同源）。
+            let clear_selection = matches!(resolve_miss_click(add, true), MissClickKind::Deselect);
+            let intent = WorldClickIntent::OutsideWorld { clear_selection };
             return (Self::hover_from_intent(&intent, None, false, mode), intent);
         };
         let Some(game) = self.session.as_ref().and_then(|s| s.battle())
@@ -260,44 +263,44 @@ impl BattleController {
             return finish(intent);
         }
         if mode.is_follow() {
-            let intent = if selected.is_empty() || !probe.has_mobile_selected {
-                WorldClickIntent::FollowCancel
-            }
-            else if let Some(target) = probe.any_mobile {
-                if selected.contains(&target) {
-                    WorldClickIntent::Noop
-                }
-                else {
-                    WorldClickIntent::Follow { target }
-                }
-            }
-            else {
-                WorldClickIntent::Noop
+            use super::super::battle_input::{FollowClickKind, resolve_follow_click};
+            let intent = match resolve_follow_click(
+                probe.has_mobile_selected && !selected.is_empty(),
+                probe.any_mobile.is_some(),
+                probe.any_mobile.is_some_and(|t| selected.contains(&t)),
+            ) {
+                FollowClickKind::Cancel => WorldClickIntent::FollowCancel,
+                FollowClickKind::Noop => WorldClickIntent::Noop,
+                FollowClickKind::Follow => match probe.any_mobile {
+                    Some(target) => WorldClickIntent::Follow { target },
+                    None => WorldClickIntent::Noop,
+                },
             };
             return finish(intent);
         }
 
         // —— 常规：先敌后友，再落点下令 ——
-        if probe.has_mobile_selected && !matches!(order_mod, OrderClickModifier::ForceMove) {
+        if super::super::battle_input::should_try_hostile_order(order_mod, probe.has_mobile_selected) {
             if let Some(target) = probe.hostile {
+                use super::super::battle_input::{HostileClickKind, resolve_hostile_click};
                 let is_structure = game.world.ecs_identity(target).is_some_and(|(_, kind)| kind == MapEntityKind::Structure);
                 let force_attack = matches!(order_mod, OrderClickModifier::ForceAttack);
-                let intent = if !force_attack && is_structure && game.selection_has_engineer(selected) && game.is_capturable_structure(target)
-                {
-                    WorldClickIntent::Capture { target }
-                }
-                else if !force_attack && is_structure && game.selection_has_agent(selected) {
-                    WorldClickIntent::Infiltrate { target }
-                }
-                else {
-                    WorldClickIntent::Attack { target }
+                let intent = match resolve_hostile_click(
+                    force_attack,
+                    is_structure,
+                    game.selection_has_engineer(selected),
+                    game.is_capturable_structure(target),
+                    game.selection_has_agent(selected),
+                ) {
+                    HostileClickKind::Capture => WorldClickIntent::Capture { target },
+                    HostileClickKind::Infiltrate => WorldClickIntent::Infiltrate { target },
+                    HostileClickKind::Attack => WorldClickIntent::Attack { target },
                 };
                 return finish(intent);
             }
         }
 
-        let skip_friendly_pick = matches!(order_mod, OrderClickModifier::ForceMove) && probe.has_mobile_selected;
-        if !skip_friendly_pick {
+        if !super::super::battle_input::should_skip_friendly_pick(order_mod, probe.has_mobile_selected) {
             if let Some(id) = self.pick_local_for_order(game, &probe) {
                 let unit_cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
                 let on_structure_footprint = game.world.ecs_identity(id).is_some_and(|(_, kind)| kind == MapEntityKind::Structure)
@@ -353,11 +356,10 @@ impl BattleController {
             return finish(intent);
         }
 
-        let intent = if !add && !selected.is_empty() {
-            WorldClickIntent::Deselect
-        }
-        else {
-            WorldClickIntent::Noop
+        use super::super::battle_input::{MissClickKind, resolve_miss_click};
+        let intent = match resolve_miss_click(add, !selected.is_empty()) {
+            MissClickKind::Deselect => WorldClickIntent::Deselect,
+            MissClickKind::Noop => WorldClickIntent::Noop,
         };
         finish(intent)
     }
