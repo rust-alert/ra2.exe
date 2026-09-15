@@ -111,8 +111,9 @@ pub(crate) fn apply_iron_curtain_at(world: &mut BattleState, house: &str, x: u16
 }
 
 /// 空降：在目标格邻域为行动方刷出冻结载荷单位。
-pub(crate) fn apply_paradrop_at(world: &mut BattleState, house: &str, x: u16, y: u16) {
-    let payload = world.definitions.paradrop.payload.clone();
+/// `force_americans`：`AmerParaDrop` 强制走美军表。
+pub(crate) fn apply_paradrop_at(world: &mut BattleState, house: &str, x: u16, y: u16, force_americans: bool) {
+    let payload = select_paradrop_payload(world, house, force_americans);
     if payload.is_empty() {
         return;
     }
@@ -155,9 +156,48 @@ pub(crate) fn apply_paradrop_at(world: &mut BattleState, house: &str, x: u16, y:
     }
 }
 
+fn select_paradrop_payload(world: &BattleState, house: &str, force_americans: bool) -> Vec<ra_types::TypeId> {
+    let rules = &world.definitions.paradrop;
+    if force_americans {
+        if !rules.americans.is_empty() {
+            return rules.americans.clone();
+        }
+        return rules.payload.clone();
+    }
+    let key = house.trim().to_ascii_uppercase();
+    if key == "AMERICANS" && !rules.americans.is_empty() {
+        return rules.americans.clone();
+    }
+    if let Some(h) = world.definitions.houses.get(&key) {
+        match h.stolen_tech {
+            Some(ra_types::StolenTechKind::Allied) if !rules.allies.is_empty() => return rules.allies.clone(),
+            Some(ra_types::StolenTechKind::Soviet) if !rules.soviets.is_empty() => return rules.soviets.clone(),
+            _ => {}
+        }
+        let side = h.side.as_str().to_ascii_uppercase();
+        if side == "GDI" && !rules.allies.is_empty() {
+            return rules.allies.clone();
+        }
+        if side == "NOD" && !rules.soviets.is_empty() {
+            return rules.soviets.clone();
+        }
+    }
+    rules.payload.clone()
+}
+
 /// 揭示：为行动方标记圆盘格并推送雷达事件。
 pub(crate) fn apply_reveal_at(world: &mut BattleState, house: &str, x: u16, y: u16) {
     let radius = world.definitions.reveal.radius_cells;
+    apply_reveal_disk_at(world, house, x, y, radius);
+}
+
+/// 间谍飞机竖切：较大航空揭示半径 + 雷达事件（暂无飞越实体）。
+pub(crate) fn apply_spy_plane_at(world: &mut BattleState, house: &str, x: u16, y: u16) {
+    let radius = world.definitions.reveal.aircraft_radius_cells;
+    apply_reveal_disk_at(world, house, x, y, radius);
+}
+
+fn apply_reveal_disk_at(world: &mut BattleState, house: &str, x: u16, y: u16, radius: u32) {
     let (mw, mh) = (world.map.width, world.map.height);
     world.house_reveal.reveal_disk(house, x, y, radius, mw, mh);
     world.push_radar_event(house, x, y);

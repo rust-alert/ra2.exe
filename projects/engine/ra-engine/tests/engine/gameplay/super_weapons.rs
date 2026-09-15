@@ -485,3 +485,115 @@ fn order_fire_reveal_marks_cells_and_radar() {
     assert!(session.expect_battle().world.house_reveal.is_revealed("AMERICANS", 8, 8));
     assert_eq!(session.expect_battle().world.last_radar_event_cell("AMERICANS"), Some((8, 8)));
 }
+
+#[test]
+fn order_fire_spy_plane_reveals_with_aircraft_radius() {
+    let defs = defs_from_rules_ini(
+        b"[BuildingTypes]\n0=GACNST\n1=GASPPL\n\
+[SuperWeaponTypes]\n0=SpyPlane\n\
+[SpyPlane]\nType=SpyPlane\nRechargeTime=1\nSidebarImage=SPYPICON\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
+[GASPPL]\nPower=-20\nPowered=yes\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nTechLevel=1\nSuperWeapon=SpyPlane\n\
+[General]\nAircraftFogReveal=2\nRevealTriggerRadius=9\n",
+    );
+    let mut map = MapInfo::empty(GameEdition::Ra2, "sw-spy");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GACNST".into(),
+            health: 256,
+            x: 1,
+            y: 1,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GASPPL".into(),
+            health: 256,
+            x: 2,
+            y: 1,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+    ];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+    world.players[0].power_output = 200;
+    assert_eq!(world.definitions.reveal.aircraft_radius_cells, 2);
+    let mut session = Session::from_state(world, "sw-spy");
+    for _ in 0..SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT {
+        session.expect_battle_mut().world.advance_tick();
+    }
+    session.expect_battle_mut().order_fire_super_weapon("SpyPlane", 8, 8);
+    session.expect_battle_mut().world.advance_tick();
+    assert!(session.expect_battle().world.last_rejects().is_empty(), "{:?}", session.expect_battle().world.last_rejects());
+    // 半径 2 → 5x5 = 25 格。
+    assert_eq!(session.expect_battle().world.house_reveal.revealed_count("AMERICANS"), 25);
+    assert_eq!(session.expect_battle().world.last_radar_event_cell("AMERICANS"), Some((8, 8)));
+}
+
+#[test]
+fn order_fire_amer_paradrop_uses_americans_payload_count() {
+    let defs = defs_from_rules_ini(
+        b"[BuildingTypes]\n0=GACNST\n1=GAWETH\n\
+[InfantryTypes]\n0=E1\n\
+[SuperWeaponTypes]\n0=AmerParaDrop\n\
+[AmerParaDrop]\nType=AmerParaDrop\nRechargeTime=1\nSidebarImage=PARAICON\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
+[GAWETH]\nPower=-50\nPowered=yes\nOwner=Americans\nStrength=800\nSight=5\nCost=1000\nTechLevel=1\nSuperWeapon=AmerParaDrop\n\
+[E1]\nStrength=125\nSight=5\nCost=100\nArmor=none\n\
+[General]\nAmerParaDropInf=E1\nAmerParaDropNum=4\n",
+    );
+    let mut map = MapInfo::empty(GameEdition::Ra2, "sw-amerpara");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GACNST".into(),
+            health: 256,
+            x: 1,
+            y: 1,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GAWETH".into(),
+            health: 256,
+            x: 2,
+            y: 1,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+    ];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+    world.players[0].power_output = 200;
+    assert_eq!(world.definitions.paradrop.americans.len(), 4);
+    let before = (0..64).filter_map(|i| world.entity_id_at(i)).count();
+    let mut session = Session::from_state(world, "sw-amerpara");
+    for _ in 0..SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT {
+        session.expect_battle_mut().world.advance_tick();
+    }
+    session.expect_battle_mut().order_fire_super_weapon("AmerParaDrop", 8, 8);
+    session.expect_battle_mut().world.advance_tick();
+    assert!(session.expect_battle().world.last_rejects().is_empty(), "{:?}", session.expect_battle().world.last_rejects());
+    let after = (0..64).filter_map(|i| session.expect_battle().world.entity_id_at(i)).count();
+    assert_eq!(after, before + 4, "amer paradrop should spawn AmerParaDropNum infantry");
+}

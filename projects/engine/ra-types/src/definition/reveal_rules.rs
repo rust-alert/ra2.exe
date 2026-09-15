@@ -5,11 +5,16 @@
 pub struct RevealRules {
     /// 揭示半径（切比雪夫格数，含中心；对应 `RevealTriggerRadius`）。
     pub radius_cells: u32,
+    /// 航空揭示半径（对应 `AircraftFogReveal`；间谍飞机竖切复用）。
+    pub aircraft_radius_cells: u32,
 }
 
 impl Default for RevealRules {
     fn default() -> Self {
-        // 零售 `[General] RevealTriggerRadius` 缺省为 9。
-        Self { radius_cells: 9 }
+        // 零售缺省：RevealTriggerRadius=9，AircraftFogReveal=6。
+        Self {
+            radius_cells: 9,
+            aircraft_radius_cells: 6,
+        }
     }
 }

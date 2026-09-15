@@ -386,11 +386,17 @@ pub fn try_fire_super_weapon(
         "FORCESHIELD" => {
             super::effects::apply_iron_curtain_at(world, house, x, y, true);
         }
-        "PARADROP" | "AMERPARADROP" => {
-            super::effects::apply_paradrop_at(world, house, x, y);
+        "PARADROP" => {
+            super::effects::apply_paradrop_at(world, house, x, y, false);
+        }
+        "AMERPARADROP" => {
+            super::effects::apply_paradrop_at(world, house, x, y, true);
         }
         "REVEAL" | "PSYCHICREVEAL" => {
             super::effects::apply_reveal_at(world, house, x, y);
+        }
+        "SPYPLANE" => {
+            super::effects::apply_spy_plane_at(world, house, x, y);
         }
         "CHRONOSPHERE" => {
             let house_key = house.trim().to_ascii_uppercase();

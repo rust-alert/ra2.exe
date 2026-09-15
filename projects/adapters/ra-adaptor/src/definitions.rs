@@ -90,6 +90,10 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     };
     defs.reveal = RevealRules {
         radius_cells: g.reveal_trigger_radius.map(|v| v.max(0) as u32).unwrap_or(RevealRules::default().radius_cells),
+        aircraft_radius_cells: g
+            .aircraft_fog_reveal
+            .map(|v| v.max(0) as u32)
+            .unwrap_or(RevealRules::default().aircraft_radius_cells),
     };
     defs.chrono_sphere = ChronoSphereRules::default();
     for country in rules.countries.countries() {
@@ -444,20 +448,27 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         }
     }
     defs.base_units = bind_techno_name_list(&defs, &base_unit_names, "General:BaseUnit")?;
-    // 空降载荷：零售兼容缺省步兵名软绑定（缺类型则跳过，不阻断装载）。
+    // 空降载荷：规则阵营键优先；缺键时回落零售兼容缺省步兵名软绑定。
+    let default_paradrop = soft_bind_techno_name_list(
+        &defs,
+        &[
+            TechnoName::parse("E1"),
+            TechnoName::parse("E1"),
+            TechnoName::parse("E1"),
+            TechnoName::parse("E1"),
+            TechnoName::parse("E1"),
+            TechnoName::parse("E2"),
+            TechnoName::parse("GGI"),
+        ],
+    );
+    let americans = soft_bind_paradrop_inf_num(&defs, &g.amer_paradrop_inf, &g.amer_paradrop_num);
+    let allies = soft_bind_paradrop_inf_num(&defs, &g.ally_paradrop_inf, &g.ally_paradrop_num);
+    let soviets = soft_bind_paradrop_inf_num(&defs, &g.sov_paradrop_inf, &g.sov_paradrop_num);
     defs.paradrop = ParaDropRules {
-        payload: soft_bind_techno_name_list(
-            &defs,
-            &[
-                TechnoName::parse("E1"),
-                TechnoName::parse("E1"),
-                TechnoName::parse("E1"),
-                TechnoName::parse("E1"),
-                TechnoName::parse("E1"),
-                TechnoName::parse("E2"),
-                TechnoName::parse("GGI"),
-            ],
-        ),
+        payload: default_paradrop,
+        americans,
+        allies,
+        soviets,
     };
     // `[AI] Build*` 须在 techno 入库后绑定；未知名软跳过。
     defs.ai_controls = ra_types::AiControls {
@@ -805,6 +816,24 @@ fn bind_techno_name_list(defs: &RuntimeDefinitions, names: &[TechnoName], owner:
         out.push(t.id);
     }
     Ok(out)
+}
+
+/// `*ParaDropInf` + `*ParaDropNum`：按数量展开；Num 缺项视为 1；未知名软跳过。
+fn soft_bind_paradrop_inf_num(defs: &RuntimeDefinitions, inf: &[TechnoName], nums: &[i32]) -> Vec<TypeId> {
+    let mut out = Vec::new();
+    for (i, name) in inf.iter().enumerate() {
+        if name.is_empty() {
+            continue;
+        }
+        let Some(t) = defs.techno.get_name(name) else {
+            continue;
+        };
+        let count = nums.get(i).copied().unwrap_or(1).max(0) as usize;
+        for _ in 0..count {
+            out.push(t.id);
+        }
+    }
+    out
 }
 
 /// `[AI] Build*` 姓名单：未知名软跳过（不拖垮整表装载）。

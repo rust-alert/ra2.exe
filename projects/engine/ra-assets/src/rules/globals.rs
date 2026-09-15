@@ -46,6 +46,20 @@ pub struct RulesGlobals {
     pub iron_curtain_duration: Option<i32>,
     /// `[General] RevealTriggerRadius`（揭示圆盘切比雪夫半径）。
     pub reveal_trigger_radius: Option<i32>,
+    /// `[General] AircraftFogReveal`（间谍飞机等航空揭示半径）。
+    pub aircraft_fog_reveal: Option<i32>,
+    /// `[General] AmerParaDropInf`。
+    pub amer_paradrop_inf: Vec<TechnoName>,
+    /// `[General] AmerParaDropNum`（与 Inf 列表一一对应的数量）。
+    pub amer_paradrop_num: Vec<i32>,
+    /// `[General] AllyParaDropInf`。
+    pub ally_paradrop_inf: Vec<TechnoName>,
+    /// `[General] AllyParaDropNum`。
+    pub ally_paradrop_num: Vec<i32>,
+    /// `[General] SovParaDropInf`。
+    pub sov_paradrop_inf: Vec<TechnoName>,
+    /// `[General] SovParaDropNum`。
+    pub sov_paradrop_num: Vec<i32>,
     /// `[CrateRules] CrateMoney`。
     pub crate_money: Option<i32>,
     /// `[CrateRules] CrateMinimum`。
@@ -169,6 +183,13 @@ impl RulesGlobals {
             lightning_deferment: general.lightning_deferment,
             iron_curtain_duration: general.iron_curtain_duration,
             reveal_trigger_radius: general.reveal_trigger_radius,
+            aircraft_fog_reveal: general.aircraft_fog_reveal,
+            amer_paradrop_inf: filter_techno_names(general.amer_paradrop_inf),
+            amer_paradrop_num: general.amer_paradrop_num,
+            ally_paradrop_inf: filter_techno_names(general.ally_paradrop_inf),
+            ally_paradrop_num: general.ally_paradrop_num,
+            sov_paradrop_inf: filter_techno_names(general.sov_paradrop_inf),
+            sov_paradrop_num: general.sov_paradrop_num,
             crate_money: crates.crate_money,
             crate_minimum: crates.crate_minimum,
             crate_maximum: crates.crate_maximum,
@@ -252,6 +273,20 @@ struct GeneralSectionFields {
     iron_curtain_duration: Option<i32>,
     #[serde(rename = "RevealTriggerRadius", default, deserialize_with = "deserialize_opt_i32")]
     reveal_trigger_radius: Option<i32>,
+    #[serde(rename = "AircraftFogReveal", default, deserialize_with = "deserialize_opt_i32")]
+    aircraft_fog_reveal: Option<i32>,
+    #[serde(rename = "AmerParaDropInf", default)]
+    amer_paradrop_inf: Vec<TechnoName>,
+    #[serde(rename = "AmerParaDropNum", default)]
+    amer_paradrop_num: Vec<i32>,
+    #[serde(rename = "AllyParaDropInf", default)]
+    ally_paradrop_inf: Vec<TechnoName>,
+    #[serde(rename = "AllyParaDropNum", default)]
+    ally_paradrop_num: Vec<i32>,
+    #[serde(rename = "SovParaDropInf", default)]
+    sov_paradrop_inf: Vec<TechnoName>,
+    #[serde(rename = "SovParaDropNum", default)]
+    sov_paradrop_num: Vec<i32>,
     #[serde(rename = "AINavalYardAdjacency", default, deserialize_with = "deserialize_opt_i32")]
     ai_naval_yard_adjacency: Option<i32>,
 }
