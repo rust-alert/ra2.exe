@@ -130,9 +130,7 @@ impl BattleController {
     /// 进入建筑放置模式，并清掉互斥的侧栏 / 命令条工具态。
     pub(super) fn enter_place_mode(&mut self, type_id: &str) {
         self.planning_waypoints.clear();
-        self.interaction_mode = BattleInteractionMode::PlaceBuilding {
-            type_id: type_id.to_string(),
-        };
+        self.interaction_mode = BattleInteractionMode::PlaceBuilding { type_id: type_id.to_string() };
     }
 
     /// 放置态与建造场完工件对齐。
@@ -315,11 +313,7 @@ impl BattleController {
                 BattleNav::None
             }
             BattleHudHit::Repair => {
-                let next = if self.interaction_mode.is_repair() {
-                    BattleInteractionMode::Normal
-                } else {
-                    BattleInteractionMode::Repair
-                };
+                let next = if self.interaction_mode.is_repair() { BattleInteractionMode::Normal } else { BattleInteractionMode::Repair };
                 if self.interaction_mode.is_planning() {
                     self.planning_waypoints.clear();
                 }
@@ -328,11 +322,7 @@ impl BattleController {
                 BattleNav::None
             }
             BattleHudHit::Sell => {
-                let next = if self.interaction_mode.is_sell() {
-                    BattleInteractionMode::Normal
-                } else {
-                    BattleInteractionMode::Sell
-                };
+                let next = if self.interaction_mode.is_sell() { BattleInteractionMode::Normal } else { BattleInteractionMode::Sell };
                 if self.interaction_mode.is_planning() {
                     self.planning_waypoints.clear();
                 }

@@ -61,23 +61,13 @@ impl BattleController {
     /// 战术区一次解析：光标与点击命令共用同一探针与指针建议。
     ///
     /// 西木口径：悬停**已选**可部署单位显示 Deploy；`D` / 命令条立即下发，无单独部署工具态。
-    pub(super) fn resolve_battle_hover(
-        &self,
-        renderer: &Renderer,
-        window: &Window,
-    ) -> super::super::battle_input::ResolvedBattleHover {
+    pub(super) fn resolve_battle_hover(&self, renderer: &Renderer, window: &Window) -> super::super::battle_input::ResolvedBattleHover {
         use super::super::battle_input::{BattlePointer, ResolvedBattleHover};
         let Some(probe) = self.probe_battle_world(renderer, window)
         else {
-            return ResolvedBattleHover {
-                recommended_pointer: BattlePointer::Default,
-                cell: None,
-            };
+            return ResolvedBattleHover { recommended_pointer: BattlePointer::Default, cell: None };
         };
-        ResolvedBattleHover {
-            recommended_pointer: self.pointer_from_world_probe(&probe),
-            cell: probe.cell,
-        }
+        ResolvedBattleHover { recommended_pointer: self.pointer_from_world_probe(&probe), cell: probe.cell }
     }
 
     /// 图像空间下的战场探针（一次 soft-pick，供光标与左键共用）。
@@ -104,9 +94,8 @@ impl BattleController {
                         .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
                 })
                 .all(|&id| game.world.entity_is_naval(id));
-        let traversable = cell.is_some_and(|(cx, cy)| {
-            game.world.pass_grid.in_bounds(cx, cy) && game.world.pass_grid.is_traversable(cx, cy, selected_naval_only)
-        });
+        let traversable = cell
+            .is_some_and(|(cx, cy)| game.world.pass_grid.in_bounds(cx, cy) && game.world.pass_grid.is_traversable(cx, cy, selected_naval_only));
         Some(BattleWorldProbe {
             world_x: wx,
             world_y: wy,
@@ -139,11 +128,7 @@ impl BattleController {
             return BattlePointer::Default;
         }
         if self.interaction_mode.is_follow() {
-            return if probe.any_mobile.is_some() {
-                BattlePointer::Select
-            } else {
-                BattlePointer::Default
-            };
+            return if probe.any_mobile.is_some() { BattlePointer::Select } else { BattlePointer::Default };
         }
 
         let Some(_cell) = probe.cell
@@ -173,22 +158,14 @@ impl BattleController {
             if probe.hostile.is_some() {
                 return BattlePointer::Attack;
             }
-            return if probe.traversable {
-                BattlePointer::Attack
-            } else {
-                BattlePointer::NoMove
-            };
+            return if probe.traversable { BattlePointer::Attack } else { BattlePointer::NoMove };
         }
 
         if probe.has_mobile_selected && probe.hostile.is_some() {
             return BattlePointer::Attack;
         }
 
-        if probe.traversable {
-            BattlePointer::Move
-        } else {
-            BattlePointer::NoMove
-        }
+        if probe.traversable { BattlePointer::Move } else { BattlePointer::NoMove }
     }
 
     /// 可玩对局且未暂停 / 未结算时，壳层应捕获光标以支持边缘滚屏。
@@ -342,27 +319,24 @@ impl BattleController {
         if !skip_friendly_pick {
             // 有机动选中：只认落点格（禁止 72px 车身软命中），否则点邻矿会被吞成重选、左键采矿无反应。
             let local_picked = if super::super::battle_input::allow_friendly_image_soft_pick(has_mobile) {
-                game.pick_local_mobile_near_image(wx, wy, 72.0)
-                    .or_else(|| Self::pick_local_building_at_image(game, wx, wy))
-                    .or_else(|| {
-                        if !super::super::battle_input::allow_cell_neighbor_friendly_pick(has_mobile) {
-                            return None;
-                        }
-                        let cell = game.image_to_cell(wx, wy)?;
-                        if let Some(house) = local_house.as_deref() {
-                            game.pick_mobile_at_owned(cell.0, cell.1, Some(house))
-                        }
-                        else {
-                            game.pick_mobile_at(cell.0, cell.1)
-                        }
-                    })
+                game.pick_local_mobile_near_image(wx, wy, 72.0).or_else(|| Self::pick_local_building_at_image(game, wx, wy)).or_else(|| {
+                    if !super::super::battle_input::allow_cell_neighbor_friendly_pick(has_mobile) {
+                        return None;
+                    }
+                    let cell = game.image_to_cell(wx, wy)?;
+                    if let Some(house) = local_house.as_deref() {
+                        game.pick_mobile_at_owned(cell.0, cell.1, Some(house))
+                    }
+                    else {
+                        game.pick_mobile_at(cell.0, cell.1)
+                    }
+                })
             }
             else {
                 game.image_to_cell(wx, wy).and_then(|(cx, cy)| {
                     let house = local_house.as_deref()?;
-                    game.pick_mobile_at_owned(cx, cy, Some(house)).or_else(|| {
-                        game.pick_structure_at(cx, cy).filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house))
-                    })
+                    game.pick_mobile_at_owned(cx, cy, Some(house))
+                        .or_else(|| game.pick_structure_at(cx, cy).filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house)))
                 })
             };
             if let Some(id) = local_picked {
@@ -417,7 +391,10 @@ impl BattleController {
         // 已选单位 / 建筑：左键空地 → 移动、攻击移动、强制攻击近似或设集结点。
         if let Some(cell) = game.image_to_cell(wx, wy) {
             if has_mobile {
-                if queue_path && matches!(order_mod, super::super::battle_input::OrderClickModifier::None) && !self.interaction_mode.is_attack_move() {
+                if queue_path
+                    && matches!(order_mod, super::super::battle_input::OrderClickModifier::None)
+                    && !self.interaction_mode.is_attack_move()
+                {
                     // Shift+左键空地：追加路径点并下发整条路径。
                     if self.planning_waypoints.last().copied() != Some(cell) {
                         self.planning_waypoints.push(cell);
@@ -435,7 +412,9 @@ impl BattleController {
                     return;
                 }
                 if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                    if matches!(order_mod, super::super::battle_input::OrderClickModifier::ForceAttack) || self.interaction_mode.is_attack_move() {
+                    if matches!(order_mod, super::super::battle_input::OrderClickModifier::ForceAttack)
+                        || self.interaction_mode.is_attack_move()
+                    {
                         tracing::info!("命令攻击移动 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
                         game.order_attack_move(&selected, cell.0, cell.1);
                     }
@@ -962,11 +941,7 @@ impl BattleController {
                 BattleNav::None
             }
             HotkeyAction::ToggleRepair => {
-                let next = if self.interaction_mode.is_repair() {
-                    BattleInteractionMode::Normal
-                } else {
-                    BattleInteractionMode::Repair
-                };
+                let next = if self.interaction_mode.is_repair() { BattleInteractionMode::Normal } else { BattleInteractionMode::Repair };
                 if self.interaction_mode.is_planning() {
                     self.planning_waypoints.clear();
                 }
@@ -975,11 +950,7 @@ impl BattleController {
                 BattleNav::None
             }
             HotkeyAction::ToggleSell => {
-                let next = if self.interaction_mode.is_sell() {
-                    BattleInteractionMode::Normal
-                } else {
-                    BattleInteractionMode::Sell
-                };
+                let next = if self.interaction_mode.is_sell() { BattleInteractionMode::Normal } else { BattleInteractionMode::Sell };
                 if self.interaction_mode.is_planning() {
                     self.planning_waypoints.clear();
                 }

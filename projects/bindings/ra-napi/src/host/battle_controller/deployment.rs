@@ -76,10 +76,7 @@ impl BattleController {
         if self.interaction_mode.is_planning() {
             self.planning_waypoints.clear();
         }
-        if self.interaction_mode.is_follow()
-            || self.interaction_mode.is_attack_move()
-            || self.interaction_mode.is_planning()
-        {
+        if self.interaction_mode.is_follow() || self.interaction_mode.is_attack_move() || self.interaction_mode.is_planning() {
             self.interaction_mode = BattleInteractionMode::Normal;
         }
         if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
@@ -151,11 +148,8 @@ impl BattleController {
         if self.interaction_mode.is_planning() {
             self.planning_waypoints.clear();
         }
-        self.interaction_mode = if self.interaction_mode.is_attack_move() {
-            BattleInteractionMode::Normal
-        } else {
-            BattleInteractionMode::AttackMove
-        };
+        self.interaction_mode =
+            if self.interaction_mode.is_attack_move() { BattleInteractionMode::Normal } else { BattleInteractionMode::AttackMove };
         tracing::info!(active = self.interaction_mode.is_attack_move(), "命令条 · 攻击移动");
     }
 
@@ -182,11 +176,7 @@ impl BattleController {
         if self.interaction_mode.is_planning() {
             self.planning_waypoints.clear();
         }
-        self.interaction_mode = if self.interaction_mode.is_follow() {
-            BattleInteractionMode::Normal
-        } else {
-            BattleInteractionMode::Follow
-        };
+        self.interaction_mode = if self.interaction_mode.is_follow() { BattleInteractionMode::Normal } else { BattleInteractionMode::Follow };
         tracing::info!(active = self.interaction_mode.is_follow(), "命令条 · 跟随模式");
     }
 
@@ -734,10 +724,7 @@ impl BattleController {
         self.structure_anims.extend_from(bank);
         self.last_anim_sig = u64::MAX;
         // `rules.ini` `[AudioVisual] BuildingSlam=PlaceBuilding`：建造落位 / MCV 展开定格。
-        self.pending_battle_sfx.push(super::PendingBattleSfx {
-            event: "PlaceBuilding".into(),
-            cell: Some((x, y)),
-        });
+        self.pending_battle_sfx.push(super::PendingBattleSfx { event: "PlaceBuilding".into(), cell: Some((x, y)) });
         self.rebuild_preview_base_with_mobiles(assets);
     }
 
@@ -760,12 +747,7 @@ impl BattleController {
             else {
                 continue;
             };
-            let cell_z = self
-                .session
-                .as_ref()
-                .and_then(|s| s.battle())
-                .map(|g| g.world.pass_grid.cell_height(cx, cy))
-                .unwrap_or(0);
+            let cell_z = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.pass_grid.cell_height(cx, cy)).unwrap_or(0);
             let job = TeardownVisualJob {
                 entity: EntityId(0),
                 type_id: ent.type_id.to_string(),
@@ -793,16 +775,7 @@ impl BattleController {
         let remap = |base: &ra_assets::Palette, own: &str| remap_owner_palette(rules, Some(&lobby), base, own);
         let mut painted = 0usize;
         if let Some(clean) = self.preview_clean.as_mut() {
-            painted = paint_structures_onto_rgba_filtered(
-                assets,
-                &map,
-                clean,
-                origin.0,
-                origin.1,
-                &mut self.paint,
-                &remap,
-                Some(&refresh),
-            );
+            painted = paint_structures_onto_rgba_filtered(assets, &map, clean, origin.0, origin.1, &mut self.paint, &remap, Some(&refresh));
             if painted == 0 {
                 if let Some(clip) = clip {
                     if let Some(last) = clip.frames.len().checked_sub(1) {
@@ -822,16 +795,7 @@ impl BattleController {
             return;
         }
         if let Some(underlay) = self.preview_ore_underlay.as_mut() {
-            let _ = paint_structures_onto_rgba_filtered(
-                assets,
-                &map,
-                underlay,
-                origin.0,
-                origin.1,
-                &mut self.paint,
-                &remap,
-                Some(&refresh),
-            );
+            let _ = paint_structures_onto_rgba_filtered(assets, &map, underlay, origin.0, origin.1, &mut self.paint, &remap, Some(&refresh));
         }
         for &(cx, cy) in &refresh {
             self.structure_anims.layers.retain(|layer| !(layer.x == cx && layer.y == cy));
@@ -841,10 +805,7 @@ impl BattleController {
         let bank = collect_structure_anim_bank(assets, &anim_map, &mut self.paint, &remap);
         self.structure_anims.extend_from(bank);
         self.last_anim_sig = u64::MAX;
-        self.pending_battle_sfx.push(super::PendingBattleSfx {
-            event: "PlaceBuilding".into(),
-            cell: Some((x, y)),
-        });
+        self.pending_battle_sfx.push(super::PendingBattleSfx { event: "PlaceBuilding".into(), cell: Some((x, y)) });
         self.rebuild_preview_base_with_mobiles(assets);
     }
 

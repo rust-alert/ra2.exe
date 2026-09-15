@@ -74,7 +74,8 @@ impl Shell {
             if let Some(ctrl) = self.battle_controller.as_mut() {
                 ctrl.update_presentation(&self.renderer, &window);
                 ctrl.presentation().pointer
-            } else {
+            }
+            else {
                 BattlePointer::Default
             }
         }

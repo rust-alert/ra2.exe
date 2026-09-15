@@ -74,8 +74,5 @@ fn ai_places_refinery_closer_to_ore_than_opposite_side() {
     let cx = rx + 1;
     assert!(cx >= 10, "refinery should lean toward eastern ore, got anchor=({rx},{ry}) center_x={cx}");
     // 贴矿不得压到矿格本身。
-    assert!(
-        !(rx <= 20 && 20 < rx + 3 && ry <= 9 && 9 < ry + 3),
-        "refinery footprint must not cover ore at (20,9), got anchor=({rx},{ry})"
-    );
+    assert!(!(rx <= 20 && 20 < rx + 3 && ry <= 9 && 9 < ry + 3), "refinery footprint must not cover ore at (20,9), got anchor=({rx},{ry})");
 }

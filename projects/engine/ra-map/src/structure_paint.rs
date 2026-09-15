@@ -278,11 +278,7 @@ fn structure_is_wall(rules: Option<&IniDocument>, type_id: &str) -> bool {
         #[serde(rename = "Wall", default, deserialize_with = "deserialize_opt_bool")]
         wall: Option<bool>,
     }
-    rules
-        .and_then(|r| r.section(type_id))
-        .and_then(|s| s.deserialize::<WallFields>().ok())
-        .and_then(|f| f.wall)
-        .unwrap_or(false)
+    rules.and_then(|r| r.section(type_id)).and_then(|s| s.deserialize::<WallFields>().ok()).and_then(|f| f.wall).unwrap_or(false)
 }
 
 fn structure_foundation(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str, art_section: &str) -> ra_types::Foundation {
@@ -676,7 +672,11 @@ pub fn paint_map_structures_filtered(
 }
 
 /// 锚点及其正交邻墙上的刷新格集合（邻格须已在 `wall_cells` 中）。
-pub fn wall_link_refresh_cells(anchor_x: u16, anchor_y: u16, wall_cells: &std::collections::HashSet<(u16, u16)>) -> std::collections::HashSet<(u16, u16)> {
+pub fn wall_link_refresh_cells(
+    anchor_x: u16,
+    anchor_y: u16,
+    wall_cells: &std::collections::HashSet<(u16, u16)>,
+) -> std::collections::HashSet<(u16, u16)> {
     let mut out = std::collections::HashSet::new();
     out.insert((anchor_x, anchor_y));
     if anchor_y > 0 && wall_cells.contains(&(anchor_x, anchor_y - 1)) {
@@ -1017,8 +1017,9 @@ pub fn load_structure_erase_masks(
             out.push(blit);
         }
     }
-    let body_frames =
-        load_shp(source, map, hint.body_key.as_str(), hint.body_new_theater, &mut shp_cache).map(|shp| shp_body_frame_count(&shp.frames)).unwrap_or(1);
+    let body_frames = load_shp(source, map, hint.body_key.as_str(), hint.body_new_theater, &mut shp_cache)
+        .map(|shp| shp_body_frame_count(&shp.frames))
+        .unwrap_or(1);
     let erase_frame = if hint.wall && body_frames > 0 {
         // 满衔接帧覆盖最大十字/拐角延伸，便于邻墙增删后清残影。
         (body_frames.min(16) as u16).saturating_sub(1)
@@ -1237,8 +1238,7 @@ pub fn paint_structures_onto_rgba_filtered(
     only_cells: Option<&std::collections::HashSet<(u16, u16)>>,
 ) -> usize {
     let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
-    let (n, _) =
-        paint_map_structures_filtered(source, map, &mut terrain, paint, remap_owner, StructureAnimMode::BodyOnly, only_cells);
+    let (n, _) = paint_map_structures_filtered(source, map, &mut terrain, paint, remap_owner, StructureAnimMode::BodyOnly, only_cells);
     *image = terrain.image;
     n
 }
@@ -1269,21 +1269,15 @@ fn paint_map_structures_inner(
         if !paint_body {
             return (0, 0);
         }
-        let missing: Vec<(u16, u16)> = structures
-            .iter()
-            .filter(|e| only_cells.is_none_or(|cells| cells.contains(&(e.x, e.y))))
-            .map(|e| (e.x, e.y))
-            .collect();
+        let missing: Vec<(u16, u16)> =
+            structures.iter().filter(|e| only_cells.is_none_or(|cells| cells.contains(&(e.x, e.y)))).map(|e| (e.x, e.y)).collect();
         let mark = crate::paint_structure_missing_markers(image, &missing, z_at);
         return (0, mark);
     };
 
     // 围墙邻接：任意 `Wall=yes` 存活结构均可衔接（闸门等与同型墙共用 bitmask）。
-    let wall_cells: std::collections::HashSet<(u16, u16)> = structures
-        .iter()
-        .filter(|ent| paint.structure_hint(&ent.type_id).is_some_and(|h| h.wall))
-        .map(|ent| (ent.x, ent.y))
-        .collect();
+    let wall_cells: std::collections::HashSet<(u16, u16)> =
+        structures.iter().filter(|ent| paint.structure_hint(&ent.type_id).is_some_and(|h| h.wall)).map(|ent| (ent.x, ent.y)).collect();
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
     let mut blit_cache: HashMap<(String, String, u16, i32), TileBlit> = HashMap::new();

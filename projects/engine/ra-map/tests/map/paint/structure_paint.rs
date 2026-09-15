@@ -1,4 +1,4 @@
-﻿//! 自顶层 `structure_paint.rs`。
+//! 自顶层 `structure_paint.rs`。
 
 use std::collections::HashMap;
 
@@ -987,8 +987,5 @@ fn runtime_wall_flag_overrides_missing_rules_wall() {
     let (n, _) = paint_map_structures(&source, &map, &mut image, &mut paint, &|p, _| p.clone(), StructureAnimMode::BodyOnly);
     assert_eq!(n, 2);
     let pixels: Vec<[u8; 4]> = image.image.as_raw().chunks_exact(4).filter(|c| c[3] > 0).map(|c| [c[0], c[1], c[2], c[3]]).collect();
-    assert!(
-        pixels.iter().any(|p| p[0] > 200 && p[1] < 40 && p[2] < 40),
-        "runtime Wall override must select east-link frame, got {pixels:?}"
-    );
+    assert!(pixels.iter().any(|p| p[0] > 200 && p[1] < 40 && p[2] < 40), "runtime Wall override must select east-link frame, got {pixels:?}");
 }

@@ -127,9 +127,8 @@ impl crate::state::BattleState {
         }
         let owner_house = self.ecs_get::<Owner>(factory_id).map(|o| o.house)?;
         let house_key = crate::gameplay::house_key_of(&self.definitions, owner_house);
-        let player_index = self.players.iter().position(|p| {
-            p.house_id == Some(owner_house) || p.house.as_ref().eq_ignore_ascii_case(house_key)
-        })?;
+        let player_index =
+            self.players.iter().position(|p| p.house_id == Some(owner_house) || p.house.as_ref().eq_ignore_ascii_case(house_key))?;
         let snapshot = self.ecs_get::<ProductionQueue>(factory_id).and_then(|q| {
             let slot = if defense { q.defense_item.as_ref() } else { q.item.as_ref() }?;
             Some((slot.type_id, slot.remaining_ticks, slot.total_ticks, slot.paid))

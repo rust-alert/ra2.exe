@@ -152,9 +152,7 @@ fn soft_hit_selected_harvester_on_neighbor_ore_orders_not_reselects() {
 
 #[test]
 fn interaction_mode_is_mutually_exclusive() {
-    let place = BattleInteractionMode::PlaceBuilding {
-        type_id: "GACNST".into(),
-    };
+    let place = BattleInteractionMode::PlaceBuilding { type_id: "GACNST".into() };
     assert_eq!(place.place_type_id(), Some("GACNST"));
     assert!(place.is_tool());
     assert!(!place.is_repair());
@@ -168,13 +166,8 @@ fn interaction_mode_is_mutually_exclusive() {
 
 #[test]
 fn surface_metrics_cursor_scales_with_factor() {
-    let metrics = BattleSurfaceMetrics {
-        logical_width: 800,
-        logical_height: 600,
-        physical_width: 1600,
-        physical_height: 1200,
-        scale_factor: 2.0,
-    };
+    let metrics =
+        BattleSurfaceMetrics { logical_width: 800, logical_height: 600, physical_width: 1600, physical_height: 1200, scale_factor: 2.0 };
     let (x, y) = metrics.cursor_from_physical(winit::dpi::PhysicalPosition::new(200.0, 100.0));
     assert!((x - 100.0).abs() < 1e-6);
     assert!((y - 50.0).abs() < 1e-6);
@@ -184,10 +177,7 @@ fn surface_metrics_cursor_scales_with_factor() {
 
 #[test]
 fn resolved_hover_carries_pointer_and_cell() {
-    let hover = ResolvedBattleHover {
-        recommended_pointer: BattlePointer::Move,
-        cell: Some((12, 34)),
-    };
+    let hover = ResolvedBattleHover { recommended_pointer: BattlePointer::Move, cell: Some((12, 34)) };
     assert_eq!(hover.recommended_pointer, BattlePointer::Move);
     assert_eq!(hover.cell, Some((12, 34)));
     let with_edge = BattlePointer::resolve(EdgeScrollCursor::Scroll(EdgeScrollDir::East), hover.recommended_pointer);

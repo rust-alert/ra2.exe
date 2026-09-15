@@ -16,6 +16,7 @@ use ra_map::{
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{HouseName, PresentFeel, TechnoName};
 use ra_widgets::{
+    POWER_TIP_TEXT_FALLBACK,
     battle_hud::BattleCameoPaint,
     battle_pause_layer::BattlePauseLayer,
     compose::{
@@ -27,7 +28,7 @@ use ra_widgets::{
     render::present,
     selection_power_drain_caption,
     skin::text::{battle_outcome_banner_csf_key, battle_outcome_banner_fallback, command_button_csf_tooltip, resolve_csf_text},
-    structure_selection_center_preview, POWER_TIP_TEXT_FALLBACK,
+    structure_selection_center_preview,
 };
 use winit::window::Window;
 
@@ -295,16 +296,10 @@ impl BattleController {
         }
         let origin = self.preview_origin;
         let lobby = self.lobby_primaries.clone();
-        let wall_jobs: Vec<_> = jobs
-            .iter()
-            .filter(|(type_id, _, _, _)| self.paint.structure_is_wall(&TechnoName::parse(type_id)))
-            .cloned()
-            .collect();
-        let non_wall_jobs: Vec<_> = jobs
-            .iter()
-            .filter(|(type_id, _, _, _)| !self.paint.structure_is_wall(&TechnoName::parse(type_id)))
-            .cloned()
-            .collect();
+        let wall_jobs: Vec<_> =
+            jobs.iter().filter(|(type_id, _, _, _)| self.paint.structure_is_wall(&TechnoName::parse(type_id))).cloned().collect();
+        let non_wall_jobs: Vec<_> =
+            jobs.iter().filter(|(type_id, _, _, _)| !self.paint.structure_is_wall(&TechnoName::parse(type_id))).cloned().collect();
         let mut any = false;
         if !wall_jobs.is_empty() {
             let living_walls = {
@@ -359,29 +354,12 @@ impl BattleController {
             map.entities = living_walls;
             let remap = |base: &ra_assets::Palette, own: &str| remap_owner_palette(rules, Some(&lobby), base, own);
             if let Some(clean) = self.preview_clean.as_mut() {
-                let n = paint_structures_onto_rgba_filtered(
-                    assets,
-                    &map,
-                    clean,
-                    origin.0,
-                    origin.1,
-                    &mut self.paint,
-                    &remap,
-                    Some(&refresh),
-                );
+                let n = paint_structures_onto_rgba_filtered(assets, &map, clean, origin.0, origin.1, &mut self.paint, &remap, Some(&refresh));
                 any |= n > 0;
             }
             if let Some(underlay) = self.preview_ore_underlay.as_mut() {
-                let n = paint_structures_onto_rgba_filtered(
-                    assets,
-                    &map,
-                    underlay,
-                    origin.0,
-                    origin.1,
-                    &mut self.paint,
-                    &remap,
-                    Some(&refresh),
-                );
+                let n =
+                    paint_structures_onto_rgba_filtered(assets, &map, underlay, origin.0, origin.1, &mut self.paint, &remap, Some(&refresh));
                 any |= n > 0;
             }
             for &(cx, cy) in &refresh {
@@ -557,7 +535,15 @@ impl BattleController {
         let mut ghost_cells: Vec<(u16, u16, u8)> = Vec::new();
         for &(cx, cy) in fill_cells.iter().filter(|c| **c != (ox, oy)) {
             let cell_ok = game.world.cell_ok_for_structure(cx, cy, water_bound);
-            let kind = if !cell_ok { 2 } else if !in_zone { 1 } else { 0 };
+            let kind = if !cell_ok {
+                2
+            }
+            else if !in_zone {
+                1
+            }
+            else {
+                0
+            };
             ghost_cells.push((cx, cy, kind));
         }
         for dy in 0..height {
@@ -654,9 +640,7 @@ impl BattleController {
             .lobby_primaries
             .get(&unit.owner.to_ascii_uppercase())
             .map(|c| power_tip_rgba_from_primary(c.r, c.g, c.b))
-            .or_else(|| {
-                ra_assets::owner_primary_color(unit.owner.as_ref()).map(|c| power_tip_rgba_from_primary(c.r, c.g, c.b))
-            })
+            .or_else(|| ra_assets::owner_primary_color(unit.owner.as_ref()).map(|c| power_tip_rgba_from_primary(c.r, c.g, c.b)))
             .unwrap_or(POWER_TIP_TEXT_FALLBACK);
         paint_selection_power_tip(page, fnt, &caption, sx.round() as i32, sy.round() as i32, window_w as i32, window_h as i32, faction);
     }

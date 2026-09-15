@@ -3,8 +3,10 @@
 //! 坐标约定：Battle 布局 / 命中 / 光标一律使用**逻辑像素**（与壳层菜单、`DisplayMode` 同口径）。
 //! 物理表面尺寸仅用于 GPU scissor / 交换链。
 
-use winit::dpi::{LogicalSize, PhysicalPosition};
-use winit::window::Window;
+use winit::{
+    dpi::{LogicalSize, PhysicalPosition},
+    window::Window,
+};
 
 /// 左键位移小于该像素阈值时视为点选，否则进入框选。
 pub const CLICK_SLOP_PX: f32 = 6.0;

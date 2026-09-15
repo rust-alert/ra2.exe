@@ -32,10 +32,7 @@ use ra_widgets::{
 };
 
 use super::{
-    battle_input::{
-        BattleInteractionMode, BattlePresentationState, BattlePointer, CameraPanKeys, EdgeScrollCursor,
-        LeftGesture,
-    },
+    battle_input::{BattleInteractionMode, BattlePointer, BattlePresentationState, CameraPanKeys, EdgeScrollCursor, LeftGesture},
     boot::BootResult,
     local_player::LocalPlayerController,
 };
@@ -572,7 +569,6 @@ impl BattleController {
         self.local.selected.iter().any(|&id| game.entity_can_deploy(id))
     }
 
-
     /// 窗口表面度量（逻辑布局 + 物理表面）。
     pub(super) fn surface_metrics(window: &winit::window::Window) -> super::battle_input::BattleSurfaceMetrics {
         super::battle_input::BattleSurfaceMetrics::from_window(window)
@@ -585,11 +581,7 @@ impl BattleController {
     }
 
     /// 物理光标 → 逻辑像素写入 `cursor`。
-    pub(super) fn set_cursor_from_physical(
-        &mut self,
-        window: &winit::window::Window,
-        position: winit::dpi::PhysicalPosition<f64>,
-    ) {
+    pub(super) fn set_cursor_from_physical(&mut self, window: &winit::window::Window, position: winit::dpi::PhysicalPosition<f64>) {
         self.cursor = Self::surface_metrics(window).cursor_from_physical(position);
     }
 
@@ -610,9 +602,7 @@ impl BattleController {
         if clear_tool_modes {
             let _ = self.clear_sidebar_tool_modes();
         }
-        self.presentation = BattlePresentationState {
-            pointer: BattlePointer::Default,
-        };
+        self.presentation = BattlePresentationState { pointer: BattlePointer::Default };
     }
 
     /// 本帧呈现快照（壳层只读应用）。
