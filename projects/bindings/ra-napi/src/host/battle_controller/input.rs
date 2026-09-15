@@ -311,14 +311,19 @@ impl BattleController {
                 if soft_hit_to_order {
                     // 落入下方落点下令（与 Move 光标对齐）。
                 }
-                else if !add && selected.contains(&id) && game.entity_can_deploy(id) {
-                    return finish(WorldClickIntent::Deploy);
-                }
-                else if !add && selected.contains(&id) && game.selection_has_primary_factory(&[id]) {
-                    return finish(WorldClickIntent::SetPrimary(id));
-                }
                 else {
-                    return finish(WorldClickIntent::Select { id, add });
+                    use super::super::battle_input::{FriendlyClickKind, resolve_friendly_click};
+                    let intent = match resolve_friendly_click(
+                        add,
+                        selected.contains(&id),
+                        game.entity_can_deploy(id),
+                        game.selection_has_primary_factory(&[id]),
+                    ) {
+                        FriendlyClickKind::Deploy => WorldClickIntent::Deploy,
+                        FriendlyClickKind::SetPrimary => WorldClickIntent::SetPrimary(id),
+                        FriendlyClickKind::Select { add } => WorldClickIntent::Select { id, add },
+                    };
+                    return finish(intent);
                 }
             }
         }

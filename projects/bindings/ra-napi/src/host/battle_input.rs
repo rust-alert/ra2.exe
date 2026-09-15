@@ -805,6 +805,33 @@ pub fn resolve_non_mobile_ground_order(has_structure_selected: bool, shift_add: 
     }
 }
 
+/// 点到本方单位 / 建筑时的左键语义（已过 soft-hit→下令闸）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FriendlyClickKind {
+    /// 部署已选可部署单位。
+    Deploy,
+    /// 设主厂。
+    SetPrimary,
+    /// 点选 / 加选。
+    Select {
+        /// Shift 加选。
+        add: bool,
+    },
+}
+
+/// 本方命中后的点选语义：Deploy / 主厂优先于普通点选。
+pub fn resolve_friendly_click(shift_add: bool, already_selected: bool, can_deploy: bool, is_primary_factory: bool) -> FriendlyClickKind {
+    if !shift_add && already_selected && can_deploy {
+        FriendlyClickKind::Deploy
+    }
+    else if !shift_add && already_selected && is_primary_factory {
+        FriendlyClickKind::SetPrimary
+    }
+    else {
+        FriendlyClickKind::Select { add: shift_add }
+    }
+}
+
 impl EdgeScrollDir {
     /// 由轴向意图合成方向（可对角）。
     pub fn from_axes(west: bool, east: bool, north: bool, south: bool) -> Self {
@@ -1632,6 +1659,26 @@ mod tests {
         assert_eq!(
             resolve_non_mobile_ground_order(false, false),
             EmptyOrStructureGroundKind::Deselect
+        );
+    }
+
+    #[test]
+    fn friendly_click_deploy_beats_select() {
+        assert_eq!(
+            resolve_friendly_click(false, true, true, false),
+            FriendlyClickKind::Deploy
+        );
+        assert_eq!(
+            resolve_friendly_click(false, true, false, true),
+            FriendlyClickKind::SetPrimary
+        );
+        assert_eq!(
+            resolve_friendly_click(false, false, true, false),
+            FriendlyClickKind::Select { add: false }
+        );
+        assert_eq!(
+            resolve_friendly_click(true, true, true, true),
+            FriendlyClickKind::Select { add: true }
         );
     }
 }
