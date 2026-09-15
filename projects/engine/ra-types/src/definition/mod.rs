@@ -7,6 +7,7 @@
 //! 本 crate 类型是**运行最优形状**，可随执行需求改布局；不是 INI / 地图文件的存储 schema。
 //! 原版兼容在 loader / adaptor 侧完成投影。
 
+mod ai_controls;
 mod animation;
 mod armor;
 mod campaign;
@@ -39,6 +40,7 @@ mod warhead;
 mod warhead_verses;
 mod weapon;
 
+pub use ai_controls::{AiBuildCategory, AiControls};
 pub use animation::AnimationDefinitions;
 pub use armor::{ARMOR_ORDER, ArmorKind, armor_index};
 pub use campaign::CampaignName;

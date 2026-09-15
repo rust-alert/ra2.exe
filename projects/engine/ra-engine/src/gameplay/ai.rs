@@ -1,23 +1,20 @@
 //! 基础 AI：只经 `GameCommand` 下发，不直接改写世界。
 //!
-//! 候选建筑 / 单位由冻结定义 + Owner 过滤选出，不硬编码外部类型名。
+//! 基建下一座建筑**只**从冻结 [`ra_types::AiControls`]（rules `[AI]` / `[IQ]`）候选表选取，
+//! 不按外部类型名或写死步骤猜。单位量产仍由定义 + Owner 过滤选出。
 //!
-//! 基建单票顺序：供电（含低电补厂）→ 矿场 → 兵营 → 车厂。落点以建造场
-//! 占地中心为原点；矿场额外优先靠近可采矿，并尊重 `AIBaseSpacing`。
-//!
-//! 有 `[AITriggerTypes]` 覆盖的房主：经济基建可由本模块补齐，作战部队交给
+//! 有 `[AITriggerTypes]` 覆盖的房主：经济类可由本模块补齐，作战部队交给
 //! `tick_ai_triggers` → Create Team / ScriptTypes，避免与启发式工厂量产叠刷。
 
 use crate::{
     BattleState, GameCommand,
     gameplay::{
-        TechTreePlayer, deploy_into_type, factory_matches_category, is_construction_yard, is_power_plant, is_refinery, is_type_eligible_id,
-        living_structure_keys,
+        TechTreePlayer, deploy_into_type, factory_matches_category, is_construction_yard, is_type_eligible_id, living_structure_keys,
     },
     state::components::{AttackState, CombatStats, Health, Identity, Owner, ProductionQueue, Transform},
 };
 use ra_map::MapEntityKind;
-use ra_types::{PlayerId, ProductionCategory, TechnoCategory};
+use ra_types::{AiBuildCategory, AiControls, PlayerId, ProductionCategory, TechnoCategory, TypeId};
 
 /// 启发式量产：同房主存活机动作战单位上限（达到后停刷）。
 const HEURISTIC_ARMY_CAP: usize = 8;
@@ -142,7 +139,8 @@ pub fn deploy_mcv_commands(world: &BattleState, house: &str) -> Vec<GameCommand>
 
 /// 有建造场时推进下一座基建（每 tick 至多一座）。
 ///
-/// 基建表：供电 → 矿场 →（`include_army_factories`）兵营 → 车厂。
+/// 候选与门闩只读 [`AiControls`]（rules `[AI]` / `[IQ]`）。类别推进顺序固定，
+/// **类型内容来自表**。`include_army_factories=false` 时只走供电 / 矿场等经济类。
 /// 若建造场已有完工件，则先落位该类型（不插队改造其它）。
 pub fn next_structure_commands(world: &BattleState, house: &str, player: PlayerId, include_army_factories: bool) -> Vec<GameCommand> {
     if !house_has_yard(world, house) {
@@ -155,14 +153,21 @@ pub fn next_structure_commands(world: &BattleState, house: &str, player: PlayerI
         };
         return place_structure(world, house, player, structure);
     }
-    for step in ai_build_plan(include_army_factories) {
-        if !step_needed(world, house, step) {
+    let controls = &world.definitions.ai_controls;
+    let iq = house_iq(world, house);
+    let can_expand = iq >= controls.iq_production;
+
+    for kind in ai_category_order(include_army_factories) {
+        if kind.requires_production_iq() && !can_expand {
             continue;
         }
-        let Some(structure) = pick_for_step(world, house, step)
+        if !category_needed(world, house, controls, kind) {
+            continue;
+        }
+        let Some(structure) = pick_from_candidates(world, house, kind.candidates(controls))
         else {
-            // 供电步若连候选都没有且仍无电厂，卡死后续；已有电厂仅低电时允许跳过。
-            if matches!(step, AiBuildStep::Power) && !house_has_power(world, house) {
+            // 供电表为空且仍需要电：卡住，避免跳去造别的。
+            if matches!(kind, AiCategory::Power) {
                 return Vec::new();
             }
             continue;
@@ -172,48 +177,190 @@ pub fn next_structure_commands(world: &BattleState, house: &str, player: PlayerI
     Vec::new()
 }
 
-/// 遭遇战启发式基建步骤（按表顺序单票推进）。
+/// rules `[AI]` 建造类别（顺序固定，候选来自表）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum AiBuildStep {
-    /// 无电或低电时补电厂。
+enum AiCategory {
     Power,
-    /// 首座矿场。
     Refinery,
-    /// 步兵工厂。
-    InfantryFactory,
-    /// 载具工厂。
-    VehicleFactory,
+    Barracks,
+    Weapons,
+    Radar,
+    Tech,
+    NavalYard,
+    Helipad,
+    Defense,
+    Aa,
 }
 
-fn ai_build_plan(include_army_factories: bool) -> Vec<AiBuildStep> {
-    let mut steps = vec![AiBuildStep::Power, AiBuildStep::Refinery];
-    if include_army_factories {
-        steps.push(AiBuildStep::InfantryFactory);
-        steps.push(AiBuildStep::VehicleFactory);
+impl AiCategory {
+    fn requires_production_iq(self) -> bool {
+        !matches!(self, Self::Power | Self::Refinery)
     }
+
+    fn candidates(self, controls: &AiControls) -> &[TypeId] {
+        match self {
+            Self::Power => &controls.build_power,
+            Self::Refinery => &controls.build_refinery.candidates,
+            Self::Barracks => &controls.build_barracks.candidates,
+            Self::Weapons => &controls.build_weapons.candidates,
+            Self::Radar => &controls.build_radar,
+            Self::Tech => &controls.build_tech,
+            Self::NavalYard => &controls.build_naval_yard,
+            Self::Helipad => &controls.build_helipad.candidates,
+            Self::Defense => &controls.build_defense.candidates,
+            Self::Aa => &controls.build_aa.candidates,
+        }
+    }
+
+    fn ratio_category(self, controls: &AiControls) -> Option<&AiBuildCategory> {
+        match self {
+            Self::Refinery => Some(&controls.build_refinery),
+            Self::Barracks => Some(&controls.build_barracks),
+            Self::Weapons => Some(&controls.build_weapons),
+            Self::Helipad => Some(&controls.build_helipad),
+            Self::Defense => Some(&controls.build_defense),
+            Self::Aa => Some(&controls.build_aa),
+            _ => None,
+        }
+    }
+}
+
+fn ai_category_order(include_army_factories: bool) -> Vec<AiCategory> {
+    let mut steps = vec![AiCategory::Power, AiCategory::Refinery];
+    if !include_army_factories {
+        return steps;
+    }
+    steps.extend([
+        AiCategory::Barracks,
+        AiCategory::Weapons,
+        AiCategory::Radar,
+        AiCategory::Tech,
+        AiCategory::NavalYard,
+        AiCategory::Helipad,
+        AiCategory::Defense,
+        AiCategory::Aa,
+    ]);
     steps
 }
 
-fn step_needed(world: &BattleState, house: &str, step: AiBuildStep) -> bool {
-    match step {
-        AiBuildStep::Power => !house_has_power(world, house) || house_is_low_power(world, house),
-        AiBuildStep::Refinery => !house_has_refinery(world, house),
-        AiBuildStep::InfantryFactory => !house_has_factory(world, house, ProductionCategory::Infantry),
-        AiBuildStep::VehicleFactory => !house_has_factory(world, house, ProductionCategory::Vehicle),
+fn category_needed(world: &BattleState, house: &str, controls: &AiControls, kind: AiCategory) -> bool {
+    let candidates = kind.candidates(controls);
+    if candidates.is_empty() {
+        return false;
+    }
+    match kind {
+        AiCategory::Power => needs_power(world, house, controls),
+        AiCategory::Radar | AiCategory::Tech | AiCategory::NavalYard => count_owned(world, house, candidates) == 0,
+        _ => {
+            let Some(cat) = kind.ratio_category(controls)
+            else {
+                return false;
+            };
+            needs_ratio_category(world, house, cat)
+        }
     }
 }
 
-fn pick_for_step<'a>(world: &'a BattleState, house: &str, step: AiBuildStep) -> Option<&'a ra_types::StructureDefinition> {
-    match step {
-        AiBuildStep::Power => pick_structure(world, house, |s| s.power.output > 0),
-        AiBuildStep::Refinery => pick_structure(world, house, |s| s.refinery),
-        AiBuildStep::InfantryFactory => {
-            pick_structure(world, house, |s| s.production.as_ref().is_some_and(|p| p.category == ProductionCategory::Infantry))
+fn needs_power(world: &BattleState, house: &str, controls: &AiControls) -> bool {
+    if count_owned(world, house, &controls.build_power) == 0 {
+        return true;
+    }
+    let Some(player) = world.players.iter().find(|p| p.house.eq_ignore_ascii_case(house))
+    else {
+        return false;
+    };
+    if player.low_power() {
+        return true;
+    }
+    let surplus = player.effective_power_output().saturating_sub(player.power_drain);
+    surplus < controls.power_surplus
+}
+
+fn needs_ratio_category(world: &BattleState, house: &str, cat: &AiBuildCategory) -> bool {
+    if cat.candidates.is_empty() {
+        return false;
+    }
+    let owned = count_owned(world, house, &cat.candidates);
+    if cat.limit > 0 && owned >= cat.limit {
+        return false;
+    }
+    if owned == 0 {
+        return true;
+    }
+    if cat.ratio_millis == 0 {
+        return false;
+    }
+    let total = count_house_structures(world, house).max(1);
+    let want = ((u64::from(total) * u64::from(cat.ratio_millis)) / 1000) as u32;
+    let want = want.max(1);
+    let want = if cat.limit > 0 { want.min(cat.limit) } else { want };
+    owned < want
+}
+
+fn count_owned(world: &BattleState, house: &str, candidates: &[TypeId]) -> u32 {
+    if candidates.is_empty() {
+        return 0;
+    }
+    world
+        .entities
+        .iter()
+        .filter(|e| {
+            let id = e.id;
+            !world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
+                && world.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&world.definitions, house) == Some(o.house)).unwrap_or(false)
+                && world
+                    .ecs_get::<Identity>(id)
+                    .map(|i| i.kind == MapEntityKind::Structure && candidates.iter().any(|c| *c == i.type_id))
+                    .unwrap_or(false)
+        })
+        .count() as u32
+}
+
+fn count_house_structures(world: &BattleState, house: &str) -> u32 {
+    world
+        .entities
+        .iter()
+        .filter(|e| {
+            let id = e.id;
+            !world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
+                && world.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&world.definitions, house) == Some(o.house)).unwrap_or(false)
+                && world.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
+        })
+        .count() as u32
+}
+
+fn house_iq(world: &BattleState, house: &str) -> i32 {
+    let from_map = world.prepared.houses.iter().find_map(|h| {
+        let key = world.definitions.houses.get_by_id(h.country)?.type_key.as_str();
+        if key.eq_ignore_ascii_case(house) || h.name.eq_ignore_ascii_case(house) {
+            Some(h.iq)
         }
-        AiBuildStep::VehicleFactory => {
-            pick_structure(world, house, |s| s.production.as_ref().is_some_and(|p| p.category == ProductionCategory::Vehicle))
+        else {
+            None
+        }
+    });
+    from_map.unwrap_or(world.definitions.ai_controls.max_iq_levels)
+}
+
+fn pick_from_candidates<'a>(
+    world: &'a BattleState,
+    house: &str,
+    candidates: &[TypeId],
+) -> Option<&'a ra_types::StructureDefinition> {
+    let living = living_structure_keys(world, house);
+    let player = world.players.iter().find(|p| p.house.eq_ignore_ascii_case(house))?;
+    let tech = TechTreePlayer::from_player(player);
+    for &id in candidates {
+        if !is_type_eligible_id(&world.definitions, tech, &living, id) {
+            continue;
+        }
+        if let Some(s) = world.definitions.structures.get_by_id(id) {
+            if !s.construction_yard {
+                return Some(s);
+            }
         }
     }
+    None
 }
 
 /// 有空闲兵营时生产一名步兵。
@@ -327,30 +474,6 @@ pub fn auto_attack_commands(world: &BattleState, house: &str) -> Vec<GameCommand
     out
 }
 
-fn pick_structure<'a, F>(world: &'a BattleState, house: &str, pred: F) -> Option<&'a ra_types::StructureDefinition>
-where
-    F: Fn(&ra_types::StructureDefinition) -> bool,
-{
-    let living = living_structure_keys(world, house);
-    let Some(player) = world.players.iter().find(|p| p.house.eq_ignore_ascii_case(house))
-    else {
-        return None;
-    };
-    let tech = TechTreePlayer::from_player(player);
-    world
-        .definitions
-        .structures
-        .iter()
-        .filter(|s| pred(s) && !s.construction_yard && is_type_eligible_id(&world.definitions, tech, &living, s.id))
-        // 优先低科技、低造价的基础款（避免 `.find` 吃到反应堆/黑市等后置类型）。
-        .min_by_key(|s| {
-            let techno = world.definitions.techno.get_by_id(s.id);
-            let tech_level = techno.map(|t| t.tech_level).unwrap_or(0);
-            let cost = if s.cost > 0 { s.cost } else { techno.map(|t| t.cost).unwrap_or(0) };
-            (tech_level, cost, s.type_key.as_str())
-        })
-}
-
 fn pick_techno<'a>(world: &'a BattleState, house: &str, category: ProductionCategory) -> Option<&'a ra_types::TechnoDefinition> {
     let living = living_structure_keys(world, house);
     let Some(player) = world.players.iter().find(|p| p.house.eq_ignore_ascii_case(house))
@@ -405,18 +528,6 @@ fn house_has_idle_yard(world: &BattleState, house: &str) -> bool {
     })
 }
 
-fn house_has_power(world: &BattleState, house: &str) -> bool {
-    living_house_structure(world, house, |w, i| is_power_plant(&w.definitions, i.type_id))
-}
-
-fn house_is_low_power(world: &BattleState, house: &str) -> bool {
-    world.players.iter().find(|p| p.house.eq_ignore_ascii_case(house)).map(|p| p.low_power()).unwrap_or(false)
-}
-
-fn house_has_factory(world: &BattleState, house: &str, category: ProductionCategory) -> bool {
-    living_house_structure(world, house, |w, i| factory_matches_category(&w.definitions, i.type_id, category))
-}
-
 fn house_has_idle_factory(world: &BattleState, house: &str, category: ProductionCategory) -> bool {
     world.entities.iter().any(|e| {
         let id = e.id;
@@ -426,10 +537,6 @@ fn house_has_idle_factory(world: &BattleState, house: &str, category: Production
             && world.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none()).unwrap_or(true)
             && world.ecs_get::<Identity>(id).map(|i| factory_matches_category(&world.definitions, i.type_id, category)).unwrap_or(false)
     })
-}
-
-fn house_has_refinery(world: &BattleState, house: &str) -> bool {
-    living_house_structure(world, house, |w, i| is_refinery(&w.definitions, i.type_id))
 }
 
 fn yard_cell(world: &BattleState, house: &str) -> Option<(u16, u16, u16, u16)> {

@@ -65,3 +65,29 @@ fn parse_ai_base_spacing_and_naval_yard_adjacency() {
     assert_eq!(g.ai_base_spacing, Some(1));
     assert_eq!(g.ai_naval_yard_adjacency, Some(20));
 }
+
+#[test]
+fn parse_ai_build_lists_ratios_and_iq() {
+    let doc = IniDocument::parse(
+        b"[AI]\nAIBaseSpacing=1\nPowerSurplus=100\nBaseSizeAdd=2\n\
+BuildPower=NAPOWR,GAPOWR\nBuildRefinery=NAREFN\nRefineryRatio=.16\nRefineryLimit=4\n\
+BuildBarracks=NAHAND\nBarracksRatio=.1\nBarracksLimit=2\n\
+BuildWeapons=NAWEAP\nWarRatio=.1\nWarLimit=2\n\
+BuildRadar=NARADR\nBuildTech=NATECH\n\
+[IQ]\nMaxIQLevels=5\nProduction=3\n",
+    )
+    .unwrap();
+    let g = RulesGlobals::from_rules(&doc);
+    assert_eq!(g.ai_power_surplus, Some(100));
+    assert_eq!(g.ai_base_size_add, Some(2));
+    assert_eq!(g.ai_build_power, vec![ra_types::TechnoName::parse("NAPOWR"), ra_types::TechnoName::parse("GAPOWR")]);
+    assert_eq!(g.ai_build_refinery, vec![ra_types::TechnoName::parse("NAREFN")]);
+    assert!((g.ai_refinery_ratio.unwrap() - 0.16).abs() < 1e-9);
+    assert_eq!(g.ai_refinery_limit, Some(4));
+    assert_eq!(g.ai_build_barracks, vec![ra_types::TechnoName::parse("NAHAND")]);
+    assert_eq!(g.ai_build_weapons, vec![ra_types::TechnoName::parse("NAWEAP")]);
+    assert_eq!(g.ai_build_radar, vec![ra_types::TechnoName::parse("NARADR")]);
+    assert_eq!(g.ai_build_tech, vec![ra_types::TechnoName::parse("NATECH")]);
+    assert_eq!(g.iq_max_levels, Some(5));
+    assert_eq!(g.iq_production, Some(3));
+}

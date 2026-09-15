@@ -1,9 +1,9 @@
 //! 对局级冻结定义集。
 
 use super::{
-    AnimationDefinitions, CapabilitySet, ContentFingerprint, DeployableDefinitions, HouseDefinitions, HouseStolenTechMap, LocomotorDefinitions,
-    OverlayTypeRegistry, PrerequisiteGroups, ProductionDefinitions, ProjectileDefinitions, SoundDefinitions, StructureDefinitions,
-    SuperWeaponDefinitions, TechnoDefinitions, TerrainSpawnerDefinitions, WarheadDefinitions, WeaponDefinitions,
+    AiControls, AnimationDefinitions, CapabilitySet, ContentFingerprint, DeployableDefinitions, HouseDefinitions, HouseStolenTechMap,
+    LocomotorDefinitions, OverlayTypeRegistry, PrerequisiteGroups, ProductionDefinitions, ProjectileDefinitions, SoundDefinitions,
+    StructureDefinitions, SuperWeaponDefinitions, TechnoDefinitions, TerrainSpawnerDefinitions, WarheadDefinitions, WeaponDefinitions,
 };
 use crate::id::TypeId;
 
@@ -71,6 +71,8 @@ pub struct RuntimeDefinitions {
     pub ai_base_spacing: u32,
     /// `[General] AINavalYardAdjacency`：AI 船厂相对建造场的最大切比雪夫距离（零售缺省 20）。
     pub ai_naval_yard_adjacency: u32,
+    /// rules `[AI]` / `[IQ]` 冻结基建控制表。
+    pub ai_controls: AiControls,
 }
 
 impl Default for RuntimeDefinitions {
@@ -104,6 +106,7 @@ impl Default for RuntimeDefinitions {
             base_units: Vec::new(),
             ai_base_spacing: super::structure::DEFAULT_AI_BASE_SPACING,
             ai_naval_yard_adjacency: super::structure::DEFAULT_AI_NAVAL_YARD_ADJACENCY,
+            ai_controls: AiControls::default(),
         }
     }
 }

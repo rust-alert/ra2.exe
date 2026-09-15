@@ -163,6 +163,8 @@ impl BattleState {
                 world.maybe_assign_primary_factory(id);
             }
         }
+        // 地图预放建筑也计入供电 / 耗电（与 PlaceBuilding 增量一致），否则 `PowerSurplus` / 低电判定恒为 0。
+        world.recompute_players_power();
         world.rehash();
         Ok(world)
     }
@@ -198,6 +200,39 @@ impl BattleState {
         }
         else {
             false
+        }
+    }
+
+    /// 按存活建筑定义重算各方供电 / 耗电（播种与一致性修复入口）。
+    pub fn recompute_players_power(&mut self) {
+        for player in &mut self.players {
+            player.power_output = 0;
+            player.power_drain = 0;
+        }
+        for entity in &self.entities {
+            let id = entity.id;
+            if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                continue;
+            }
+            let Some(identity) = self.ecs_get::<Identity>(id)
+            else {
+                continue;
+            };
+            if identity.kind != MapEntityKind::Structure {
+                continue;
+            }
+            let Some(owner) = self.ecs_get::<Owner>(id)
+            else {
+                continue;
+            };
+            let owner_house = owner.house;
+            let power = crate::gameplay::building_power(&self.definitions, identity.type_id);
+            let Some(player) = self.players.iter_mut().find(|p| p.house_id == Some(owner_house))
+            else {
+                continue;
+            };
+            player.power_output = player.power_output.saturating_add(power.output);
+            player.power_drain = player.power_drain.saturating_add(power.drain);
         }
     }
 

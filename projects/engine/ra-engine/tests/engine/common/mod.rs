@@ -17,12 +17,26 @@ const TEST_COUNTRIES_PREFIX: &[u8] = b"[Countries]\n0=Americans\n1=Russians\n2=S
 [Alliance]\nSide=GDI\n\
 [France]\nSide=GDI\n";
 
-/// 内联 rules → 冻结定义；无 `[Countries]` 时自动补美俄。
+/// 缺 `[AI]` 时注入最小建造表，与常见夹具类型名对齐；未入库名由 adaptor 软跳过。
+///
+/// `Production=0`：无地图 `IQ=` 或 `IQ=0` 时仍可推进兵营 / 车厂类（产品 rules 自带 `[IQ]` 时不注入）。
+const TEST_AI_CONTROLS_SUFFIX: &[u8] = b"\n[AI]\nAIBaseSpacing=1\nPowerSurplus=50\n\
+BuildPower=NAPOWR,GAPOWR\n\
+BuildRefinery=NAREFN,GAREFN\nRefineryRatio=.16\nRefineryLimit=4\n\
+BuildBarracks=NAHAND,GAPILE\nBarracksRatio=.1\nBarracksLimit=2\n\
+BuildWeapons=NAWEAP,GAWEAP\nWarRatio=.1\nWarLimit=2\n\
+[IQ]\nMaxIQLevels=5\nProduction=0\n";
+
+fn rules_has_section(upper: &[u8], needle: &[u8]) -> bool {
+    upper.windows(needle.len()).any(|w| w == needle)
+}
+
+/// 内联 rules → 冻结定义；无 `[Countries]` 时自动补美俄；无 `[AI]` 时补最小 `AiControls` 表。
 ///
 /// 装载在 adaptor；单测默认 `savour_delay_ticks = 0`，避免隐式 SavourDelay 拉长用例。
 pub fn defs_from_rules_ini(rules_ini: &[u8]) -> Arc<RuntimeDefinitions> {
     let upper = rules_ini.to_ascii_uppercase();
-    let bytes = if upper.windows(11).any(|w| w == b"[COUNTRIES]") {
+    let mut bytes = if rules_has_section(&upper, b"[COUNTRIES]") {
         rules_ini.to_vec()
     }
     else {
@@ -30,6 +44,10 @@ pub fn defs_from_rules_ini(rules_ini: &[u8]) -> Arc<RuntimeDefinitions> {
         out.extend_from_slice(rules_ini);
         out
     };
+    // `[AI]` 四字节恰为节名（不会误伤 `[AITriggerTypes]` 等）。
+    if !rules_has_section(&upper, b"[AI]") {
+        bytes.extend_from_slice(TEST_AI_CONTROLS_SUFFIX);
+    }
     let mut defs = runtime_definitions_from_ini_bytes(GameEdition::Ra2, &bytes, None).expect("测试 rules INI 必须可投影");
     defs.savour_delay_ticks = 0;
     Arc::new(defs)

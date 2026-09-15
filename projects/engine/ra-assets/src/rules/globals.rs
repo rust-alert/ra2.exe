@@ -1,4 +1,4 @@
-//! 从 rules 读取装载期全局键（`[General]` / 对话设置 / 语音间隔等）。
+//! 从 rules 读取装载期全局键（`[General]` / 对话设置 / 语音间隔 / `[AI]` / `[IQ]` 等）。
 
 use serde::Deserialize;
 
@@ -42,6 +42,62 @@ pub struct RulesGlobals {
     pub ai_base_spacing: Option<i32>,
     /// `[General] AINavalYardAdjacency`：AI 船厂相对建造场最大距离（格）。
     pub ai_naval_yard_adjacency: Option<i32>,
+    /// `[AI] BuildConst`。
+    pub ai_build_const: Vec<TechnoName>,
+    /// `[AI] BuildPower`。
+    pub ai_build_power: Vec<TechnoName>,
+    /// `[AI] PowerSurplus`。
+    pub ai_power_surplus: Option<i32>,
+    /// `[AI] BuildRefinery`。
+    pub ai_build_refinery: Vec<TechnoName>,
+    /// `[AI] RefineryRatio`。
+    pub ai_refinery_ratio: Option<f64>,
+    /// `[AI] RefineryLimit`。
+    pub ai_refinery_limit: Option<i32>,
+    /// `[AI] BuildBarracks`。
+    pub ai_build_barracks: Vec<TechnoName>,
+    /// `[AI] BarracksRatio`。
+    pub ai_barracks_ratio: Option<f64>,
+    /// `[AI] BarracksLimit`。
+    pub ai_barracks_limit: Option<i32>,
+    /// `[AI] BuildWeapons`。
+    pub ai_build_weapons: Vec<TechnoName>,
+    /// `[AI] WarRatio`。
+    pub ai_war_ratio: Option<f64>,
+    /// `[AI] WarLimit`。
+    pub ai_war_limit: Option<i32>,
+    /// `[AI] BuildRadar`。
+    pub ai_build_radar: Vec<TechnoName>,
+    /// `[AI] BuildTech`。
+    pub ai_build_tech: Vec<TechnoName>,
+    /// `[AI] BuildNavalYard`。
+    pub ai_build_naval_yard: Vec<TechnoName>,
+    /// `[AI] BuildHelipad`。
+    pub ai_build_helipad: Vec<TechnoName>,
+    /// `[AI] HelipadRatio`。
+    pub ai_helipad_ratio: Option<f64>,
+    /// `[AI] HelipadLimit`。
+    pub ai_helipad_limit: Option<i32>,
+    /// `[AI] BuildDefense`。
+    pub ai_build_defense: Vec<TechnoName>,
+    /// `[AI] DefenseRatio`。
+    pub ai_defense_ratio: Option<f64>,
+    /// `[AI] DefenseLimit`。
+    pub ai_defense_limit: Option<i32>,
+    /// `[AI] BuildAA`。
+    pub ai_build_aa: Vec<TechnoName>,
+    /// `[AI] AARatio`。
+    pub ai_aa_ratio: Option<f64>,
+    /// `[AI] AALimit`。
+    pub ai_aa_limit: Option<i32>,
+    /// `[AI] BuildDummy`。
+    pub ai_build_dummy: Vec<TechnoName>,
+    /// `[AI] BaseSizeAdd`。
+    pub ai_base_size_add: Option<i32>,
+    /// `[IQ] MaxIQLevels`。
+    pub iq_max_levels: Option<i32>,
+    /// `[IQ] Production`。
+    pub iq_production: Option<i32>,
 }
 
 impl RulesGlobals {
@@ -58,6 +114,7 @@ impl RulesGlobals {
         let dialog = view.section("MultiplayerDialogSettings").and_then(|s| s.deserialize::<DialogSectionFields>().ok()).unwrap_or_default();
         let audio = view.section("AudioVisual").and_then(|s| s.deserialize::<AudioVisualSectionFields>().ok()).unwrap_or_default();
         let ai = view.section("AI").and_then(|s| s.deserialize::<AiSectionFields>().ok()).unwrap_or_default();
+        let iq = view.section("IQ").and_then(|s| s.deserialize::<IqSectionFields>().ok()).unwrap_or_default();
         let speak_delay_minutes = audio.speak_delay.or(general.speak_delay);
         Self {
             multiplayer_tech_level: dialog.tech_level,
@@ -77,6 +134,34 @@ impl RulesGlobals {
             base_unit: filter_techno_names(general.base_unit),
             ai_base_spacing: ai.ai_base_spacing,
             ai_naval_yard_adjacency: general.ai_naval_yard_adjacency,
+            ai_build_const: filter_techno_names(ai.build_const),
+            ai_build_power: filter_techno_names(ai.build_power),
+            ai_power_surplus: ai.power_surplus,
+            ai_build_refinery: filter_techno_names(ai.build_refinery),
+            ai_refinery_ratio: ai.refinery_ratio,
+            ai_refinery_limit: ai.refinery_limit,
+            ai_build_barracks: filter_techno_names(ai.build_barracks),
+            ai_barracks_ratio: ai.barracks_ratio,
+            ai_barracks_limit: ai.barracks_limit,
+            ai_build_weapons: filter_techno_names(ai.build_weapons),
+            ai_war_ratio: ai.war_ratio,
+            ai_war_limit: ai.war_limit,
+            ai_build_radar: filter_techno_names(ai.build_radar),
+            ai_build_tech: filter_techno_names(ai.build_tech),
+            ai_build_naval_yard: filter_techno_names(ai.build_naval_yard),
+            ai_build_helipad: filter_techno_names(ai.build_helipad),
+            ai_helipad_ratio: ai.helipad_ratio,
+            ai_helipad_limit: ai.helipad_limit,
+            ai_build_defense: filter_techno_names(ai.build_defense),
+            ai_defense_ratio: ai.defense_ratio,
+            ai_defense_limit: ai.defense_limit,
+            ai_build_aa: filter_techno_names(ai.build_aa),
+            ai_aa_ratio: ai.aa_ratio,
+            ai_aa_limit: ai.aa_limit,
+            ai_build_dummy: filter_techno_names(ai.build_dummy),
+            ai_base_size_add: ai.base_size_add,
+            iq_max_levels: iq.max_iq_levels,
+            iq_production: iq.production,
         }
     }
 }
@@ -132,6 +217,66 @@ struct AudioVisualSectionFields {
 struct AiSectionFields {
     #[serde(rename = "AIBaseSpacing", default, deserialize_with = "deserialize_opt_i32")]
     ai_base_spacing: Option<i32>,
+    #[serde(rename = "BuildConst", default)]
+    build_const: Vec<TechnoName>,
+    #[serde(rename = "BuildPower", default)]
+    build_power: Vec<TechnoName>,
+    #[serde(rename = "PowerSurplus", default, deserialize_with = "deserialize_opt_i32")]
+    power_surplus: Option<i32>,
+    #[serde(rename = "BuildRefinery", default)]
+    build_refinery: Vec<TechnoName>,
+    #[serde(rename = "RefineryRatio", default, deserialize_with = "deserialize_opt_f64")]
+    refinery_ratio: Option<f64>,
+    #[serde(rename = "RefineryLimit", default, deserialize_with = "deserialize_opt_i32")]
+    refinery_limit: Option<i32>,
+    #[serde(rename = "BuildBarracks", default)]
+    build_barracks: Vec<TechnoName>,
+    #[serde(rename = "BarracksRatio", default, deserialize_with = "deserialize_opt_f64")]
+    barracks_ratio: Option<f64>,
+    #[serde(rename = "BarracksLimit", default, deserialize_with = "deserialize_opt_i32")]
+    barracks_limit: Option<i32>,
+    #[serde(rename = "BuildWeapons", default)]
+    build_weapons: Vec<TechnoName>,
+    #[serde(rename = "WarRatio", default, deserialize_with = "deserialize_opt_f64")]
+    war_ratio: Option<f64>,
+    #[serde(rename = "WarLimit", default, deserialize_with = "deserialize_opt_i32")]
+    war_limit: Option<i32>,
+    #[serde(rename = "BuildRadar", default)]
+    build_radar: Vec<TechnoName>,
+    #[serde(rename = "BuildTech", default)]
+    build_tech: Vec<TechnoName>,
+    #[serde(rename = "BuildNavalYard", default)]
+    build_naval_yard: Vec<TechnoName>,
+    #[serde(rename = "BuildHelipad", default)]
+    build_helipad: Vec<TechnoName>,
+    #[serde(rename = "HelipadRatio", default, deserialize_with = "deserialize_opt_f64")]
+    helipad_ratio: Option<f64>,
+    #[serde(rename = "HelipadLimit", default, deserialize_with = "deserialize_opt_i32")]
+    helipad_limit: Option<i32>,
+    #[serde(rename = "BuildDefense", default)]
+    build_defense: Vec<TechnoName>,
+    #[serde(rename = "DefenseRatio", default, deserialize_with = "deserialize_opt_f64")]
+    defense_ratio: Option<f64>,
+    #[serde(rename = "DefenseLimit", default, deserialize_with = "deserialize_opt_i32")]
+    defense_limit: Option<i32>,
+    #[serde(rename = "BuildAA", default)]
+    build_aa: Vec<TechnoName>,
+    #[serde(rename = "AARatio", default, deserialize_with = "deserialize_opt_f64")]
+    aa_ratio: Option<f64>,
+    #[serde(rename = "AALimit", default, deserialize_with = "deserialize_opt_i32")]
+    aa_limit: Option<i32>,
+    #[serde(rename = "BuildDummy", default)]
+    build_dummy: Vec<TechnoName>,
+    #[serde(rename = "BaseSizeAdd", default, deserialize_with = "deserialize_opt_i32")]
+    base_size_add: Option<i32>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct IqSectionFields {
+    #[serde(rename = "MaxIQLevels", default, deserialize_with = "deserialize_opt_i32")]
+    max_iq_levels: Option<i32>,
+    #[serde(rename = "Production", default, deserialize_with = "deserialize_opt_i32")]
+    production: Option<i32>,
 }
 
 fn filter_techno_names(items: Vec<TechnoName>) -> Vec<TechnoName> {

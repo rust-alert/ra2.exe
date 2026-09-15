@@ -21,7 +21,8 @@ mod vga_expand;
 pub use asset_source::AssetSource;
 pub use command::{CommandBody, CommandId, CommandKind, CommandTarget, ScheduledCommand};
 pub use definition::{
-    ARMOR_ORDER, AiTriggerCompareOp, AiTriggerConditionKind, AiTriggerName, AnimationDefinitions, ArmorKind, BuildCat, BuiltinCapability,
+    ARMOR_ORDER, AiBuildCategory, AiControls, AiTriggerCompareOp, AiTriggerConditionKind, AiTriggerName, AnimationDefinitions, ArmorKind,
+    BuildCat, BuiltinCapability,
     CampaignName, CapabilitySet, ColorName, ContentFingerprint, DEFAULT_AI_BASE_SPACING, DEFAULT_AI_NAVAL_YARD_ADJACENCY,
     DEFAULT_AI_TRIGGER_WEIGHT, DEFAULT_BUILD_ADJACENT, DeployableDefinition, DeployableDefinitions, DeploymentPlacement, Foundation,
     GameModeName, HouseAllowList, HouseDefinition, HouseDefinitions, HouseIdAllowList, HouseName, HouseStolenTechMap, ImageName, LandType,

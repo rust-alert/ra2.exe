@@ -388,6 +388,50 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         proc_alternate: bind_techno_name_list(&defs, &prereq_proc_alternate, "PrerequisiteGroups:PrerequisiteProcAlternate")?,
     };
     defs.base_units = bind_techno_name_list(&defs, &base_unit_names, "General:BaseUnit")?;
+    // `[AI] Build*` 须在 techno 入库后绑定；未知名软跳过。
+    defs.ai_controls = ra_types::AiControls {
+        build_const: soft_bind_techno_name_list(&defs, &g.ai_build_const),
+        build_power: soft_bind_techno_name_list(&defs, &g.ai_build_power),
+        power_surplus: g.ai_power_surplus.unwrap_or(50),
+        build_refinery: ra_types::AiBuildCategory {
+            candidates: soft_bind_techno_name_list(&defs, &g.ai_build_refinery),
+            ratio_millis: ratio_to_millis(g.ai_refinery_ratio),
+            limit: g.ai_refinery_limit.map(|v| v.max(0) as u32).unwrap_or(0),
+        },
+        build_barracks: ra_types::AiBuildCategory {
+            candidates: soft_bind_techno_name_list(&defs, &g.ai_build_barracks),
+            ratio_millis: ratio_to_millis(g.ai_barracks_ratio),
+            limit: g.ai_barracks_limit.map(|v| v.max(0) as u32).unwrap_or(0),
+        },
+        build_weapons: ra_types::AiBuildCategory {
+            candidates: soft_bind_techno_name_list(&defs, &g.ai_build_weapons),
+            ratio_millis: ratio_to_millis(g.ai_war_ratio),
+            limit: g.ai_war_limit.map(|v| v.max(0) as u32).unwrap_or(0),
+        },
+        build_radar: soft_bind_techno_name_list(&defs, &g.ai_build_radar),
+        build_tech: soft_bind_techno_name_list(&defs, &g.ai_build_tech),
+        build_naval_yard: soft_bind_techno_name_list(&defs, &g.ai_build_naval_yard),
+        build_helipad: ra_types::AiBuildCategory {
+            candidates: soft_bind_techno_name_list(&defs, &g.ai_build_helipad),
+            ratio_millis: ratio_to_millis(g.ai_helipad_ratio),
+            limit: g.ai_helipad_limit.map(|v| v.max(0) as u32).unwrap_or(0),
+        },
+        build_defense: ra_types::AiBuildCategory {
+            candidates: soft_bind_techno_name_list(&defs, &g.ai_build_defense),
+            ratio_millis: ratio_to_millis(g.ai_defense_ratio),
+            limit: g.ai_defense_limit.map(|v| v.max(0) as u32).unwrap_or(0),
+        },
+        build_aa: ra_types::AiBuildCategory {
+            candidates: soft_bind_techno_name_list(&defs, &g.ai_build_aa),
+            ratio_millis: ratio_to_millis(g.ai_aa_ratio),
+            limit: g.ai_aa_limit.map(|v| v.max(0) as u32).unwrap_or(0),
+        },
+        build_dummy: soft_bind_techno_name_list(&defs, &g.ai_build_dummy),
+        base_spacing: defs.ai_base_spacing,
+        base_size_add: g.ai_base_size_add.map(|v| v.max(0) as u32).unwrap_or(0),
+        max_iq_levels: g.iq_max_levels.unwrap_or(5).max(0),
+        iq_production: g.iq_production.unwrap_or(5).max(0),
+    };
 
     defs.production.count = defs.structures.iter().filter(|s| s.production.is_some()).count() as u32;
 
@@ -680,6 +724,32 @@ fn bind_techno_name_list(defs: &RuntimeDefinitions, names: &[TechnoName], owner:
         out.push(t.id);
     }
     Ok(out)
+}
+
+/// `[AI] Build*` 姓名单：未知名软跳过（不拖垮整表装载）。
+fn soft_bind_techno_name_list(defs: &RuntimeDefinitions, names: &[TechnoName]) -> Vec<TypeId> {
+    let mut out = Vec::with_capacity(names.len());
+    for name in names {
+        if name.is_empty() {
+            continue;
+        }
+        if let Some(t) = defs.techno.get_name(name) {
+            out.push(t.id);
+        }
+    }
+    out
+}
+
+/// rules 浮点比例 → 千分比整数；非法 / 缺省为 0。
+fn ratio_to_millis(ratio: Option<f64>) -> u32 {
+    let Some(r) = ratio
+    else {
+        return 0;
+    };
+    if !r.is_finite() || r <= 0.0 {
+        return 0;
+    }
+    (r * 1000.0).round().clamp(0.0, 1_000_000.0) as u32
 }
 
 /// 氛围房屋：可不在 `[Countries]` 出现，但仍可写在 `Owner=` 等名单中。
