@@ -431,6 +431,16 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         base_size_add: g.ai_base_size_add.map(|v| v.max(0) as u32).unwrap_or(0),
         max_iq_levels: g.iq_max_levels.unwrap_or(5).max(0),
         iq_production: g.iq_production.unwrap_or(5).max(0),
+        // 缺省对齐零售 rules `[IQ]` 常见取值；引擎只比较，不内置玩法字面量。
+        iq_super_weapons: g.iq_super_weapons.unwrap_or(4).max(0),
+        iq_guard_area: g.iq_guard_area.unwrap_or(2).max(0),
+        iq_repair_sell: g.iq_repair_sell.unwrap_or(1).max(0),
+        iq_auto_crush: g.iq_auto_crush.unwrap_or(2).max(0),
+        iq_scatter: g.iq_scatter.unwrap_or(2).max(0),
+        iq_content_scan: g.iq_content_scan.unwrap_or(3).max(0),
+        iq_aircraft: g.iq_aircraft.unwrap_or(3).max(0),
+        iq_harvester: g.iq_harvester.unwrap_or(2).max(0),
+        iq_sell_back: g.iq_sell_back.unwrap_or(2).max(0),
     };
 
     defs.production.count = defs.structures.iter().filter(|s| s.production.is_some()).count() as u32;

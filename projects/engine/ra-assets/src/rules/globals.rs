@@ -98,6 +98,24 @@ pub struct RulesGlobals {
     pub iq_max_levels: Option<i32>,
     /// `[IQ] Production`。
     pub iq_production: Option<i32>,
+    /// `[IQ] SuperWeapons`。
+    pub iq_super_weapons: Option<i32>,
+    /// `[IQ] GuardArea`。
+    pub iq_guard_area: Option<i32>,
+    /// `[IQ] RepairSell`。
+    pub iq_repair_sell: Option<i32>,
+    /// `[IQ] AutoCrush`。
+    pub iq_auto_crush: Option<i32>,
+    /// `[IQ] Scatter`。
+    pub iq_scatter: Option<i32>,
+    /// `[IQ] ContentScan`。
+    pub iq_content_scan: Option<i32>,
+    /// `[IQ] Aircraft`。
+    pub iq_aircraft: Option<i32>,
+    /// `[IQ] Harvester`。
+    pub iq_harvester: Option<i32>,
+    /// `[IQ] SellBack`。
+    pub iq_sell_back: Option<i32>,
 }
 
 impl RulesGlobals {
@@ -162,6 +180,15 @@ impl RulesGlobals {
             ai_base_size_add: ai.base_size_add,
             iq_max_levels: iq.max_iq_levels,
             iq_production: iq.production,
+            iq_super_weapons: iq.super_weapons,
+            iq_guard_area: iq.guard_area,
+            iq_repair_sell: iq.repair_sell,
+            iq_auto_crush: iq.auto_crush,
+            iq_scatter: iq.scatter,
+            iq_content_scan: iq.content_scan,
+            iq_aircraft: iq.aircraft,
+            iq_harvester: iq.harvester,
+            iq_sell_back: iq.sell_back,
         }
     }
 }
@@ -275,8 +302,26 @@ struct AiSectionFields {
 struct IqSectionFields {
     #[serde(rename = "MaxIQLevels", default, deserialize_with = "deserialize_opt_i32")]
     max_iq_levels: Option<i32>,
+    #[serde(rename = "SuperWeapons", default, deserialize_with = "deserialize_opt_i32")]
+    super_weapons: Option<i32>,
     #[serde(rename = "Production", default, deserialize_with = "deserialize_opt_i32")]
     production: Option<i32>,
+    #[serde(rename = "GuardArea", default, deserialize_with = "deserialize_opt_i32")]
+    guard_area: Option<i32>,
+    #[serde(rename = "RepairSell", default, deserialize_with = "deserialize_opt_i32")]
+    repair_sell: Option<i32>,
+    #[serde(rename = "AutoCrush", default, deserialize_with = "deserialize_opt_i32")]
+    auto_crush: Option<i32>,
+    #[serde(rename = "Scatter", default, deserialize_with = "deserialize_opt_i32")]
+    scatter: Option<i32>,
+    #[serde(rename = "ContentScan", default, deserialize_with = "deserialize_opt_i32")]
+    content_scan: Option<i32>,
+    #[serde(rename = "Aircraft", default, deserialize_with = "deserialize_opt_i32")]
+    aircraft: Option<i32>,
+    #[serde(rename = "Harvester", default, deserialize_with = "deserialize_opt_i32")]
+    harvester: Option<i32>,
+    #[serde(rename = "SellBack", default, deserialize_with = "deserialize_opt_i32")]
+    sell_back: Option<i32>,
 }
 
 fn filter_techno_names(items: Vec<TechnoName>) -> Vec<TechnoName> {

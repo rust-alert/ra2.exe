@@ -44,12 +44,16 @@ impl BattleSession {
             }
 
             if !skip_offensive {
+                // 采矿车补齐独立于作战量产节流，只受 `[IQ] Harvester` 门闩。
+                cmds.extend(crate::gameplay::ai::produce_harvester_commands(&self.world, house, *player));
                 if crate::gameplay::ai::heuristic_should_produce_army(&self.world, house) {
                     cmds.extend(crate::gameplay::ai::produce_infantry_commands(&self.world, house, *player));
                     cmds.extend(crate::gameplay::ai::produce_vehicle_commands(&self.world, house, *player));
+                    cmds.extend(crate::gameplay::ai::produce_aircraft_commands(&self.world, house, *player));
                     if hard_extra_produce {
                         cmds.extend(crate::gameplay::ai::produce_infantry_commands(&self.world, house, *player));
                         cmds.extend(crate::gameplay::ai::produce_vehicle_commands(&self.world, house, *player));
+                        cmds.extend(crate::gameplay::ai::produce_aircraft_commands(&self.world, house, *player));
                     }
                 }
                 cmds.extend(crate::gameplay::ai::auto_attack_commands(&self.world, house));

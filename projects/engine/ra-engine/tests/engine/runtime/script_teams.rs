@@ -353,3 +353,29 @@ fn autocreate_team_spawns_without_create_team_action() {
     let e1 = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1").count();
     assert!(e1 >= 2, "Autocreate=yes should enqueue TeamType, got {e1}");
 }
+
+#[test]
+fn autocreate_respects_iq_production_gate() {
+    // MaxIQLevels=0 < Production=5 → Autocreate 不得入队。
+    let defs = defs_from_rules_ini(
+        b"[InfantryTypes]\n0=E1\n\
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n\
+[AI]\nAIBaseSpacing=1\nBuildPower=NAPOWR\n\
+[IQ]\nMaxIQLevels=0\nProduction=5\n",
+    );
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n\
+[TaskForces]\n0=TF1\n\
+[TF1]\nName=Squad\n0=2,E1\nGroup=-1\n\
+[TeamTypes]\n0=TM1\n\
+[TM1]\nName=Team\nHouse=Russians\nScript=\nTaskForce=TF1\nMax=1\nAutocreate=yes\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "team-autocreate-iq.map", text).unwrap();
+    let engine = test_engine();
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs, map), "team-autocreate-iq");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.tick(&engine.runtime());
+    let e1 = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1").count();
+    assert_eq!(e1, 0, "low IQ must block Autocreate, got {e1}");
+}

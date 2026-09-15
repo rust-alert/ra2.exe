@@ -46,7 +46,11 @@ pub fn house_army_driven_by_ai_triggers(world: &BattleState, house: &str) -> boo
 }
 
 /// 无 AITrigger 覆盖时：是否允许本 tick 启发式工厂量产（首批放行，其后节流并封顶）。
+/// 另要求房主 IQ ≥ `[IQ] Production`。
 pub fn heuristic_should_produce_army(world: &BattleState, house: &str) -> bool {
+    if !iq_allows(world, house, world.definitions.ai_controls.iq_production) {
+        return false;
+    }
     let army = count_mobile_combatants(world, house);
     if army >= HEURISTIC_ARMY_CAP {
         return false;
@@ -357,6 +361,11 @@ fn house_iq(world: &BattleState, house: &str) -> i32 {
     from_map.unwrap_or(world.definitions.ai_controls.max_iq_levels)
 }
 
+/// 房主 IQ 是否达到 rules `[IQ]` 阈值。
+pub fn iq_allows(world: &BattleState, house: &str, threshold: i32) -> bool {
+    house_iq(world, house) >= threshold
+}
+
 fn pick_from_candidates<'a>(world: &'a BattleState, house: &str, candidates: &[TypeId]) -> Option<&'a ra_types::StructureDefinition> {
     let living = living_structure_keys(world, house);
     let player = world.players.iter().find(|p| p.house.eq_ignore_ascii_case(house))?;
@@ -376,6 +385,9 @@ fn pick_from_candidates<'a>(world: &'a BattleState, house: &str, candidates: &[T
 
 /// 有空闲兵营时生产一名步兵。
 pub fn produce_infantry_commands(world: &BattleState, house: &str, player: PlayerId) -> Vec<GameCommand> {
+    if !iq_allows(world, house, world.definitions.ai_controls.iq_production) {
+        return Vec::new();
+    }
     if !house_has_idle_factory(world, house, ProductionCategory::Infantry) {
         return Vec::new();
     }
@@ -386,12 +398,51 @@ pub fn produce_infantry_commands(world: &BattleState, house: &str, player: Playe
     produce_unit(world, house, player, unit)
 }
 
-/// 有空闲战车工厂时生产一辆载具。
+/// 有空闲战车工厂时生产一辆载具（非采矿车）。
 pub fn produce_vehicle_commands(world: &BattleState, house: &str, player: PlayerId) -> Vec<GameCommand> {
+    if !iq_allows(world, house, world.definitions.ai_controls.iq_production) {
+        return Vec::new();
+    }
     if !house_has_idle_factory(world, house, ProductionCategory::Vehicle) {
         return Vec::new();
     }
     let Some(unit) = pick_techno(world, house, ProductionCategory::Vehicle)
+    else {
+        return Vec::new();
+    };
+    produce_unit(world, house, player, unit)
+}
+
+/// 有矿场且无存活采矿车时，按 `[IQ] Harvester` 补一辆采矿车。
+pub fn produce_harvester_commands(world: &BattleState, house: &str, player: PlayerId) -> Vec<GameCommand> {
+    if !iq_allows(world, house, world.definitions.ai_controls.iq_harvester) {
+        return Vec::new();
+    }
+    if !living_house_structure(world, house, |w, i| crate::gameplay::is_refinery(&w.definitions, i.type_id)) {
+        return Vec::new();
+    }
+    if house_has_living_harvester(world, house) {
+        return Vec::new();
+    }
+    if !house_has_idle_factory(world, house, ProductionCategory::Vehicle) {
+        return Vec::new();
+    }
+    let Some(unit) = pick_harvester(world, house)
+    else {
+        return Vec::new();
+    };
+    produce_unit(world, house, player, unit)
+}
+
+/// 有空闲机场时按 `[IQ] Aircraft` 生产一架飞行器。
+pub fn produce_aircraft_commands(world: &BattleState, house: &str, player: PlayerId) -> Vec<GameCommand> {
+    if !iq_allows(world, house, world.definitions.ai_controls.iq_aircraft) {
+        return Vec::new();
+    }
+    if !house_has_idle_factory(world, house, ProductionCategory::Aircraft) {
+        return Vec::new();
+    }
+    let Some(unit) = pick_techno(world, house, ProductionCategory::Aircraft)
     else {
         return Vec::new();
     };
@@ -575,10 +626,44 @@ fn pick_techno<'a>(world: &'a BattleState, house: &str, category: ProductionCate
                 && !t.naval
                 // 警犬等 Category=Dog 不进常规量产。
                 && t.category != TechnoCategory::Dog
+                && !t.harvester
                 && deploy_into_type(&world.definitions, t.id).is_none()
         })
         // 同科技等级下优先较便宜的基础单位；再按类型键稳定排序。
         .min_by_key(|t| (t.tech_level, t.cost, t.type_key.as_str()))
+}
+
+fn pick_harvester<'a>(world: &'a BattleState, house: &str) -> Option<&'a ra_types::TechnoDefinition> {
+    let living = living_structure_keys(world, house);
+    let Some(player) = world.players.iter().find(|p| p.house.eq_ignore_ascii_case(house))
+    else {
+        return None;
+    };
+    let tech = TechTreePlayer::from_player(player);
+    world
+        .definitions
+        .techno
+        .iter()
+        .filter(|t| {
+            t.harvester
+                && t.class.production_category() == Some(ProductionCategory::Vehicle)
+                && is_type_eligible_id(&world.definitions, tech, &living, t.id)
+                && !t.naval
+        })
+        .min_by_key(|t| (t.tech_level, t.cost, t.type_key.as_str()))
+}
+
+fn house_has_living_harvester(world: &BattleState, house: &str) -> bool {
+    world.entities.iter().any(|e| {
+        let id = e.id;
+        if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+            return false;
+        }
+        if !world.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&world.definitions, house) == Some(o.house)).unwrap_or(false) {
+            return false;
+        }
+        world.ecs_get::<Identity>(id).map(|i| crate::gameplay::is_harvester(&world.definitions, i.type_id)).unwrap_or(false)
+    })
 }
 
 fn living_house_structure<'a, F>(world: &'a BattleState, house: &str, pred: F) -> bool

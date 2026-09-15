@@ -74,7 +74,8 @@ BuildPower=NAPOWR,GAPOWR\nBuildRefinery=NAREFN\nRefineryRatio=.16\nRefineryLimit
 BuildBarracks=NAHAND\nBarracksRatio=.1\nBarracksLimit=2\n\
 BuildWeapons=NAWEAP\nWarRatio=.1\nWarLimit=2\n\
 BuildRadar=NARADR\nBuildTech=NATECH\n\
-[IQ]\nMaxIQLevels=5\nProduction=3\n",
+[IQ]\nMaxIQLevels=5\nProduction=3\nSuperWeapons=4\nGuardArea=2\nRepairSell=1\n\
+AutoCrush=2\nScatter=2\nContentScan=3\nAircraft=3\nHarvester=2\nSellBack=2\n",
     )
     .unwrap();
     let g = RulesGlobals::from_rules(&doc);
@@ -90,4 +91,13 @@ BuildRadar=NARADR\nBuildTech=NATECH\n\
     assert_eq!(g.ai_build_tech, vec![ra_types::TechnoName::parse("NATECH")]);
     assert_eq!(g.iq_max_levels, Some(5));
     assert_eq!(g.iq_production, Some(3));
+    assert_eq!(g.iq_super_weapons, Some(4));
+    assert_eq!(g.iq_guard_area, Some(2));
+    assert_eq!(g.iq_repair_sell, Some(1));
+    assert_eq!(g.iq_auto_crush, Some(2));
+    assert_eq!(g.iq_scatter, Some(2));
+    assert_eq!(g.iq_content_scan, Some(3));
+    assert_eq!(g.iq_aircraft, Some(3));
+    assert_eq!(g.iq_harvester, Some(2));
+    assert_eq!(g.iq_sell_back, Some(2));
 }

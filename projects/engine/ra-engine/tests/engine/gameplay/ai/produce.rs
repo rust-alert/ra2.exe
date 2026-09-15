@@ -174,3 +174,82 @@ fn ai_skips_dog_and_naval_when_picking_produce() {
         "AI must not mass-produce DEST from land war factory"
     );
 }
+
+#[test]
+fn ai_skips_infantry_produce_when_iq_below_production() {
+    let engine = test_engine();
+    let defs = defs_from_rules_ini(
+        b"[InfantryTypes]\n0=E2\n\
+[BuildingTypes]\n0=GACNST\n1=NACNST\n2=NAPOWR\n3=NAHAND\n\
+[E2]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nTechLevel=1\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nTechLevel=1\n\
+[NACNST]\nConstructionYard=yes\nOwner=Soviets\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nTechLevel=1\n\
+[NAPOWR]\nPower=200\nOwner=Soviets\nStrength=600\nSight=4\nCost=600\nArmor=wood\nTechLevel=1\n\
+[NAHAND]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Soviets\nStrength=500\nSight=5\nCost=500\nArmor=wood\nTechLevel=1\n\
+[AI]\nAIBaseSpacing=1\nPowerSurplus=50\nBuildPower=NAPOWR\n\
+[IQ]\nMaxIQLevels=0\nProduction=5\n",
+    );
+    let mut map = MapInfo::empty(GameEdition::Ra2, "ai-iq-produce");
+    map.width = 16;
+    map.height = 16;
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "AMERICANS".into(),
+        type_id: "GACNST".into(),
+        health: 256,
+        x: 1,
+        y: 1,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "SOVIETS".into(),
+        type_id: "NACNST".into(),
+        health: 256,
+        x: 8,
+        y: 8,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "SOVIETS".into(),
+        type_id: "NAPOWR".into(),
+        health: 256,
+        x: 9,
+        y: 8,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "SOVIETS".into(),
+        type_id: "NAHAND".into(),
+        health: 256,
+        x: 10,
+        y: 8,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.set_house_funds("SOVIETS", 10_000));
+    let mut session = Session::from_state(world, "ai-iq-produce");
+    session.expect_battle_mut().ai_enabled = true;
+    for _ in 0..8 {
+        session.tick(&engine.runtime());
+    }
+    let hand = session.expect_battle().world.find_entity_id_by_owner_type("SOVIETS", "NAHAND").expect("barracks");
+    assert!(
+        session.expect_battle().world.ecs_produce_item(hand).expect("queue").is_none(),
+        "low IQ must not queue infantry"
+    );
+}

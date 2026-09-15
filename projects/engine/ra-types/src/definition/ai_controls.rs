@@ -50,6 +50,24 @@ pub struct AiControls {
     pub base_size_add: u32,
     /// `[IQ] MaxIQLevels`。
     pub max_iq_levels: i32,
-    /// `[IQ] Production`：达到该 IQ 才推进工厂类扩展。
+    /// `[IQ] Production`：达到该 IQ 才推进工厂类扩展 / 启发式量产 / Autocreate。
     pub iq_production: i32,
+    /// `[IQ] SuperWeapons`：达到该 IQ 才允许 AI 自动开火超武（尚无开火路径时仅保留阈值）。
+    pub iq_super_weapons: i32,
+    /// `[IQ] GuardArea`：达到该 IQ 时新产作战单位默认驻守。
+    pub iq_guard_area: i32,
+    /// `[IQ] RepairSell`。
+    pub iq_repair_sell: i32,
+    /// `[IQ] AutoCrush`。
+    pub iq_auto_crush: i32,
+    /// `[IQ] Scatter`。
+    pub iq_scatter: i32,
+    /// `[IQ] ContentScan`。
+    pub iq_content_scan: i32,
+    /// `[IQ] Aircraft`：达到该 IQ 才启发式量产飞行器。
+    pub iq_aircraft: i32,
+    /// `[IQ] Harvester`：达到该 IQ 才自动补采矿车。
+    pub iq_harvester: i32,
+    /// `[IQ] SellBack`。
+    pub iq_sell_back: i32,
 }

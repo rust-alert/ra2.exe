@@ -101,6 +101,9 @@ pub fn tick_autocreate_teams(world: &mut BattleState) {
         if !world.house_production_begun(&house_key) {
             continue;
         }
+        if !crate::gameplay::ai::iq_allows(world, &house_key, world.definitions.ai_controls.iq_production) {
+            continue;
+        }
         let _ = try_enqueue_team_spawn(world, team.id, None, None);
     }
 }

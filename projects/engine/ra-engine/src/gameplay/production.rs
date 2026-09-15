@@ -214,7 +214,25 @@ impl crate::state::BattleState {
         let warhead_id = weapon.and_then(|w| w.warhead_id).or(warhead_fallback);
         let attack_verses = verses_for(&self.definitions, warhead_id);
         let id = self.alloc_entity_id();
-        let mission = if tt.harvester { Some(ra_types::MissionKind::Harvest) } else { None };
+        let house_key = self.definitions.houses.get_by_id(owner_id).map(|h| h.type_key.as_str().to_string());
+        let local_house = self.players.iter().find(|p| p.id == self.local_player).map(|p| p.house.clone());
+        let is_ai_house = house_key.as_ref().is_some_and(|house| {
+            !crate::gameplay::ai::is_ambient_house(house)
+                && local_house.as_ref().map(|h| !h.as_ref().eq_ignore_ascii_case(house)).unwrap_or(true)
+        });
+        let guard_by_iq = is_ai_house
+            && house_key.as_ref().is_some_and(|house| {
+                !tt.harvester
+                    && crate::gameplay::ai::iq_allows(self, house, self.definitions.ai_controls.iq_guard_area)
+                    && matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
+            });
+        let mission = if tt.harvester {
+            Some(ra_types::MissionKind::Harvest)
+        } else if guard_by_iq {
+            Some(ra_types::MissionKind::Guard)
+        } else {
+            None
+        };
         let unit_index = self.spawn_from_bundle(EntitySpawnBundle {
             identity: Identity { entity_id: id, type_id: def_id, kind, mission, tag: None },
             owner: Owner { house: owner_id },
