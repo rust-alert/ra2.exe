@@ -29,9 +29,9 @@ pub(super) struct BattleWorldProbe {
     pub world_y: f32,
     /// 光标下地图格。
     pub cell: Option<(u16, u16)>,
-    /// 本方机动软命中（悬停展示；点选另走 `pick_local_for_order`）。
+    /// 本方机动软命中（与 `pick_local_for_order` 软点选共用）。
     pub local_mobile: Option<EntityId>,
-    /// 本方建筑命中。
+    /// 本方建筑命中（与 `pick_local_for_order` 软点选共用）。
     pub local_building: Option<EntityId>,
     /// 敌方软命中。
     pub hostile: Option<EntityId>,
@@ -191,7 +191,8 @@ impl BattleController {
     ) -> (super::super::battle_input::ResolvedBattleHover, WorldClickIntent) {
         use super::super::battle_input::{OrderClickModifier, ResolvedBattleHover};
 
-        let add = self.shift_down;
+        let frame = self.input_frame(window);
+        let add = frame.shift_down;
         let mode = &self.interaction_mode;
         let Some(probe) = self.probe_battle_world(renderer, window)
         else {
@@ -203,8 +204,8 @@ impl BattleController {
             return (ResolvedBattleHover::empty(), WorldClickIntent::Noop);
         };
 
-        let order_mod = OrderClickModifier::from_keys(self.ctrl_down, self.alt_down);
-        let queue_path = self.shift_down;
+        let order_mod = frame.order_mod;
+        let queue_path = frame.shift_down;
         let selected = &self.local.selected;
         let finish = |intent: WorldClickIntent| (Self::hover_from_intent(&intent, probe.cell, probe.traversable, mode), intent);
 
@@ -369,8 +370,10 @@ impl BattleController {
         let has_mobile = probe.has_mobile_selected;
         let (wx, wy) = (probe.world_x, probe.world_y);
         if super::super::battle_input::allow_friendly_image_soft_pick(has_mobile) {
-            game.pick_local_mobile_near_image(wx, wy, 72.0)
-                .or_else(|| Self::pick_local_building_at_image(game, wx, wy))
+            // 与悬停探针同一组 soft-pick，避免光标 / 点击各扫一次。
+            probe
+                .local_mobile
+                .or(probe.local_building)
                 .or_else(|| {
                     if !super::super::battle_input::allow_cell_neighbor_friendly_pick(has_mobile) {
                         return None;
