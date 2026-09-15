@@ -105,12 +105,6 @@ pub struct BattleController {
     pub(super) logged_outcome: Option<String>,
     /// 上一回记入日志的拒绝摘要。
     pub(super) logged_reject: Option<String>,
-    /// Shift 是否按下（多选）。
-    pub(super) shift_down: bool,
-    /// Ctrl 是否按下。
-    pub(super) ctrl_down: bool,
-    /// Alt 是否按下（编队居中等修饰）。
-    pub(super) alt_down: bool,
     /// 对局热键表（`keyboard.ini`，boot 装入）。
     pub(super) hotkeys: super::battle_hotkeys::HotkeyMap,
     /// `View1`–`View4` 镜头书签（`SetView` 写入）。
@@ -287,9 +281,6 @@ impl BattleController {
             last_pump: Instant::now(),
             logged_outcome: None,
             logged_reject: None,
-            shift_down: false,
-            ctrl_down: false,
-            alt_down: false,
             hotkeys: boot.hotkeys,
             view_bookmarks: [None; VIEW_BOOKMARK_COUNT],
             interaction_mode: BattleInteractionMode::Normal,
@@ -599,9 +590,6 @@ impl BattleController {
         self.ui_capture = BattleUiCapture::None;
         self.sidebar_capture_hit = None;
         self.pause_pressed = None;
-        self.shift_down = false;
-        self.ctrl_down = false;
-        self.alt_down = false;
         self.camera_pan_keys.clear();
         self.edge_scroll_cursor = EdgeScrollCursor::Default;
         self.command_hover = None;

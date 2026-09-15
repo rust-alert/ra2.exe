@@ -497,7 +497,7 @@ impl BattleController {
     pub(super) fn handle_control_team(&mut self, slot: usize) {
         let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
             let tick = game.world.tick;
-            if self.ctrl_down {
+            if self.input_tracker.modifiers.ctrl {
                 self.local.assign_team(game, slot);
                 tracing::info!(slot = slot + 1, count = self.local.selected.len(), "编队 · 写入 Team{:02}", slot + 1);
             }

@@ -670,7 +670,7 @@ impl BattleController {
     /// 框选：按实体屏幕包围盒与拖拽矩形相交，选中本方可控移动单位。
     pub(super) fn handle_marquee_select(&mut self, renderer: &Renderer, window: &Window, rect: ScreenRect) {
         self.sync_present_tick_fraction();
-        let add = self.shift_down;
+        let add = self.input_tracker.modifiers.shift;
         let Some(game) = self.session.as_ref().and_then(|s| s.battle())
         else {
             return;
@@ -795,13 +795,7 @@ impl BattleController {
         }
         match event {
             WindowEvent::ModifiersChanged(mods) => {
-                let shift = mods.state().shift_key();
-                let ctrl = mods.state().control_key();
-                let alt = mods.state().alt_key();
-                self.input_tracker.set_modifiers(shift, ctrl, alt);
-                self.shift_down = shift;
-                self.ctrl_down = ctrl;
-                self.alt_down = alt;
+                self.input_tracker.set_modifiers(mods.state().shift_key(), mods.state().control_key(), mods.state().alt_key());
                 BattleNav::None
             }
             WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if accept_commands && battle_paused => {
@@ -1018,7 +1012,8 @@ impl BattleController {
                 };
                 let down = event.state == ElementState::Pressed;
                 let vk = super::super::battle_hotkeys::key_code_to_vk(code);
-                let hotkey = vk.and_then(|vk| self.hotkeys.action_for(vk, self.shift_down, self.ctrl_down, self.alt_down));
+                let mods = self.input_tracker.modifiers;
+                let hotkey = vk.and_then(|vk| self.hotkeys.action_for(vk, mods.shift, mods.ctrl, mods.alt));
 
                 // 方向键：持续镜头平移与 `keyboard.ini` 瞬时热键解耦。
                 // 可玩时始终更新 `camera_pan_keys`；若该键同时被热键表占用，按下仍走热键分发。
