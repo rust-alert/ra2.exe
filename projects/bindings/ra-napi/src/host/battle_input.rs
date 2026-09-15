@@ -1904,4 +1904,70 @@ mod tests {
         assert!(!t.modifiers.any());
         assert!(!t.buttons.any());
     }
+
+    #[test]
+    fn sequence_place_then_right_cancel_returns_normal_keeps_select_policy() {
+        // 进入放置 → 右键取消工具 → 回到 Normal，语义为 CancelToolModes（保留选中）。
+        let (next, outcome) = next_tool_after_map_right_click(BattleToolKind::PlaceBuilding);
+        assert_eq!(next, BattleToolKind::Normal);
+        assert_eq!(outcome, RightClickMapOutcome::CancelToolModes);
+        let (next, outcome) = next_tool_after_map_right_click(BattleToolKind::Repair);
+        assert_eq!(next, BattleToolKind::Normal);
+        assert_eq!(outcome, RightClickMapOutcome::CancelToolModes);
+        let (next, outcome) = next_tool_after_map_right_click(BattleToolKind::AttackMove);
+        assert_eq!(next, BattleToolKind::Normal);
+        assert_eq!(outcome, RightClickMapOutcome::CancelToolModes);
+        let (next, outcome) = next_tool_after_map_right_click(BattleToolKind::Normal);
+        assert_eq!(next, BattleToolKind::Normal);
+        assert_eq!(outcome, RightClickMapOutcome::Deselect);
+    }
+
+    #[test]
+    fn sequence_world_press_hud_move_release_ignores_hud() {
+        // 战术区按下 → 移入 HUD → 释放：仍认 World 捕获，不因 HUD 命中改捕获。
+        let cap = resolve_press_capture(None, false, true);
+        assert_eq!(cap, BattleUiCapture::World);
+        assert!(should_advance_world_gesture(true, false, cap));
+        assert!(!should_advance_world_gesture(true, false, BattleUiCapture::HudCommand(1)));
+        assert_eq!(left_release_policy(cap), LeftReleasePolicy::WorldGesture);
+        assert_eq!(left_release_policy(BattleUiCapture::HudCommand(1)), LeftReleasePolicy::HudCommand(1));
+    }
+
+    #[test]
+    fn sequence_hud_press_move_out_release_does_not_fire() {
+        let cap = resolve_press_capture(Some(2), true, true);
+        assert_eq!(cap, BattleUiCapture::HudCommand(2));
+        assert!(!hud_command_release_fires(2, None));
+        assert!(!hud_command_release_fires(2, Some(3)));
+        assert!(hud_command_release_fires(2, Some(2)));
+        assert!(!hud_sidebar_release_fires(false));
+        assert!(hud_sidebar_release_fires(true));
+    }
+
+    #[test]
+    fn sequence_pause_while_holding_arrows_clears_pan_keys() {
+        // 暂停时按住方向键 → 恢复后不应自动继续平移（held 必须被清）。
+        let mut keys = CameraPanKeys { left: true, right: false, up: true, down: false };
+        assert!(keys.any());
+        // 与 `tick_edge_scroll` 暂停分支同口径。
+        keys.clear();
+        assert!(!keys.any());
+        let (dx, dy) = keyboard_pan_screen_delta(keys, 640.0, 1.0);
+        assert_eq!((dx, dy), (0.0, 0.0));
+    }
+
+    #[test]
+    fn sequence_ctrl_hostile_and_alt_force_move_gates() {
+        // Ctrl + 左键敌方 → Attack；Alt + 有机动 → 跳过友军点选。
+        assert_eq!(
+            resolve_hostile_click(true, true, true, true, true),
+            HostileClickKind::Attack
+        );
+        assert!(should_skip_friendly_pick(OrderClickModifier::ForceMove, true));
+        assert!(!should_try_hostile_order(OrderClickModifier::ForceMove, true));
+        assert_eq!(
+            resolve_mobile_ground_order(true, false, OrderClickModifier::ForceMove, false),
+            MobileGroundOrderKind::Move { queue_path: false }
+        );
+    }
 }
