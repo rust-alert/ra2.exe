@@ -830,3 +830,165 @@ fn structure_anim_bank_extend_from_syncs_lighting() {
     assert!((bank.lighting.ground - 0.10).abs() < f32::EPSILON);
     assert!((bank.lighting.green - 0.8).abs() < f32::EPSILON);
 }
+
+#[test]
+fn adjacent_walls_select_connection_body_frames() {
+    // 16 主体帧：帧 i 写调色板索引 20+i，便于断言邻接选帧。
+    let frame_indices: Vec<u8> = (0..16).map(|i| 20 + i).collect();
+    let mut pal = vec![0u8; 768];
+    // 帧 2（仅东）→ 亮红；帧 8（仅西）→ 亮蓝；帧 0 → 灰。
+    for &(idx, r, g, b) in &[(20usize, 20u8, 20, 20), (22, 63, 0, 0), (28, 0, 0, 63)] {
+        let o = idx * 3;
+        pal[o] = r;
+        pal[o + 1] = g;
+        pal[o + 2] = b;
+    }
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[GAWALL]\nRemapable=no\nNewTheater=yes\n".to_vec());
+    files.insert("rules.ini".into(), b"[GAWALL]\nWall=yes\nFoundation=1x1\n".to_vec());
+    files.insert("unittem.pal".into(), pal);
+    files.insert("gtwall.shp".into(), multi_frame_shp(&frame_indices));
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.theater = ra_map::Theater::Temperate;
+    for (x, y) in [(5u16, 0u16), (6, 0)] {
+        map.entities.push(MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "Americans".into(),
+            type_id: "GAWALL".into(),
+            health: 256,
+            x,
+            y,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        });
+    }
+    let source = MapSource { files };
+    let mut image = TerrainImage::blank(512, 512);
+    let mut paint = sealed_paint(&source, &map);
+    let (n, _) = paint_map_structures(&source, &map, &mut image, &mut paint, &|p, _| p.clone(), StructureAnimMode::BodyOnly);
+    assert_eq!(n, 2, "both wall bodies painted");
+    let pixels: Vec<[u8; 4]> = image.image.as_raw().chunks_exact(4).filter(|c| c[3] > 0).map(|c| [c[0], c[1], c[2], c[3]]).collect();
+    let has_east = pixels.iter().any(|p| p[0] > 200 && p[1] < 40 && p[2] < 40);
+    let has_west = pixels.iter().any(|p| p[2] > 200 && p[0] < 40 && p[1] < 40);
+    assert!(has_east, "expected east-link frame (mask=2) red pixel, got {pixels:?}");
+    assert!(has_west, "expected west-link frame (mask=8) blue pixel, got {pixels:?}");
+}
+
+#[test]
+fn wall_link_refresh_cells_includes_orthogonal_neighbors() {
+    let mut walls = std::collections::HashSet::new();
+    walls.insert((5u16, 5u16));
+    walls.insert((6, 5));
+    walls.insert((5, 4));
+    walls.insert((9, 9)); // 不相邻
+    let refresh = ra_map::wall_link_refresh_cells(5, 5, &walls);
+    assert!(refresh.contains(&(5, 5)));
+    assert!(refresh.contains(&(6, 5)));
+    assert!(refresh.contains(&(5, 4)));
+    assert!(!refresh.contains(&(9, 9)));
+}
+
+#[test]
+fn filtered_wall_paint_uses_all_entities_for_adjacency() {
+    // 模拟宿主「只烤邻域」：map 上两段墙，only_cells 仅含西格，仍应选 mask=2（东邻）。
+    let frame_indices: Vec<u8> = (0..16).map(|i| 20 + i).collect();
+    let mut pal = vec![0u8; 768];
+    for &(idx, r, g, b) in &[(20usize, 20u8, 20, 20), (22, 63, 0, 0)] {
+        let o = idx * 3;
+        pal[o] = r;
+        pal[o + 1] = g;
+        pal[o + 2] = b;
+    }
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[GAWALL]\nRemapable=no\nNewTheater=yes\n".to_vec());
+    files.insert("rules.ini".into(), b"[GAWALL]\nWall=yes\nFoundation=1x1\n".to_vec());
+    files.insert("unittem.pal".into(), pal);
+    files.insert("gtwall.shp".into(), multi_frame_shp(&frame_indices));
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.theater = ra_map::Theater::Temperate;
+    for (x, y) in [(5u16, 0u16), (6, 0)] {
+        map.entities.push(MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "Americans".into(),
+            type_id: "GAWALL".into(),
+            health: 256,
+            x,
+            y,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        });
+    }
+    let source = MapSource { files };
+    let mut image = TerrainImage::blank(512, 512);
+    let mut paint = sealed_paint(&source, &map);
+    let only = std::collections::HashSet::from([(5u16, 0u16)]);
+    let (n, _) = ra_map::paint_map_structures_filtered(
+        &source,
+        &map,
+        &mut image,
+        &mut paint,
+        &|p, _| p.clone(),
+        StructureAnimMode::BodyOnly,
+        Some(&only),
+    );
+    assert_eq!(n, 1, "only west cell painted");
+    let pixels: Vec<[u8; 4]> = image.image.as_raw().chunks_exact(4).filter(|c| c[3] > 0).map(|c| [c[0], c[1], c[2], c[3]]).collect();
+    let has_east = pixels.iter().any(|p| p[0] > 200 && p[1] < 40 && p[2] < 40);
+    assert!(has_east, "filtered paint must still see east neighbor for mask=2, got {pixels:?}");
+}
+
+#[test]
+fn runtime_wall_flag_overrides_missing_rules_wall() {
+    // rules 未写 Wall= 时，seal 后仍可用运行时定义强制邻接选帧。
+    let frame_indices: Vec<u8> = (0..16).map(|i| 20 + i).collect();
+    let mut pal = vec![0u8; 768];
+    for &(idx, r, g, b) in &[(20usize, 20u8, 20, 20), (22, 63, 0, 0)] {
+        let o = idx * 3;
+        pal[o] = r;
+        pal[o + 1] = g;
+        pal[o + 2] = b;
+    }
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[GAWALL]\nRemapable=no\nNewTheater=yes\n".to_vec());
+    files.insert("rules.ini".into(), b"[GAWALL]\nFoundation=1x1\n".to_vec());
+    files.insert("unittem.pal".into(), pal);
+    files.insert("gtwall.shp".into(), multi_frame_shp(&frame_indices));
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.theater = ra_map::Theater::Temperate;
+    for (x, y) in [(5u16, 0u16), (6, 0)] {
+        map.entities.push(MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "Americans".into(),
+            type_id: "GAWALL".into(),
+            health: 256,
+            x,
+            y,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        });
+    }
+    let source = MapSource { files };
+    let mut paint = sealed_paint(&source, &map);
+    let key = ra_types::TechnoName::parse("GAWALL");
+    assert!(!paint.structure_is_wall(&key), "rules omit Wall= so seal default is false");
+    paint.apply_structure_wall_flags([(&key, true)]);
+    assert!(paint.structure_is_wall(&key));
+
+    let mut image = TerrainImage::blank(512, 512);
+    let (n, _) = paint_map_structures(&source, &map, &mut image, &mut paint, &|p, _| p.clone(), StructureAnimMode::BodyOnly);
+    assert_eq!(n, 2);
+    let pixels: Vec<[u8; 4]> = image.image.as_raw().chunks_exact(4).filter(|c| c[3] > 0).map(|c| [c[0], c[1], c[2], c[3]]).collect();
+    assert!(
+        pixels.iter().any(|p| p[0] > 200 && p[1] < 40 && p[2] < 40),
+        "runtime Wall override must select east-link frame, got {pixels:?}"
+    );
+}

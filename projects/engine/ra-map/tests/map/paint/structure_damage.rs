@@ -19,6 +19,32 @@ fn parses_percent_and_picks_damaged_frame() {
 }
 
 #[test]
+fn wall_body_frame_uses_adjacency_and_damage_tiers() {
+    // 满血独立柱。
+    assert_eq!(wall_body_frame(256, 0.5, 0.25, 0, 48), 0);
+    // 北+东衔接。
+    assert_eq!(wall_body_frame(256, 0.5, 0.25, 1 | 2, 48), 3);
+    // 四向满衔接。
+    assert_eq!(wall_body_frame(256, 0.5, 0.25, 0x0F, 48), 15);
+    // 黄血档：16 + mask。
+    assert_eq!(wall_body_frame(128, 0.5, 0.25, 4, 48), 20);
+    // 红血档：32 + mask。
+    assert_eq!(wall_body_frame(64, 0.5, 0.25, 8, 48), 40);
+    // 主体不足 16 帧时回退普通受损帧。
+    assert_eq!(wall_body_frame(128, 0.5, 0.25, 3, 2), 1);
+}
+
+#[test]
+fn wall_adjacency_mask_orthogonal_bits() {
+    let cells = [(5u16, 5u16), (5, 4), (6, 5), (5, 6), (4, 5)];
+    let has = |x, y| cells.contains(&(x, y));
+    assert_eq!(wall_adjacency_mask(5, 5, &has), 0x0F);
+    assert_eq!(wall_adjacency_mask(5, 4, &has), 4); // 仅南
+    assert_eq!(wall_adjacency_mask(6, 5, &has), 8); // 仅西
+    assert_eq!(wall_adjacency_mask(9, 9, &has), 0);
+}
+
+#[test]
 fn damage_fire_types_read_from_general() {
     let doc = IniDocument::parse(
         b"[General]\nDamageFireTypes=FIRE01,FIRE02,FIRE03\n\

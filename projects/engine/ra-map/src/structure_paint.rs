@@ -2,7 +2,10 @@
 
 use std::collections::HashMap;
 
-use ra_assets::{HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, rasterize_vxl_layer_poses, shp_body_frame_count};
+use ra_assets::{
+    HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, deserialize_opt_bool, rasterize_vxl_layer_poses,
+    shp_body_frame_count,
+};
 use ra_types::{AssetSource, ImageName, TechnoName};
 use serde::{Deserialize, de::Deserializer};
 
@@ -11,7 +14,7 @@ use crate::{
     compose::{CellSpriteItem, TerrainImage, TileBlit, cell_sprite_foundation, foundation_sort_depth, paint_cell_sprites},
     iso_math::TILE_WIDTH,
     lighting::{PointLight, apply_rgba_tint, cell_tint_with_lights},
-    structure_damage::{damaged_body_frame, structure_tech_level},
+    structure_damage::{damaged_body_frame, structure_tech_level, wall_adjacency_mask, wall_body_frame},
     theater::{new_theater_shp_name, theater_palette},
 };
 
@@ -44,6 +47,8 @@ struct StructureTypePaintHints {
     /// art 中是否解析到类型节或 `Image=` 目标节（seal 诊断用）。
     art_resolved: bool,
     remapable: bool,
+    /// rules `Wall=yes`：主体按邻接 bitmask 选帧。
+    wall: bool,
     body_key: String,
     body_new_theater: bool,
     bib_key: Option<String>,
@@ -81,12 +86,14 @@ impl StructurePaintHintTable {
         self.by_type.insert(type_id, hint);
     }
 
-    fn values(&self) -> impl Iterator<Item = &StructureTypePaintHints> {
-        self.by_type.values()
+    fn set_wall(&mut self, type_id: &TechnoName, wall: bool) {
+        if let Some(hint) = self.by_type.get_mut(type_id) {
+            hint.wall = wall;
+        }
     }
 
-    fn iter(&self) -> impl Iterator<Item = (&TechnoName, &StructureTypePaintHints)> {
-        self.by_type.iter()
+    fn values(&self) -> impl Iterator<Item = &StructureTypePaintHints> {
+        self.by_type.values()
     }
 
     /// 无 art 节可解析的类型键（已排序）。
@@ -142,6 +149,18 @@ impl crate::PaintDefinitions {
 
     fn structure_hint(&self, type_id: &TechnoName) -> Option<&StructureTypePaintHints> {
         self.structure_hints.get(type_id)
+    }
+
+    /// 类型是否按围墙邻接选帧（rules / 运行时 `Wall=yes`）。
+    pub fn structure_is_wall(&self, type_id: &TechnoName) -> bool {
+        self.structure_hints.get(type_id).is_some_and(|h| h.wall)
+    }
+
+    /// 用运行时定义覆盖 `Wall=`（seal 后仍可靠，避免仅靠 INI 节漏读）。
+    pub fn apply_structure_wall_flags<'a>(&mut self, walls: impl IntoIterator<Item = (&'a TechnoName, bool)>) {
+        for (type_id, wall) in walls {
+            self.structure_hints.set_wall(type_id, wall);
+        }
     }
 
     /// 确保表中含该活动层 art 节提示（已有则跳过 INI 扫描）。
@@ -238,6 +257,7 @@ fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocum
     StructureTypePaintHints {
         art_resolved,
         remapable,
+        wall: structure_is_wall(rules, type_id),
         body_key,
         body_new_theater,
         bib_key,
@@ -252,28 +272,31 @@ fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocum
     }
 }
 
+fn structure_is_wall(rules: Option<&IniDocument>, type_id: &str) -> bool {
+    #[derive(Default, Deserialize)]
+    struct WallFields {
+        #[serde(rename = "Wall", default, deserialize_with = "deserialize_opt_bool")]
+        wall: Option<bool>,
+    }
+    rules
+        .and_then(|r| r.section(type_id))
+        .and_then(|s| s.deserialize::<WallFields>().ok())
+        .and_then(|f| f.wall)
+        .unwrap_or(false)
+}
+
 fn structure_foundation(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str, art_section: &str) -> ra_types::Foundation {
     #[derive(Default, Deserialize)]
     struct FoundationFields {
         #[serde(rename = "Foundation")]
         foundation: Option<ra_types::Foundation>,
     }
-    let from_art = |key: &str| {
-        art.and_then(|a| a.section(key)).and_then(|s| s.deserialize::<FoundationFields>().ok()).and_then(|f| f.foundation)
-    };
+    let from_art =
+        |key: &str| art.and_then(|a| a.section(key)).and_then(|s| s.deserialize::<FoundationFields>().ok()).and_then(|f| f.foundation);
     // 与 `apply_art_geometry` 一致：先 Image 目标 art 节，再本类 art，再 rules。
     from_art(art_section)
-        .or_else(|| {
-            if art_section.eq_ignore_ascii_case(type_id) {
-                None
-            }
-            else {
-                from_art(type_id)
-            }
-        })
-        .or_else(|| {
-            rules.and_then(|r| r.section(type_id)).and_then(|s| s.deserialize::<FoundationFields>().ok()).and_then(|f| f.foundation)
-        })
+        .or_else(|| if art_section.eq_ignore_ascii_case(type_id) { None } else { from_art(type_id) })
+        .or_else(|| rules.and_then(|r| r.section(type_id)).and_then(|s| s.deserialize::<FoundationFields>().ok()).and_then(|f| f.foundation))
         .unwrap_or_default()
 }
 
@@ -630,11 +653,49 @@ pub fn paint_map_structures(
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     mode: StructureAnimMode,
 ) -> (usize, usize) {
+    paint_map_structures_filtered(source, map, image, paint, remap_owner, mode, None)
+}
+
+/// 同 [`paint_map_structures`]，可只烤 `only_cells` 内建筑。
+///
+/// `map.entities` 中全部 `Wall=yes` 仍参与邻接 bitmask，便于围墙增删后只刷新邻域。
+pub fn paint_map_structures_filtered(
+    source: &dyn AssetSource,
+    map: &MapInfo,
+    image: &mut TerrainImage,
+    paint: &mut crate::PaintDefinitions,
+    remap_owner: &dyn Fn(&Palette, &str) -> Palette,
+    mode: StructureAnimMode,
+    only_cells: Option<&std::collections::HashSet<(u16, u16)>>,
+) -> (usize, usize) {
     let (paint_body, clock_ms) = match mode {
         StructureAnimMode::BodyOnly => (true, None),
         StructureAnimMode::BodyAndAnims { clock_ms } => (true, Some(clock_ms)),
     };
-    paint_map_structures_inner(source, map, image, paint, remap_owner, paint_body, clock_ms)
+    paint_map_structures_inner(source, map, image, paint, remap_owner, paint_body, clock_ms, only_cells)
+}
+
+/// 锚点及其正交邻墙上的刷新格集合（邻格须已在 `wall_cells` 中）。
+pub fn wall_link_refresh_cells(anchor_x: u16, anchor_y: u16, wall_cells: &std::collections::HashSet<(u16, u16)>) -> std::collections::HashSet<(u16, u16)> {
+    let mut out = std::collections::HashSet::new();
+    out.insert((anchor_x, anchor_y));
+    if anchor_y > 0 && wall_cells.contains(&(anchor_x, anchor_y - 1)) {
+        out.insert((anchor_x, anchor_y - 1));
+    }
+    if let Some(nx) = anchor_x.checked_add(1) {
+        if wall_cells.contains(&(nx, anchor_y)) {
+            out.insert((nx, anchor_y));
+        }
+    }
+    if let Some(ny) = anchor_y.checked_add(1) {
+        if wall_cells.contains(&(anchor_x, ny)) {
+            out.insert((anchor_x, ny));
+        }
+    }
+    if anchor_x > 0 && wall_cells.contains(&(anchor_x - 1, anchor_y)) {
+        out.insert((anchor_x - 1, anchor_y));
+    }
+    out
 }
 
 /// 收集建筑活动层并预解码全部循环帧（不含主体；含黄血燃烧）。
@@ -924,8 +985,9 @@ pub fn load_structure_buildup_clip(
     Some(StructureBuildupClip { x, y, sort_depth, cell_z, rate_ms: buildup.rate_ms, frames })
 }
 
-/// 装入出售 / 拆除擦底图用的精灵遮罩（Bib + 主体帧 0）。
+/// 装入出售 / 拆除擦底图用的精灵遮罩（Bib + 主体）。
 ///
+/// 普通建筑用主体帧 0；围墙用满衔接帧（`min(15, body-1)`），避免只擦独立柱留下横梁残影。
 /// 无 art 提示或 SHP 缺失时返回空；调用方再回退 Buildup 末帧或 Foundation 矩形。
 pub fn load_structure_erase_masks(
     source: &dyn AssetSource,
@@ -950,15 +1012,32 @@ pub fn load_structure_erase_masks(
     let mut blit_cache: HashMap<(String, String, u16, i32), TileBlit> = HashMap::new();
     let mut out = Vec::new();
     if let Some(bib_key) = hint.bib_key.as_ref() {
-        if let Some(blit) =
-            load_structure_blit(source, map, bib_key, hint.bib_new_theater, 0, 0, &pal, &mut shp_cache, &mut blit_cache, owner)
+        if let Some(blit) = load_structure_blit(source, map, bib_key, hint.bib_new_theater, 0, 0, &pal, &mut shp_cache, &mut blit_cache, owner)
         {
             out.push(blit);
         }
     }
-    if let Some(blit) =
-        load_structure_blit(source, map, hint.body_key.as_str(), hint.body_new_theater, 0, 0, &pal, &mut shp_cache, &mut blit_cache, owner)
-    {
+    let body_frames =
+        load_shp(source, map, hint.body_key.as_str(), hint.body_new_theater, &mut shp_cache).map(|shp| shp_body_frame_count(&shp.frames)).unwrap_or(1);
+    let erase_frame = if hint.wall && body_frames > 0 {
+        // 满衔接帧覆盖最大十字/拐角延伸，便于邻墙增删后清残影。
+        (body_frames.min(16) as u16).saturating_sub(1)
+    }
+    else {
+        0
+    };
+    if let Some(blit) = load_structure_blit(
+        source,
+        map,
+        hint.body_key.as_str(),
+        hint.body_new_theater,
+        erase_frame,
+        0,
+        &pal,
+        &mut shp_cache,
+        &mut blit_cache,
+        owner,
+    ) {
         out.push(blit);
     }
     out
@@ -1143,8 +1222,23 @@ pub fn paint_structures_onto_rgba(
     paint: &mut crate::PaintDefinitions,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> usize {
+    paint_structures_onto_rgba_filtered(source, map, image, origin_x, origin_y, paint, remap_owner, None)
+}
+
+/// 同 [`paint_structures_onto_rgba`]，可只烤 `only_cells`；邻接仍看 `map.entities` 全墙。
+pub fn paint_structures_onto_rgba_filtered(
+    source: &dyn AssetSource,
+    map: &MapInfo,
+    image: &mut image::RgbaImage,
+    origin_x: i32,
+    origin_y: i32,
+    paint: &mut crate::PaintDefinitions,
+    remap_owner: &dyn Fn(&Palette, &str) -> Palette,
+    only_cells: Option<&std::collections::HashSet<(u16, u16)>>,
+) -> usize {
     let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
-    let (n, _) = paint_map_structures(source, map, &mut terrain, paint, remap_owner, StructureAnimMode::BodyOnly);
+    let (n, _) =
+        paint_map_structures_filtered(source, map, &mut terrain, paint, remap_owner, StructureAnimMode::BodyOnly, only_cells);
     *image = terrain.image;
     n
 }
@@ -1157,6 +1251,7 @@ fn paint_map_structures_inner(
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     paint_body: bool,
     anim_clock_ms: Option<u64>,
+    only_cells: Option<&std::collections::HashSet<(u16, u16)>>,
 ) -> (usize, usize) {
     let structures: Vec<_> = map.entities.iter().filter(|e| e.kind == MapEntityKind::Structure).collect();
     if structures.is_empty() {
@@ -1174,10 +1269,21 @@ fn paint_map_structures_inner(
         if !paint_body {
             return (0, 0);
         }
-        let missing: Vec<(u16, u16)> = structures.iter().map(|e| (e.x, e.y)).collect();
+        let missing: Vec<(u16, u16)> = structures
+            .iter()
+            .filter(|e| only_cells.is_none_or(|cells| cells.contains(&(e.x, e.y))))
+            .map(|e| (e.x, e.y))
+            .collect();
         let mark = crate::paint_structure_missing_markers(image, &missing, z_at);
         return (0, mark);
     };
+
+    // 围墙邻接：任意 `Wall=yes` 存活结构均可衔接（闸门等与同型墙共用 bitmask）。
+    let wall_cells: std::collections::HashSet<(u16, u16)> = structures
+        .iter()
+        .filter(|ent| paint.structure_hint(&ent.type_id).is_some_and(|h| h.wall))
+        .map(|ent| (ent.x, ent.y))
+        .collect();
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
     let mut blit_cache: HashMap<(String, String, u16, i32), TileBlit> = HashMap::new();
@@ -1185,6 +1291,9 @@ fn paint_map_structures_inner(
     let mut missing: Vec<(u16, u16)> = Vec::new();
 
     for ent in structures {
+        if only_cells.is_some_and(|cells| !cells.contains(&(ent.x, ent.y))) {
+            continue;
+        }
         let Some(hint) = paint.structure_hint(&ent.type_id).cloned()
         else {
             continue;
@@ -1206,7 +1315,13 @@ fn paint_map_structures_inner(
             let body_key = hint.body_key.as_str();
             let body_frames =
                 load_shp(source, map, body_key, body_new_theater, &mut shp_cache).map(|shp| shp_body_frame_count(&shp.frames)).unwrap_or(1);
-            let frame_idx = damaged_body_frame(ent.health, damage.yellow, damage.red, hint.tech_level, body_frames);
+            let frame_idx = if hint.wall {
+                let adjacency = wall_adjacency_mask(ent.x, ent.y, &|cx, cy| wall_cells.contains(&(cx, cy)));
+                wall_body_frame(ent.health, damage.yellow, damage.red, adjacency, body_frames)
+            }
+            else {
+                damaged_body_frame(ent.health, damage.yellow, damage.red, hint.tech_level, body_frames)
+            };
             if let Some(mut blit) =
                 load_structure_blit(source, map, body_key, body_new_theater, frame_idx, 0, &pal, &mut shp_cache, &mut blit_cache, &ent.owner)
             {

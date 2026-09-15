@@ -104,12 +104,14 @@ pub use skirmish_preview::{
 pub use smudge::{MapSmudge, parse_map_smudges};
 pub use structure_damage::{
     StructureDamageRules, damaged_body_frame, health_ratio_256, parse_condition_percent, parse_damage_fire_offset, structure_tech_level,
+    wall_adjacency_mask, wall_body_frame,
 };
 pub use structure_paint::{
     StructureAnimBank, StructureAnimLayer, StructureAnimMode, StructureBuildupClip, buildup_frame_index, buildup_frame_index_reverse,
-    collect_structure_anim_bank, load_structure_buildup_clip, load_structure_erase_masks, paint_map_structures, paint_structure_anim_bank,
-    paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, restore_structure_blit_from_ground,
-    restore_structure_foundation_from_ground, structure_anim_frame,
+    collect_structure_anim_bank, load_structure_buildup_clip, load_structure_erase_masks, paint_map_structures,
+    paint_map_structures_filtered, paint_structure_anim_bank, paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba,
+    paint_structures_onto_rgba, paint_structures_onto_rgba_filtered, restore_structure_blit_from_ground,
+    restore_structure_foundation_from_ground, structure_anim_frame, wall_link_refresh_cells,
 };
 pub use terrain_objects::{TerrainObject, parse_terrain_objects};
 pub use terrain_paint::{

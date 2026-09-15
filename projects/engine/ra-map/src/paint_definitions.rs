@@ -234,6 +234,7 @@ impl PaintDefinitionsLoader {
                 paint.ensure_overlay_hint_with(art, rules, type_name, &display_name);
             }
             paint.preload_structure_anim_hints_with(art);
+            paint.apply_structure_wall_flags(defs.structures.iter().map(|s| (&s.type_key, s.wall)));
         }
         self.drop_documents()
     }

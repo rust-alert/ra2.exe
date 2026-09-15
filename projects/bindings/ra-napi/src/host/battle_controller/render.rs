@@ -11,7 +11,7 @@ use ra_layout::{
 use ra_map::{
     MapEntity, MapEntityKind, OverlayLayerFilter, TILE_HEIGHT, TILE_WIDTH, collect_structure_anim_bank, iso_to_screen,
     paint_ore_tree_frames_onto_rgba, paint_overlays_onto_preview_rgba, paint_structure_anims_onto_rgba, paint_structures_onto_rgba,
-    paint_terrain_anims_onto_rgba,
+    paint_structures_onto_rgba_filtered, paint_terrain_anims_onto_rgba, wall_link_refresh_cells,
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{HouseName, PresentFeel, TechnoName};
@@ -295,8 +295,104 @@ impl BattleController {
         }
         let origin = self.preview_origin;
         let lobby = self.lobby_primaries.clone();
+        let wall_jobs: Vec<_> = jobs
+            .iter()
+            .filter(|(type_id, _, _, _)| self.paint.structure_is_wall(&TechnoName::parse(type_id)))
+            .cloned()
+            .collect();
+        let non_wall_jobs: Vec<_> = jobs
+            .iter()
+            .filter(|(type_id, _, _, _)| !self.paint.structure_is_wall(&TechnoName::parse(type_id)))
+            .cloned()
+            .collect();
         let mut any = false;
-        for (type_id, owner, x, y) in &jobs {
+        if !wall_jobs.is_empty() {
+            let living_walls = {
+                let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+                else {
+                    return false;
+                };
+                game.world
+                    .entity_ids()
+                    .into_iter()
+                    .filter_map(|id| {
+                        let (cur, max, dead) = game.world.ecs_health(id)?;
+                        if dead {
+                            return None;
+                        }
+                        let (type_id, kind) = game.world.ecs_identity(id)?;
+                        if kind != MapEntityKind::Structure {
+                            return None;
+                        }
+                        let techno = TechnoName::parse(type_id.as_ref());
+                        if !self.paint.structure_is_wall(&techno) {
+                            return None;
+                        }
+                        let owner = game.world.ecs_owner(id)?;
+                        let (x, y, _) = game.world.ecs_transform(id)?;
+                        let health = if max == 0 { 256 } else { ((u64::from(cur) * 256) / u64::from(max)).min(256) as u16 };
+                        Some(MapEntity {
+                            kind: MapEntityKind::Structure,
+                            owner: HouseName::parse(owner.as_ref()),
+                            type_id: techno,
+                            health,
+                            x,
+                            y,
+                            facing: 0,
+                            sub_cell: 0,
+                            mission: Default::default(),
+                            tag: Default::default(),
+                        })
+                    })
+                    .collect::<Vec<_>>()
+            };
+            let wall_cells: std::collections::HashSet<(u16, u16)> = living_walls.iter().map(|e| (e.x, e.y)).collect();
+            let mut refresh = std::collections::HashSet::new();
+            for (_, _, x, y) in &wall_jobs {
+                refresh.extend(wall_link_refresh_cells(*x, *y, &wall_cells));
+            }
+            let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+            else {
+                return false;
+            };
+            let mut map = game.world.map.clone();
+            map.entities = living_walls;
+            let remap = |base: &ra_assets::Palette, own: &str| remap_owner_palette(rules, Some(&lobby), base, own);
+            if let Some(clean) = self.preview_clean.as_mut() {
+                let n = paint_structures_onto_rgba_filtered(
+                    assets,
+                    &map,
+                    clean,
+                    origin.0,
+                    origin.1,
+                    &mut self.paint,
+                    &remap,
+                    Some(&refresh),
+                );
+                any |= n > 0;
+            }
+            if let Some(underlay) = self.preview_ore_underlay.as_mut() {
+                let n = paint_structures_onto_rgba_filtered(
+                    assets,
+                    &map,
+                    underlay,
+                    origin.0,
+                    origin.1,
+                    &mut self.paint,
+                    &remap,
+                    Some(&refresh),
+                );
+                any |= n > 0;
+            }
+            for &(cx, cy) in &refresh {
+                self.structure_anims.layers.retain(|layer| !(layer.x == cx && layer.y == cy));
+            }
+            let mut anim_map = map.clone();
+            anim_map.entities.retain(|e| refresh.contains(&(e.x, e.y)));
+            let bank = collect_structure_anim_bank(assets, &anim_map, &mut self.paint, &remap);
+            self.structure_anims.extend_from(bank);
+        }
+        for (type_id, owner, x, y) in &non_wall_jobs {
             let Some(game) = self.session.as_ref().and_then(|s| s.battle())
             else {
                 break;

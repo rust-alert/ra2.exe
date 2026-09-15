@@ -240,6 +240,52 @@ pub fn damaged_body_frame(health_256: u16, yellow: f32, red: f32, tech_level: i3
     if red_tier || yellow_tier { 1 } else { 0 }
 }
 
+/// 围墙主体帧：`损伤档 × 16 + 邻接 bitmask`。
+///
+/// 邻接位（正交）：北=`1`、东=`2`、南=`4`、西=`8`。  
+/// 主体至少 16 帧时按档选用；不足时回退 [`damaged_body_frame`]（`tech_level=1`）。
+/// `GAWALL` / `NAWALL` 等零售 SHP 为 48 主体帧（绿 / 黄 / 红各 16）。
+pub fn wall_body_frame(health_256: u16, yellow: f32, red: f32, adjacency: u8, body_frames: usize) -> u16 {
+    if body_frames < 16 {
+        return damaged_body_frame(health_256, yellow, red, 1, body_frames);
+    }
+    let tiers = body_frames / 16;
+    let ratio = health_ratio_256(health_256);
+    let tier = if tiers >= 3 && ratio <= red {
+        2
+    }
+    else if tiers >= 2 && ratio <= yellow {
+        1
+    }
+    else {
+        0
+    };
+    let frame = tier * 16 + usize::from(adjacency & 0x0F);
+    frame.min(body_frames.saturating_sub(1)) as u16
+}
+
+/// 由正交邻墙格计算衔接 bitmask（北=`1` 东=`2` 南=`4` 西=`8`）。
+pub fn wall_adjacency_mask(x: u16, y: u16, has_wall_at: &dyn Fn(u16, u16) -> bool) -> u8 {
+    let mut mask = 0u8;
+    if y > 0 && has_wall_at(x, y - 1) {
+        mask |= 1;
+    }
+    if let Some(nx) = x.checked_add(1) {
+        if has_wall_at(nx, y) {
+            mask |= 2;
+        }
+    }
+    if let Some(ny) = y.checked_add(1) {
+        if has_wall_at(x, ny) {
+            mask |= 4;
+        }
+    }
+    if x > 0 && has_wall_at(x - 1, y) {
+        mask |= 8;
+    }
+    mask
+}
+
 /// 解析 `DamageFireOffsetN=x,y`。
 pub fn parse_damage_fire_offset(raw: &str) -> Option<(i32, i32)> {
     from_row::<(i32, i32)>(raw).ok()
