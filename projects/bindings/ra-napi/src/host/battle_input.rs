@@ -143,6 +143,46 @@ impl BattleInteractionMode {
     pub fn is_tool(&self) -> bool {
         !matches!(self, Self::Normal)
     }
+
+    /// 可拷贝的工具种类摘要（不含放置类型键；供 `BattleInputFrame`）。
+    pub fn tool_kind(&self) -> BattleToolKind {
+        match self {
+            Self::Normal => BattleToolKind::Normal,
+            Self::PlaceBuilding { .. } => BattleToolKind::PlaceBuilding,
+            Self::Repair => BattleToolKind::Repair,
+            Self::Sell => BattleToolKind::Sell,
+            Self::Planning => BattleToolKind::Planning,
+            Self::AttackMove => BattleToolKind::AttackMove,
+            Self::Follow => BattleToolKind::Follow,
+        }
+    }
+}
+
+/// 对局工具模式的可拷贝摘要（与 `BattleInteractionMode` 一一对应，无堆分配字段）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BattleToolKind {
+    /// 常规。
+    #[default]
+    Normal,
+    /// 建造放置。
+    PlaceBuilding,
+    /// 修理。
+    Repair,
+    /// 出售。
+    Sell,
+    /// 路径规划。
+    Planning,
+    /// 攻击移动。
+    AttackMove,
+    /// 跟随。
+    Follow,
+}
+
+impl BattleToolKind {
+    /// 是否为侧栏 / 命令条工具态。
+    pub const fn is_tool(self) -> bool {
+        !matches!(self, Self::Normal)
+    }
 }
 
 /// 战术区一次解析后的主动作种类（光标 / 左键 / 提示共用同一枚举）。
@@ -259,6 +299,14 @@ pub struct BattleInputFrame {
     pub ctrl_down: bool,
     /// Alt。
     pub alt_down: bool,
+    /// Ctrl / Alt 下令修饰（Shift 排队另见 `shift_down`）。
+    pub order_mod: OrderClickModifier,
+    /// 当前工具模式摘要。
+    pub tool: BattleToolKind,
+    /// 方向键镜头按住态（持续输入）。
+    pub camera_pan_keys: CameraPanKeys,
+    /// 框选预览矩形（仅拖拽框选中）。
+    pub marquee: Option<ScreenRect>,
     /// 当前捕获层种类。
     pub capture: BattleUiCapture,
 }
@@ -763,5 +811,23 @@ mod tests {
         assert_eq!(p.pointer, BattlePointer::Default);
         assert_eq!(p.hover_cell, None);
         assert_eq!(p.hover_primary, ResolvedPrimaryAction::Noop);
+    }
+
+    #[test]
+    fn interaction_mode_tool_kind_matches() {
+        assert_eq!(BattleInteractionMode::Normal.tool_kind(), BattleToolKind::Normal);
+        assert_eq!(
+            BattleInteractionMode::PlaceBuilding { type_id: "GACNST".into() }.tool_kind(),
+            BattleToolKind::PlaceBuilding
+        );
+        assert_eq!(BattleInteractionMode::AttackMove.tool_kind(), BattleToolKind::AttackMove);
+        assert!(BattleToolKind::Repair.is_tool());
+        assert!(!BattleToolKind::Normal.is_tool());
+    }
+
+    #[test]
+    fn input_frame_order_mod_follows_ctrl_alt() {
+        assert_eq!(OrderClickModifier::from_keys(true, false), OrderClickModifier::ForceAttack);
+        assert_eq!(OrderClickModifier::from_keys(false, true), OrderClickModifier::ForceMove);
     }
 }

@@ -610,6 +610,7 @@ impl BattleController {
 
     /// 构造当前不可变输入帧（命中 / 释放对照共用）。
     pub(super) fn input_frame(&self, window: &winit::window::Window) -> super::battle_input::BattleInputFrame {
+        use super::battle_input::OrderClickModifier;
         let metrics = Self::surface_metrics(window);
         let (cx, cy) = self.cursor;
         let cursor_in_window = cx >= 0.0 && cy >= 0.0 && cx < f64::from(metrics.logical_width) && cy < f64::from(metrics.logical_height);
@@ -622,6 +623,10 @@ impl BattleController {
             shift_down: self.shift_down,
             ctrl_down: self.ctrl_down,
             alt_down: self.alt_down,
+            order_mod: OrderClickModifier::from_keys(self.ctrl_down, self.alt_down),
+            tool: self.interaction_mode.tool_kind(),
+            camera_pan_keys: self.camera_pan_keys,
+            marquee: self.left_gesture.marquee_rect(),
             capture: self.ui_capture,
         }
     }
