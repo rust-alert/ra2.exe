@@ -913,3 +913,26 @@ fn place_building_rejects_terrain_occupancy_tree() {
     world.pass_grid.set_passable(6, 4, true);
     assert!(!world.can_place_building_for("AMERICANS", power, 6, 4));
 }
+
+#[test]
+fn build_zone_split_from_cell_conditions_for_ghost_colors() {
+    let mut world = yard_world();
+    let power = world.definitions.techno.get("GAPOWR").expect("GAPOWR").id;
+    // 贴建造场：在建区且格可建。
+    assert!(world.building_in_build_zone("AMERICANS", power, 6, 4));
+    assert!(world.can_place_structure_footprint(6, 4, 2, 2, false));
+    assert!(world.can_place_building_for("AMERICANS", power, 6, 4));
+    // 远处置空地：格可建但超建区（幽灵应红）。
+    assert!(!world.building_in_build_zone("AMERICANS", power, 12, 12));
+    assert!(world.can_place_structure_footprint(12, 12, 2, 2, false));
+    assert!(!world.can_place_building_for("AMERICANS", power, 12, 12));
+    // 建区内抬高一角：仍算在建区，但占地不可建（幽灵应橙）。
+    world.pass_grid.set_height(6, 4, 0);
+    world.pass_grid.set_height(7, 4, 0);
+    world.pass_grid.set_height(6, 5, 0);
+    world.pass_grid.set_height(7, 5, 2);
+    assert!(world.building_in_build_zone("AMERICANS", power, 6, 4));
+    assert!(!world.structure_footprint_height_flat(6, 4, 2, 2));
+    assert!(!world.can_place_structure_footprint(6, 4, 2, 2, false));
+    assert!(!world.can_place_building_for("AMERICANS", power, 6, 4));
+}

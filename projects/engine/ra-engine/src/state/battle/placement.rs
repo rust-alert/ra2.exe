@@ -22,7 +22,6 @@ impl BattleState {
     pub fn can_place_structure_footprint(&self, x: u16, y: u16, width: u16, height: u16, water_bound: bool) -> bool {
         let width = width.max(1);
         let height = height.max(1);
-        let mut height0: Option<u8> = None;
         for dy in 0..height {
             for dx in 0..width {
                 let Some(cx) = x.checked_add(dx)
@@ -36,15 +35,9 @@ impl BattleState {
                 if !self.cell_ok_for_structure(cx, cy, water_bound) {
                     return false;
                 }
-                let z = self.pass_grid.cell_height(cx, cy);
-                match height0 {
-                    None => height0 = Some(z),
-                    Some(h) if h != z => return false,
-                    Some(_) => {}
-                }
             }
         }
-        true
+        self.structure_footprint_height_flat(x, y, width, height)
     }
 
     /// 占地几何 + 己方建区（`BaseNormal`/`Adjacent`）或墙链（`Wall`/`GuardRange`）。
@@ -59,11 +52,52 @@ impl BattleState {
         if !self.can_place_structure_footprint(x, y, foundation.width, foundation.height, sdef.water_bound) {
             return false;
         }
+        self.building_in_build_zone(house, type_id, x, y)
+    }
+
+    /// 是否在建区内（`BaseNormal`/`Adjacent` 或墙链），**不含**占地几何 / 地形条件。
+    ///
+    /// 供放置幽灵分色：超建区 vs 格不可建。
+    pub fn building_in_build_zone(&self, house: &str, type_id: TypeId, x: u16, y: u16) -> bool {
+        let Some(sdef) = self.definitions.structures.get_by_id(type_id)
+        else {
+            return false;
+        };
+        let foundation = &sdef.foundation;
         if self.house_build_zone_allows(house, sdef.adjacent, x, y, foundation.width, foundation.height) {
             return true;
         }
         // 围墙：可沿己方同型墙在 `GuardRange` 内正交延伸（含自动补段路径畅通）。
         sdef.wall && self.wall_chain_anchor(house, type_id, sdef.guard_range, x, y).is_some()
+    }
+
+    /// 占地矩形内高度是否一致（拒悬崖半悬）。
+    pub fn structure_footprint_height_flat(&self, x: u16, y: u16, width: u16, height: u16) -> bool {
+        let width = width.max(1);
+        let height = height.max(1);
+        let mut height0: Option<u8> = None;
+        for dy in 0..height {
+            for dx in 0..width {
+                let Some(cx) = x.checked_add(dx)
+                else {
+                    return false;
+                };
+                let Some(cy) = y.checked_add(dy)
+                else {
+                    return false;
+                };
+                if !self.pass_grid.in_bounds(cx, cy) {
+                    return false;
+                }
+                let z = self.pass_grid.cell_height(cx, cy);
+                match height0 {
+                    None => height0 = Some(z),
+                    Some(h) if h != z => return false,
+                    Some(_) => {}
+                }
+            }
+        }
+        true
     }
 
     /// AI 落位：占地几何 + `AIBaseSpacing` 最少空隙（可选优先多一格）+ 船厂最大距。
