@@ -1,4 +1,8 @@
-//! VXL 简易等距正交投影（预览用；车身 VPL 为法线→亮度页粗映射）。
+//! VXL 简易等距投影（预览用；车身 VPL 为法线→亮度页粗映射）。
+//!
+//! 朝向与相机约定对齐经典等距体素绘制：32 档偏航（四舍五入量化）、车身绕 Z
+//! 的 `(step - 8) * -π/16`，再乘俯仰 −60° / 偏航 −45° 的视图，屏幕取 `(x, -y)`。
+//! 精灵锚在模型原点，避免按不透明包围盒居中导致转向／HVA 走动时整车乱跳。
 
 use std::collections::HashSet;
 
@@ -8,24 +12,34 @@ use crate::image::pal::Palette;
 /// 落影相对底面投影的屏幕 X 光向偏移（像素）。
 pub const VXL_SHADOW_LIGHT_OFFSET_X: i32 = 3;
 
-/// 体素偏航量化档数（原版每轴约 32 档缓存；本预览路径只做 yaw）。
+/// 体素偏航量化档数（每轴 32 档；本预览路径只做 yaw + 固定等距相机）。
 ///
 /// 勿与载具 **SHP** 的 8 向帧槽混淆。
 pub const VXL_FACING_STEPS: u32 = 32;
 
-/// `facing: u8`（0..=255）量化到 [`VXL_FACING_STEPS`] 时的字节步长（`256/32=8`）。
+/// 历史导出名：一档对应的朝向字节跨度约 `256/32=8`（实际量化见 [`vxl_yaw_steps`] 的四舍五入）。
 pub const VXL_FACING_BYTE_STEP: u8 = (256 / VXL_FACING_STEPS) as u8;
 
+/// 相机俯仰（弧度）：−60°。
+const CAMERA_PITCH: f32 = -std::f32::consts::FRAC_PI_3;
+
+/// 相机偏航（弧度）：−45°，使模型北与等距格对齐。
+const CAMERA_YAW: f32 = -std::f32::consts::FRAC_PI_4;
+
 /// 将游戏朝向字节量化为偏航档位（0..=31）。
+///
+/// 对半档四舍五入：`((facing >> 2) + 1) >> 1`，边界在 facing=4（半个 11.25°）。
 #[inline]
 pub fn vxl_yaw_steps(facing: u8) -> u8 {
-    facing / VXL_FACING_BYTE_STEP
+    ((((u32::from(facing) >> 2) + 1) >> 1) & (VXL_FACING_STEPS - 1)) as u8
 }
 
-/// 量化后的偏航角（弧度）：`steps * 2π / 32`。
+/// 车身绕模型 Z 的偏航角（弧度）：`(step - 8) * -π/16`。
+///
+/// `step=8`（facing≈64）为零转；与相机 −45° 合起来对应经典「北」对齐。
 #[inline]
 pub fn vxl_yaw_radians(facing: u8) -> f32 {
-    f32::from(vxl_yaw_steps(facing)) * (std::f32::consts::TAU / VXL_FACING_STEPS as f32)
+    (f32::from(vxl_yaw_steps(facing)) - 8.0) * -(std::f32::consts::PI / 16.0)
 }
 
 /// 投影后的精灵。
@@ -35,7 +49,7 @@ pub struct VxlSprite {
     pub width: u32,
     /// 像素高。
     pub height: u32,
-    /// 相对投影原点：包围盒中心对齐 (0,0) 的 X。
+    /// 相对投影原点：模型原点映射到精灵内的 X（非包围盒居中）。
     pub offset_x: i32,
     /// 相对投影原点的 Y。
     pub offset_y: i32,
@@ -56,7 +70,7 @@ pub fn rasterize_vxl_posed(vxl: &VxlFile, palette: &Palette, hva: Option<&HvaFil
 /// 按朝向与 HVA 动画帧投影。
 ///
 /// 节变换：`bounds_min + bone(scale(grid))`，其中 bone 平移乘 `limb.scale`。
-/// 组装后绕模型原点做 [`VXL_FACING_STEPS`] 档偏航（非 SHP 八向）。
+/// 组装后按 [`VXL_FACING_STEPS`] 档车身偏航，再经固定等距相机投影。
 pub fn rasterize_vxl_frame(vxl: &VxlFile, palette: &Palette, hva: Option<&HvaFile>, facing: u8, frame: u32) -> Option<VxlSprite> {
     rasterize_vxl_layers(&[(vxl, hva)], palette, facing, frame)
 }
@@ -92,7 +106,7 @@ pub fn rasterize_vxl_layer_poses(layers: &[VxlLayerPose<'_>], palette: &Palette,
             let bone = layer.hva.and_then(|h| h.get_transform(frame_idx, section as u32)).unwrap_or(&limb.transform);
             for v in &limb.voxels {
                 let (mx, my, mz) = section_point(limb, v, bone);
-                let (x, y, z) = yaw_point(mx, my, mz, 0.0, 0.0, layer.facing);
+                let (x, y, z) = camera_point(mx, my, mz, layer.facing);
                 assembled.push((x, y, z, v.color_index, v.normal_index));
             }
         }
@@ -110,12 +124,7 @@ pub fn rasterize_vxl_layer_poses(layers: &[VxlLayerPose<'_>], palette: &Palette,
             }
             None => color_index,
         };
-        let xi = x.round() as i32;
-        let yi = y.round() as i32;
-        let zi = z.round() as i32;
-        let sx = xi - yi;
-        let sy = (xi + yi) / 2 - zi;
-        let depth = xi + yi + zi;
+        let (sx, sy, depth) = project_screen(x, y, z);
         points.push((sx, sy, depth, shaded));
     }
 
@@ -152,7 +161,9 @@ pub fn rasterize_vxl_layer_poses(layers: &[VxlLayerPose<'_>], palette: &Palette,
         rgba[di + 3] = c.a;
     }
 
-    Some(VxlSprite { width, height, offset_x: -(width as i32) / 2, offset_y: -(height as i32) / 2, rgba })
+    // 精灵 (0,0) 对应投影 (min_sx,min_sy)；offset=min 使模型原点落到叠画锚点（再加钻石中心）。
+    // 勿用 -width/2 包围盒居中，否则转向／HVA 走动时整车会跟着 AABB 漂移。
+    Some(VxlSprite { width, height, offset_x: min_sx, offset_y: min_sy, rgba })
 }
 
 /// 体素落影：各占用柱压到模型最低高度后做等距投影，再加光向偏移。
@@ -160,7 +171,8 @@ pub fn rasterize_vxl_layer_poses(layers: &[VxlLayerPose<'_>], palette: &Palette,
 /// 返回精灵的不透明黑像素为落影模板；叠画端应对目标像素压暗，而不是源覆盖。
 /// 炮塔 / 炮管层通常不参与；调用方只传入车身层即可。
 pub fn rasterize_vxl_shadow_layer_poses(layers: &[VxlLayerPose<'_>]) -> Option<VxlSprite> {
-    let mut world: Vec<(f32, f32, f32)> = Vec::new();
+    // 模型空间点 + 各层朝向；落影按模型 XY 柱去重，再压到最低 Z 后走同一相机。
+    let mut world: Vec<(f32, f32, f32, u8)> = Vec::new();
     for layer in layers {
         let frame_idx = match layer.hva {
             Some(h) if h.frame_count > 0 => layer.frame % h.frame_count,
@@ -170,8 +182,7 @@ pub fn rasterize_vxl_shadow_layer_poses(layers: &[VxlLayerPose<'_>]) -> Option<V
             let bone = layer.hva.and_then(|h| h.get_transform(frame_idx, section as u32)).unwrap_or(&limb.transform);
             for v in &limb.voxels {
                 let (mx, my, mz) = section_point(limb, v, bone);
-                let (x, y, z) = yaw_point(mx, my, mz, 0.0, 0.0, layer.facing);
-                world.push((x, y, z));
+                world.push((mx, my, mz, layer.facing));
             }
         }
     }
@@ -179,19 +190,18 @@ pub fn rasterize_vxl_shadow_layer_poses(layers: &[VxlLayerPose<'_>]) -> Option<V
         return None;
     }
 
-    let ground_z = world.iter().map(|(_, _, z)| *z).fold(f32::INFINITY, f32::min);
-    let zi = ground_z.round() as i32;
+    let ground_z = world.iter().map(|(_, _, z, _)| *z).fold(f32::INFINITY, f32::min);
     let mut columns = HashSet::new();
     let mut points: Vec<(i32, i32)> = Vec::new();
-    for &(x, y, _) in &world {
+    for &(x, y, _, facing) in &world {
         let xi = x.round() as i32;
         let yi = y.round() as i32;
         if !columns.insert((xi, yi)) {
             continue;
         }
-        let sx = xi - yi + VXL_SHADOW_LIGHT_OFFSET_X;
-        let sy = (xi + yi) / 2 - zi;
-        points.push((sx, sy));
+        let (cx, cy, cz) = camera_point(xi as f32, yi as f32, ground_z, facing);
+        let (sx, sy, _) = project_screen(cx, cy, cz);
+        points.push((sx + VXL_SHADOW_LIGHT_OFFSET_X, sy));
     }
     if points.is_empty() {
         return None;
@@ -224,8 +234,7 @@ pub fn rasterize_vxl_shadow_layer_poses(layers: &[VxlLayerPose<'_>]) -> Option<V
         rgba[di + 3] = 255;
     }
 
-    // 与车身同样按包围盒居中，但保留光向 X 偏移，避免「先加偏移再居中」被抵消。
-    Some(VxlSprite { width, height, offset_x: -(width as i32) / 2 + VXL_SHADOW_LIGHT_OFFSET_X, offset_y: -(height as i32) / 2, rgba })
+    Some(VxlSprite { width, height, offset_x: min_sx, offset_y: min_sy, rgba })
 }
 
 /// 节局部点：`bounds_min + bone(section_scale * grid)`。
@@ -250,14 +259,29 @@ fn apply_matrix_scaled(m: &[f32; 12], x: f32, y: f32, z: f32, limb_scale: f32) -
     (m[0] * x + m[1] * y + m[2] * z + m[3] * s, m[4] * x + m[5] * y + m[6] * z + m[7] * s, m[8] * x + m[9] * y + m[10] * z + m[11] * s)
 }
 
-fn yaw_point(x: f32, y: f32, z: f32, cx: f32, cy: f32, facing: u8) -> (f32, f32, f32) {
-    let steps = vxl_yaw_steps(facing);
-    if steps == 0 {
+/// 车身偏航后再乘固定等距相机（先 Rz(camera_yaw)，再 Rx(camera_pitch)）。
+fn camera_point(x: f32, y: f32, z: f32, facing: u8) -> (f32, f32, f32) {
+    let (x, y, z) = rotate_z(x, y, z, vxl_yaw_radians(facing));
+    let (x, y, z) = rotate_z(x, y, z, CAMERA_YAW);
+    rotate_x(x, y, z, CAMERA_PITCH)
+}
+
+fn project_screen(x: f32, y: f32, z: f32) -> (i32, i32, i32) {
+    (x.round() as i32, (-y).round() as i32, z.round() as i32)
+}
+
+fn rotate_z(x: f32, y: f32, z: f32, angle: f32) -> (f32, f32, f32) {
+    if angle == 0.0 {
         return (x, y, z);
     }
-    let angle = vxl_yaw_radians(facing);
     let (s, c) = angle.sin_cos();
-    let dx = x - cx;
-    let dy = y - cy;
-    (c * dx - s * dy + cx, s * dx + c * dy + cy, z)
+    (c * x - s * y, s * x + c * y, z)
+}
+
+fn rotate_x(x: f32, y: f32, z: f32, angle: f32) -> (f32, f32, f32) {
+    if angle == 0.0 {
+        return (x, y, z);
+    }
+    let (s, c) = angle.sin_cos();
+    (x, c * y - s * z, s * y + c * z)
 }

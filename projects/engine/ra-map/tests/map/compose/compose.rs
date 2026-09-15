@@ -136,6 +136,56 @@ fn paint_cell_sprite_shadow_darkens_terrain() {
     assert!(dim >= 4, "expected at least 4 halved-RGB shadow pixels, got {dim}");
 }
 
+#[test]
+fn paint_cell_sprite_shadow_follows_body_slide_offset() {
+    let mut rgba = vec![0u8; 60 * 30 * 4];
+    for px in rgba.chunks_exact_mut(4) {
+        px.copy_from_slice(&[200, 200, 200, 255]);
+    }
+    let cells = [IsoCell { x: 2, y: 3, tile_num: 0, sub_tile: 0, z: 0, flags: 0 }];
+    let mut img = compose_terrain_rgba(
+        &cells,
+        |_, _| Some(TileBlit { width: 60, height: 30, offset_x: 0, offset_y: 0, rgba: rgba.clone(), shadow: None }),
+        |_, _, _| [1.0, 1.0, 1.0],
+    )
+    .unwrap();
+    let sprite = vec![0u8; 2 * 2 * 4];
+    let mask = vec![1u8, 1, 1, 1];
+    let items = [cell_sprite(
+        2u16,
+        3u16,
+        TileBlit {
+            width: 2,
+            height: 2,
+            offset_x: 28 + 12,
+            offset_y: 13,
+            rgba: sprite,
+            shadow: Some(ShadowBlit { width: 2, height: 2, offset_x: 28 + 12, offset_y: 13, mask }),
+        },
+    )];
+    let n = paint_cell_sprites(&mut img, &items, |_, _| 0);
+    assert_eq!(n, 0);
+    let (sx, sy) = ra_map::iso_to_screen(2, 3, 0);
+    let ox = sx + 28 + 12 - img.origin_x;
+    let oy = sy + 13 - img.origin_y;
+    let mut dim = 0usize;
+    for row in 0..2i32 {
+        for col in 0..2i32 {
+            let x = ox + col;
+            let y = oy + row;
+            if x < 0 || y < 0 {
+                continue;
+            }
+            let i = ((y as u32 * img.image.width() + x as u32) * 4) as usize;
+            let px = &img.image.as_raw()[i..i + 4];
+            if px == [100, 100, 100, 255] {
+                dim += 1;
+            }
+        }
+    }
+    assert_eq!(dim, 4, "shadow must darken the slid cell, not the unmoved diamond");
+}
+
 
 #[test]
 fn paint_cell_sprites_sort_by_cell_depth_not_blit_top() {

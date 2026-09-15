@@ -21,7 +21,7 @@ fn empty_mobiles_noop() {
 // 自顶层 `mobile_paint_unit.rs` 并入。
 
 // 自 engine/ra-map/src/mobile_paint.rs :: tests
-use ra_map::{TileBlit, mobile_paint::*};
+use ra_map::{ShadowBlit, TileBlit, mobile_paint::*};
 
 #[test]
 fn walk_sequence_frame_matches_gi_layout() {
@@ -35,6 +35,20 @@ fn walk_sequence_frame_matches_gi_layout() {
 }
 
 #[test]
+fn infantry_facing_slot_follows_move_axis() {
+    // `facing_toward`：+X=0 屏幕东南，+Y=64 西南，−X=128 西北，−Y=192 东北。
+    // 序列槽从北起逆时针：东南=5、南=4、西南=3、西=2、西北=1、北=0、东北=7、东=6。
+    assert_eq!(infantry_facing_slot(0), 5);
+    assert_eq!(infantry_facing_slot(32), 4);
+    assert_eq!(infantry_facing_slot(64), 3);
+    assert_eq!(infantry_facing_slot(96), 2);
+    assert_eq!(infantry_facing_slot(128), 1);
+    assert_eq!(infantry_facing_slot(160), 0);
+    assert_eq!(infantry_facing_slot(192), 7);
+    assert_eq!(infantry_facing_slot(224), 6);
+}
+
+#[test]
 fn parse_walk_triple() {
     assert_eq!(parse_sequence_triple("8,6,6"), Some((8, 6, 6)));
     assert_eq!(parse_sequence_triple("0,1,1"), Some((0, 1, 1)));
@@ -42,11 +56,11 @@ fn parse_walk_triple() {
 
 #[test]
 fn fire_sequence_preferred_over_walk() {
-    // Fire=52,6,6；facing 0 → 槽 7，步 1 → 帧 52+7*6+1=95；即使 moving=true 也优先开火。
+    // Fire=52,6,6；facing 0（+X / 东南）→ 槽 5，步 1 → 帧 52+5*6+1=83；即使 moving=true 也优先开火。
     let frame = infantry_shp_frame_from_triples(0, 1, true, true, Some((8, 6, 6)), Some((0, 1, 6)), Some((52, 6, 6)));
-    assert_eq!(frame, 95);
+    assert_eq!(frame, 83);
     let walk_frame = infantry_shp_frame_from_triples(0, 1, true, false, Some((8, 6, 6)), Some((0, 1, 6)), Some((52, 6, 6)));
-    assert_eq!(walk_frame, 51); // Walk start 8 + 7*6 + 1
+    assert_eq!(walk_frame, 39); // Walk start 8 + 5*6 + 1
 }
 
 #[test]
@@ -88,10 +102,13 @@ fn pose_slide_offset_is_added_to_blit_origin() {
     let pose =
         MobilePaintPose { anim_frame: 0, moving: true, firing: false, hit_flash: false, offset_x: 12, offset_y: -8, turret_facing: None };
     let mut blit = TileBlit::solid(4, 4, 3, 5, vec![255; 4 * 4 * 4]);
-    blit.offset_x = blit.offset_x.saturating_add(pose.offset_x);
-    blit.offset_y = blit.offset_y.saturating_add(pose.offset_y);
+    blit.shadow = Some(ShadowBlit { width: 2, height: 2, offset_x: 1, offset_y: 2, mask: vec![1; 4] });
+    apply_mobile_pose_offset(&mut blit, pose);
     assert_eq!(blit.offset_x, 15);
     assert_eq!(blit.offset_y, -3);
+    let shadow = blit.shadow.as_ref().expect("shadow");
+    assert_eq!(shadow.offset_x, 13);
+    assert_eq!(shadow.offset_y, -6);
 }
 
 #[test]

@@ -72,7 +72,8 @@ pub use lighting::{
     parse_map_lighting, point_light_at, point_light_from_profile, radiation_point_light, terrain_tint,
 };
 pub use mobile_paint::{
-    MobilePaintPose, infantry_facing_slot, infantry_sub_cell_offsets, paint_map_mobiles, slide_offset_along_path,
+    MobilePaintPose, apply_mobile_pose_offset, infantry_facing_slot, infantry_sub_cell_offsets, paint_map_mobiles,
+    slide_offset_along_path,
 };
 pub use overlay::{NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID, OverlayCell, decode_overlay_packs};
 pub use overlay_paint::{

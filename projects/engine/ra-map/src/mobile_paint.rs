@@ -153,8 +153,14 @@ pub struct MobilePaintPose {
 }
 
 /// 步兵朝向槽表（零售 32 项），由 [`infantry_facing_slot`] 索引。
+///
+/// 表内槽 0 起为北、逆时针八向（与 `Sequence=` 块布局一致）。仿真朝向以 +X 为字节 `0`
+/// （屏幕东南），索引前先加 `64` 对齐到北=0。
 pub const INFANTRY_FACING_SLOT_TABLE: [u8; 32] =
     [7, 7, 6, 6, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 3, 2, 2, 2, 2, 1, 1, 1, 1, 0, 0, 0, 0, 7, 7];
+
+/// 仿真朝向字节 → 步兵序列北=0 朝向字节（+X / 东南对齐到东）。
+const INFANTRY_SEQUENCE_FACING_OFFSET: u8 = 64;
 
 /// 叠画单位 / 步兵 / 飞行器。`remap_owner` 提供房屋色调色板。
 ///
@@ -222,8 +228,7 @@ pub fn paint_map_mobiles(
             if pose.hit_flash {
                 apply_hit_flash_rgba(&mut painted.rgba);
             }
-            painted.offset_x = painted.offset_x.saturating_add(pose.offset_x);
-            painted.offset_y = painted.offset_y.saturating_add(pose.offset_y);
+            apply_mobile_pose_offset(&mut painted, pose);
             items.push(cell_sprite(ent.x, ent.y, painted));
             continue;
         }
@@ -244,8 +249,7 @@ pub fn paint_map_mobiles(
             if pose.hit_flash {
                 apply_hit_flash_rgba(&mut blit.rgba);
             }
-            blit.offset_x = blit.offset_x.saturating_add(pose.offset_x);
-            blit.offset_y = blit.offset_y.saturating_add(pose.offset_y);
+            apply_mobile_pose_offset(&mut blit, pose);
             items.push(cell_sprite(ent.x, ent.y, blit));
         }
         else {
@@ -261,8 +265,12 @@ fn resolve_mobile_image_key(rules: Option<&IniDocument>, art: Option<&IniDocumen
 }
 
 /// 步兵朝向字节 → SHP 朝向槽（0..=7）。
+///
+/// `facing` 为仿真车身字节（+X=`0`）。序列块从北起逆时针，
+/// 故先加 [`INFANTRY_SEQUENCE_FACING_OFFSET`] 再查表。
 pub fn infantry_facing_slot(facing: u8) -> u16 {
-    let step = (((u16::from(facing) >> 2) + 1) >> 1) as usize & 0x1F;
+    let seq = facing.wrapping_add(INFANTRY_SEQUENCE_FACING_OFFSET);
+    let step = (((u16::from(seq) >> 2) + 1) >> 1) as usize & 0x1F;
     u16::from(INFANTRY_FACING_SLOT_TABLE[step])
 }
 
@@ -553,6 +561,17 @@ pub fn mobile_shp_cell_offsets(frame_x: u16, frame_y: u16, shp_w: u16, shp_h: u1
 pub fn infantry_sub_cell_offsets(sub_cell: u8) -> (i32, i32) {
     const TABLE: [(i32, i32); 5] = [(0, 0), (-14, -7), (14, -7), (-14, 7), (14, 7)];
     TABLE.get(usize::from(sub_cell)).copied().unwrap_or((0, 0))
+}
+
+/// 把格内滑移叠到主体与落影上。落影相对钻石原点独立存放，漏加时影子会钉在逻辑格上。
+#[doc(hidden)]
+pub fn apply_mobile_pose_offset(blit: &mut TileBlit, pose: MobilePaintPose) {
+    blit.offset_x = blit.offset_x.saturating_add(pose.offset_x);
+    blit.offset_y = blit.offset_y.saturating_add(pose.offset_y);
+    if let Some(shadow) = blit.shadow.as_mut() {
+        shadow.offset_x = shadow.offset_x.saturating_add(pose.offset_x);
+        shadow.offset_y = shadow.offset_y.saturating_add(pose.offset_y);
+    }
 }
 
 /// 相对当前逻辑格，沿 `path[0]` 单边插值屏幕偏移。
