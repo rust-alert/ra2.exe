@@ -10,5 +10,6 @@ mod discover_maps;
 mod options_dialog;
 mod page;
 mod power_meter;
+mod selection_power_tip;
 mod skirmish_setup;
 mod startup_splash;

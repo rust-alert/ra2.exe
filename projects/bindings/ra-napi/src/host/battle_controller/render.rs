@@ -19,10 +19,11 @@ use ra_widgets::{
     battle_hud::BattleCameoPaint,
     battle_pause_layer::BattlePauseLayer,
     compose::{
-BattleHudModel, compose_battle_abort_confirm_overlay, compose_battle_diplomacy_overlay, compose_battle_hud_overlay,
-    compose_battle_in_game_options_overlay, compose_battle_pause_menu_overlay, paint_battle_outcome_hold_banner,
+        BattleHudModel, compose_battle_abort_confirm_overlay, compose_battle_diplomacy_overlay, compose_battle_hud_overlay,
+        compose_battle_in_game_options_overlay, compose_battle_pause_menu_overlay, paint_battle_outcome_hold_banner,
     },
     fs_source::GameAssetSource,
+    paint_selection_power_tip, selection_power_drain_caption, structure_selection_center_preview,
     render::present,
     skin::text::{battle_outcome_banner_csf_key, battle_outcome_banner_fallback, command_button_csf_tooltip, resolve_csf_text},
 };
@@ -490,6 +491,50 @@ impl BattleController {
         }
     }
 
+    /// 选中供电建筑时在占地中心叠 TXT_POWER_DRAIN2（电力 / 负载）。
+    pub(super) fn paint_selected_power_plant_tip(
+        &self,
+        page: &mut RgbaImage,
+        renderer: &Renderer,
+        fnt: Option<&FntFile>,
+        csf: Option<&CsfFile>,
+        window_w: u32,
+        window_h: u32,
+    ) {
+        let Some(fnt) = fnt
+        else {
+            return;
+        };
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return;
+        };
+        let Some(id) = self.local.selected.iter().copied().find(|&id| {
+            game.world.ecs_health(id).is_some_and(|(_, _, dead)| !dead)
+                && game.world.ecs_identity(id).is_some_and(|(_, kind)| kind == MapEntityKind::Structure)
+                && game
+                    .world
+                    .ecs_identity(id)
+                    .is_some_and(|(key, _)| game.world.definitions.structures.get(key.as_ref()).is_some_and(|s| s.power.output > 0))
+        })
+        else {
+            return;
+        };
+        let Some(unit) = game.project_units(&[id]).into_iter().next()
+        else {
+            return;
+        };
+        let Some(power) = game.world.definitions.structures.get(unit.type_id.as_ref()).map(|s| s.power)
+        else {
+            return;
+        };
+        let (cx, cy) = structure_selection_center_preview(unit.screen_x, unit.screen_y, unit.foundation_w, unit.foundation_h, unit.art_height);
+        let vp = MapViewport::battle(window_w.max(1), window_h.max(1));
+        let (sx, sy) = vp.world_to_screen(renderer.camera(), cx, cy);
+        let caption = selection_power_drain_caption(csf, power.output, power.drain);
+        paint_selection_power_tip(page, fnt, &caption, sx.round() as i32, sy.round() as i32, window_w as i32, window_h as i32);
+    }
+
     pub(super) fn upload_battle_hud(
         &mut self,
         renderer: &mut Renderer,
@@ -677,6 +722,7 @@ impl BattleController {
                     self.paint_placement_ghost(&mut page, renderer, w, h, &type_id);
                 }
             }
+            self.paint_selected_power_plant_tip(&mut page, renderer, fnt, csf, w, h);
             // 收束窗（`pending_savour_outcome`）与已锁定 `outcome` 都叠胜负横幅。
             let hold_outcome =
                 hud.outcome.as_ref().or_else(|| self.session.as_ref().and_then(|s| s.battle()).and_then(|g| g.pending_savour_outcome.as_ref()));

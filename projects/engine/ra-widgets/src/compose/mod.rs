@@ -64,6 +64,6 @@ pub use exit_confirm::compose_exit_confirm_page;
 pub use load::{LoadScreenPaint, compose_load_screen_page};
 pub use menu::{compose_main_menu_page, compose_single_player_page};
 pub use options::compose_options_page;
-pub use raster::{blit_rgba, blit_stretched};
+pub use raster::{blit_rgba, blit_stretched, fill_rect, stroke_rect};
 pub use skirmish::{SkirmishChromeSprites, SkirmishLobbyPaint, compose_skirmish_lobby_page};
 pub use skirmish_score::{SkirmishScorePaint, SkirmishScoreRow, compose_skirmish_score_page, format_score_time, skirmish_score_hit_at};
