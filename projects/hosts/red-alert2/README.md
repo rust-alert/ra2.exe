@@ -35,3 +35,13 @@ ra2 diagnose-maps --path "C:/Games/RA2" --edition ra2 --json
 ```
 
 `--json` 输出与 N-API `diagnoseMaps` 相同的报告对象，便于回填验收清单。
+
+载具 VXL 分图层诊断（车身 / 炮塔 / 炮管 / 合成 / 落影的尺寸与原点偏移；只读取安装资源，不写盘）：
+
+```bash
+ra2 diagnose-mobile-vxl --path "C:/Games/RA2" --edition ra2 --stem mtnk
+ra2 diagnose-mobile-vxl --path "C:/Games/RA2" --edition ra2 --type MTNK --sweep-turret
+ra2 diagnose-mobile-vxl --path "C:/Games/RA2" --edition ra2 --stem mtnk --sweep-hva --hva-frames 3 --json
+```
+
+合集盘须加 `--edition ra2`。`--sweep-body` / `--sweep-turret` / `--sweep-hva` 三者互斥。

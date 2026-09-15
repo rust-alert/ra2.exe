@@ -95,12 +95,65 @@ export type DiagnoseMapsReport = {
     missing: number;
 };
 
+export type DiagnoseMobileVxlOptions = {
+    path: string;
+    edition?: string;
+    /** 资源词干（如 `mtnk`）；与 `typeId` 至少提供一个。 */
+    stem?: string;
+    /** techno 类型 id（如 `MTNK`）；经 `Image=` 解析词干。 */
+    typeId?: string;
+    bodyFacing?: number;
+    turretFacing?: number;
+    hvaFrame?: number;
+    sweepBody?: boolean;
+    sweepTurret?: boolean;
+    sweepHva?: boolean;
+    /** `--sweep-hva` 时的帧数（`0..n`）；缺省 3。 */
+    hvaFrameCount?: number;
+};
+
+export type MobileVxlLayerDiag = {
+    role: string;
+    vxlName: string;
+    hvaName: string;
+    vxlHit: boolean;
+    hvaHit: boolean;
+    facing: number | null;
+    width: number | null;
+    height: number | null;
+    offsetX: number | null;
+    offsetY: number | null;
+    cellOffsetX: number | null;
+    cellOffsetY: number | null;
+    originPx: number | null;
+    originPy: number | null;
+};
+
+export type MobileVxlDiagReport = {
+    stem: string;
+    bodyFacing: number;
+    turretFacing: number;
+    hvaFrame: number;
+    layers: MobileVxlLayerDiag[];
+    notes: string[];
+};
+
+export type DiagnoseMobileVxlResult = {
+    edition: string;
+    stem: string;
+    typeId: string | null;
+    mountedRoot: number;
+    mountedNested: number;
+    reports: MobileVxlDiagReport[];
+};
+
 export type NativeBinding = {
     version(): string;
     emulate(options: EmulateOptions): void;
     extract(options: ExtractOptions): ExtractResult;
     unpack(options: UnpackOptions): UnpackResult;
     diagnoseMaps(options: DiagnoseMapsOptions): DiagnoseMapsReport;
+    diagnoseMobileVxl(options: DiagnoseMobileVxlOptions): DiagnoseMobileVxlResult;
 };
 
 export type NativeBinaryIdentity = {
@@ -182,6 +235,10 @@ export function unpack(options: UnpackOptions): UnpackResult {
 
 export function diagnoseMaps(options: DiagnoseMapsOptions): DiagnoseMapsReport {
     return loadNative().diagnoseMaps(options);
+}
+
+export function diagnoseMobileVxl(options: DiagnoseMobileVxlOptions): DiagnoseMobileVxlResult {
+    return loadNative().diagnoseMobileVxl(options);
 }
 
 export function version(): string {

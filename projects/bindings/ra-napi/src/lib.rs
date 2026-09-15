@@ -1,4 +1,4 @@
-//! N-API 入口：`version` + `emulate` + `extract` + `unpack` + `diagnoseMaps`。
+//! N-API 入口：`version` + `emulate` + `extract` + `unpack` + `diagnoseMaps` + `diagnoseMobileVxl`。
 //!
 //! 原生窗口与事件循环在 [`host`]。
 
@@ -15,6 +15,7 @@ use ra_config::EmulateOverride;
 
 use crate::host::{
     diagnose_maps::{DiagnoseMapsRequest, diagnose_skirmish_maps},
+    diagnose_mobile_vxl::{DiagnoseMobileVxlRequest, diagnose_mobile_vxl_install},
     extract::{ExtractRequest, UnpackRequest, extract_named, unpack_all},
 };
 
@@ -310,5 +311,140 @@ pub fn diagnose_maps(options: DiagnoseMapsOptions) -> Result<DiagnoseMapsReportJ
         success: report.success as u32,
         reject: report.reject as u32,
         missing: report.missing as u32,
+    })
+}
+
+/// `ra2 diagnose-mobile-vxl` 选项。
+#[napi(object)]
+pub struct DiagnoseMobileVxlOptions {
+    /// 游戏安装根目录。
+    pub path: String,
+    /// 可选版本：`ra2` / `yr` 等（合集盘须显式 `ra2`）。
+    pub edition: Option<String>,
+    /// 资源词干（如 `mtnk`）；与 `type_id` 至少提供一个。
+    pub stem: Option<String>,
+    /// techno 类型 id（如 `MTNK`）；经 `Image=` 解析词干。
+    pub type_id: Option<String>,
+    /// 车身朝向字节；缺省 `0`。
+    pub body_facing: Option<u32>,
+    /// 炮塔朝向字节；缺省与车身相同，未给时用 `body_facing`。
+    pub turret_facing: Option<u32>,
+    /// HVA 帧；缺省 `0`。
+    pub hva_frame: Option<u32>,
+    /// 固定炮塔、扫车身朝向。
+    pub sweep_body: Option<bool>,
+    /// 固定车身、扫炮塔朝向。
+    pub sweep_turret: Option<bool>,
+    /// 固定朝向、扫 HVA 帧。
+    pub sweep_hva: Option<bool>,
+    /// `--sweep-hva` 时的帧数（`0..n`）；缺省 3。
+    pub hva_frame_count: Option<u32>,
+}
+
+/// 单层诊断行（N-API）。
+#[napi(object)]
+pub struct MobileVxlLayerDiagJs {
+    pub role: String,
+    pub vxl_name: String,
+    pub hva_name: String,
+    pub vxl_hit: bool,
+    pub hva_hit: bool,
+    pub facing: Option<u32>,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub offset_x: Option<i32>,
+    pub offset_y: Option<i32>,
+    pub cell_offset_x: Option<i32>,
+    pub cell_offset_y: Option<i32>,
+    pub origin_px: Option<i32>,
+    pub origin_py: Option<i32>,
+}
+
+/// 单次姿态诊断报告（N-API）。
+#[napi(object)]
+pub struct MobileVxlDiagReportJs {
+    pub stem: String,
+    pub body_facing: u32,
+    pub turret_facing: u32,
+    pub hva_frame: u32,
+    pub layers: Vec<MobileVxlLayerDiagJs>,
+    pub notes: Vec<String>,
+}
+
+/// 载具 VXL 分图层诊断结果（N-API）。
+#[napi(object)]
+pub struct DiagnoseMobileVxlResultJs {
+    pub edition: String,
+    pub stem: String,
+    pub type_id: Option<String>,
+    pub mounted_root: u32,
+    pub mounted_nested: u32,
+    pub reports: Vec<MobileVxlDiagReportJs>,
+}
+
+fn clamp_facing_byte(v: Option<u32>, default: u8) -> u8 {
+    v.map(|n| (n & 0xFF) as u8).unwrap_or(default)
+}
+
+/// 对安装目录中的载具 VXL 做 body/turret/barrel/shadow 尺寸与原点诊断。
+#[napi]
+pub fn diagnose_mobile_vxl(options: DiagnoseMobileVxlOptions) -> Result<DiagnoseMobileVxlResultJs> {
+    let path = PathBuf::from(options.path.trim());
+    if path.as_os_str().is_empty() {
+        return Err(Error::from_reason("diagnose-mobile-vxl: --path must not be empty"));
+    }
+    let body_facing = clamp_facing_byte(options.body_facing, 0);
+    let turret_facing = clamp_facing_byte(options.turret_facing, body_facing);
+    let req = DiagnoseMobileVxlRequest {
+        ra2_dir: path,
+        edition: options.edition.filter(|s| !s.trim().is_empty()),
+        stem: options.stem.filter(|s| !s.trim().is_empty()),
+        type_id: options.type_id.filter(|s| !s.trim().is_empty()),
+        body_facing,
+        turret_facing,
+        hva_frame: options.hva_frame.unwrap_or(0),
+        sweep_body: options.sweep_body.unwrap_or(false),
+        sweep_turret: options.sweep_turret.unwrap_or(false),
+        sweep_hva: options.sweep_hva.unwrap_or(false),
+        hva_frame_count: options.hva_frame_count.filter(|&n| n > 0),
+    };
+    let result = diagnose_mobile_vxl_install(&req).map_err(|e| Error::from_reason(format!("{e}")))?;
+    Ok(DiagnoseMobileVxlResultJs {
+        edition: result.edition,
+        stem: result.stem,
+        type_id: result.type_id,
+        mounted_root: result.mounted_root as u32,
+        mounted_nested: result.mounted_nested as u32,
+        reports: result
+            .reports
+            .into_iter()
+            .map(|r| MobileVxlDiagReportJs {
+                stem: r.stem,
+                body_facing: u32::from(r.body_facing),
+                turret_facing: u32::from(r.turret_facing),
+                hva_frame: r.hva_frame,
+                layers: r
+                    .layers
+                    .into_iter()
+                    .map(|l| MobileVxlLayerDiagJs {
+                        role: l.role,
+                        vxl_name: l.vxl_name,
+                        hva_name: l.hva_name,
+                        vxl_hit: l.vxl_hit,
+                        hva_hit: l.hva_hit,
+                        facing: l.facing.map(u32::from),
+                        width: l.width,
+                        height: l.height,
+                        offset_x: l.offset_x,
+                        offset_y: l.offset_y,
+                        cell_offset_x: l.cell_offset_x,
+                        cell_offset_y: l.cell_offset_y,
+                        origin_px: l.origin_px,
+                        origin_py: l.origin_py,
+                    })
+                    .collect(),
+                notes: r.notes,
+            })
+            .collect(),
     })
 }

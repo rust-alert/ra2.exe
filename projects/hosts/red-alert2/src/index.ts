@@ -2,14 +2,18 @@
 export type {
     DiagnoseMapsOptions,
     DiagnoseMapsReport,
+    DiagnoseMobileVxlOptions,
+    DiagnoseMobileVxlResult,
     ExtractedFile,
     ExtractOptions,
     ExtractResult,
     EmulateOptions,
     MapDiagnoseRow,
+    MobileVxlDiagReport,
+    MobileVxlLayerDiag,
     NativeBinaryIdentity,
     NativeBinding,
     UnpackOptions,
     UnpackResult,
 } from './native.js';
-export { diagnoseMaps, emulate, extract, loadNative, nativeBinaryIdentity, unpack, version } from './native.js';
+export { diagnoseMaps, diagnoseMobileVxl, emulate, extract, loadNative, nativeBinaryIdentity, unpack, version } from './native.js';
