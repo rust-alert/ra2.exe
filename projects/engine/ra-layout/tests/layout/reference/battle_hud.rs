@@ -20,10 +20,6 @@ fn battle_hud_snap_matches_computed_rects() {
             ("addon", expected.addon),
             ("repair", expected.repair),
             ("sell", expected.sell),
-            ("tab00", expected.tabs[0]),
-            ("tab01", expected.tabs[1]),
-            ("tab02", expected.tabs[2]),
-            ("tab03", expected.tabs[3]),
             ("bottom_strip", expected.bottom_strip),
             ("command_bar", expected.command_bar),
             ("lendcap", expected.lendcap),
@@ -31,6 +27,13 @@ fn battle_hud_snap_matches_computed_rects() {
             ("opt_btn", expected.opt_btn),
             ("diplo_btn", expected.diplo_btn),
         ] {
+            let got = snap.get(id).expect(id).layout.rect;
+            assert_eq!(got.x as i32, cell.x as i32, "{vw}x{vh} {id} x");
+            assert_eq!(got.y as i32, cell.y as i32, "{vw}x{vh} {id} y");
+            assert_eq!(got.width as i32, cell.width as i32, "{vw}x{vh} {id} w");
+            assert_eq!(got.height as i32, cell.height as i32, "{vw}x{vh} {id} h");
+        }
+        for (id, cell) in SIDEBAR_TAB_IDS.iter().zip(expected.tabs.iter()) {
             let got = snap.get(id).expect(id).layout.rect;
             assert_eq!(got.x as i32, cell.x as i32, "{vw}x{vh} {id} x");
             assert_eq!(got.y as i32, cell.y as i32, "{vw}x{vh} {id} y");
@@ -120,10 +123,16 @@ fn sidec01_and_sidec02_chrome_metrics_differ() {
     assert_eq!(s.tabs[0].height as i32, 28);
     assert_eq!(a.opt_btn.height as i32, 18);
     assert_eq!(s.opt_btn.height as i32, 22);
-    assert_eq!(a.tabs[0].x as i32 - a.sidebar.x as i32, sidec01.tab_x);
-    assert_eq!(s.tabs[0].x as i32 - s.sidebar.x as i32, sidec02.tab_x);
-    // 四页签并排不越出侧栏。
-    let a_last = a.tabs[3].x as i32 + a.tabs[3].width as i32;
+    assert_eq!(a.tabs[0].x as i32 - a.sidebar.x as i32, sidec01.tab_slot_x[0]);
+    assert_eq!(s.tabs[0].x as i32 - s.sidebar.x as i32, sidec02.tab_slot_x[0]);
+    // 四页签贴 `side1` 凹槽（非等距），且不越出侧栏。
+    for i in 0..SIDEBAR_TAB_COUNT {
+        assert_eq!(a.tabs[i].x as i32 - a.sidebar.x as i32, sidec01.tab_slot_x[i]);
+        assert_eq!(a.tabs[i].y as i32, a.tabs[0].y as i32, "四页签须共线");
+        assert_eq!(s.tabs[i].x as i32 - s.sidebar.x as i32, sidec02.tab_slot_x[i]);
+    }
+    assert_ne!(sidec01.tab_slot_x[1] - sidec01.tab_slot_x[0], sidec01.tab_w, "凹槽步进含分隔缝");
+    let a_last = a.tabs[SIDEBAR_TAB_COUNT - 1].x as i32 + a.tabs[SIDEBAR_TAB_COUNT - 1].width as i32;
     assert!(a_last <= a.sidebar.x as i32 + a.sidebar.width as i32);
 
     assert_eq!(BattleHudChromeMetrics::for_mix("sidec01.mix"), sidec01);

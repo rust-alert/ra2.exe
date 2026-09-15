@@ -32,6 +32,10 @@ pub const COMMAND_BUTTON_W: i32 = 52;
 pub const COMMAND_BAR_BUTTON_COUNT: usize = 8;
 /// 命令条可视钮 snapshot id（`cmd0`…）。
 pub const COMMAND_BAR_BUTTON_IDS: [&str; COMMAND_BAR_BUTTON_COUNT] = ["cmd0", "cmd1", "cmd2", "cmd3", "cmd4", "cmd5", "cmd6", "cmd7"];
+/// 分类页签数量（建筑 / 防御 / 步兵 / 载具）。
+pub const SIDEBAR_TAB_COUNT: usize = 4;
+/// 分类页签 snapshot id（`tab00`…`tab03`）。
+pub const SIDEBAR_TAB_IDS: [&str; SIDEBAR_TAB_COUNT] = ["tab00", "tab01", "tab02", "tab03"];
 
 /// 侧栏 chrome 画布尺寸与槽位偏移（像素）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,14 +50,14 @@ pub struct BattleHudChromeMetrics {
     pub sell_x: i32,
     /// 修理/出售钮相对 `side1` 顶边的 y 偏移。
     pub repair_y: i32,
-    /// 分类页签画布宽。
+    /// 分类页签画布宽（与 `tabNN.shp` 画布一致）。
     pub tab_w: i32,
     /// 分类页签画布高。
     pub tab_h: i32,
-    /// 首个页签相对侧栏左缘的 x 偏移。
-    pub tab_x: i32,
-    /// 相邻页签间距。
-    pub tab_gap: i32,
+    /// 四个页签相对侧栏左缘的 x（对齐 `side1` 底栏凹槽，**非**等距 `tab_w` 步进）。
+    ///
+    /// `sidec01` `side1` 实测凹槽起点为 19 / 52 / 85 / 117（槽间分隔缝宽不一）。
+    pub tab_slot_x: [i32; SIDEBAR_TAB_COUNT],
     /// `optbtn`/`diplobtn` 画布宽（贴在 `top.shp` 双钮槽，不是底脚）。
     pub top_btn_w: i32,
     /// `optbtn`/`diplobtn` 画布高。
@@ -84,8 +88,8 @@ impl BattleHudChromeMetrics {
             // `tab00`…`tab03` 零售画布 32×28；过窄会拉伸挤叠。
             tab_w: 32,
             tab_h: 28,
-            tab_x: 20,
-            tab_gap: 0,
+            // 对齐 `side1` 底栏四凹槽（分隔缝 1～2px，故非 20+32k）。
+            tab_slot_x: [19, 52, 85, 117],
             top_btn_w: 72,
             top_btn_h: 18,
             top_btn_x: 12,
@@ -108,8 +112,7 @@ impl BattleHudChromeMetrics {
             repair_y: 8,
             tab_w: 32,
             tab_h: 28,
-            tab_x: 20,
-            tab_gap: 0,
+            tab_slot_x: [19, 52, 85, 117],
             top_btn_w: 72,
             top_btn_h: 22,
             top_btn_x: 12,
@@ -160,7 +163,7 @@ pub struct BattleHudRects {
     pub addon: Rect,
     pub repair: Rect,
     pub sell: Rect,
-    pub tabs: [Rect; 4],
+    pub tabs: [Rect; SIDEBAR_TAB_COUNT],
     /// 右栏底脚条带（仅侧栏内，不是命令条）。
     pub bottom_strip: Rect,
     /// 战术区底边命令条（侧栏左缘以左，高 `COMMAND_BAR_H`）。
@@ -207,18 +210,14 @@ pub fn compute_battle_hud_rects(viewport_w: u32, viewport_h: u32, metrics: Battl
     let sell_x = (panel_x + metrics.sell_x).min(panel_x + panel_w - repair_w);
     let repair_sell_y = side1_y + metrics.repair_y.min(side1_h.saturating_sub(repair_h));
 
-    let tab_w = {
-        let row = (panel_w - metrics.tab_x).max(1);
-        // 四页签必须排进侧栏行宽，避免槽位互叠或画出栏外。
-        metrics.tab_w.min(row / SIDEBAR_TAB_COUNT as i32).max(1)
-    };
+    let tab_w = metrics.tab_w.min(panel_w).max(1);
     let tab_h = metrics.tab_h.min(side1_h).max(1);
+    // 贴 `side1` 底边：与凹槽托盘同高，勿再按等距推 x。
     let tab_y = (side1_y + side1_h - tab_h).max(side1_y);
-    let mut tab_x = panel_x + metrics.tab_x.min(panel_w.saturating_sub(tab_w));
-    let mut tabs = [rect_i(0, 0, 1, 1); 4];
-    for slot in &mut tabs {
-        *slot = rect_i(tab_x, tab_y, tab_w, tab_h);
-        tab_x += tab_w + metrics.tab_gap;
+    let mut tabs = [rect_i(0, 0, 1, 1); SIDEBAR_TAB_COUNT];
+    for (i, slot) in tabs.iter_mut().enumerate() {
+        let local_x = metrics.tab_slot_x.get(i).copied().unwrap_or(0).clamp(0, (panel_w - tab_w).max(0));
+        *slot = rect_i(panel_x + local_x, tab_y, tab_w, tab_h);
     }
 
     // 选项/外交贴在资金条下的 `top.shp` 双槽（原版顶栏），不是底脚。
@@ -285,17 +284,18 @@ pub fn battle_hud_tree_from_rects(viewport_w: u32, viewport_h: u32, r: BattleHud
         fixed_rect_leaf("addon", r.addon),
         fixed_rect_leaf("repair", r.repair),
         fixed_rect_leaf("sell", r.sell),
-        fixed_rect_leaf("tab00", r.tabs[0]),
-        fixed_rect_leaf("tab01", r.tabs[1]),
-        fixed_rect_leaf("tab02", r.tabs[2]),
-        fixed_rect_leaf("tab03", r.tabs[3]),
+    ];
+    for (id, cell) in SIDEBAR_TAB_IDS.iter().zip(r.tabs.iter()) {
+        children.push(fixed_rect_leaf(*id, *cell));
+    }
+    children.extend([
         fixed_rect_leaf("bottom_strip", r.bottom_strip),
         fixed_rect_leaf("command_bar", r.command_bar),
         fixed_rect_leaf("lendcap", r.lendcap),
         fixed_rect_leaf("rendcap", r.rendcap),
         fixed_rect_leaf("opt_btn", r.opt_btn),
         fixed_rect_leaf("diplo_btn", r.diplo_btn),
-    ];
+    ]);
     for (id, cell) in COMMAND_BAR_BUTTON_IDS.iter().zip(r.cmd_buttons.iter()) {
         children.push(fixed_rect_leaf(*id, *cell));
     }
@@ -338,8 +338,6 @@ pub const CAMEO_ROW_STRIDE: i32 = 50;
 pub const CAMEO_COL_STRIDE: i32 = 64;
 /// 建造栏列数。
 pub const CAMEO_COLS: i32 = 2;
-/// 分类页签数量（建筑 / 步兵 / 载具 / 飞行器）。
-pub const SIDEBAR_TAB_COUNT: usize = 4;
 
 /// 可摆 cameo 的内容区（相对 `cameo_band`，按 chrome 凹槽原点与列步进）。
 pub fn cameo_content_rect(cameo_band: RectPx, metrics: BattleHudChromeMetrics) -> RectPx {
@@ -387,6 +385,18 @@ pub fn hit_cameo_slot(cameo_band: RectPx, metrics: BattleHudChromeMetrics, x: i3
     None
 }
 
+/// 分类页签槽 `index`（0…3）相对侧栏的屏幕矩形；越界返回 `None`。
+///
+/// x 取自 `tab_slot_x`（贴 `side1` 凹槽），y 贴 `side1` 底边。
+pub fn tab_slot_rect(sidebar: RectPx, side1: RectPx, metrics: BattleHudChromeMetrics, index: usize) -> Option<RectPx> {
+    let local_x = *metrics.tab_slot_x.get(index)?;
+    let tab_w = metrics.tab_w.min(sidebar.w).max(1);
+    let tab_h = metrics.tab_h.min(side1.h).max(1);
+    let x = sidebar.x + local_x.clamp(0, (sidebar.w - tab_w).max(0));
+    let y = (side1.y + side1.h - tab_h).max(side1.y);
+    Some(RectPx::new(x, y, tab_w, tab_h))
+}
+
 #[cfg(test)]
 mod cameo_grid_tests {
     use super::*;
@@ -408,5 +418,21 @@ mod cameo_grid_tests {
         assert_eq!(a.w, CAMEO_CELL_W);
         assert_eq!(a.h, CAMEO_CELL_H);
         assert!(b.x > a.x + CAMEO_CELL_W, "两列之间应留 4px 缝");
+    }
+
+    #[test]
+    fn qwer_tabs_follow_side1_slot_xs() {
+        let metrics = BattleHudChromeMetrics::sidec01();
+        assert_eq!(metrics.tab_slot_x, [19, 52, 85, 117]);
+        let snap = solve_battle_hud_with_metrics(800, 600, metrics);
+        let sidebar = rect_px_from_snapshot(&snap, "sidebar");
+        let side1 = rect_px_from_snapshot(&snap, "side1");
+        let y0 = rect_px_from_snapshot(&snap, "tab00").y;
+        for (i, id) in SIDEBAR_TAB_IDS.iter().enumerate() {
+            let r = rect_px_from_snapshot(&snap, id);
+            let expected = tab_slot_rect(sidebar, side1, metrics, i).expect("tab slot");
+            assert_eq!(r, expected, "{id}");
+            assert_eq!(r.y, y0, "{id} y 共线");
+        }
     }
 }
