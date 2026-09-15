@@ -319,7 +319,7 @@ impl BattleInputFrame {
 }
 
 /// 对局呈现快照：壳层只应用，不重新跑业务判断。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BattlePresentationState {
     /// 当前应显示的指针。
     pub pointer: BattlePointer,
@@ -327,6 +327,8 @@ pub struct BattlePresentationState {
     pub hover_cell: Option<(u16, u16)>,
     /// 悬停主动作。
     pub hover_primary: ResolvedPrimaryAction,
+    /// 框选预览矩形（与 HUD 叠画同源；无框选时为 `None`）。
+    pub marquee: Option<ScreenRect>,
 }
 
 impl Default for BattlePresentationState {
@@ -335,6 +337,7 @@ impl Default for BattlePresentationState {
             pointer: BattlePointer::Default,
             hover_cell: None,
             hover_primary: ResolvedPrimaryAction::Noop,
+            marquee: None,
         }
     }
 }
@@ -811,6 +814,7 @@ mod tests {
         assert_eq!(p.pointer, BattlePointer::Default);
         assert_eq!(p.hover_cell, None);
         assert_eq!(p.hover_primary, ResolvedPrimaryAction::Noop);
+        assert_eq!(p.marquee, None);
     }
 
     #[test]

@@ -822,7 +822,7 @@ impl BattleController {
         };
         // 与命中 / `world_viewport` 同口径：按窗口像素合成，避免 800×600 letterbox 错位。
         if let Some(mut page) = compose_battle_hud_overlay(w, h, fnt, paint, self.hud_chrome.as_ref()) {
-            if let Some(rect) = self.left_gesture.marquee_rect() {
+            if let Some(rect) = self.presentation.marquee {
                 stroke_marquee_rect(&mut page, rect);
             }
             // 防御：放置态若因异步漏清，无完工件时不画绿框（常态由 `sync_place_mode_with_ready` 退出）。

@@ -66,18 +66,9 @@ impl Shell {
     }
 
     pub(super) fn sync_battle_edge_cursor(&mut self) {
-        let Some(window) = self.window.clone()
-        else {
-            return;
-        };
         let cur = if self.screen == ra_widgets::original_screen::OriginalScreen::Battle {
-            if let Some(ctrl) = self.battle_controller.as_mut() {
-                ctrl.update_presentation(&self.renderer, &window);
-                ctrl.presentation().pointer
-            }
-            else {
-                BattlePointer::Default
-            }
+            // 呈现已在 `redraw` 绘制前刷新；此处只应用指针，不重跑业务判断。
+            self.battle_controller.as_ref().map(|ctrl| ctrl.presentation().pointer).unwrap_or(BattlePointer::Default)
         }
         else {
             BattlePointer::Default

@@ -644,7 +644,7 @@ impl BattleController {
         self.presentation
     }
 
-    /// 按当前边缘滚屏与悬停上下文刷新呈现快照。
+    /// 按当前边缘滚屏与悬停上下文刷新呈现快照（须在镜头 tick 之后、绘制之前调用）。
     pub fn update_presentation(&mut self, renderer: &Renderer, window: &winit::window::Window) {
         let hover = self.resolve_battle_hover(renderer, window);
         let pointer = BattlePointer::resolve(self.edge_scroll_cursor, hover.recommended_pointer);
@@ -652,6 +652,7 @@ impl BattleController {
             pointer,
             hover_cell: hover.cell,
             hover_primary: hover.primary,
+            marquee: self.left_gesture.marquee_rect(),
         };
     }
 

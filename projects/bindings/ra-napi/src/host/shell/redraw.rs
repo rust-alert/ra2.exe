@@ -530,6 +530,8 @@ impl Shell {
                 let dt = Instant::now().duration_since(prev).as_secs_f64();
                 if let Some(window) = self.window.clone() {
                     ctrl.tick_edge_scroll(&mut self.renderer, &window, dt, true);
+                    // 先刷新呈现（边缘光标 + 悬停意图 + 框选），再绘制 / 应用系统指针，避免一帧滞后。
+                    ctrl.update_presentation(&self.renderer, &window);
                 }
                 let (nav, sim_dt) = ctrl.pump(dt);
                 self.renderer.timings.simulation = Some(sim_dt);
