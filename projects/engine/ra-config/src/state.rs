@@ -16,6 +16,9 @@ pub struct SkirmishLobbyPrefs {
     pub row_countries: Vec<String>,
     /// 各行色块下标。
     pub row_colors: Vec<u8>,
+    /// 各行队伍号（`0` = 无队）。
+    #[serde(default)]
+    pub row_teams: Vec<u8>,
     /// AI 难度标签：`Easy` / `Normal` / `Hard`。
     pub difficulty: String,
     /// 快速游戏。
@@ -46,6 +49,7 @@ impl Default for SkirmishLobbyPrefs {
             player_name: "Player".to_string(),
             row_countries: Vec::new(),
             row_colors: Vec::new(),
+            row_teams: Vec::new(),
             difficulty: "Normal".to_string(),
             short_game: true,
             mcv_repacks: true,
@@ -91,6 +95,10 @@ impl SkirmishLobbyPrefs {
             *c = c.trim().to_string();
         }
         self.row_colors.truncate(8);
+        self.row_teams.truncate(8);
+        for t in &mut self.row_teams {
+            *t %= 8;
+        }
         self
     }
 }

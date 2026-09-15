@@ -22,6 +22,12 @@ pub(super) fn color_list_rect_in(snap: &LayoutSnapshot, row: usize) -> RectPx {
     popup_list_below_min_w(face, SKIRMISH_COMBO_FACE_H, LOBBY_COLORS.len(), 28)
 }
 
+pub(super) fn team_list_rect_in(snap: &LayoutSnapshot, row: usize) -> RectPx {
+    let row = row.min(SKIRMISH_ROW_COUNT.saturating_sub(1));
+    let face = snap_rect_px(snap, &format!("team_face_{row}")).unwrap_or(RectPx::new(0, 0, 0, 0));
+    popup_list_below_min_w(face, SKIRMISH_COMBO_FACE_H, LOBBY_TEAM_COUNT, 28)
+}
+
 pub(super) fn ai_list_rect_in(snap: &LayoutSnapshot) -> RectPx {
     let face = snap_rect_px(snap, "ai_face_0").unwrap_or(RectPx::new(0, 0, 0, 0));
     popup_list_below(face, SKIRMISH_COMBO_FACE_H, LOBBY_DIFFICULTIES.len())

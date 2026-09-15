@@ -165,6 +165,7 @@ fn state_json_skirmish_round_trip() {
         player_name: "Commander".into(),
         row_countries: vec!["Americans".into(), "Russians".into()],
         row_colors: vec![0, 2],
+        row_teams: vec![1, 1],
         difficulty: "Hard".into(),
         short_game: false,
         mcv_repacks: true,
@@ -185,6 +186,7 @@ fn state_json_skirmish_round_trip() {
     assert_eq!(state.skirmish.mode_id, Some(1));
     assert_eq!(state.skirmish.player_name, "Commander");
     assert_eq!(state.skirmish.row_countries, vec!["Americans", "Russians"]);
+    assert_eq!(state.skirmish.row_teams, vec![1, 1]);
     assert_eq!(state.skirmish.difficulty, "Hard");
     assert!(!state.skirmish.short_game);
     assert_eq!(state.skirmish.game_speed, 4);

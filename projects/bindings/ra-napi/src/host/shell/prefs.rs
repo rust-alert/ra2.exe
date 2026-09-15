@@ -27,6 +27,9 @@ impl Shell {
         for (row, color) in prefs.row_colors.iter().enumerate().take(SKIRMISH_ROW_COUNT) {
             self.skirmish.set_row_color(row, usize::from(*color));
         }
+        for (row, team) in prefs.row_teams.iter().enumerate().take(SKIRMISH_ROW_COUNT) {
+            self.skirmish.set_row_team(row, usize::from(*team));
+        }
         // 国家短名在 `ensure_lobby_sides` 注入 sides 表后再套用。
         if let Some(local) = prefs.row_countries.first() {
             self.skirmish.side = local.clone();
@@ -59,6 +62,7 @@ impl Shell {
             player_name: self.skirmish.player_name.clone(),
             row_countries,
             row_colors: self.skirmish.row_colors.to_vec(),
+            row_teams: self.skirmish.row_teams.to_vec(),
             difficulty: self.skirmish.difficulty.clone(),
             short_game: self.skirmish.short_game,
             mcv_repacks: self.skirmish.mcv_repacks,

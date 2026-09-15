@@ -18,6 +18,6 @@ pub use load::{
     score_screen_background_shp, score_screen_palette, score_screen_palette_candidates,
 };
 pub use model::{
-    LOBBY_COLORS, LOBBY_DIFFICULTIES, PLAYER_NAME_MAX_CHARS, SkirmishBootRequest, SkirmishCheckbox, SkirmishComboKind, SkirmishLobbyHit,
-    SkirmishTrackbar,
+    LOBBY_COLORS, LOBBY_DIFFICULTIES, LOBBY_TEAM_COUNT, PLAYER_NAME_MAX_CHARS, SkirmishBootRequest, SkirmishCheckbox, SkirmishComboKind,
+    SkirmishLobbyHit, SkirmishTrackbar,
 };

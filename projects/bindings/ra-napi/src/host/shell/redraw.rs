@@ -275,12 +275,14 @@ impl Shell {
                             player_name_editing: self.skirmish.player_name_editing,
                             country_combo_open: self.skirmish.open_combo == Some(ra_widgets::skirmish_setup::SkirmishComboKind::Country),
                             color_combo_open: self.skirmish.open_combo == Some(ra_widgets::skirmish_setup::SkirmishComboKind::Color),
+                            team_combo_open: self.skirmish.open_combo == Some(ra_widgets::skirmish_setup::SkirmishComboKind::Team),
                             ai_combo_open: self.skirmish.open_combo == Some(ra_widgets::skirmish_setup::SkirmishComboKind::Ai),
                             combo_row: self.skirmish.combo_row,
                             sides: self.skirmish.sides.as_slice(),
                             side_labels: side_labels.as_slice(),
                             row_side_indices: self.skirmish.row_sides,
                             row_color_indices: self.skirmish.row_colors,
+                            row_team_indices: self.skirmish.row_teams,
                             chrome: self.skirmish_chrome.as_ref(),
                         };
                         compose::compose_skirmish_lobby_page(

@@ -261,3 +261,27 @@ fn mutual_wipe_writes_stalemate_defeat() {
     assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Defeat { reason: "stalemate".into() }));
     assert!(session.expect_battle().paused);
 }
+
+#[test]
+fn allied_houses_count_as_one_side_for_sole_victor() {
+    // YR / RA2 共用：大厅队伍写入 allies 后，同队多 house 保活仍算一队胜出。
+    let defs = defs_with_mtnk();
+    let mut map = MapInfo::empty(GameEdition::Yr, "team-victory");
+    map.width = 16;
+    map.height = 16;
+    push_unit(&mut map, "AMERICANS", "MTNK", 4, 4);
+    push_unit(&mut map, "FRANCE", "MTNK", 6, 4);
+    push_unit(&mut map, "SOVIETS", "MTNK", 10, 4);
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Yr, defs, map), "team-victory");
+    session.expect_battle_mut().set_short_game(false);
+    session.expect_battle_mut().world.apply_skirmish_lobby_teams(&["AMERICANS", "FRANCE", "SOVIETS"], &[1, 1, 2]);
+    assert!(session.expect_battle().sole_victor().is_none(), "enemy still alive");
+    let enemy = session.expect_battle().world.entity_id_at(2).expect("soviets");
+    let max = session.expect_battle().world.ecs_health(enemy).expect("health").1;
+    assert!(session.expect_battle_mut().world.set_ecs_health(enemy, 0, max, true));
+    let victor = session.expect_battle().sole_victor();
+    assert!(
+        matches!(victor, Some(h) if h.eq_ignore_ascii_case("AMERICANS") || h.eq_ignore_ascii_case("FRANCE")),
+        "allied pair should win together, got {victor:?}"
+    );
+}

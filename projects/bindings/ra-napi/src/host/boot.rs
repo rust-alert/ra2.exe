@@ -881,6 +881,17 @@ pub fn boot_world_with_progress(
                 game.world.set_all_players_funds(request.credits);
             }
             game.world.set_all_players_tech_level(request.tech_level);
+            // 遭遇战大厅队伍 → `PlayerState.allies`（与 edition 无关，含 YR）。
+            if request.boot_kind == LoadKind::Skirmish {
+                let teams = request.teams_for_houses(ai_rows);
+                game.world.apply_skirmish_lobby_teams(&ensure_houses, &teams);
+                if teams.iter().any(|&t| t > 0) {
+                    note = format!(
+                        "{note} · teams=[{}]",
+                        teams.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(",")
+                    );
+                }
+            }
             // Unit Count：科技上限写入后再种开局部队，保证 TechLevel / Owner 过滤正确。
             if request.boot_kind == LoadKind::Skirmish && request.unit_count > 0 {
                 match seed_skirmish_starting_units(&mut game.world, &ensure_refs, request.unit_count) {

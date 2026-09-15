@@ -87,6 +87,32 @@ fn color_face_click_opens_color_combo() {
 }
 
 #[test]
+fn team_face_click_opens_team_combo_for_all_editions() {
+    // 队伍列对 RA2 / YR 均开放；默认无队，可选同号结盟。
+    let snap = solve_skirmish_lobby();
+    let mut s = lobby_with_sides();
+    assert_eq!(s.row_team(0), 0);
+    assert_eq!(s.row_team(1), 0);
+    let (ax, ay) = combo_arrow_point(snap_rect(&snap, "team_face_0"));
+    assert_eq!(s.on_press(ax, ay, 1), Some(SkirmishLobbyHit::ToggleTeamCombo));
+    assert_eq!(s.open_combo, Some(SkirmishComboKind::Team));
+    let list = SkirmishBootRequest::team_list_rect(0);
+    let y = list.y + SKIRMISH_COMBO_FACE_H * 1 + 2;
+    assert_eq!(s.on_press(list.x + 2, y, 1), Some(SkirmishLobbyHit::PickTeam(1)));
+    assert_eq!(s.row_team(0), 1);
+    assert_eq!(s.teams_for_houses(1), vec![1, 0]);
+    assert!(s.open_combo.is_none());
+
+    let (ax, ay) = combo_arrow_point(snap_rect(&snap, "team_face_1"));
+    assert_eq!(s.on_press(ax, ay, 1), Some(SkirmishLobbyHit::ToggleTeamCombo));
+    let list = SkirmishBootRequest::team_list_rect(1);
+    let y = list.y + SKIRMISH_COMBO_FACE_H * 1 + 2;
+    assert_eq!(s.on_press(list.x + 2, y, 1), Some(SkirmishLobbyHit::PickTeam(1)));
+    assert_eq!(s.row_team(1), 1);
+    assert_eq!(s.teams_for_houses(1), vec![1, 1]);
+}
+
+#[test]
 fn ai_row_country_pick_does_not_change_local_side() {
     let snap = solve_skirmish_lobby();
     let mut s = lobby_with_sides();

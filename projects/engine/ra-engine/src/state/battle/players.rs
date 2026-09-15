@@ -37,6 +37,38 @@ impl BattleState {
         }
     }
 
+    /// 按遭遇战大厅队伍号写入各方同盟（同队互列；`0` = 无队 / 各自为战）。
+    ///
+    /// `houses[i]` 与 `teams[i]` 对齐。与 `GameEdition` 无关，RA2 / YR / Mo3 共用。
+    pub fn apply_skirmish_lobby_teams(&mut self, houses: &[impl AsRef<str>], teams: &[u8]) {
+        let n = houses.len().min(teams.len());
+        if n == 0 {
+            return;
+        }
+        let mut changed = false;
+        for i in 0..n {
+            let team = teams[i];
+            let house = houses[i].as_ref();
+            let allies: Vec<String> = if team == 0 {
+                Vec::new()
+            } else {
+                (0..n)
+                    .filter(|&j| j != i && teams[j] == team)
+                    .map(|j| houses[j].as_ref().to_string())
+                    .collect()
+            };
+            if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(house)) {
+                if player.allies != allies {
+                    player.allies = allies;
+                    changed = true;
+                }
+            }
+        }
+        if changed {
+            self.rehash();
+        }
+    }
+
     /// 将所有玩家资金设为同一起始值（遭遇战大厅资金滑条）。
     pub fn set_all_players_funds(&mut self, funds: i32) {
         if self.players.is_empty() {

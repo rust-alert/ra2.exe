@@ -1,5 +1,5 @@
 use crate::{
-    gameplay::{ai::is_ambient_house, is_base_unit, structure_counts_for_skirmish_alive},
+    gameplay::{ai::is_ambient_house, houses_are_allied, is_base_unit, structure_counts_for_skirmish_alive},
     state::{
         BattleState,
         components::{Health, Identity, Owner},
@@ -198,7 +198,9 @@ impl BattleSession {
         BattleStats { duration_ticks: self.world.tick, units_lost, buildings_lost, funds_spent, players }
     }
 
-    /// 遭遇战胜负：恰好一方保活 → 胜/负；各方均出局 → 双灭判负；否则继续。
+    /// 遭遇战胜负：恰好一队（同盟连通分量）保活 → 胜/负；各方均出局 → 双灭判负；否则继续。
+    ///
+    /// 同队同盟（`PlayerState.allies`）视为一方；与 `GameEdition` 无关（含 YR）。
     fn evaluate_skirmish_outcome(&self) -> Option<BattleOutcome> {
         let contenders: Vec<&str> =
             self.world.players.iter().filter(|p| !is_ambient_house(p.house.as_ref())).map(|p| p.house.as_ref()).collect();
@@ -206,28 +208,28 @@ impl BattleSession {
             return None;
         }
         let alive: Vec<&str> = contenders.into_iter().filter(|house| house_keeps_alive(&self.world, house, self.short_game)).collect();
-        match alive.as_slice() {
-            [] => Some(BattleOutcome::Defeat { reason: "stalemate".into() }),
-            [owner] => {
-                let local_win = self
-                    .world
-                    .players
-                    .iter()
-                    .find(|p| p.id == self.world.local_player)
-                    .is_some_and(|p| p.house.as_ref().eq_ignore_ascii_case(owner));
-                Some(if local_win {
-                    BattleOutcome::Victory { owner: (*owner).to_string() }
-                } else {
-                    BattleOutcome::Defeat { reason: String::new() }
-                })
-            }
-            _ => None,
+        if alive.is_empty() {
+            return Some(BattleOutcome::Defeat { reason: "stalemate".into() });
         }
+        let reps = alive_alliance_representatives(&self.world, &alive);
+        if reps.len() != 1 {
+            return None;
+        }
+        let owner = reps[0];
+        let local_win = self.world.players.iter().find(|p| p.id == self.world.local_player).is_some_and(|p| {
+            alive.iter().any(|h| houses_are_allied(&self.world, p.house.as_ref(), h))
+        });
+        Some(if local_win {
+            BattleOutcome::Victory { owner: owner.to_string() }
+        } else {
+            BattleOutcome::Defeat { reason: String::new() }
+        })
     }
 
-    /// 若仅剩一个非氛围阵营仍保活，返回其 owner。
+    /// 若仅剩一个非氛围同盟组仍保活，返回该组中任一 owner。
     ///
     /// 至少需要两名非氛围玩家槽位，避免单机装载尚未开战时误判胜负。
+    /// 同队同盟合并计数；与 `GameEdition` 无关（含 YR）。
     /// 短局：存活非围墙建筑或 `[General] BaseUnit` 保活。长局：非围墙建筑 / 步兵 / 载具 / 飞行器保活。
     pub fn sole_victor(&self) -> Option<&str> {
         let contenders: Vec<&str> =
@@ -236,8 +238,21 @@ impl BattleSession {
             return None;
         }
         let alive: Vec<&str> = contenders.into_iter().filter(|house| house_keeps_alive(&self.world, house, self.short_game)).collect();
-        if alive.len() == 1 { Some(alive[0]) } else { None }
+        let reps = alive_alliance_representatives(&self.world, &alive);
+        if reps.len() == 1 { Some(reps[0]) } else { None }
     }
+}
+
+/// 存活 house 按 `houses_are_allied` 折叠为同盟代表（每连通分量取首次出现者）。
+fn alive_alliance_representatives<'a>(world: &BattleState, alive: &[&'a str]) -> Vec<&'a str> {
+    let mut reps = Vec::new();
+    for &house in alive {
+        if reps.iter().any(|&rep| houses_are_allied(world, rep, house)) {
+            continue;
+        }
+        reps.push(house);
+    }
+    reps
 }
 
 /// 该 house 是否仍保活（未出局）。

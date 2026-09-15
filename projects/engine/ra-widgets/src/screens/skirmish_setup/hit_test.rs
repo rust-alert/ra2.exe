@@ -30,6 +30,11 @@ fn hover_entry_in(snap: &LayoutSnapshot, x: i32, y: i32) -> Option<&'static str>
             return Some("color");
         }
     }
+    for i in 0..SKIRMISH_ROW_COUNT {
+        if snap_contains(snap, &format!("team_face_{i}"), x, y) {
+            return Some("team");
+        }
+    }
     for i in 0..SKIRMISH_AI_ROW_COUNT {
         if snap_contains(snap, &format!("ai_face_{i}"), x, y) {
             return Some("ai");

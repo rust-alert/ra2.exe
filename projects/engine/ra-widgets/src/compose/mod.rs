@@ -20,7 +20,7 @@ use crate::{
             skirmish_score_fallback_label, skirmish_title_csf_key,
         },
     },
-    skirmish_setup::{LOBBY_COLORS, LOBBY_DIFFICULTIES},
+    skirmish_setup::{LOBBY_COLORS, LOBBY_DIFFICULTIES, LOBBY_TEAM_COUNT},
 };
 use ra_layout::{
     BATTLE_PAUSE_MENU_BUTTON_IDS, BUTTON_CELL_H, BUTTON_CELL_W, BattleHudChromeMetrics, CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS,

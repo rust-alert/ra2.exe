@@ -173,11 +173,13 @@ pub fn dialog_template_0x102() -> DialogTemplate {
         ctrl("status_help", 10, 282, 303, 12, ControlPlacement::ShellTooltip),
     ];
     // 行 y DLU：本地 11，其后每行 +16。
+    // 列：旗标 → 国家 → 颜色 → 队伍（队伍对 RA2 / YR 均开放；原版离线表可能未强调，内核仍须支持）。
     for i in 0..8 {
         let y = 11 + (i as i32) * 16;
         controls.push(ctrl(&format!("flag_{i}"), 143, y, 32, 12, ControlPlacement::ComboFace));
-        controls.push(ctrl(&format!("side_face_{i}"), 180, y, 78, 74, ControlPlacement::ComboFace));
-        controls.push(ctrl(&format!("color_face_{i}"), 264, y, 35, 73, ControlPlacement::ComboFace));
+        controls.push(ctrl(&format!("side_face_{i}"), 180, y, 65, 74, ControlPlacement::ComboFace));
+        controls.push(ctrl(&format!("color_face_{i}"), 250, y, 28, 73, ControlPlacement::ComboFace));
+        controls.push(ctrl(&format!("team_face_{i}"), 282, y, 28, 73, ControlPlacement::ComboFace));
     }
     for i in 0..7 {
         let y = 11 + ((i + 1) as i32) * 16;

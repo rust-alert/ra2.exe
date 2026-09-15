@@ -16,6 +16,7 @@ fn skirmish_lobby_has_lower_strip_and_bottom_status() {
     assert_eq!(rect_px_from_snapshot(&snap, "flag_0").h, 24);
     assert_eq!(rect_px_from_snapshot(&snap, "side_face_0").h, 24);
     assert_eq!(rect_px_from_snapshot(&snap, "color_face_0").h, 24);
+    assert_eq!(rect_px_from_snapshot(&snap, "team_face_0").h, 24);
     assert_eq!(rect_px_from_snapshot(&snap, "ai_face_0").h, 24);
 }
 
@@ -25,10 +26,10 @@ fn skirmish_lobby_form_is_centered_in_content_area() {
     let chrome = RightPanelChrome::shell_defaults();
     let panel_x = chrome.panel_x() as i32;
     let name = rect_px_from_snapshot(&snap, "player_name");
-    let color = rect_px_from_snapshot(&snap, "color_face_0");
+    let team = rect_px_from_snapshot(&snap, "team_face_0");
     let check = rect_px_from_snapshot(&snap, "checkbox_4");
     let left = name.x;
-    let right = color.x + color.w;
+    let right = team.x + team.w;
     let right2 = check.x + check.w;
     let right = right.max(right2);
     let mid = (left + right) / 2;

@@ -21,10 +21,10 @@ fn dialog_0x102_snapshot_matches_skirmish_golden_rects() {
     assert_eq!(player_name.height, 24.0);
     let flag = snap.get("flag_0").map(|e| e.layout.rect).expect("flag_0");
     assert_eq!(flag.height, 24.0);
-    let color = snap.get("color_face_0").map(|e| e.layout.rect).expect("color_face_0");
+    let team = snap.get("team_face_0").map(|e| e.layout.rect).expect("team_face_0");
     let check4 = snap.get("checkbox_4").map(|e| e.layout.rect).expect("checkbox_4");
     let left = player_name.x;
-    let right = (color.x + color.width).max(check4.x + check4.width);
+    let right = (team.x + team.width).max(check4.x + check4.width);
     let mid = (left + right) * 0.5;
     assert!((mid - 316.0).abs() <= 4.0, "form mid {mid}");
     assert!(player_name.y >= 40.0, "top margin y={}", player_name.y);
