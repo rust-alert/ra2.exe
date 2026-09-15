@@ -1,4 +1,7 @@
-use crate::state::components::{Health, Identity, Owner, Transform};
+use crate::{
+    gameplay::houses_are_allied,
+    state::components::{Health, Identity, Owner, Transform},
+};
 use ra_map::{MapEntityKind, iso_to_screen, screen_to_iso};
 use ra_types::EntityId;
 
@@ -171,9 +174,9 @@ impl BattleSession {
         best.map(|(_, id)| id)
     }
 
-    /// 按预览图像素点选异阵营目标：先软命中移动单位，再软命中建筑立面，最后退回逻辑格。
+    /// 按预览图像素点选敌对目标：先软命中移动单位，再软命中建筑立面，最后退回逻辑格。
     ///
-    /// 与本方点选同一图像口径，供左键攻击 / 攻击光标使用。
+    /// 跳过同盟（大厅队伍 / `Allies`）；与本方点选同一图像口径，供左键攻击 / 攻击光标使用。
     pub fn pick_hostile_near_image(&self, image_x: f32, image_y: f32, max_dist_px: f32) -> Option<EntityId> {
         let local_house = self.world.players.iter().find(|p| p.id == self.world.local_player)?.house.clone();
         let mut best_mobile: Option<(f32, EntityId)> = None;
@@ -186,7 +189,8 @@ impl BattleSession {
             else {
                 continue;
             };
-            if crate::gameplay::house_id_of(&self.world.definitions, local_house.as_ref()) == Some(owner.house) {
+            let other_house = crate::gameplay::house_key_of(&self.world.definitions, owner.house);
+            if houses_are_allied(&self.world, local_house.as_ref(), other_house) {
                 continue;
             }
             let Some(identity) = self.world.ecs_get::<Identity>(id)
@@ -220,10 +224,11 @@ impl BattleSession {
         let cell = self.image_to_cell(image_x, image_y)?;
         let id = self.pick_entity_at(cell.0, cell.1)?;
         let owner = self.world.ecs_get::<Owner>(id)?;
-        (crate::gameplay::house_id_of(&self.world.definitions, local_house.as_ref()) != Some(owner.house)).then_some(id)
+        let other_house = crate::gameplay::house_key_of(&self.world.definitions, owner.house);
+        (!houses_are_allied(&self.world, local_house.as_ref(), other_house)).then_some(id)
     }
 
-    /// 异阵营建筑立面软命中（菱形占地，与本方建筑点选同口径）。
+    /// 敌对建筑立面软命中（菱形占地，与本方建筑点选同口径；跳过同盟）。
     fn pick_hostile_structure_near_image(&self, image_x: f32, image_y: f32, local_house: &str) -> Option<EntityId> {
         const HALF_W: f32 = 30.0;
         const HALF_H: f32 = 15.0;
@@ -238,7 +243,8 @@ impl BattleSession {
             else {
                 continue;
             };
-            if crate::gameplay::house_id_of(&self.world.definitions, local_house) == Some(owner.house) {
+            let other_house = crate::gameplay::house_key_of(&self.world.definitions, owner.house);
+            if houses_are_allied(&self.world, local_house, other_house) {
                 continue;
             }
             let Some(identity) = self.world.ecs_get::<Identity>(id)
@@ -442,7 +448,7 @@ impl BattleSession {
         best.map(|(_, id)| id)
     }
 
-    /// 相对 `from` 最近的异阵营存活目标（移动单位或建筑）。
+    /// 相对 `from` 最近的敌对存活目标（移动单位或建筑；跳过同盟）。
     pub fn nearest_hostile(&self, from: EntityId) -> Option<EntityId> {
         if self.world.ecs_get::<Health>(from).map(|h| h.dead).unwrap_or(true) {
             return None;
@@ -467,7 +473,8 @@ impl BattleSession {
                     return None;
                 }
                 let other_owner = self.world.ecs_get::<Owner>(id)?;
-                if crate::gameplay::house_key_of(&self.world.definitions, other_owner.house) == owner {
+                let other_house = crate::gameplay::house_key_of(&self.world.definitions, other_owner.house);
+                if houses_are_allied(&self.world, &owner, other_house) {
                     return None;
                 }
                 let ox = self.world.ecs_get::<Transform>(id)?;

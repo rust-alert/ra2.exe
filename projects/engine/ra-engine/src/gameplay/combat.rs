@@ -3,7 +3,7 @@
 use ra_map::MapEntityKind;
 
 use crate::{
-    gameplay::building_power,
+    gameplay::{building_power, houses_are_allied},
     spatial::{facing_toward, is_mobile, manhattan, turn_facing_toward},
     state::{
         FIRE_FLASH_TICKS, HIT_FLASH_TICKS, TURRET_TURN_STEP,
@@ -72,6 +72,18 @@ impl crate::state::BattleState {
             if target_dead || ti == i {
                 self.clear_attack_target_resume_attack_move(attacker_id, attack_move);
                 continue;
+            }
+            // 同盟不可互射（含大厅队伍 / 地图 Allies / 触发结盟）；与 `GameEdition` 无关。
+            if let (Some(atk_owner), Some(tgt_owner)) = (
+                self.ecs_get::<crate::state::components::Owner>(attacker_id),
+                self.ecs_get::<crate::state::components::Owner>(target_id),
+            ) {
+                let atk_house = crate::gameplay::house_key_of(&self.definitions, atk_owner.house);
+                let tgt_house = crate::gameplay::house_key_of(&self.definitions, tgt_owner.house);
+                if houses_are_allied(self, atk_house, tgt_house) {
+                    self.clear_attack_target_resume_attack_move(attacker_id, attack_move);
+                    continue;
+                }
             }
             // 追击：把移动目标钉在敌人当前格；攻击移动时把原目的地压入航点以便战后续行。
             let Some(target_xf) = self.ecs_get::<Transform>(target_id).copied()
@@ -176,7 +188,7 @@ impl crate::state::BattleState {
         }
     }
 
-    /// 射程内最近的异阵营存活目标（机动单位或建筑）。
+    /// 射程内最近的敌对存活目标（机动单位或建筑；跳过同盟与同 house）。
     fn nearest_hostile_in_range(&self, from: ra_types::EntityId, range: u32) -> Option<ra_types::EntityId> {
         if range == 0 {
             return None;
@@ -202,7 +214,8 @@ impl crate::state::BattleState {
                     return None;
                 }
                 let other = self.ecs_get::<crate::state::components::Owner>(id)?;
-                if crate::gameplay::house_key_of(&self.definitions, other.house) == owner {
+                let other_house = crate::gameplay::house_key_of(&self.definitions, other.house);
+                if houses_are_allied(self, &owner, other_house) {
                     return None;
                 }
                 let ox = self.ecs_get::<Transform>(id)?;
