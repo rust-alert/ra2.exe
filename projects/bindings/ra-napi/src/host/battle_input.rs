@@ -746,6 +746,65 @@ pub fn next_tool_after_map_right_click(current: BattleToolKind) -> (BattleToolKi
     }
 }
 
+/// 已选机动单位时，落点格左键下令种类（不含具体坐标；由调用方填 cell）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MobileGroundOrderKind {
+    /// 不可通行：不下令。
+    Blocked,
+    /// Shift 路径移动。
+    QueueMovePath,
+    /// 攻击移动（工具态或 Ctrl 强攻空地）。
+    AttackMove,
+    /// 普通移动（`queue_path` 仅影响航点是否保留，不改命令种类）。
+    Move {
+        /// 是否 Shift 排队语义（ForceMove+Shift 时仍为 Move）。
+        queue_path: bool,
+    },
+}
+
+/// 已选机动 + 落点格：由通行性 / 修饰 / 攻击移动工具态决定下令种类。
+pub fn resolve_mobile_ground_order(
+    traversable: bool,
+    queue_path: bool,
+    order_mod: OrderClickModifier,
+    attack_move_tool: bool,
+) -> MobileGroundOrderKind {
+    if !traversable {
+        return MobileGroundOrderKind::Blocked;
+    }
+    if queue_path && matches!(order_mod, OrderClickModifier::None) && !attack_move_tool {
+        return MobileGroundOrderKind::QueueMovePath;
+    }
+    if matches!(order_mod, OrderClickModifier::ForceAttack) || attack_move_tool {
+        return MobileGroundOrderKind::AttackMove;
+    }
+    MobileGroundOrderKind::Move { queue_path }
+}
+
+/// 空选中 / 仅建筑选中时，落点左键语义。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EmptyOrStructureGroundKind {
+    /// 设集结点（有建筑选中）。
+    SetRally,
+    /// Shift 加选空地：无动作。
+    Noop,
+    /// 清空选中。
+    Deselect,
+}
+
+/// 无机动选中时的落点语义。
+pub fn resolve_non_mobile_ground_order(has_structure_selected: bool, shift_add: bool) -> EmptyOrStructureGroundKind {
+    if has_structure_selected {
+        EmptyOrStructureGroundKind::SetRally
+    }
+    else if shift_add {
+        EmptyOrStructureGroundKind::Noop
+    }
+    else {
+        EmptyOrStructureGroundKind::Deselect
+    }
+}
+
 impl EdgeScrollDir {
     /// 由轴向意图合成方向（可对角）。
     pub fn from_axes(west: bool, east: bool, north: bool, south: bool) -> Self {
@@ -1523,6 +1582,56 @@ mod tests {
         assert_eq!(
             next_tool_after_map_right_click(BattleToolKind::Normal).1,
             classify_right_click_map(false)
+        );
+    }
+
+    #[test]
+    fn mobile_ground_order_matrix() {
+        use OrderClickModifier::{ForceAttack, ForceMove, None as ModNone};
+        assert_eq!(
+            resolve_mobile_ground_order(false, false, ModNone, false),
+            MobileGroundOrderKind::Blocked
+        );
+        assert_eq!(
+            resolve_mobile_ground_order(true, true, ModNone, false),
+            MobileGroundOrderKind::QueueMovePath
+        );
+        assert_eq!(
+            resolve_mobile_ground_order(true, true, ModNone, true),
+            MobileGroundOrderKind::AttackMove
+        );
+        assert_eq!(
+            resolve_mobile_ground_order(true, false, ForceAttack, false),
+            MobileGroundOrderKind::AttackMove
+        );
+        assert_eq!(
+            resolve_mobile_ground_order(true, true, ForceMove, false),
+            MobileGroundOrderKind::Move { queue_path: true }
+        );
+        assert_eq!(
+            resolve_mobile_ground_order(true, false, ModNone, false),
+            MobileGroundOrderKind::Move { queue_path: false }
+        );
+        // 不可通行时即使强攻工具也不下令（与 NoMove 光标同源）。
+        assert_eq!(
+            resolve_mobile_ground_order(false, false, ForceAttack, true),
+            MobileGroundOrderKind::Blocked
+        );
+    }
+
+    #[test]
+    fn non_mobile_ground_order_matrix() {
+        assert_eq!(
+            resolve_non_mobile_ground_order(true, false),
+            EmptyOrStructureGroundKind::SetRally
+        );
+        assert_eq!(
+            resolve_non_mobile_ground_order(false, true),
+            EmptyOrStructureGroundKind::Noop
+        );
+        assert_eq!(
+            resolve_non_mobile_ground_order(false, false),
+            EmptyOrStructureGroundKind::Deselect
         );
     }
 }

@@ -325,32 +325,25 @@ impl BattleController {
 
         if let Some(cell) = probe.cell {
             if probe.has_mobile_selected {
-                let intent = if !probe.traversable {
-                    // 不可通行：光标 NoMove，左键也不下令（避免「显示禁止却仍移动」）。
-                    WorldClickIntent::Blocked
-                }
-                else if queue_path && matches!(order_mod, OrderClickModifier::None) && !mode.is_attack_move() {
-                    WorldClickIntent::QueueMovePath { cell }
-                }
-                else if matches!(order_mod, OrderClickModifier::ForceAttack) || mode.is_attack_move() {
-                    WorldClickIntent::AttackMove { cell }
-                }
-                else {
-                    WorldClickIntent::Move {
-                        cell,
-                        queue_path,
-                    }
+                use super::super::battle_input::{MobileGroundOrderKind, resolve_mobile_ground_order};
+                let intent = match resolve_mobile_ground_order(
+                    probe.traversable,
+                    queue_path,
+                    order_mod,
+                    mode.is_attack_move(),
+                ) {
+                    MobileGroundOrderKind::Blocked => WorldClickIntent::Blocked,
+                    MobileGroundOrderKind::QueueMovePath => WorldClickIntent::QueueMovePath { cell },
+                    MobileGroundOrderKind::AttackMove => WorldClickIntent::AttackMove { cell },
+                    MobileGroundOrderKind::Move { queue_path } => WorldClickIntent::Move { cell, queue_path },
                 };
                 return finish(intent);
             }
-            if probe.has_structure_selected {
-                return finish(WorldClickIntent::SetRally { cell });
-            }
-            let intent = if add {
-                WorldClickIntent::Noop
-            }
-            else {
-                WorldClickIntent::Deselect
+            use super::super::battle_input::{EmptyOrStructureGroundKind, resolve_non_mobile_ground_order};
+            let intent = match resolve_non_mobile_ground_order(probe.has_structure_selected, add) {
+                EmptyOrStructureGroundKind::SetRally => WorldClickIntent::SetRally { cell },
+                EmptyOrStructureGroundKind::Noop => WorldClickIntent::Noop,
+                EmptyOrStructureGroundKind::Deselect => WorldClickIntent::Deselect,
             };
             return finish(intent);
         }
