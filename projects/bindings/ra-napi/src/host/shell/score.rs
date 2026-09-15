@@ -299,7 +299,8 @@ impl Shell {
         if self.lobby_side_chromes.iter().any(|c| c.id.eq_ignore_ascii_case(country)) {
             return country.to_string();
         }
-        "GDI".into()
+        // 未知 Side：不回落零售 GDI。空串让 `resolve_ui_faction_chrome` 失败，再走通用槽位皮肤。
+        String::new()
     }
 
     /// 结算页输入：继续 / 离开；战役胜且有下一关时 Enter=下一关。

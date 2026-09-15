@@ -815,6 +815,7 @@ fn chebyshev_u16(ax: u16, ay: u16, bx: u16, by: u16) -> u32 {
 fn nearest_enemy(world: &BattleState, from: usize, house: &str) -> Option<usize> {
     let from_id = world.entities[from].id;
     let from_xf = world.ecs_get::<Transform>(from_id)?;
+    let attacker_warhead = attacker_primary_warhead(world, from_id);
     let mut best: Option<(u32, usize)> = None;
     for (i, e) in world.entities.iter().enumerate() {
         if i == from {
@@ -837,6 +838,12 @@ fn nearest_enemy(world: &BattleState, from: usize, house: &str) -> Option<usize>
         if world.ecs_get::<Owner>(id).map(|o| is_ambient_house(&world.definitions, crate::gameplay::house_key_of(&world.definitions, o.house))).unwrap_or(false) {
             continue;
         }
+        if let Some(target_stats) = world.ecs_get::<CombatStats>(id) {
+            let entry = crate::gameplay::verses_entry_for(&world.definitions, attacker_warhead, target_stats.armor.index());
+            if !entry.allows_passive_acquire() {
+                continue;
+            }
+        }
         let Some(xf) = world.ecs_get::<Transform>(id)
         else {
             continue;
@@ -847,4 +854,18 @@ fn nearest_enemy(world: &BattleState, from: usize, house: &str) -> Option<usize>
         }
     }
     best.map(|(_, i)| i)
+}
+
+/// 攻击方主武器弹头（用于 Verses 被动索敌资格）；缺武器时回落 techno 绑定弹头。
+fn attacker_primary_warhead(world: &BattleState, id: ra_types::EntityId) -> Option<ra_types::WarheadId> {
+    let identity = world.ecs_get::<Identity>(id)?;
+    let techno = world.definitions.techno.get_by_id(identity.type_id)?;
+    if let Some(weapon_id) = techno.primary_id {
+        if let Some(weapon) = world.definitions.weapons.get_by_id(weapon_id) {
+            if weapon.warhead_id.is_some() {
+                return weapon.warhead_id;
+            }
+        }
+    }
+    techno.warhead_id
 }

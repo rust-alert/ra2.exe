@@ -49,11 +49,23 @@ fn verses_tokens_preserve_targeting_flags() {
     assert!(ap.verses[0].force_fire);
     assert!(ap.verses[0].retaliate);
     assert!(ap.verses[0].passive_acquire);
+    assert!(ap.verses[0].allows_passive_acquire());
     assert_eq!(ap.verses[1].multiplier, 50);
     assert!(ap.verses[1].force_fire);
     assert!(!ap.verses[1].retaliate);
     assert!(!ap.verses[1].passive_acquire);
+    assert!(ap.verses[1].allows_force_fire());
     assert!(!ap.verses[2].force_fire);
+}
+
+#[test]
+fn zero_multiplier_without_p_blocks_passive_acquire() {
+    let entry = ra_types::VersesEntry::from_multiplier(0);
+    assert!(!entry.allows_passive_acquire());
+    assert!(!entry.allows_retaliate());
+    assert!(!entry.allows_force_fire());
+    let with_p = ra_types::VersesEntry { multiplier: 0, force_fire: false, retaliate: false, passive_acquire: true };
+    assert!(with_p.allows_passive_acquire());
 }
 
 #[test]

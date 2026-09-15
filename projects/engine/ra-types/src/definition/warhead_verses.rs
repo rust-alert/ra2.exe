@@ -27,6 +27,21 @@ impl VersesEntry {
     pub const fn from_multiplier(multiplier: u32) -> Self {
         Self { multiplier, force_fire: false, retaliate: false, passive_acquire: false }
     }
+
+    /// 被动索敌：显式 `P`，或未写标志时按倍率 > 0。
+    pub const fn allows_passive_acquire(self) -> bool {
+        self.passive_acquire || self.multiplier > 0
+    }
+
+    /// 反击：显式 `R`，或未写标志时按倍率 > 0。
+    pub const fn allows_retaliate(self) -> bool {
+        self.retaliate || self.multiplier > 0
+    }
+
+    /// 强制攻击：显式 `F`，或未写标志时按倍率 > 0。
+    pub const fn allows_force_fire(self) -> bool {
+        self.force_fire || self.multiplier > 0
+    }
 }
 
 impl Default for VersesEntry {
@@ -75,6 +90,11 @@ impl WarheadVerses {
             out.0[i] = VersesEntry::from_multiplier(v);
         }
         out
+    }
+
+    /// 按护甲槽取完整条目（含 F/R/P）；越界回落满额无标志。
+    pub fn entry(&self, armor_index: usize) -> VersesEntry {
+        self.0.get(armor_index).copied().unwrap_or_else(VersesEntry::full)
     }
 }
 

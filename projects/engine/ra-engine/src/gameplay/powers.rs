@@ -367,12 +367,13 @@ pub fn try_fire_super_weapon(
     if !sw_def.has_registered_executor() {
         return Err(FireSuperWeaponError::UnsupportedKind);
     }
-    // 已注册执行器分发（新增 kind 时在 `super_weapon_kind_has_executor` 与此处同步登记）。
-    if sw_def.kind.eq_ignore_ascii_case("LIGHTNINGSTORM") {
-        let rules = &world.definitions.lightning_storm;
-        start_lightning_storm(world, x, y, rules.deferment_ticks as i32, rules.duration_ticks as i32);
-    } else {
-        return Err(FireSuperWeaponError::UnsupportedKind);
+    // 已注册执行器分发：登记表在 `super_weapon_kind_has_executor`；此处按 kind 调用实现。
+    match sw_def.kind.as_str() {
+        "LIGHTNINGSTORM" => {
+            let rules = &world.definitions.lightning_storm;
+            start_lightning_storm(world, x, y, rules.deferment_ticks as i32, rules.duration_ticks as i32);
+        }
+        _ => return Err(FireSuperWeaponError::UnsupportedKind),
     }
     world.super_weapon_runtime.reset_charge(house, &type_key);
     Ok(())
