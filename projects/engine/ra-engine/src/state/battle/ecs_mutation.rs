@@ -92,9 +92,12 @@ impl BattleState {
             entity.attack_cooldown = attack.cooldown;
         }
         if let Some(queue) = queue {
-            entity.produce_queue = queue
-                .item
-                .and_then(|(tid, rem)| self.definitions.techno.get_by_id(tid).map(|t| (std::sync::Arc::<str>::from(t.type_key.as_str()), rem)));
+            entity.produce_queue = queue.item.as_ref().and_then(|slot| {
+                self.definitions
+                    .techno
+                    .get_by_id(slot.type_id)
+                    .map(|t| (std::sync::Arc::<str>::from(t.type_key.as_str()), slot.remaining_ticks))
+            });
             entity.rally_x = queue.rally_x;
             entity.rally_y = queue.rally_y;
         }
