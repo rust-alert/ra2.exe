@@ -27,6 +27,15 @@ fn shell_dialog_templates_expose_expected_ids() {
     assert!(dialog_template_0x6b().controls.iter().any(|c| c.id.0 == "map_list"));
     assert!(dialog_template_0x102().controls.iter().any(|c| c.id.0 == "start"));
     assert!(dialog_template_0x102().controls.iter().any(|c| c.id.0 == "flag_0"));
-    assert!(dialog_template_0x102().controls.iter().any(|c| c.id.0 == "team_face_0"));
+    assert!(dialog_template_0x102().controls.iter().all(|c| c.id.0 != "team_face_0"));
+    assert!(dialog_template_0x102_with_teams().controls.iter().any(|c| c.id.0 == "team_face_0"));
     assert!(dialog_template_0x102().controls.iter().any(|c| c.id.0 == "ai_face_6"));
+}
+
+#[test]
+fn ra2_edition_hides_skirmish_lobby_teams() {
+    use ra_types::GameEdition;
+    assert!(!GameEdition::Ra2.skirmish_lobby_teams());
+    assert!(GameEdition::Yr.skirmish_lobby_teams());
+    assert!(GameEdition::Mo3.skirmish_lobby_teams());
 }

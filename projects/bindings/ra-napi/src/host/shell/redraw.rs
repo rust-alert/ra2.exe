@@ -283,6 +283,7 @@ impl Shell {
                             row_side_indices: self.skirmish.row_sides,
                             row_color_indices: self.skirmish.row_colors,
                             row_team_indices: self.skirmish.row_teams,
+                            lobby_teams: self.skirmish.lobby_teams,
                             chrome: self.skirmish_chrome.as_ref(),
                         };
                         compose::compose_skirmish_lobby_page(

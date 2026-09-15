@@ -58,9 +58,7 @@ fn radar_open_frame_index_clamps_without_wrapping() {
 #[test]
 fn radar_minimap_compose_and_hit() {
     use ra_types::LandType;
-    use ra_widgets::battle_hud::{
-        RadarMinimapBlip, compose_radar_minimap, radar_content_rect, radar_fit_xy_to_cell, radar_minimap_fit_rect,
-    };
+    use ra_widgets::battle_hud::{RadarMinimapBlip, compose_radar_minimap, radar_content_rect, radar_fit_xy_to_cell, radar_minimap_fit_rect};
     let land = vec![LandType::Clear as u8; 4 * 3];
     let blips = [RadarMinimapBlip { x: 1, y: 1, rgba: [255, 0, 0, 255], structure: false }];
     let img = compose_radar_minimap(4, 3, &land, &blips, Some((0, 0, 3, 2)), &[(1, 1)], true).expect("minimap");
@@ -90,8 +88,5 @@ fn hit_radar_slot() {
     let metrics = BattleHudChromeMetrics::sidec01();
     let snap = solve_battle_hud_with_metrics(800, 600, metrics);
     let radar = rect_px_from_snapshot(&snap, "radar");
-    assert_eq!(
-        hit_at_with_chrome(&snap, None, metrics, 0, radar.x + radar.w / 2, radar.y + radar.h / 2),
-        Some(BattleHudHit::Radar)
-    );
+    assert_eq!(hit_at_with_chrome(&snap, None, metrics, 0, radar.x + radar.w / 2, radar.y + radar.h / 2), Some(BattleHudHit::Radar));
 }

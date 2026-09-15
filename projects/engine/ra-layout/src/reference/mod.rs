@@ -2,7 +2,6 @@
 
 mod battle_abort_confirm;
 pub mod battle_hud;
-mod battle_diplomacy;
 mod battle_in_game_options;
 mod battle_pause;
 pub mod campaign_page;
@@ -16,7 +15,6 @@ pub mod shell_chrome;
 mod skirmish_score;
 
 pub use battle_abort_confirm::{BATTLE_ABORT_CONFIRM_BUTTON_IDS, solve_battle_abort_confirm, solve_battle_abort_confirm_at};
-pub use battle_diplomacy::{BATTLE_DIPLOMACY_BUTTON_IDS, BATTLE_DIPLOMACY_ROW_COUNT, solve_battle_diplomacy, solve_battle_diplomacy_at};
 pub use battle_hud::{
     BattleHudChromeMetrics, CAMEO_CELL_H, CAMEO_CELL_W, CAMEO_COL_STRIDE, CAMEO_COLS, CAMEO_ROW_STRIDE, COMMAND_BAR_BUTTON_COUNT,
     COMMAND_BAR_BUTTON_IDS, COMMAND_BAR_H, COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W, SIDEBAR_TAB_COUNT, SIDEBAR_TAB_IDS,
@@ -33,7 +31,7 @@ pub use battle_pause::{
 pub use campaign_page::solve_campaign;
 pub use dlu::{DluRect, FontBaseUnits, MS_SANS_SERIF_8PT, mul_div_round};
 pub use exit_confirm_page::solve_exit_confirm;
-pub use from_template::{solve_choose_map, solve_options_dialog, solve_skirmish_lobby};
+pub use from_template::{solve_choose_map, solve_options_dialog, solve_skirmish_lobby, solve_skirmish_lobby_ex};
 pub use load_screen::{LOAD_SCREEN_BUTTON_IDS, solve_load_screen};
 pub use network_page::{NETWORK_BUTTON_IDS, solve_network_page};
 pub use options_page::{OPTIONS_CONTENT_IDS, solve_options_page};

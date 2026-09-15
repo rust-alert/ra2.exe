@@ -1,7 +1,9 @@
 //! 用户数据目录与规范文件名。
 
-use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::{
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
 
 /// 产品用户数据目录名（各平台共用末级名）。
 pub const APP_DATA_DIR_NAME: &str = "rust-alert2";
@@ -60,11 +62,7 @@ fn native_user_data_dir() -> PathBuf {
     }
     #[cfg(target_os = "macos")]
     {
-        return home_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("Library")
-            .join("Application Support")
-            .join(APP_DATA_DIR_NAME);
+        return home_dir().unwrap_or_else(|| PathBuf::from(".")).join("Library").join("Application Support").join(APP_DATA_DIR_NAME);
     }
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     {
@@ -79,9 +77,7 @@ fn native_user_data_dir() -> PathBuf {
 }
 
 fn home_dir() -> Option<PathBuf> {
-    std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(PathBuf::from)
+    std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from)
 }
 
 /// `settings.json` 规范路径。

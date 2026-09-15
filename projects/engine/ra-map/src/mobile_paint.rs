@@ -549,10 +549,7 @@ pub fn load_mobile_shp(
 /// 移动单位 SHP 相对 `iso_to_screen`（钻石包围盒原点）的像素偏移。
 #[doc(hidden)]
 pub fn mobile_shp_cell_offsets(frame_x: u16, frame_y: u16, shp_w: u16, shp_h: u16) -> (i32, i32) {
-    (
-        i32::from(frame_x as i16) - i32::from(shp_w) / 2 + TILE_WIDTH / 2,
-        i32::from(frame_y as i16) - i32::from(shp_h) / 2 + TILE_HEIGHT / 2,
-    )
+    (i32::from(frame_x as i16) - i32::from(shp_w) / 2 + TILE_WIDTH / 2, i32::from(frame_y as i16) - i32::from(shp_h) / 2 + TILE_HEIGHT / 2)
 }
 
 /// 步兵子格相对钻石中心的像素偏移（地图 `sub_cell` 0..=4）。

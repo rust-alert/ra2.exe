@@ -82,10 +82,7 @@ fn naval_path_stays_on_water_corridor() {
     let path = world.ecs_path(id).expect("path");
     assert!(!path.is_empty(), "must path along water");
     for &(px, py) in &path {
-        assert!(
-            world.pass_grid.is_naval_passable(px, py),
-            "path cell ({px},{py}) must be water"
-        );
+        assert!(world.pass_grid.is_naval_passable(px, py), "path cell ({px},{py}) must be water");
         assert_eq!(py, 8);
     }
 }
@@ -123,11 +120,7 @@ fn naval_yard_spawn_cell_picks_water_not_land() {
     world.sync_prepared_pass_layers();
     let yard = world.entity_id_at(0).expect("yard");
     let cell = world.find_spawn_cell(8, 8, yard, true).expect("naval spawn");
-    assert!(
-        world.pass_grid.is_naval_passable(cell.0, cell.1),
-        "spawn {:?} must be water",
-        cell
-    );
+    assert!(world.pass_grid.is_naval_passable(cell.0, cell.1), "spawn {:?} must be water", cell);
     // 地面出兵谓词不得把水面当可用邻格。
     assert!(world.find_spawn_cell(8, 8, yard, false).is_none());
 }

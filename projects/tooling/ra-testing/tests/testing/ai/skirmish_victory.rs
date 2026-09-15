@@ -41,12 +41,7 @@ fn equal_scripted_interventions_match_hash() {
     for case in [&mut first, &mut second] {
         // 关 AI 后脚本部署，避免启发式选型分叉。
         case.session.expect_battle_mut().ai_enabled = false;
-        let mcv = case
-            .session
-            .expect_battle()
-            .world
-            .find_entity_id_by_owner_type(slice.ai_house, slice.soviet_mcv)
-            .expect("ai mcv");
+        let mcv = case.session.expect_battle().world.find_entity_id_by_owner_type(slice.ai_house, slice.soviet_mcv).expect("ai mcv");
         case.command(GameCommand::Deploy { entity: mcv });
         case.advance(1);
         let yard_id = case.session.expect_battle().world.find_entity_id_by_owner_type(slice.ai_house, "NACNST").expect("ai yard");

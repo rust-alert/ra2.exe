@@ -88,6 +88,17 @@ pub use image::RgbaImage;
 /// 清屏底色（接近夜间战术图感觉，非最终主题）。
 const CLEAR_COLOR: wgpu::Color = wgpu::Color { r: 0.04, g: 0.06, b: 0.09, a: 1.0 };
 
+/// 世界 pass：逻辑投影尺寸与物理 GPU scissor 拆分（HiDPI 下二者可不同）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct WorldViewPass {
+    /// 逻辑投影宽（与战术区命中 / 光标同口径）。
+    proj_w: u32,
+    /// 逻辑投影高。
+    proj_h: u32,
+    /// 物理表面 scissor / viewport：`(x, y, w, h)`。
+    scissor: (u32, u32, u32, u32),
+}
+
 /// wgpu 渲染器：管理 surface 提交；长期应委托 `FrameBuilder` / `PassGraph`，而非堆砌临时 draw。
 pub struct Renderer {
     /// 累计已提交帧数（含无 GPU 时的空转计数）。
@@ -102,10 +113,11 @@ pub struct Renderer {
     ui_sprite: Option<SpriteGpu>,
     /// 为真时 UI 为对局屏空间叠加层：不劫持世界相机，可与 preview/markers 同帧。
     ui_overlay: bool,
-    /// 世界 pass 的投影 / scissor 矩形（窗口像素）。`None` 表示整窗表面。
+    /// 世界 pass：逻辑投影尺寸 + 物理 scissor。`None` 表示整窗表面。
     ///
-    /// 对局叠加时应为战术区（侧栏以左），与命中、`CameraBounds` 同口径。
-    world_view: Option<(u32, u32, u32, u32)>,
+    /// 对局叠加时应为战术区（侧栏以左）。HiDPI 下投影用逻辑像素（与命中同口径），
+    /// scissor / viewport 用物理像素（对齐交换链）。
+    world_view: Option<WorldViewPass>,
     /// 镜头可扫的预览图像素内容矩形 `(x0,y0,x1,y1)`。`None` 时用整张预览（`[0,w]×[0,h]`）。
     ///
     /// 对局应设为 `[Map] LocalSize` 投影，避免扫到 `Size` 外缘锯齿外的空域。
@@ -279,24 +291,42 @@ impl Renderer {
         self.upload_ui_texture(image, false);
     }
 
-    /// 设置世界 pass 投影与裁切矩形（窗口像素，`x,y,w,h`）。
+    /// 设置世界 pass：逻辑投影与物理 scissor 相同（`scale_factor == 1` 或已换算为物理）。
     ///
-    /// 对局热路径应与 `MapViewport::clip_rect_u32` 一致。宽或高为 0 时清除。
+    /// 对局热路径请优先用 [`Self::set_world_view_logical`]，避免 HiDPI 下投影与命中分裂。
+    /// 宽或高为 0 时清除。
     pub fn set_world_view_rect(&mut self, x: u32, y: u32, w: u32, h: u32) {
-        if w == 0 || h == 0 {
-            self.world_view = None;
-            return;
-        }
-        self.world_view = Some((x, y, w, h));
-        let (pw, ph) = self.world_proj_size();
-        if let Some(bounds) = self.camera_bounds_for_viewport(pw, ph) {
-            self.camera.clamp_to_bounds(&bounds);
-        }
+        self.set_world_view_pass(w, h, (x, y, w, h));
     }
 
-    /// 清除世界 pass 专用视口，恢复整窗投影。
-    pub fn clear_world_view_rect(&mut self) {
-        self.world_view = None;
+    /// 设置世界 pass：逻辑战术区矩形 + 缩放因子 → 物理 scissor。
+    ///
+    /// `logical_*` 与 HUD / 命中 / 光标同口径；GPU `set_viewport` / scissor 用物理像素。
+    pub fn set_world_view_logical(&mut self, logical_x: u32, logical_y: u32, logical_w: u32, logical_h: u32, scale_factor: f64) {
+        if logical_w == 0 || logical_h == 0 {
+            self.world_view = None;
+            self.clamp_camera_to_current_proj();
+            return;
+        }
+        let s = scale_factor.max(0.0001);
+        let px = (f64::from(logical_x) * s).round().max(0.0) as u32;
+        let py = (f64::from(logical_y) * s).round().max(0.0) as u32;
+        let pw = (f64::from(logical_w) * s).round().max(1.0) as u32;
+        let ph = (f64::from(logical_h) * s).round().max(1.0) as u32;
+        self.set_world_view_pass(logical_w, logical_h, (px, py, pw, ph));
+    }
+
+    fn set_world_view_pass(&mut self, proj_w: u32, proj_h: u32, scissor: (u32, u32, u32, u32)) {
+        if proj_w == 0 || proj_h == 0 || scissor.2 == 0 || scissor.3 == 0 {
+            self.world_view = None;
+            self.clamp_camera_to_current_proj();
+            return;
+        }
+        self.world_view = Some(WorldViewPass { proj_w, proj_h, scissor });
+        self.clamp_camera_to_current_proj();
+    }
+
+    fn clamp_camera_to_current_proj(&mut self) {
         let (pw, ph) = self.world_proj_size();
         if pw > 0.0 && ph > 0.0 {
             if let Some(bounds) = self.camera_bounds_for_viewport(pw, ph) {
@@ -305,9 +335,15 @@ impl Renderer {
         }
     }
 
-    /// 当前世界投影矩形；未设置时为整窗表面。
+    /// 清除世界 pass 专用视口，恢复整窗投影。
+    pub fn clear_world_view_rect(&mut self) {
+        self.world_view = None;
+        self.clamp_camera_to_current_proj();
+    }
+
+    /// 当前世界 GPU scissor 矩形（物理像素）；未设置时为 `None`。
     pub fn world_view_rect(&self) -> Option<(u32, u32, u32, u32)> {
-        self.world_view
+        self.world_view.map(|v| v.scissor)
     }
 
     fn upload_ui_texture(&mut self, image: RgbaImage, fit_camera: bool) {
@@ -505,10 +541,7 @@ impl Renderer {
     /// 相对缩放视口，`factor` 大于 1 为放大。
     pub fn zoom_by(&mut self, factor: f32) {
         self.camera.zoom_by(factor);
-        let (vw, vh) = self.world_proj_size();
-        if let Some(bounds) = self.camera_bounds_for_viewport(vw, vh) {
-            self.camera.clamp_to_bounds(&bounds);
-        }
+        self.clamp_camera_to_current_proj();
     }
 
     /// 当前预览世界与给定 viewport 下的相机边界；无预览时为 `None`。
@@ -548,10 +581,10 @@ impl Renderer {
         self.preview.as_ref().map(|p| (p.width().max(1), p.height().max(1)))
     }
 
-    /// 世界投影用的宽高：已设 `world_view` 时用战术区，否则整窗。
+    /// 世界投影用的宽高（逻辑像素）：已设 `world_view` 时用战术区，否则整窗表面。
     fn world_proj_size(&self) -> (f32, f32) {
-        if let Some((_, _, w, h)) = self.world_view {
-            return (w.max(1) as f32, h.max(1) as f32);
+        if let Some(view) = self.world_view {
+            return (view.proj_w.max(1) as f32, view.proj_h.max(1) as f32);
         }
         self.surface_size()
     }
@@ -655,7 +688,7 @@ impl Renderer {
         let overlay = self.ui_overlay && self.ui_sprite.is_some();
         let world_view = self.world_view;
         let world_proj = match world_view {
-            Some((_, _, w, h)) if overlay => (w.max(1), h.max(1)),
+            Some(view) if overlay => (view.proj_w.max(1), view.proj_h.max(1)),
             _ => (gpu.config.width.max(1), gpu.config.height.max(1)),
         };
         let world_sprite = if overlay { self.sprite.as_ref() } else { self.ui_sprite.as_ref().or(self.sprite.as_ref()) };
@@ -727,7 +760,8 @@ impl Renderer {
                     occlusion_query_set: None,
                     multiview_mask: None,
                 });
-                if let Some((vx, vy, vw, vh)) = world_view {
+                if let Some(view) = world_view {
+                    let (vx, vy, vw, vh) = view.scissor;
                     let vw = vw.max(1);
                     let vh = vh.max(1);
                     pass.set_viewport(vx as f32, vy as f32, vw as f32, vh as f32, 0.0, 1.0);

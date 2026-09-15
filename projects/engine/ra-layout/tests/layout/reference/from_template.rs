@@ -5,6 +5,7 @@ use ra_layout::{
     RightPanelChrome,
     reference::from_template::*,
     shell::{RectPx, rect_px_from_snapshot},
+    solve_skirmish_lobby_ex,
 };
 
 #[test]
@@ -16,8 +17,14 @@ fn skirmish_lobby_has_lower_strip_and_bottom_status() {
     assert_eq!(rect_px_from_snapshot(&snap, "flag_0").h, 24);
     assert_eq!(rect_px_from_snapshot(&snap, "side_face_0").h, 24);
     assert_eq!(rect_px_from_snapshot(&snap, "color_face_0").h, 24);
-    assert_eq!(rect_px_from_snapshot(&snap, "team_face_0").h, 24);
+    assert!(snap.get("team_face_0").is_none());
     assert_eq!(rect_px_from_snapshot(&snap, "ai_face_0").h, 24);
+}
+
+#[test]
+fn skirmish_lobby_with_teams_exposes_team_face() {
+    let snap = solve_skirmish_lobby_ex(true);
+    assert_eq!(rect_px_from_snapshot(&snap, "team_face_0").h, 24);
 }
 
 #[test]
@@ -26,10 +33,10 @@ fn skirmish_lobby_form_is_centered_in_content_area() {
     let chrome = RightPanelChrome::shell_defaults();
     let panel_x = chrome.panel_x() as i32;
     let name = rect_px_from_snapshot(&snap, "player_name");
-    let team = rect_px_from_snapshot(&snap, "team_face_0");
+    let color = rect_px_from_snapshot(&snap, "color_face_0");
     let check = rect_px_from_snapshot(&snap, "checkbox_4");
     let left = name.x;
-    let right = team.x + team.w;
+    let right = color.x + color.w;
     let right2 = check.x + check.w;
     let right = right.max(right2);
     let mid = (left + right) / 2;

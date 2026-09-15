@@ -186,15 +186,12 @@ fn paint_cell_sprite_shadow_follows_body_slide_offset() {
     assert_eq!(dim, 4, "shadow must darken the slid cell, not the unmoved diamond");
 }
 
-
 #[test]
 fn paint_cell_sprites_sort_by_cell_depth_not_blit_top() {
     use ra_map::{cell_sprite_foundation, iso_to_screen};
 
-    let cells = [
-        IsoCell { x: 2, y: 2, tile_num: 0, sub_tile: 0, z: 0, flags: 0 },
-        IsoCell { x: 2, y: 3, tile_num: 0, sub_tile: 0, z: 0, flags: 0 },
-    ];
+    let cells =
+        [IsoCell { x: 2, y: 2, tile_num: 0, sub_tile: 0, z: 0, flags: 0 }, IsoCell { x: 2, y: 3, tile_num: 0, sub_tile: 0, z: 0, flags: 0 }];
     let mut ground = vec![0u8; 60 * 30 * 4];
     for px in ground.chunks_exact_mut(4) {
         px.copy_from_slice(&[40, 40, 40, 255]);
@@ -217,13 +214,7 @@ fn paint_cell_sprites_sort_by_cell_depth_not_blit_top() {
 
     let items = [
         cell_sprite(2, 2, TileBlit { width: 40, height: 30, offset_x: 10, offset_y: -10, rgba: short, shadow: None }),
-        cell_sprite_foundation(
-            2,
-            3,
-            2,
-            2,
-            TileBlit { width: 40, height: 90, offset_x: 10, offset_y: -70, rgba: tall, shadow: None },
-        ),
+        cell_sprite_foundation(2, 3, 2, 2, TileBlit { width: 40, height: 90, offset_x: 10, offset_y: -70, rgba: tall, shadow: None }),
     ];
     let north_top = {
         let (_, sy) = iso_to_screen(2, 2, 0);

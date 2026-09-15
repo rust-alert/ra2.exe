@@ -49,20 +49,16 @@ fn compose_in_game_options_shows_stub_notice_alpha() {
 }
 
 #[test]
-fn diplomacy_hits_back() {
-    let back = diplo_rects(800, 600)[0];
-    assert_eq!(back.x, 800 - 147);
-    assert_eq!(diplo_hit(800, 600, back.x + 4, back.y + 4), Some(BattleDiplomacyHit::Back));
+fn diplomacy_hits_continue_on_resume_slot() {
+    let cont = diplo_rects(800, 600)[0];
+    assert_eq!(cont.x, 800 - 147);
+    assert_eq!(diplo_hit(800, 600, cont.x + 4, cont.y + 4), Some(BattleDiplomacyHit::Continue));
 }
 
 #[test]
 fn compose_diplomacy_roster_page() {
-    let rows = [BattleDiplomacyRow {
-        house: "FRANCE".into(),
-        display_name: "France".into(),
-        allied: true,
-    }];
-    let page = compose_battle_diplomacy_overlay(800, 600, &rows, "Americans", None, None, None, None, None, None, None).unwrap();
+    let rows = [BattleDiplomacyRow { display_name: "我".into(), color_rgb: [255, 214, 0], team: 1, kills: 0 }];
+    let page = compose_battle_diplomacy_overlay(800, 600, &rows, "南太平洋", None, None, None, None, None, None, None).unwrap();
     assert_eq!(page.width(), 800);
     assert!(page.as_raw()[3] > 0);
 }

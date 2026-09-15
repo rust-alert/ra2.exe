@@ -13,8 +13,10 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use ra_config::EmulateOverride;
 
-use crate::host::diagnose_maps::{DiagnoseMapsRequest, diagnose_skirmish_maps};
-use crate::host::extract::{ExtractRequest, UnpackRequest, extract_named, unpack_all};
+use crate::host::{
+    diagnose_maps::{DiagnoseMapsRequest, diagnose_skirmish_maps},
+    extract::{ExtractRequest, UnpackRequest, extract_named, unpack_all},
+};
 
 /// 绑定版本字符串。
 #[napi]

@@ -81,7 +81,13 @@ fn finalize_battle_pass_grid_reopens_bridge_after_tmp_seal() {
     let overlays = overlay_types_from_rules(&rules);
 
     let prepared = map.to_prepared_map_skeleton_with_structures(&Default::default());
-    let mut grid = PassGrid::from_prepared_pass_layers(prepared.pass_width, prepared.pass_height, &prepared.passable, &prepared.cell_heights, &prepared.land_types);
+    let mut grid = PassGrid::from_prepared_pass_layers(
+        prepared.pass_width,
+        prepared.pass_height,
+        &prepared.passable,
+        &prepared.cell_heights,
+        &prepared.land_types,
+    );
     // 模拟 TMP 把桥下格子封成水（本夹具无真实剧院文件）。
     grid.set_passable(1, 2, false);
     assert!(!grid.is_passable(1, 2));

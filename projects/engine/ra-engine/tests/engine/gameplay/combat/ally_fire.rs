@@ -56,8 +56,5 @@ fn resolve_combat_clears_attack_on_allied_target() {
     let (hp, _, _) = world.ecs_health(b).expect("health after");
     assert_eq!(hp, max_hp, "allied target must not take combat damage");
     let cues = world.take_battle_sfx_cues();
-    assert!(
-        cues.iter().all(|c| !c.event.eq_ignore_ascii_case("TankCannon")),
-        "must not fire Report at allied target: {cues:?}"
-    );
+    assert!(cues.iter().all(|c| !c.event.eq_ignore_ascii_case("TankCannon")), "must not fire Report at allied target: {cues:?}");
 }

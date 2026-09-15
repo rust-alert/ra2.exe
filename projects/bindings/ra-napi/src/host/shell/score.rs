@@ -384,12 +384,8 @@ impl Shell {
             Some(BattleOutcome::Defeat { .. }) => false,
             None => return None,
         };
-        let current = self
-            .campaign_scenario
-            .as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| game.world.map.name.as_str());
+        let current =
+            self.campaign_scenario.as_deref().map(str::trim).filter(|s| !s.is_empty()).unwrap_or_else(|| game.world.map.name.as_str());
         crate::host::boot::resolve_campaign_continue_scenario(
             current,
             victory,

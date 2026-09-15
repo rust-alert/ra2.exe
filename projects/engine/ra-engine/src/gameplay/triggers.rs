@@ -611,9 +611,8 @@ fn apply_action(world: &mut BattleState, trigger_id: TriggerId, cmd: &PreparedAc
         MapActionKind::CreateRadarEvent => {
             if let Some(wp_idx) = action_waypoint_index_param(cmd) {
                 if let Some(wp) = world.map.waypoints.iter().find(|w| w.index == wp_idx).copied() {
-                    let house = action_house_param(cmd)
-                        .or_else(|| trigger_owner_house(world, trigger_id))
-                        .unwrap_or_else(|| local_house.to_string());
+                    let house =
+                        action_house_param(cmd).or_else(|| trigger_owner_house(world, trigger_id)).unwrap_or_else(|| local_house.to_string());
                     world.push_radar_event(&house, wp.x, wp.y);
                 }
                 else {

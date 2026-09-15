@@ -167,19 +167,7 @@ pub fn load_battle_edge_cursors(source: &GameAssetSource) -> Option<DecodedBattl
     let no_deploy = decode_one(&shp, &pal, MOUSE_NO_DEPLOY_START, MouseCursorHotspot::CenterMiddle)?;
     let scroll = decode_dir_ring(&shp, &pal, MOUSE_SCROLL_START)?;
     let blocked = decode_dir_ring(&shp, &pal, MOUSE_SCROLL_BLOCKED_START)?;
-    Some(DecodedBattleEdgeCursors {
-        default,
-        select,
-        move_ok,
-        no_move,
-        attack,
-        sell,
-        repair,
-        deploy,
-        no_deploy,
-        scroll,
-        blocked,
-    })
+    Some(DecodedBattleEdgeCursors { default, select, move_ok, no_move, attack, sell, repair, deploy, no_deploy, scroll, blocked })
 }
 
 pub fn open_mouse_shp(source: &GameAssetSource) -> Option<(ShpFile, Palette)> {

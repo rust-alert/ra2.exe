@@ -1,7 +1,7 @@
 //! 指针命中与菜单前按键。
 
 use ra_layout;
-use ra_widgets::{input::hit, original_screen::OriginalScreen, skirmish_setup::hover_entry_at};
+use ra_widgets::{input::hit, original_screen::OriginalScreen, skirmish_setup::hover_entry_ex};
 use winit::{
     event_loop::ActiveEventLoop,
     keyboard::{KeyCode, PhysicalKey},
@@ -48,7 +48,7 @@ impl Shell {
                 return Some(id);
             }
             let (x, y) = self.shell_cursor_px();
-            return hover_entry_at(x, y);
+            return hover_entry_ex(x, y, self.skirmish.lobby_teams);
         }
         let idx = hit::hover_index(
             self.screen,

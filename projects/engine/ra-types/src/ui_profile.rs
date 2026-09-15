@@ -147,8 +147,17 @@ pub fn dialog_template_0x6b() -> DialogTemplate {
     }
 }
 
-/// 遭遇战大厅对话框 `0x102` 关键控件表（壳层共用数据）。
+/// 遭遇战大厅对话框 `0x102` 关键控件表（原版 RA2：无队伍列）。
 pub fn dialog_template_0x102() -> DialogTemplate {
+    dialog_template_0x102_ex(false)
+}
+
+/// 遭遇战大厅 `0x102` 带队伍列（`GameEdition::Yr` / `Mo3`）。
+pub fn dialog_template_0x102_with_teams() -> DialogTemplate {
+    dialog_template_0x102_ex(true)
+}
+
+fn dialog_template_0x102_ex(include_teams: bool) -> DialogTemplate {
     let mut controls = vec![
         ctrl("start", 318, 149, 108, 23, ControlPlacement::TileSnap),
         ctrl("choose_map", 318, 176, 108, 23, ControlPlacement::TileSnap),
@@ -173,13 +182,15 @@ pub fn dialog_template_0x102() -> DialogTemplate {
         ctrl("status_help", 10, 282, 303, 12, ControlPlacement::ShellTooltip),
     ];
     // 行 y DLU：本地 11，其后每行 +16。
-    // 列：旗标 → 国家 → 颜色 → 队伍（队伍对 RA2 / YR 均开放；原版离线表可能未强调，内核仍须支持）。
+    // 列：旗标 → 国家 → 颜色（→ 队伍仅 YR / Mo3）。
     for i in 0..8 {
         let y = 11 + (i as i32) * 16;
         controls.push(ctrl(&format!("flag_{i}"), 143, y, 32, 12, ControlPlacement::ComboFace));
         controls.push(ctrl(&format!("side_face_{i}"), 180, y, 65, 74, ControlPlacement::ComboFace));
         controls.push(ctrl(&format!("color_face_{i}"), 250, y, 28, 73, ControlPlacement::ComboFace));
-        controls.push(ctrl(&format!("team_face_{i}"), 282, y, 28, 73, ControlPlacement::ComboFace));
+        if include_teams {
+            controls.push(ctrl(&format!("team_face_{i}"), 282, y, 28, 73, ControlPlacement::ComboFace));
+        }
     }
     for i in 0..7 {
         let y = 11 + ((i + 1) as i32) * 16;

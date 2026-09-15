@@ -59,15 +59,14 @@ impl BattleState {
             let house = houses[i].as_ref();
             let allies: Vec<String> = if team == 0 {
                 Vec::new()
-            } else {
-                (0..n)
-                    .filter(|&j| j != i && teams[j] == team)
-                    .map(|j| houses[j].as_ref().to_string())
-                    .collect()
+            }
+            else {
+                (0..n).filter(|&j| j != i && teams[j] == team).map(|j| houses[j].as_ref().to_string()).collect()
             };
             if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(house)) {
-                if player.allies != allies {
+                if player.allies != allies || player.team != team {
                     player.allies = allies;
+                    player.team = team;
                     changed = true;
                 }
             }

@@ -22,8 +22,19 @@ pub fn campaign_difficulty_from_track_x(track: RectPx, mouse_x: i32) -> u8 {
 
 /// 解析启动参数并进入事件循环。
 pub fn run_shell() -> RaResult<()> {
-    let (mode, display_mode, music_volume, sound_volume, present, skirmish_prefs, load_min_secs, shell_slide_gap_secs, status_path, test_scene, start_screen) =
-        resolve_emulate()?;
+    let (
+        mode,
+        display_mode,
+        music_volume,
+        sound_volume,
+        present,
+        skirmish_prefs,
+        load_min_secs,
+        shell_slide_gap_secs,
+        status_path,
+        test_scene,
+        start_screen,
+    ) = resolve_emulate()?;
 
     let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Poll);

@@ -12,10 +12,7 @@ pub fn is_mobile(kind: MapEntityKind) -> bool {
 impl crate::state::BattleState {
     /// 实体是否 `Naval=yes`（海军单位只走水面）。
     pub fn entity_is_naval(&self, id: ra_types::EntityId) -> bool {
-        self.ecs_get::<Identity>(id)
-            .and_then(|identity| self.definitions.techno.get_by_id(identity.type_id))
-            .map(|t| t.naval)
-            .unwrap_or(false)
+        self.ecs_get::<Identity>(id).and_then(|identity| self.definitions.techno.get_by_id(identity.type_id)).map(|t| t.naval).unwrap_or(false)
     }
 
     /// 为机动单位准备寻路用通行表：海军先按水面改写，再封建筑占地与其它单位。

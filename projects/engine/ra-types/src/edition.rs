@@ -32,4 +32,11 @@ impl GameEdition {
             other => Err(RaError::UnknownEdition(other.to_string())),
         }
     }
+
+    /// 遭遇战大厅是否露出队伍列。
+    ///
+    /// 原版 `GameEdition::Ra2` 离线厅没有该列。`Yr` / `Mo3` 开放。引擎同盟字段仍可被地图或其它入口写入。
+    pub fn skirmish_lobby_teams(self) -> bool {
+        !matches!(self, Self::Ra2)
+    }
 }

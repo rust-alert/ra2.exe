@@ -60,7 +60,7 @@ fn skirmish_lobby_matches_game_exe_dialog_0x102() {
     let player_name = rect_px_from_snapshot(&snap, "player_name");
     assert_eq!((player_name.w, player_name.h), (150, 24));
     assert!(player_name.y >= 40, "top margin");
-    let team = rect_px_from_snapshot(&snap, "team_face_0");
+    let team = rect_px_from_snapshot(&snap, "color_face_0");
     let check4 = rect_px_from_snapshot(&snap, "checkbox_4");
     let right = (team.x + team.w).max(check4.x + check4.w);
     let mid = (player_name.x + right) / 2;

@@ -3,6 +3,7 @@
 use std::time::Instant;
 
 use ra_assets::{CsfFile, FntFile, IniDocument};
+use ra_layout::SKIRMISH_ROW_COUNT;
 use ra_renderer::RgbaImage;
 use ra_types::AssetSource;
 use ra_widgets::{
@@ -45,6 +46,12 @@ impl Shell {
             assets.note
         );
         self.banner = assets.note.clone();
+        self.skirmish.set_lobby_teams_visible(assets.edition.is_some_and(|e| e.skirmish_lobby_teams()));
+        if self.skirmish.lobby_teams {
+            for (row, team) in self.skirmish_prefs.row_teams.iter().enumerate().take(SKIRMISH_ROW_COUNT) {
+                self.skirmish.set_row_team(row, usize::from(*team));
+            }
+        }
         self.menu_assets = Some(assets);
         self.refresh_ui_resolve_note();
     }

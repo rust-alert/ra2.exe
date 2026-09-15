@@ -130,10 +130,7 @@ impl DesktopState {
             Ok(state) => (state.sanitized(), Vec::new()),
             Err(e) => (
                 Self::default(),
-                vec![crate::ConfigDiagnostic {
-                    source: source_label.into(),
-                    message: format!("state.json 解析失败，已用默认: {e}"),
-                }],
+                vec![crate::ConfigDiagnostic { source: source_label.into(), message: format!("state.json 解析失败，已用默认: {e}") }],
             ),
         }
     }

@@ -23,6 +23,28 @@ pub(super) fn row_team_label(paint: &SkirmishLobbyPaint<'_>, row: usize) -> Stri
     crate::skirmish_setup::SkirmishBootRequest::row_team_label(team)
 }
 
+fn combo_geom(paint: &SkirmishLobbyPaint<'_>) -> crate::skirmish_setup::SkirmishBootRequest {
+    let mut s = crate::skirmish_setup::SkirmishBootRequest::default_lobby();
+    s.set_lobby_teams_visible(paint.lobby_teams);
+    s
+}
+
+fn country_list_rect_in_paint(paint: &SkirmishLobbyPaint<'_>) -> RectPx {
+    combo_geom(paint).country_list_rect(paint.combo_row, paint.sides.len())
+}
+
+fn color_list_rect_in_paint(paint: &SkirmishLobbyPaint<'_>) -> RectPx {
+    combo_geom(paint).color_list_rect(paint.combo_row)
+}
+
+fn team_list_rect_in_paint(paint: &SkirmishLobbyPaint<'_>) -> RectPx {
+    combo_geom(paint).team_list_rect(paint.combo_row)
+}
+
+fn ai_list_rect_in_paint(paint: &SkirmishLobbyPaint<'_>) -> RectPx {
+    combo_geom(paint).ai_list_rect()
+}
+
 pub(super) fn row_flag(chrome: Option<&SkirmishChromeSprites>, row: usize) -> Option<&RgbaImage> {
     chrome.and_then(|c| c.row_flags.get(row).and_then(|f| f.as_ref()).or_else(|| if row == 0 { c.flag.as_ref() } else { c.ai_flag.as_ref() }))
 }
@@ -125,6 +147,8 @@ pub struct SkirmishLobbyPaint<'a> {
     pub row_color_indices: [u8; ra_layout::SKIRMISH_ROW_COUNT],
     /// 各行队伍号（`0` = 无队）。
     pub row_team_indices: [u8; ra_layout::SKIRMISH_ROW_COUNT],
+    /// 是否绘制队伍列。
+    pub lobby_teams: bool,
     /// 安装内控件 PCX（可空）。
     pub chrome: Option<&'a SkirmishChromeSprites>,
 }
@@ -160,6 +184,7 @@ impl Default for SkirmishLobbyPaint<'_> {
             row_side_indices: [0, 1, 2, 3, 4, 0, 1, 2],
             row_color_indices: [0, 1, 2, 3, 4, 5, 6, 7],
             row_team_indices: [0; ra_layout::SKIRMISH_ROW_COUNT],
+            lobby_teams: false,
             chrome: None,
         }
     }
@@ -184,7 +209,9 @@ pub(super) fn paint_skirmish_lobby_controls(
     let local_rgb = row_color_rgb(paint, 0);
     draw_combo_face(page, row_r("side_face", 0), [16, 16, 20, 255], chrome, paint.country_combo_open && paint.combo_row == 0);
     draw_color_combo_face(page, row_r("color_face", 0), local_rgb, chrome, paint.color_combo_open && paint.combo_row == 0);
-    draw_combo_face(page, row_r("team_face", 0), [16, 16, 20, 255], chrome, paint.team_combo_open && paint.combo_row == 0);
+    if paint.lobby_teams {
+        draw_combo_face(page, row_r("team_face", 0), [16, 16, 20, 255], chrome, paint.team_combo_open && paint.combo_row == 0);
+    }
     blit_flag(page, row_flag(chrome, 0), row_r("flag", 0));
 
     let ai_rows = paint.ai_rows.min(SKIRMISH_AI_ROW_COUNT);
@@ -201,13 +228,15 @@ pub(super) fn paint_skirmish_lobby_controls(
             );
             let rgb = row_color_rgb(paint, human_row);
             draw_color_combo_face(page, row_r("color_face", human_row), rgb, chrome, paint.color_combo_open && paint.combo_row == human_row);
-            draw_combo_face(
-                page,
-                row_r("team_face", human_row),
-                [16, 16, 20, 255],
-                chrome,
-                paint.team_combo_open && paint.combo_row == human_row,
-            );
+            if paint.lobby_teams {
+                draw_combo_face(
+                    page,
+                    row_r("team_face", human_row),
+                    [16, 16, 20, 255],
+                    chrome,
+                    paint.team_combo_open && paint.combo_row == human_row,
+                );
+            }
             blit_flag(page, row_flag(chrome, human_row), row_r("flag", human_row));
         }
     }
@@ -239,13 +268,12 @@ pub(super) fn paint_skirmish_lobby_controls(
         let country = row_side_name(paint, 0);
         let side0 = row_r("side_face", 0);
         blit_text_colored(page, fnt, country, side0.x + 4, text_y_centered(fnt, side0), MENU_TEXT_ENABLED);
-        let team0 = row_r("team_face", 0);
-        let team0_label = if paint.row_team_indices[0] == 0 {
-            resolve_caption(csf, "-", Some("GUI:None"))
-        } else {
-            row_team_label(paint, 0)
-        };
-        blit_text_colored(page, fnt, &team0_label, team0.x + 4, text_y_centered(fnt, team0), MENU_TEXT_ENABLED);
+        if paint.lobby_teams {
+            let team0 = row_r("team_face", 0);
+            let team0_label =
+                if paint.row_team_indices[0] == 0 { resolve_caption(csf, "-", Some("GUI:None")) } else { row_team_label(paint, 0) };
+            blit_text_colored(page, fnt, &team0_label, team0.x + 4, text_y_centered(fnt, team0), MENU_TEXT_ENABLED);
+        }
 
         let ai_label = if paint.ai_name.is_empty() { paint.ai_difficulty.to_string() } else { paint.ai_name.to_string() };
         for i in 0..ai_rows {
@@ -255,13 +283,16 @@ pub(super) fn paint_skirmish_lobby_controls(
             if human_row < SKIRMISH_ROW_COUNT {
                 let side = row_r("side_face", human_row);
                 blit_text_colored(page, fnt, row_side_name(paint, human_row), side.x + 4, text_y_centered(fnt, side), MENU_TEXT_ENABLED);
-                let team = row_r("team_face", human_row);
-                let team_label = if paint.row_team_indices[human_row] == 0 {
-                    resolve_caption(csf, "-", Some("GUI:None"))
-                } else {
-                    row_team_label(paint, human_row)
-                };
-                blit_text_colored(page, fnt, &team_label, team.x + 4, text_y_centered(fnt, team), MENU_TEXT_ENABLED);
+                if paint.lobby_teams {
+                    let team = row_r("team_face", human_row);
+                    let team_label = if paint.row_team_indices[human_row] == 0 {
+                        resolve_caption(csf, "-", Some("GUI:None"))
+                    }
+                    else {
+                        row_team_label(paint, human_row)
+                    };
+                    blit_text_colored(page, fnt, &team_label, team.x + 4, text_y_centered(fnt, team), MENU_TEXT_ENABLED);
+                }
             }
         }
 
@@ -296,7 +327,7 @@ pub(super) fn paint_skirmish_lobby_controls(
     }
 
     if paint.country_combo_open && !paint.sides.is_empty() {
-        let list = crate::skirmish_setup::SkirmishBootRequest::country_list_rect(paint.combo_row, paint.sides.len());
+        let list = country_list_rect_in_paint(paint);
         fill_rect(page, list, [12, 12, 18, 255]);
         stroke_rect(page, list, [180, 24, 24, 255]);
         let selected_side = if paint.sides.is_empty() {
@@ -327,7 +358,7 @@ pub(super) fn paint_skirmish_lobby_controls(
     }
 
     if paint.color_combo_open {
-        let list = crate::skirmish_setup::SkirmishBootRequest::color_list_rect(paint.combo_row);
+        let list = color_list_rect_in_paint(paint);
         fill_rect(page, list, [12, 12, 18, 255]);
         stroke_rect(page, list, [180, 24, 24, 255]);
         let selected_rgb = row_color_rgb(paint, paint.combo_row);
@@ -341,8 +372,8 @@ pub(super) fn paint_skirmish_lobby_controls(
         }
     }
 
-    if paint.team_combo_open {
-        let list = crate::skirmish_setup::SkirmishBootRequest::team_list_rect(paint.combo_row);
+    if paint.lobby_teams && paint.team_combo_open {
+        let list = team_list_rect_in_paint(paint);
         fill_rect(page, list, [12, 12, 18, 255]);
         stroke_rect(page, list, [180, 24, 24, 255]);
         let selected = paint.row_team_indices[paint.combo_row.min(paint.row_team_indices.len() - 1)] % LOBBY_TEAM_COUNT as u8;
@@ -353,11 +384,7 @@ pub(super) fn paint_skirmish_lobby_controls(
                 fill_rect(page, row, [48, 28, 8, 255]);
             }
             if let Some(fnt) = fnt {
-                let label = if i == 0 {
-                    resolve_caption(csf, "-", Some("GUI:None"))
-                } else {
-                    i.to_string()
-                };
+                let label = if i == 0 { resolve_caption(csf, "-", Some("GUI:None")) } else { i.to_string() };
                 blit_text_colored(
                     page,
                     fnt,
@@ -371,7 +398,7 @@ pub(super) fn paint_skirmish_lobby_controls(
     }
 
     if paint.ai_combo_open {
-        let list = crate::skirmish_setup::SkirmishBootRequest::ai_list_rect();
+        let list = ai_list_rect_in_paint(paint);
         fill_rect(page, list, [12, 12, 18, 255]);
         stroke_rect(page, list, [180, 24, 24, 255]);
         for (i, diff) in LOBBY_DIFFICULTIES.iter().enumerate() {
@@ -411,7 +438,7 @@ pub fn compose_skirmish_lobby_page(
     warn_anim_frame: usize,
     shell_version: &str,
 ) -> Option<RgbaImage> {
-    let snap = solve_skirmish_lobby();
+    let snap = solve_skirmish_lobby_ex(paint.lobby_teams);
     let panel_top = rect_px_from_snapshot(&snap, "panel_top");
     let mut page = compose_shell_menu_page(
         decoded,

@@ -28,7 +28,7 @@ use ra_layout::{
     RIGHT_PANEL_W, RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SHELL_BASE_H, SHELL_BASE_W, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_AI_ROW_COUNT,
     SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS, SKIRMISH_ROW_COUNT,
     SKIRMISH_SCORE_BUTTON_IDS, SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W, SKIRMISH_TRACK_THUMB_W, choose_map_list_row_rect,
-    choose_map_visible_rows, clamp_map_list_scroll, rect_px_from_snapshot, solve_battle_hud_with_metrics, solve_skirmish_lobby,
+    choose_map_visible_rows, clamp_map_list_scroll, rect_px_from_snapshot, solve_battle_hud_with_metrics, solve_skirmish_lobby_ex,
     solve_skirmish_score,
 };
 

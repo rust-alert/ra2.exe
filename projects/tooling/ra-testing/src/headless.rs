@@ -76,7 +76,8 @@ impl HeadlessCase {
     /// 排队建造至完工再点选落位（费用在 `Produce` 时扣除）。
     pub fn produce_and_place(&mut self, player: ra_types::PlayerId, type_id: &str, x: u16, y: u16) {
         use ra_engine::PRODUCE_TICKS;
-        let Some(tid) = self.session.expect_battle().world.definitions.techno.get(type_id).map(|t| t.id) else {
+        let Some(tid) = self.session.expect_battle().world.definitions.techno.get(type_id).map(|t| t.id)
+        else {
             return;
         };
         self.command(GameCommand::Produce { player, type_id: tid });
@@ -96,7 +97,8 @@ impl HeadlessCase {
             }
             self.advance(1);
         }
-        let Some(tid) = self.session.expect_battle().world.definitions.techno.get(type_id).map(|t| t.id) else {
+        let Some(tid) = self.session.expect_battle().world.definitions.techno.get(type_id).map(|t| t.id)
+        else {
             return;
         };
         self.command(GameCommand::PlaceBuilding { player, type_id: tid, x, y });

@@ -2,20 +2,14 @@
 
 use std::path::PathBuf;
 
-use ra_config::{
-    ConfigLayer, ConfigTable, DesktopSettings, DesktopState, MergedConfig, SkirmishLobbyPrefs, set_test_user_data_dir,
-};
+use ra_config::{ConfigLayer, ConfigTable, DesktopSettings, DesktopState, MergedConfig, SkirmishLobbyPrefs, set_test_user_data_dir};
 use ra_types::DisplayMode;
 
 #[test]
 fn emulate_override_screen_is_cli_only() {
     ra_config::clear_emulate_override();
     assert_eq!(ra_config::emulate_override_screen(), None);
-    ra_config::set_emulate_override(ra_config::EmulateOverride {
-        ra2_dir: PathBuf::from("."),
-        edition: None,
-        screen: Some("skirmish".into()),
-    });
+    ra_config::set_emulate_override(ra_config::EmulateOverride { ra2_dir: PathBuf::from("."), edition: None, screen: Some("skirmish".into()) });
     assert_eq!(ra_config::emulate_override_screen().as_deref(), Some("skirmish"));
     let mut table = ConfigTable::new();
     table.insert("ra2_dir", ".");
@@ -121,10 +115,8 @@ impl TempDataDir {
         static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
         let guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
         ra_config::clear_emulate_override();
-        let path = std::env::temp_dir().join(format!(
-            "ra_config_{tag}_{}",
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
-        ));
+        let path = std::env::temp_dir()
+            .join(format!("ra_config_{tag}_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
         let _ = std::fs::remove_dir_all(&path);
         std::fs::create_dir_all(&path).unwrap();
         set_test_user_data_dir(Some(path.clone()));

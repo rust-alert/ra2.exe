@@ -8,9 +8,7 @@ use ra_types::{AssetSource, GameEdition, PreparedMap, RaResult, RuntimeDefinitio
 use crate::{
     engine::{Engine, EngineConfig},
     game::{BattleSession, SessionBootKind},
-    gameplay::{
-        compose_starting_unit_ids, format_type_keys, starting_deploy_clearance, starting_mcv_id_for_house, starting_unit_pools,
-    },
+    gameplay::{compose_starting_unit_ids, format_type_keys, starting_deploy_clearance, starting_mcv_id_for_house, starting_unit_pools},
     session::Session,
     state::BattleState,
 };
@@ -420,9 +418,7 @@ pub fn seed_skirmish_starting_units(state: &mut BattleState, houses: &[&str], un
             )));
         }
         if infantry.is_empty() || vehicles.is_empty() {
-            return Err(ra_types::RaError::Msg(format!(
-                "阵营 {house} 开局部队不完整（须同时具备 AllowedToStartInMultiplayer 步兵与载具）"
-            )));
+            return Err(ra_types::RaError::Msg(format!("阵营 {house} 开局部队不完整（须同时具备 AllowedToStartInMultiplayer 步兵与载具）")));
         }
         let ids = compose_starting_unit_ids(&infantry, &vehicles, unit_count);
         let plan = format_type_keys(&state.definitions, &ids);
@@ -448,14 +444,7 @@ pub fn seed_skirmish_starting_units(state: &mut BattleState, houses: &[&str], un
 }
 
 /// 航点外扩环搜可放格：跳过 MCV 展开 Foundation 矩形，并避开 `blocked`。
-fn find_starting_unit_cell(
-    state: &BattleState,
-    ox: u16,
-    oy: u16,
-    clear_w: u16,
-    clear_h: u16,
-    blocked: &[(u16, u16)],
-) -> Option<(u16, u16)> {
+fn find_starting_unit_cell(state: &BattleState, ox: u16, oy: u16, clear_w: u16, clear_h: u16, blocked: &[(u16, u16)]) -> Option<(u16, u16)> {
     let clear_w = clear_w.max(1);
     let clear_h = clear_h.max(1);
     let min_r = i32::from(clear_w.max(clear_h));

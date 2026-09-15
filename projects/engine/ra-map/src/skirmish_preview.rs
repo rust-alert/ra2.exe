@@ -86,17 +86,8 @@ pub fn compose_skirmish_preview(
     tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     anim_clock_ms: u64,
-) -> Option<(
-    TerrainImage,
-    RgbaImage,
-    RgbaImage,
-    RgbaImage,
-    RgbaImage,
-    SkirmishPreviewStats,
-    StructureAnimBank,
-    TerrainAnimBank,
-    TerrainAnimBank,
-)> {
+) -> Option<(TerrainImage, RgbaImage, RgbaImage, RgbaImage, RgbaImage, SkirmishPreviewStats, StructureAnimBank, TerrainAnimBank, TerrainAnimBank)>
+{
     // 预览叠画需要点光源；挂到地图副本上（不改调用方 MapInfo）。
     let mut lit_map = map.clone();
     lit_map.refresh_point_lights(structure_lights);
@@ -118,18 +109,9 @@ pub fn compose_skirmish_preview(
     let terrain_anim_bank = collect_terrain_anim_bank(source, map, paint);
     let ore_tree_anim_bank = collect_ore_tree_anim_bank(source, map, paint);
     // 建筑叠画前快照：拆除时按遮罩从这里还原，避免烤死的 SHP 残影。
-    let mut structureless_clean = TerrainImage {
-        image: image.image.clone(),
-        drawn: 0,
-        origin_x: image.origin_x,
-        origin_y: image.origin_y,
-    };
-    let mut structureless_underlay = TerrainImage {
-        image: underlay.image.clone(),
-        drawn: 0,
-        origin_x: underlay.origin_x,
-        origin_y: underlay.origin_y,
-    };
+    let mut structureless_clean = TerrainImage { image: image.image.clone(), drawn: 0, origin_x: image.origin_x, origin_y: image.origin_y };
+    let mut structureless_underlay =
+        TerrainImage { image: underlay.image.clone(), drawn: 0, origin_x: underlay.origin_x, origin_y: underlay.origin_y };
     let (structures, structure_mark) = paint_map_structures(source, map, &mut image, paint, remap_owner, StructureAnimMode::BodyOnly);
     let _ = paint_map_structures(source, map, &mut underlay, paint, remap_owner, StructureAnimMode::BodyOnly);
     let (bridge_shp, bridge_mark) =
@@ -220,8 +202,17 @@ pub fn compose_boot_preview(
     tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<BootPreviewResult> {
-    let (image, base_without_anims, ore_underlay, structureless_clean, structureless_underlay, stats, anim_bank, terrain_anim_bank, ore_tree_anim_bank) =
-        compose_skirmish_preview(source, map, paint, structure_lights, overlay_type_name, is_tiberium, tiberium_hsv, remap_owner, 0)?;
+    let (
+        image,
+        base_without_anims,
+        ore_underlay,
+        structureless_clean,
+        structureless_underlay,
+        stats,
+        anim_bank,
+        terrain_anim_bank,
+        ore_tree_anim_bank,
+    ) = compose_skirmish_preview(source, map, paint, structure_lights, overlay_type_name, is_tiberium, tiberium_hsv, remap_owner, 0)?;
     let terrain_hit = terrain_anim_bank
         .layers
         .first()

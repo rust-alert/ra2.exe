@@ -8,7 +8,7 @@ mod load;
 mod model;
 
 pub use chrome::{UiFactionChrome, eva_fallback_sample_names, eva_known_event_index, eva_voice_stem_prefix, pick_side_flag_pcx};
-pub use hit_test::hover_entry_at;
+pub use hit_test::{hover_entry_at, hover_entry_ex};
 pub use load::{
     CAMPAIGN_LOAD_SCREEN_ALLIED_PAL, CAMPAIGN_LOAD_SCREEN_GENERIC_PAL, CAMPAIGN_LOAD_SCREEN_SOVIET_PAL, LOAD_SCREEN_FALLBACK_PAL,
     LOAD_SCREEN_PROGRESS_SHP, campaign_load_screen_palette_from_shp, campaign_load_screen_palette_resolved,

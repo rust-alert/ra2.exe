@@ -41,13 +41,7 @@ pub struct LightningStormState {
 impl LightningStormState {
     /// 构造一场风暴。
     pub fn new(target_x: u16, target_y: u16, deferment: i32, duration: i32) -> Self {
-        Self {
-            target_x,
-            target_y,
-            deferment_remaining: deferment.max(0),
-            duration_remaining: duration,
-            strike_cooldown: 0,
-        }
+        Self { target_x, target_y, deferment_remaining: deferment.max(0), duration_remaining: duration, strike_cooldown: 0 }
     }
 }
 

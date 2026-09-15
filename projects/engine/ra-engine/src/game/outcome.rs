@@ -216,14 +216,13 @@ impl BattleSession {
             return None;
         }
         let owner = reps[0];
-        let local_win = self.world.players.iter().find(|p| p.id == self.world.local_player).is_some_and(|p| {
-            alive.iter().any(|h| houses_are_allied(&self.world, p.house.as_ref(), h))
-        });
-        Some(if local_win {
-            BattleOutcome::Victory { owner: owner.to_string() }
-        } else {
-            BattleOutcome::Defeat { reason: String::new() }
-        })
+        let local_win = self
+            .world
+            .players
+            .iter()
+            .find(|p| p.id == self.world.local_player)
+            .is_some_and(|p| alive.iter().any(|h| houses_are_allied(&self.world, p.house.as_ref(), h)));
+        Some(if local_win { BattleOutcome::Victory { owner: owner.to_string() } } else { BattleOutcome::Defeat { reason: String::new() } })
     }
 
     /// 若仅剩一个非氛围同盟组仍保活，返回该组中任一 owner。

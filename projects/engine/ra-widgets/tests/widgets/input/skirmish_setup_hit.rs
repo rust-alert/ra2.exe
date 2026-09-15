@@ -1,6 +1,6 @@
 //! 遭遇战大厅状态与 snapshot 命中集成测试。
 
-use ra_layout::{LayoutSnapshot, RectPx, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, solve_skirmish_lobby};
+use ra_layout::{LayoutSnapshot, RectPx, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, solve_skirmish_lobby, solve_skirmish_lobby_ex};
 use ra_widgets::skirmish_setup::*;
 
 fn sample_sides() -> Vec<String> {
@@ -59,7 +59,7 @@ fn side_face_click_opens_country_combo() {
     let (ax, ay) = combo_arrow_point(snap_rect(&snap, "side_face_0"));
     assert_eq!(s.on_press(ax, ay, 1), Some(SkirmishLobbyHit::ToggleCountryCombo));
     assert_eq!(s.open_combo, Some(SkirmishComboKind::Country));
-    let list = SkirmishBootRequest::country_list_rect(0, s.sides.len());
+    let list = s.country_list_rect(0, s.sides.len());
     // 第三项 Germans，避免与默认行 1（French）撞名。
     let y = list.y + SKIRMISH_COMBO_FACE_H * 2 + 2;
     assert_eq!(s.on_press(list.x + 2, y, 1), Some(SkirmishLobbyHit::PickCountry(2)));
@@ -77,7 +77,7 @@ fn color_face_click_opens_color_combo() {
     let (ax, ay) = combo_arrow_point(snap_rect(&snap, "color_face_0"));
     assert_eq!(s.on_press(ax, ay, 1), Some(SkirmishLobbyHit::ToggleColorCombo));
     assert_eq!(s.open_combo, Some(SkirmishComboKind::Color));
-    let list = SkirmishBootRequest::color_list_rect(0);
+    let list = s.color_list_rect(0);
     let y = list.y + SKIRMISH_COMBO_FACE_H * 2 + 2;
     assert_eq!(s.on_press(list.x + 2, y, 1), Some(SkirmishLobbyHit::PickColor(2)));
     assert_eq!(s.color_index, 2);
@@ -87,16 +87,28 @@ fn color_face_click_opens_color_combo() {
 }
 
 #[test]
-fn team_face_click_opens_team_combo_for_all_editions() {
-    // 队伍列对 RA2 / YR 均开放；默认无队，可选同号结盟。
+fn ra2_lobby_has_no_team_column() {
     let snap = solve_skirmish_lobby();
+    assert!(snap.get("team_face_0").is_none());
     let mut s = lobby_with_sides();
+    assert!(!s.lobby_teams);
+    let color = snap_rect(&snap, "color_face_0");
+    let (ax, ay) = combo_arrow_point(color);
+    assert_ne!(s.on_press(ax + color.w, ay, 1), Some(SkirmishLobbyHit::ToggleTeamCombo));
+    assert_eq!(s.teams_for_houses(1), vec![0, 0]);
+}
+
+#[test]
+fn team_face_click_opens_team_combo_when_lobby_teams_visible() {
+    let snap = solve_skirmish_lobby_ex(true);
+    let mut s = lobby_with_sides();
+    s.set_lobby_teams_visible(true);
     assert_eq!(s.row_team(0), 0);
     assert_eq!(s.row_team(1), 0);
     let (ax, ay) = combo_arrow_point(snap_rect(&snap, "team_face_0"));
     assert_eq!(s.on_press(ax, ay, 1), Some(SkirmishLobbyHit::ToggleTeamCombo));
     assert_eq!(s.open_combo, Some(SkirmishComboKind::Team));
-    let list = SkirmishBootRequest::team_list_rect(0);
+    let list = s.team_list_rect(0);
     let y = list.y + SKIRMISH_COMBO_FACE_H * 1 + 2;
     assert_eq!(s.on_press(list.x + 2, y, 1), Some(SkirmishLobbyHit::PickTeam(1)));
     assert_eq!(s.row_team(0), 1);
@@ -105,7 +117,7 @@ fn team_face_click_opens_team_combo_for_all_editions() {
 
     let (ax, ay) = combo_arrow_point(snap_rect(&snap, "team_face_1"));
     assert_eq!(s.on_press(ax, ay, 1), Some(SkirmishLobbyHit::ToggleTeamCombo));
-    let list = SkirmishBootRequest::team_list_rect(1);
+    let list = s.team_list_rect(1);
     let y = list.y + SKIRMISH_COMBO_FACE_H * 1 + 2;
     assert_eq!(s.on_press(list.x + 2, y, 1), Some(SkirmishLobbyHit::PickTeam(1)));
     assert_eq!(s.row_team(1), 1);
@@ -121,7 +133,7 @@ fn ai_row_country_pick_does_not_change_local_side() {
     let (ax, ay) = combo_arrow_point(snap_rect(&snap, "side_face_1"));
     assert_eq!(s.on_press(ax, ay, 1), Some(SkirmishLobbyHit::ToggleCountryCombo));
     assert_eq!(s.combo_row, 1);
-    let list = SkirmishBootRequest::country_list_rect(1, s.sides.len());
+    let list = s.country_list_rect(1, s.sides.len());
     let y = list.y + SKIRMISH_COMBO_FACE_H * 2 + 2;
     assert_eq!(s.on_press(list.x + 2, y, 1), Some(SkirmishLobbyHit::PickCountry(2)));
     assert_eq!(s.row_side(1), "Germans");
@@ -137,7 +149,7 @@ fn ai_face_click_opens_difficulty_combo() {
     let (ax, ay) = combo_arrow_point(snap_rect(&snap, "ai_face_0"));
     assert_eq!(s.on_press(ax, ay, 1), Some(SkirmishLobbyHit::ToggleAiCombo));
     assert_eq!(s.open_combo, Some(SkirmishComboKind::Ai));
-    let list = SkirmishBootRequest::ai_list_rect();
+    let list = s.ai_list_rect();
     // 第三项 Hard。
     let y = list.y + SKIRMISH_COMBO_FACE_H * 2 + 2;
     assert_eq!(s.on_press(list.x + 2, y, 1), Some(SkirmishLobbyHit::PickAi(2)));

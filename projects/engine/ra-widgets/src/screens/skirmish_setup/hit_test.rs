@@ -2,16 +2,23 @@
 //!
 //! 控件几何一律来自 `solve_skirmish_lobby` snapshot；本模块只持状态与命中。
 
-use ra_layout::{LayoutSnapshot, RectPx, SKIRMISH_AI_ROW_COUNT, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_ROW_COUNT, solve_skirmish_lobby};
+use ra_layout::{
+    LayoutSnapshot, RectPx, SKIRMISH_AI_ROW_COUNT, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_ROW_COUNT, solve_skirmish_lobby_ex,
+};
 
 use super::layout::{snap_contains, snap_rect_px};
 
-/// 光标下的悬停入口 id（供底栏 `STT:Skirmish*`；不改状态）。
+/// 光标下的悬停入口 id（供底栏 `STT:Skirmish*`；不改状态）。原版无队伍列。
 pub fn hover_entry_at(x: i32, y: i32) -> Option<&'static str> {
-    hover_entry_in(&solve_skirmish_lobby(), x, y)
+    hover_entry_ex(x, y, false)
 }
 
-fn hover_entry_in(snap: &LayoutSnapshot, x: i32, y: i32) -> Option<&'static str> {
+/// 光标下的悬停入口。`lobby_teams` 为真时包含队伍列。
+pub fn hover_entry_ex(x: i32, y: i32, lobby_teams: bool) -> Option<&'static str> {
+    hover_entry_in(&solve_skirmish_lobby_ex(lobby_teams), x, y, lobby_teams)
+}
+
+fn hover_entry_in(snap: &LayoutSnapshot, x: i32, y: i32, lobby_teams: bool) -> Option<&'static str> {
     if snap_contains(snap, "player_name", x, y) {
         return Some("player_name");
     }
@@ -30,9 +37,11 @@ fn hover_entry_in(snap: &LayoutSnapshot, x: i32, y: i32) -> Option<&'static str>
             return Some("color");
         }
     }
-    for i in 0..SKIRMISH_ROW_COUNT {
-        if snap_contains(snap, &format!("team_face_{i}"), x, y) {
-            return Some("team");
+    if lobby_teams {
+        for i in 0..SKIRMISH_ROW_COUNT {
+            if snap_contains(snap, &format!("team_face_{i}"), x, y) {
+                return Some("team");
+            }
         }
     }
     for i in 0..SKIRMISH_AI_ROW_COUNT {

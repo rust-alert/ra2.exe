@@ -3,7 +3,8 @@
 //! 控件几何一律来自 `solve_skirmish_lobby` snapshot；本模块只持状态与命中。
 
 use ra_layout::{
-    RectPx, SKIRMISH_AI_ROW_COUNT, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H, SKIRMISH_ROW_COUNT, solve_skirmish_lobby,
+    LayoutSnapshot, RectPx, SKIRMISH_AI_ROW_COUNT, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H, SKIRMISH_ROW_COUNT,
+    solve_skirmish_lobby_ex,
 };
 
 use crate::core::LoadKind;
@@ -18,7 +19,7 @@ pub const LOBBY_DIFFICULTIES: &[&str] = &["Easy", "Normal", "Hard"];
 
 /// 大厅队伍号：`0` = 无队（各自为战），`1..=7` = 同号互为同盟。
 ///
-/// 与 `GameEdition` 无关；YR 零售离线 UI 未强调时，产品内核与大厅仍开放。
+/// 大厅列仅 `GameEdition::Yr` / `Mo3` 露出。原版 RA2 不画该列，开局队伍保持全 0。
 pub const LOBBY_TEAM_COUNT: usize = 8;
 
 /// 大厅可选玩家色块（RGB；点击颜色面循环）。
@@ -145,8 +146,10 @@ pub struct SkirmishBootRequest {
     pub color_index: u8,
     /// 各行色块下标（`LOBBY_COLORS`）。
     pub row_colors: [u8; SKIRMISH_ROW_COUNT],
-    /// 各行队伍号（`0` = 无队；同号 >0 互为同盟）。与 edition 无关。
+    /// 各行队伍号（`0` = 无队；同号 >0 互为同盟）。原版大厅不露出该列时保持全 0。
     pub row_teams: [u8; SKIRMISH_ROW_COUNT],
+    /// 是否露出并命中队伍列（YR / Mo3）。
+    pub lobby_teams: bool,
     /// 快速游戏。
     pub short_game: bool,
     /// 基地重新部署。
@@ -194,6 +197,7 @@ impl SkirmishBootRequest {
             color_index: 0,
             row_colors: default_row_colors(),
             row_teams: [0; SKIRMISH_ROW_COUNT],
+            lobby_teams: false,
             short_game: true,
             mcv_repacks: true,
             crates: true,
@@ -252,6 +256,22 @@ impl SkirmishBootRequest {
         out
     }
 
+    /// 当前大厅 snapshot（原版无队伍列，YR / Mo3 有）。
+    pub fn lobby_snapshot(&self) -> LayoutSnapshot {
+        solve_skirmish_lobby_ex(self.lobby_teams)
+    }
+
+    /// 打开或关闭大厅队伍列。关闭时清零各行队伍。
+    pub fn set_lobby_teams_visible(&mut self, visible: bool) {
+        self.lobby_teams = visible;
+        if !visible {
+            self.row_teams = [0; SKIRMISH_ROW_COUNT];
+            if self.open_combo == Some(SkirmishComboKind::Team) {
+                self.close_combo();
+            }
+        }
+    }
+
     /// 循环下一阵营（仅本地行）。
     pub fn cycle_side(&mut self) {
         if self.sides.is_empty() {
@@ -294,11 +314,7 @@ impl SkirmishBootRequest {
     /// 队伍号面显示文案（`0` → `None` 键回退 `-`；其余为数字）。
     pub fn row_team_label(team: u8) -> String {
         let team = team % LOBBY_TEAM_COUNT as u8;
-        if team == 0 {
-            "-".to_string()
-        } else {
-            team.to_string()
-        }
+        if team == 0 { "-".to_string() } else { team.to_string() }
     }
 
     fn row_side_index(&self, row: usize) -> usize {
@@ -327,23 +343,23 @@ impl SkirmishBootRequest {
     }
 
     /// 国家下拉列表矩形（紧贴指定行国家面下方）。
-    pub fn country_list_rect(row: usize, side_count: usize) -> RectPx {
-        country_list_rect_in(&solve_skirmish_lobby(), row, side_count)
+    pub fn country_list_rect(&self, row: usize, side_count: usize) -> RectPx {
+        country_list_rect_in(&self.lobby_snapshot(), row, side_count)
     }
 
     /// 颜色下拉列表矩形（紧贴指定行颜色面下方）。
-    pub fn color_list_rect(row: usize) -> RectPx {
-        color_list_rect_in(&solve_skirmish_lobby(), row)
+    pub fn color_list_rect(&self, row: usize) -> RectPx {
+        color_list_rect_in(&self.lobby_snapshot(), row)
     }
 
     /// 队伍下拉列表矩形（紧贴指定行队伍面下方）。
-    pub fn team_list_rect(row: usize) -> RectPx {
-        team_list_rect_in(&solve_skirmish_lobby(), row)
+    pub fn team_list_rect(&self, row: usize) -> RectPx {
+        team_list_rect_in(&self.lobby_snapshot(), row)
     }
 
     /// AI 难度下拉列表矩形（紧贴行 0 AI 面下方）。
-    pub fn ai_list_rect() -> RectPx {
-        ai_list_rect_in(&solve_skirmish_lobby())
+    pub fn ai_list_rect(&self) -> RectPx {
+        ai_list_rect_in(&self.lobby_snapshot())
     }
 
     /// 设置指定行阵营为 `sides[index]`。
@@ -403,8 +419,11 @@ impl SkirmishBootRequest {
         self.set_row_team(self.combo_row, team);
     }
 
-    /// 与 `houses_to_ensure` 对齐的各席队伍号（供开局写入同盟）。
+    /// 与 `houses_to_ensure` 对齐的各席队伍号（供开局写入同盟）。原版大厅关闭队伍列时全 0。
     pub fn teams_for_houses(&self, ai_rows: usize) -> Vec<u8> {
+        if !self.lobby_teams {
+            return vec![0; (1 + ai_rows).min(SKIRMISH_ROW_COUNT)];
+        }
         let rows = (1 + ai_rows).min(SKIRMISH_ROW_COUNT);
         (0..rows).map(|row| self.row_team(row)).collect()
     }
@@ -516,7 +535,7 @@ impl SkirmishBootRequest {
 
     /// 按下：勾选 / 滑条 / 下拉 / 玩家名。`ai_rows` 为当前地图可见 AI 行数。
     pub fn on_press(&mut self, x: i32, y: i32, ai_rows: usize) -> Option<SkirmishLobbyHit> {
-        let snap = solve_skirmish_lobby();
+        let snap = self.lobby_snapshot();
         let ai_rows = ai_rows.min(SKIRMISH_AI_ROW_COUNT);
         let human_rows = (1 + ai_rows).min(SKIRMISH_ROW_COUNT);
         // 已展开的下拉优先命中列表 / 面框。
@@ -552,7 +571,7 @@ impl SkirmishBootRequest {
             }
             self.open_combo = None;
         }
-        else if self.open_combo == Some(SkirmishComboKind::Team) {
+        else if self.lobby_teams && self.open_combo == Some(SkirmishComboKind::Team) {
             let list = team_list_rect_in(&snap, self.combo_row);
             if list.contains(x, y) {
                 let choice = ((y - list.y) / SKIRMISH_COMBO_FACE_H).clamp(0, LOBBY_TEAM_COUNT as i32 - 1) as usize;
@@ -640,12 +659,14 @@ impl SkirmishBootRequest {
                     return Some(SkirmishLobbyHit::ToggleColorCombo);
                 }
             }
-            if let Some(face) = snap_rect_px(&snap, &format!("team_face_{row}")) {
-                if combo_arrow_hit(face).contains(x, y) {
-                    let same = self.open_combo == Some(SkirmishComboKind::Team) && self.combo_row == row;
-                    self.combo_row = row;
-                    self.open_combo = if same { None } else { Some(SkirmishComboKind::Team) };
-                    return Some(SkirmishLobbyHit::ToggleTeamCombo);
+            if self.lobby_teams {
+                if let Some(face) = snap_rect_px(&snap, &format!("team_face_{row}")) {
+                    if combo_arrow_hit(face).contains(x, y) {
+                        let same = self.open_combo == Some(SkirmishComboKind::Team) && self.combo_row == row;
+                        self.combo_row = row;
+                        self.open_combo = if same { None } else { Some(SkirmishComboKind::Team) };
+                        return Some(SkirmishLobbyHit::ToggleTeamCombo);
+                    }
                 }
             }
         }
@@ -667,7 +688,7 @@ impl SkirmishBootRequest {
         else {
             return false;
         };
-        let Some(rect) = track_rect_from_snap(&solve_skirmish_lobby(), id)
+        let Some(rect) = track_rect_from_snap(&self.lobby_snapshot(), id)
         else {
             return false;
         };

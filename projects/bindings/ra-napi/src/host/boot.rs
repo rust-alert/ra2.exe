@@ -187,19 +187,7 @@ fn load_map_terrain_preview(
     rules: &RulesSystem,
     structure_lights: &StructureLightTable,
     lobby_primaries: Option<&HashMap<String, Rgba>>,
-) -> Option<(
-    String,
-    RgbaImage,
-    RgbaImage,
-    RgbaImage,
-    RgbaImage,
-    RgbaImage,
-    StructureAnimBank,
-    TerrainAnimBank,
-    TerrainAnimBank,
-    i32,
-    i32,
-)> {
+) -> Option<(String, RgbaImage, RgbaImage, RgbaImage, RgbaImage, RgbaImage, StructureAnimBank, TerrainAnimBank, TerrainAnimBank, i32, i32)> {
     let preview = compose_boot_preview(
         source,
         map,
@@ -801,11 +789,7 @@ pub fn boot_world_with_progress(
     let ai_rows = skirmish_ai_row_count(count_skirmish_start_slots(&map.waypoints, &map.name));
     let ensure_houses = request.houses_to_ensure(ai_rows);
     if request.boot_kind == LoadKind::Skirmish && ensure_houses.len() < 2 {
-        let seats = if ensure_houses.is_empty() {
-            "无".to_string()
-        } else {
-            ensure_houses.join("+")
-        };
+        let seats = if ensure_houses.is_empty() { "无".to_string() } else { ensure_houses.join("+") };
         let msg = format!("遭遇战需要至少两个不同阵营（当前席位: {seats}）。请为 AI 选择与本地不同的国家。");
         tracing::error!(houses = %seats, "遭遇战胜负席位不足");
         report(1.0, "席位不足");
@@ -881,16 +865,13 @@ pub fn boot_world_with_progress(
                 game.world.set_all_players_funds(request.credits);
             }
             game.world.set_all_players_tech_level(request.tech_level);
-            // 遭遇战大厅队伍 → `PlayerState.allies`（与 edition 无关，含 YR）。
+            // 遭遇战大厅队伍 → `PlayerState.allies`（仅 YR / Mo3 大厅列可写非零；原版保持全 0）。
             if request.boot_kind == LoadKind::Skirmish {
                 game.world.set_build_off_ally(request.build_off_ally);
                 let teams = request.teams_for_houses(ai_rows);
                 game.world.apply_skirmish_lobby_teams(&ensure_houses, &teams);
                 if teams.iter().any(|&t| t > 0) {
-                    note = format!(
-                        "{note} · teams=[{}]",
-                        teams.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(",")
-                    );
+                    note = format!("{note} · teams=[{}]", teams.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(","));
                 }
             }
             // Unit Count：科技上限写入后再种开局部队，保证 TechLevel / Owner 过滤正确。

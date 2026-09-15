@@ -163,11 +163,7 @@ fn apply_ai_trigger_types_enable(scripting: &mut MapScripting) {
         return;
     }
     scripting.ai_triggers.retain(|trigger| {
-        enable
-            .iter()
-            .find(|(id, _)| id.as_str().eq_ignore_ascii_case(trigger.id.as_str()))
-            .map(|(_, on)| *on)
-            .unwrap_or(true)
+        enable.iter().find(|(id, _)| id.as_str().eq_ignore_ascii_case(trigger.id.as_str())).map(|(_, on)| *on).unwrap_or(true)
     });
 }
 

@@ -6,7 +6,10 @@ use ra_assets::TmpFile;
 use ra_types::AssetSource;
 
 use crate::{
-    MapInfo, pass_grid::PassGrid, theater::{theater_ini_name, theater_tmp_extension}, tileset::parse_tileset_ini,
+    MapInfo,
+    pass_grid::PassGrid,
+    theater::{theater_ini_name, theater_tmp_extension},
+    tileset::parse_tileset_ini,
 };
 
 /// 读取剧院 TMP 的 `terrain_type`，写入规范陆地类型，并对水/岩/墙等不可走格封死通行。

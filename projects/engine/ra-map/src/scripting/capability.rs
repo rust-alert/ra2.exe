@@ -29,8 +29,7 @@ pub fn gaps_from_scripting(scripting: &MapScripting) -> Vec<MapCapabilityGap> {
     // 已解析但玩法未消费：诊断可见，不阻塞开局。
     if !scripting.ranking.is_empty() {
         out.push(MapCapabilityGap {
-            code: "map.section.Ranking deferred".into(),
-            message: "地图节 [Ranking] 已装载，结算评价尚未接线".into(),
+            code: "map.section.Ranking deferred".into(), message: "地图节 [Ranking] 已装载，结算评价尚未接线".into()
         });
     }
     if !scripting.special_flags.is_empty() {

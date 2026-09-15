@@ -8,6 +8,7 @@ use ra_types::{DisplayMode, PresentFeel};
 use winit::window::Window;
 
 use super::{battle_controller::BattleController, boot::BootResult, load_job::LoadJob, preview_job::PreviewJob};
+use ra_config::SkirmishLobbyPrefs;
 use ra_widgets::{
     animation::typewriter::TypewriterText,
     chrome::movie::MenuMoviePlayer,
@@ -20,7 +21,6 @@ use ra_widgets::{
     skirmish_setup::SkirmishBootRequest,
     startup_splash::StartupSplashPresentation,
 };
-use ra_config::SkirmishLobbyPrefs;
 
 /// 外壳持有的可导航壳层会话状态。
 pub struct Shell {
@@ -236,10 +236,10 @@ mod battle_cursors;
 mod campaign;
 mod construct;
 mod diagnostics;
+mod emulate;
 mod event_loop;
 mod host;
 mod input;
-mod emulate;
 mod loading;
 mod lobby;
 mod navigation;
@@ -249,5 +249,5 @@ mod redraw;
 mod score;
 mod splash;
 
-pub use host::Host;
 pub use emulate::{campaign_difficulty_from_track_x, run_shell};
+pub use host::Host;

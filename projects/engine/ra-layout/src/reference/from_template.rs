@@ -1,6 +1,9 @@
 //! 由 `DialogTemplate` + chrome 策略解析设计像素。
 
-use ra_types::{ControlPlacement, DialogControlDesc, DialogTemplate, dialog_template_0x6b, dialog_template_0x102, dialog_template_0xd5};
+use ra_types::{
+    ControlPlacement, DialogControlDesc, DialogTemplate, dialog_template_0x6b, dialog_template_0x102, dialog_template_0x102_with_teams,
+    dialog_template_0xd5,
+};
 
 use crate::{
     geometry::{Rect, Size2},
@@ -139,9 +142,15 @@ pub fn solve_choose_map() -> LayoutSnapshot {
     solve_with_shell_defaults(|chrome| dialog_page_layout_tree_ex("dialog_0x6b", &dialog_template_0x6b(), chrome, true))
 }
 
-/// 遭遇战大厅：面板 chrome + `0x102` 模板 → 左栏表单在内容区居中。
+/// 遭遇战大厅：面板 chrome + `0x102` 模板 → 左栏表单在内容区居中（原版无队伍列）。
 pub fn solve_skirmish_lobby() -> LayoutSnapshot {
-    solve_with_shell_defaults(|chrome| dialog_page_layout_tree_ex("dialog_0x102", &dialog_template_0x102(), chrome, true))
+    solve_skirmish_lobby_ex(false)
+}
+
+/// 遭遇战大厅 snapshot。`include_teams` 为真时使用 YR / Mo3 队伍列。
+pub fn solve_skirmish_lobby_ex(include_teams: bool) -> LayoutSnapshot {
+    let template = if include_teams { dialog_template_0x102_with_teams() } else { dialog_template_0x102() };
+    solve_with_shell_defaults(|chrome| dialog_page_layout_tree_ex("dialog_0x102", &template, chrome, true))
 }
 
 /// 主菜单选项：面板 chrome + `0xD5` 模板 → 左栏表单在内容区居中。

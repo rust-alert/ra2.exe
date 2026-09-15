@@ -12,15 +12,11 @@ mod settings;
 mod state;
 mod store;
 
-use std::{
-    collections::BTreeMap,
-    path::PathBuf,
-    sync::Mutex,
-};
+use std::{collections::BTreeMap, path::PathBuf, sync::Mutex};
 
 pub use paths::{
-    APP_DATA_DIR_NAME, SETTINGS_FILE_NAME, STATE_FILE_NAME, WEB_STORAGE_PREFIX, ensure_user_data_dir, exe_dir,
-    set_test_user_data_dir, settings_path, state_path, user_data_dir, user_data_join,
+    APP_DATA_DIR_NAME, SETTINGS_FILE_NAME, STATE_FILE_NAME, WEB_STORAGE_PREFIX, ensure_user_data_dir, exe_dir, set_test_user_data_dir,
+    settings_path, state_path, user_data_dir, user_data_join,
 };
 pub use settings::DesktopSettings;
 pub use state::{DesktopState, SkirmishLobbyPrefs};

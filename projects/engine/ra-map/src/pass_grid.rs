@@ -98,12 +98,7 @@ impl PassGrid {
 
     /// 按单位类型选通行：`naval=true` 走水面，否则走地面 `is_passable`。
     pub fn is_traversable(&self, x: u16, y: u16, naval: bool) -> bool {
-        if naval {
-            self.is_naval_passable(x, y)
-        }
-        else {
-            self.is_passable(x, y)
-        }
+        if naval { self.is_naval_passable(x, y) } else { self.is_passable(x, y) }
     }
 
     /// 将通行位改写为海军视角：仅 `LandType::Water` 可走。

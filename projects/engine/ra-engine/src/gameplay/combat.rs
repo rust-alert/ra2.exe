@@ -74,10 +74,9 @@ impl crate::state::BattleState {
                 continue;
             }
             // 同盟不可互射（含大厅队伍 / 地图 Allies / 触发结盟）；与 `GameEdition` 无关。
-            if let (Some(atk_owner), Some(tgt_owner)) = (
-                self.ecs_get::<crate::state::components::Owner>(attacker_id),
-                self.ecs_get::<crate::state::components::Owner>(target_id),
-            ) {
+            if let (Some(atk_owner), Some(tgt_owner)) =
+                (self.ecs_get::<crate::state::components::Owner>(attacker_id), self.ecs_get::<crate::state::components::Owner>(target_id))
+            {
                 let atk_house = crate::gameplay::house_key_of(&self.definitions, atk_owner.house);
                 let tgt_house = crate::gameplay::house_key_of(&self.definitions, tgt_owner.house);
                 if houses_are_allied(self, atk_house, tgt_house) {

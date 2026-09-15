@@ -4,8 +4,8 @@ use std::collections::HashMap;
 
 use crate::{
     AiTriggerConditionKind, AiTriggerId, HouseId, HouseName, MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapEvent, MapHouse,
-    MapPlacedEntity, MapPlacedEntityKind, MapScriptType, MapTag, MapTaskForce, MapTeamType, MapTrigger, MissionKind, MissionName, PreparedAction,
-    PreparedActionCommand, PreparedAiTrigger, PreparedCellTag, PreparedEvent, PreparedHouse, PreparedMap, PreparedPlacement,
+    MapPlacedEntity, MapPlacedEntityKind, MapScriptType, MapTag, MapTaskForce, MapTeamType, MapTrigger, MissionKind, MissionName,
+    PreparedAction, PreparedActionCommand, PreparedAiTrigger, PreparedCellTag, PreparedEvent, PreparedHouse, PreparedMap, PreparedPlacement,
     PreparedScriptType, PreparedTag, PreparedTaskForce, PreparedTaskForceEntry, PreparedTeamType, PreparedTrigger, RaError, RaResult,
     RuntimeDefinitions, ScriptTypeId, ScriptTypeName, StructureDefinitions, SuperWeaponName, TagId, TagName, TaskForceId, TaskForceName,
     TeamTypeId, TechnoName, TriggerId, TriggerName, TypeId, occupancy_kind,
@@ -59,12 +59,7 @@ pub fn bind_map_triggers(triggers: &[MapTrigger], defs: &RuntimeDefinitions) -> 
         let id = TriggerId(next);
         next = next.saturating_add(1);
         by_name.insert(trigger.id.as_str(), id);
-        let house_name = if trigger.house.is_unrestricted_sentinel() {
-            HouseName::parse("NEUTRAL")
-        }
-        else {
-            trigger.house.clone()
-        };
+        let house_name = if trigger.house.is_unrestricted_sentinel() { HouseName::parse("NEUTRAL") } else { trigger.house.clone() };
         let house = bind_house_id(defs, &house_name, &format!("MapTrigger:{}", trigger.id.as_str()))?;
         out.push(PreparedTrigger {
             id,
@@ -255,11 +250,7 @@ fn bind_action_command(
 ) -> RaResult<PreparedActionCommand> {
     let name = action_ref_name_param(cmd);
     let (team_id, target_trigger_id, tag_id, house_id) = match cmd.kind_code {
-        ACTION_CREATE_TEAM
-        | ACTION_DESTROY_TEAM
-        | ACTION_REINFORCEMENT
-        | ACTION_REINFORCEMENT_AT_WAYPOINT
-        | ACTION_FLASH_TEAM => {
+        ACTION_CREATE_TEAM | ACTION_DESTROY_TEAM | ACTION_REINFORCEMENT | ACTION_REINFORCEMENT_AT_WAYPOINT | ACTION_FLASH_TEAM => {
             let team_id = match name {
                 Some(n) => Some(team_by_name.get(n.as_str()).copied().ok_or_else(|| RaError::UnknownReference {
                     kind: "team_type",
@@ -318,14 +309,7 @@ fn bind_action_command(
         }
         _ => (None, None, None, None),
     };
-    Ok(PreparedActionCommand {
-        kind_code: cmd.kind_code,
-        params: cmd.params.clone(),
-        team_id,
-        target_trigger_id,
-        tag_id,
-        house_id,
-    })
+    Ok(PreparedActionCommand { kind_code: cmd.kind_code, params: cmd.params.clone(), team_id, target_trigger_id, tag_id, house_id })
 }
 
 /// 与运行时一致：优先 `params[1]`，否则第一个非空且非纯数字槽。
@@ -425,12 +409,7 @@ pub fn bind_map_team_types(
             None
         }
         else {
-            let house_name = if team.house.is_none_sentinel() {
-                HouseName::parse("NEUTRAL")
-            }
-            else {
-                team.house.clone()
-            };
+            let house_name = if team.house.is_none_sentinel() { HouseName::parse("NEUTRAL") } else { team.house.clone() };
             Some(bind_house_id(defs, &house_name, &format!("MapTeamType:{}", team.id.as_str()))?)
         };
         let script = bind_optional_script_id(&script_by_name, &team.script, team.id.as_str())?;
@@ -723,11 +702,7 @@ fn bind_techno_id(defs: &RuntimeDefinitions, name: &TechnoName, owner: &str) -> 
 
 fn bind_super_weapon_id(defs: &RuntimeDefinitions, name: &TechnoName, owner: &str) -> RaResult<TypeId> {
     if name.is_empty() {
-        return Err(RaError::UnknownReference {
-            kind: "super_weapon",
-            name: String::new(),
-            owner: owner.to_string(),
-        });
+        return Err(RaError::UnknownReference { kind: "super_weapon", name: String::new(), owner: owner.to_string() });
     }
     let sw = SuperWeaponName::parse(name.as_str());
     defs.super_weapons.get_name(&sw).map(|d| d.id).ok_or_else(|| RaError::UnknownReference {
@@ -771,11 +746,7 @@ fn bind_house_id(defs: &RuntimeDefinitions, name: &HouseName, owner: &str) -> Ra
         return Err(RaError::UnknownReference { kind: "house", name: String::new(), owner: owner.to_string() });
     }
     if name.is_all_sentinel() {
-        return Err(RaError::UnknownReference {
-            kind: "house",
-            name: name.as_str().to_string(),
-            owner: owner.to_string(),
-        });
+        return Err(RaError::UnknownReference { kind: "house", name: name.as_str().to_string(), owner: owner.to_string() });
     }
     defs.houses.get_name(name).map(|h| h.id).ok_or_else(|| RaError::UnknownReference {
         kind: "house",

@@ -475,13 +475,14 @@ pub fn battle_in_game_options_fallback_label(entry_id: &str) -> &str {
     }
 }
 
-/// 外交子页钮 / 标题 → CSF。
+/// 外交子页钮 / 表头 → CSF。
 pub fn battle_diplomacy_csf_label(entry_id: &str) -> Option<&'static str> {
     match entry_id {
-        "back" => Some("GUI:Back"),
-        "title" => Some("GUI:Diplomacy"),
-        "ally" => Some("GUI:Ally"),
-        "enemy" => Some("GUI:Enemy"),
+        "continue" | "resume" | "back" => Some("GUI:Continue"),
+        "player" => Some("GUI:Player"),
+        "team" => Some("GUI:Team"),
+        "kills" => Some("GUI:Kills"),
+        "map" => Some("GUI:Map"),
         _ => None,
     }
 }
@@ -489,11 +490,11 @@ pub fn battle_diplomacy_csf_label(entry_id: &str) -> Option<&'static str> {
 /// 外交子页无 CSF 回退。
 pub fn battle_diplomacy_fallback_label(entry_id: &str) -> &str {
     match entry_id {
-        "back" => "返回",
-        "title" => "外交",
-        "ally" => "同盟",
-        "enemy" => "敌对",
-        "local" => "本机",
+        "continue" | "resume" | "back" => "继续",
+        "player" => "玩家",
+        "team" => "队伍",
+        "kills" => "摧毁数",
+        "map" => "地图",
         _ => "外交",
     }
 }

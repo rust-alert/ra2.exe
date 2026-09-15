@@ -71,17 +71,10 @@ fn nearest_hostile_skips_allied_houses_for_all_editions() {
         });
     }
     let mut session = Session::from_state(battle_from_defs(GameEdition::Yr, defs, map), "ally-hostile");
-    session
-        .expect_battle_mut()
-        .world
-        .apply_skirmish_lobby_teams(&["AMERICANS", "FRANCE", "SOVIETS"], &[1, 1, 2]);
+    session.expect_battle_mut().world.apply_skirmish_lobby_teams(&["AMERICANS", "FRANCE", "SOVIETS"], &[1, 1, 2]);
     let americans = session.expect_battle().world.entity_id_at(0).expect("americans");
     let france = session.expect_battle().world.entity_id_at(1).expect("france");
     let soviets = session.expect_battle().world.entity_id_at(2).expect("soviets");
-    assert_eq!(
-        session.expect_battle().nearest_hostile(americans),
-        Some(soviets),
-        "ally FRANCE must not be preferred over SOVIETS"
-    );
+    assert_eq!(session.expect_battle().nearest_hostile(americans), Some(soviets), "ally FRANCE must not be preferred over SOVIETS");
     assert_ne!(session.expect_battle().nearest_hostile(americans), Some(france));
 }

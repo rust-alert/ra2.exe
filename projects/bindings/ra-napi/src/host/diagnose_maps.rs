@@ -135,15 +135,7 @@ pub fn diagnose_skirmish_maps(req: &DiagnoseMapsRequest) -> RaResult<DiagnoseMap
         maps.push(row);
     }
 
-    Ok(DiagnoseMapsReport {
-        edition: chain.edition.as_str().to_string(),
-        source: list_source,
-        candidate_count,
-        maps,
-        success,
-        reject,
-        missing,
-    })
+    Ok(DiagnoseMapsReport { edition: chain.edition.as_str().to_string(), source: list_source, candidate_count, maps, success, reject, missing })
 }
 
 fn diagnose_one(

@@ -327,11 +327,7 @@ impl Shell {
         self.ensure_lobby_sides();
         // 战役用选边 house；遭遇战用大厅 `skirmish.side`（二者不得共用同一可变字段）。
         let house = match self.load_kind {
-            LoadKind::Campaign => self
-                .campaign_side
-                .and_then(campaign_side_lobby_house)
-                .unwrap_or("Americans")
-                .to_string(),
+            LoadKind::Campaign => self.campaign_side.and_then(campaign_side_lobby_house).unwrap_or("Americans").to_string(),
             LoadKind::Skirmish => self.skirmish.side.clone(),
         };
         let faction_id = self

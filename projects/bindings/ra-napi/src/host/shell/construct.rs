@@ -2,9 +2,9 @@
 
 use std::path::PathBuf;
 
+use ra_config::SkirmishLobbyPrefs;
 use ra_renderer::Renderer;
 use ra_types::{DisplayMode, PresentFeel};
-use ra_config::SkirmishLobbyPrefs;
 use ra_widgets::{
     animation::typewriter::TypewriterText, load_kind::LoadKind, original_screen::OriginalScreen, skirmish_setup::SkirmishBootRequest,
     startup_splash,

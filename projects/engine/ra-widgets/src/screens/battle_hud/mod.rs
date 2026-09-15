@@ -16,8 +16,8 @@ pub use decode::{
 };
 pub use hit_test::{BattleCameoPaint, BattleHudHit, hit_at, hit_at_with_chrome};
 pub use power_meter::{
-    POWER_METER_FULL_LEVEL, POWERP_FRAME_COUNT, POWERP_FRAME_GRAY, POWERP_FRAME_GREEN, POWERP_FRAME_RED, POWERP_FRAME_TRACK, POWERP_FRAME_YELLOW,
-    PowerMeterColor, PowerMeterPaint, power_meter_paint,
+    POWER_METER_FULL_LEVEL, POWERP_FRAME_COUNT, POWERP_FRAME_GRAY, POWERP_FRAME_GREEN, POWERP_FRAME_RED, POWERP_FRAME_TRACK,
+    POWERP_FRAME_YELLOW, PowerMeterColor, PowerMeterPaint, power_meter_paint,
 };
 pub use radar_minimap::{
     RADAR_CONTENT_INSET, RadarMinimapBlip, blit_radar_minimap_into_slot, compose_radar_minimap, land_type_radar_rgba, radar_content_rect,

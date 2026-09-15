@@ -156,10 +156,7 @@ fn any_event_does_not_emit_capability_gap() {
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "any-gap.map", text).unwrap();
     let gaps = ra_map::map_scripting_capability_gaps(&map);
-    assert!(
-        gaps.iter().all(|g| g.code != "map.event.8 unsupported"),
-        "event 8 must not be reported as unsupported: {gaps:?}"
-    );
+    assert!(gaps.iter().all(|g| g.code != "map.event.8 unsupported"), "event 8 must not be reported as unsupported: {gaps:?}");
     assert!(ra_map::campaign_blocking_capability_message(&map).is_none());
 }
 

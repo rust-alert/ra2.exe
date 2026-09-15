@@ -2,9 +2,7 @@
 
 use ra_types::{AssetSource, OverlayTypeRegistry};
 
-use crate::{
-    MapInfo, apply_overlay_land_to_pass_grid, pass_grid::PassGrid, seal_pass_grid_from_tmp,
-};
+use crate::{MapInfo, apply_overlay_land_to_pass_grid, pass_grid::PassGrid, seal_pass_grid_from_tmp};
 
 /// [`finalize_battle_pass_grid`] 的统计。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
