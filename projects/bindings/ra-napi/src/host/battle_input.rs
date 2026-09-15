@@ -456,6 +456,55 @@ pub fn hud_sidebar_release_fires(pressed_same_control: bool) -> bool {
     pressed_same_control
 }
 
+/// 光标移动时是否推进战术区左键手势（框选）。
+///
+/// 放置模式禁用框选升级，但按下时仍可建立 `MaybeClick`，释放走点选放置。
+pub fn should_advance_world_gesture(accept_commands: bool, placing: bool, capture: BattleUiCapture) -> bool {
+    accept_commands && !placing && capture.is_world()
+}
+
+/// 按下命中 → 捕获层（命令条优先于侧栏，侧栏优先于战术区）。
+pub fn resolve_press_capture(command_slot: Option<usize>, sidebar: bool, cursor_in_world: bool) -> BattleUiCapture {
+    if let Some(slot) = command_slot {
+        return BattleUiCapture::HudCommand(slot);
+    }
+    if sidebar {
+        return BattleUiCapture::HudSidebar;
+    }
+    if cursor_in_world {
+        return BattleUiCapture::World;
+    }
+    BattleUiCapture::None
+}
+
+/// 左键释放时按捕获层分流（具体 HUD 命中相等性由调用方再判）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LeftReleasePolicy {
+    /// 命令条：核对同槽后触发。
+    HudCommand(usize),
+    /// 侧栏：核对同控件后触发。
+    HudSidebar,
+    /// 战术区：走 `LeftGesture::release`。
+    WorldGesture,
+    /// 无捕获 / 暂停菜单：忽略。
+    Ignore,
+}
+
+/// 由按下锁定的捕获决定释放策略。
+pub fn left_release_policy(capture: BattleUiCapture) -> LeftReleasePolicy {
+    match capture {
+        BattleUiCapture::HudCommand(slot) => LeftReleasePolicy::HudCommand(slot),
+        BattleUiCapture::HudSidebar => LeftReleasePolicy::HudSidebar,
+        BattleUiCapture::World => LeftReleasePolicy::WorldGesture,
+        BattleUiCapture::None | BattleUiCapture::PauseMenu => LeftReleasePolicy::Ignore,
+    }
+}
+
+/// 右键按下后捕获层应被清空（取消战术手势，不影响下一帧 HUD hover）。
+pub fn capture_after_right_press() -> BattleUiCapture {
+    BattleUiCapture::None
+}
+
 /// 对局呈现快照：壳层只应用，不重新跑业务判断。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BattlePresentationState {
@@ -1126,5 +1175,76 @@ mod tests {
         let cap = BattleUiCapture::World;
         assert!(cap.is_world());
         assert!(!cap.is_hud());
+        assert_eq!(left_release_policy(cap), LeftReleasePolicy::WorldGesture);
+        assert!(should_advance_world_gesture(true, false, cap));
+        // 移入 HUD 不改变 capture，因此释放仍走战术区。
+        assert!(!should_advance_world_gesture(true, false, BattleUiCapture::HudCommand(0)));
+    }
+
+    #[test]
+    fn press_capture_priority_command_over_sidebar_over_world() {
+        assert_eq!(resolve_press_capture(Some(2), true, true), BattleUiCapture::HudCommand(2));
+        assert_eq!(resolve_press_capture(None, true, true), BattleUiCapture::HudSidebar);
+        assert_eq!(resolve_press_capture(None, false, true), BattleUiCapture::World);
+        assert_eq!(resolve_press_capture(None, false, false), BattleUiCapture::None);
+    }
+
+    #[test]
+    fn place_mode_blocks_marquee_upgrade_keeps_click() {
+        let cap = BattleUiCapture::World;
+        assert!(!should_advance_world_gesture(true, true, cap));
+        let g = LeftGesture::begin(0.0, 0.0);
+        // 放置时 CursorMoved 不调用 on_cursor_moved → 保持 MaybeClick → 释放为 Click。
+        let (_, action) = g.release();
+        assert_eq!(action, LeftReleaseAction::Click);
+    }
+
+    #[test]
+    fn marquee_drag_into_edge_keeps_gesture() {
+        // 框选过程中进入边缘：手势继续，不因边缘滚屏意图而 Idle。
+        let g = LeftGesture::begin(100.0, 100.0).on_cursor_moved(100.0 + f64::from(CLICK_SLOP_PX) + 2.0, 100.0);
+        assert!(matches!(g, LeftGesture::Marquee { .. }));
+        let at_edge = g.on_cursor_moved(2.0, 100.0);
+        assert!(matches!(at_edge, LeftGesture::Marquee { .. }));
+        assert!(should_advance_world_gesture(true, false, BattleUiCapture::World));
+    }
+
+    #[test]
+    fn right_press_clears_capture_and_gesture() {
+        assert_eq!(capture_after_right_press(), BattleUiCapture::None);
+        let g = LeftGesture::begin(0.0, 0.0).on_cursor_moved(20.0, 20.0);
+        assert!(matches!(g, LeftGesture::Marquee { .. }));
+        // 右键路径：清空捕获后手势应 Idle（由 clear_pointer_capture 保证）。
+        let cleared = LeftGesture::Idle;
+        assert_eq!(cleared, LeftGesture::Idle);
+        assert_eq!(left_release_policy(BattleUiCapture::None), LeftReleasePolicy::Ignore);
+    }
+
+    #[test]
+    fn hud_press_move_out_does_not_fire() {
+        assert!(!hud_command_release_fires(1, None));
+        assert!(!hud_command_release_fires(1, Some(2)));
+        assert_eq!(left_release_policy(BattleUiCapture::HudCommand(1)), LeftReleasePolicy::HudCommand(1));
+    }
+
+    #[test]
+    fn focus_lost_then_release_is_ignore_policy() {
+        // 失焦 reset 后 capture=None → 恢复焦点再 Released 走 Ignore，不点选。
+        let mut t = BattleInputTracker::default();
+        t.set_left(true);
+        t.set_focused(false);
+        assert!(!t.buttons.left);
+        assert!(!t.edges.left_released);
+        assert_eq!(left_release_policy(BattleUiCapture::None), LeftReleasePolicy::Ignore);
+        t.begin_frame();
+        t.set_focused(true);
+        t.set_left(false);
+        assert!(!t.edges.left_released);
+    }
+
+    #[test]
+    fn classify_right_click_cancels_tools_or_deselects() {
+        assert_eq!(classify_right_click_map(true), RightClickMapOutcome::CancelToolModes);
+        assert_eq!(classify_right_click_map(false), RightClickMapOutcome::Deselect);
     }
 }

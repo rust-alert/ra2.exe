@@ -841,9 +841,9 @@ impl BattleController {
                 }
                 else {
                     let frame = self.input_frame(window);
-                    // 仅战术区捕获才推进框选；HUD 按下后移入战术区不得改捕获。
+                    // 仅战术区捕获才推进框选；HUD 按下后移入战术区不得改捕获；放置禁用框选升级。
                     let placing = self.interaction_mode.place_type_id().is_some();
-                    if accept_commands && !placing && frame.capture.is_world() {
+                    if super::super::battle_input::should_advance_world_gesture(accept_commands, placing, frame.capture) {
                         self.left_gesture = self.left_gesture.on_cursor_moved(frame.cursor.0, frame.cursor.1);
                     }
                     self.refresh_command_hover(window);
@@ -898,7 +898,7 @@ impl BattleController {
 
     /// 清空指针捕获与左键手势（右键取消 / 失焦路径共用）。
     pub(super) fn clear_pointer_capture(&mut self) {
-        self.ui_capture = BattleUiCapture::None;
+        self.ui_capture = super::super::battle_input::capture_after_right_press();
         self.sidebar_capture_hit = None;
         self.left_gesture = LeftGesture::Idle;
     }
@@ -908,11 +908,8 @@ impl BattleController {
         let frame = self.input_frame(window);
         let (x, y) = frame.cursor_i32();
         self.sidebar_capture_hit = None;
-        match self.hit_hud_at(window, x, y) {
-            Some(BattleHudHit::CommandButton(slot)) => {
-                self.ui_capture = BattleUiCapture::HudCommand(slot);
-                self.left_gesture = LeftGesture::Idle;
-            }
+        let (command_slot, sidebar_hit) = match self.hit_hud_at(window, x, y) {
+            Some(BattleHudHit::CommandButton(slot)) => (Some(slot), None),
             Some(
                 hit @ (BattleHudHit::SidebarTab(_)
                 | BattleHudHit::Cameo(_)
@@ -921,32 +918,39 @@ impl BattleController {
                 | BattleHudHit::Options
                 | BattleHudHit::Diplomacy
                 | BattleHudHit::Radar),
-            ) => {
-                self.ui_capture = BattleUiCapture::HudSidebar;
-                self.sidebar_capture_hit = Some(hit);
+            ) => (None, Some(hit)),
+            None => (None, None),
+        };
+        let capture = super::super::battle_input::resolve_press_capture(command_slot, sidebar_hit.is_some(), frame.cursor_in_world);
+        self.ui_capture = capture;
+        match capture {
+            BattleUiCapture::HudCommand(_) => {
                 self.left_gesture = LeftGesture::Idle;
             }
-            None => {
-                if frame.cursor_in_world {
-                    self.ui_capture = BattleUiCapture::World;
-                    self.left_gesture = LeftGesture::begin(frame.cursor.0, frame.cursor.1);
-                }
-                else {
-                    self.clear_pointer_capture();
-                }
+            BattleUiCapture::HudSidebar => {
+                self.sidebar_capture_hit = sidebar_hit;
+                self.left_gesture = LeftGesture::Idle;
+            }
+            BattleUiCapture::World => {
+                // 放置模式仍 begin：禁用框选升级由 `should_advance_world_gesture` 保证，释放仍为 Click。
+                self.left_gesture = LeftGesture::begin(frame.cursor.0, frame.cursor.1);
+            }
+            BattleUiCapture::None | BattleUiCapture::PauseMenu => {
+                self.clear_pointer_capture();
             }
         }
     }
 
     /// 左键释放：只认按下时的捕获；HUD 须同控件抬起，战术区走手势结果。
     pub(super) fn end_left_capture(&mut self, renderer: &mut Renderer, window: &Window) -> BattleNav {
+        use super::super::battle_input::LeftReleasePolicy;
         let frame = self.input_frame(window);
         let (x, y) = frame.cursor_i32();
         let capture = self.ui_capture;
         let sidebar_hit = self.sidebar_capture_hit.take();
         self.ui_capture = BattleUiCapture::None;
-        match capture {
-            BattleUiCapture::HudCommand(slot) => {
+        match super::super::battle_input::left_release_policy(capture) {
+            LeftReleasePolicy::HudCommand(slot) => {
                 self.left_gesture = LeftGesture::Idle;
                 let release_slot = match self.hit_hud_at(window, x, y) {
                     Some(BattleHudHit::CommandButton(s)) => Some(s),
@@ -957,7 +961,7 @@ impl BattleController {
                 }
                 BattleNav::None
             }
-            BattleUiCapture::HudSidebar => {
+            LeftReleasePolicy::HudSidebar => {
                 self.left_gesture = LeftGesture::Idle;
                 let Some(hit) = sidebar_hit
                 else {
@@ -977,7 +981,7 @@ impl BattleController {
                     BattleNav::None
                 }
             }
-            BattleUiCapture::World => {
+            LeftReleasePolicy::WorldGesture => {
                 let (idle, action) = self.left_gesture.release();
                 self.left_gesture = idle;
                 match action {
@@ -987,7 +991,7 @@ impl BattleController {
                 }
                 BattleNav::None
             }
-            BattleUiCapture::None | BattleUiCapture::PauseMenu => {
+            LeftReleasePolicy::Ignore => {
                 self.left_gesture = LeftGesture::Idle;
                 BattleNav::None
             }
