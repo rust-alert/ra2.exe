@@ -179,19 +179,24 @@ fn pick_weighted_trigger(world: &BattleState, group_key: &str, cands: &[Prepared
     if cands.len() == 1 {
         return cands.first().cloned();
     }
-    let total: u64 = cands.iter().map(|c| u64::from(effective_weight(world, c))).sum();
+    // 同房主候选：先取关联 TeamType.Priority 最高的一组，再在组内按动态权重抽选。
+    let team_priority = |team_id| world.prepared.team_types.iter().find(|t| t.id == team_id).map(|t| t.priority).unwrap_or(0);
+    let max_priority = cands.iter().map(|c| team_priority(c.team)).max().unwrap_or(0);
+    let top: Vec<PreparedAiTrigger> = cands.iter().filter(|c| team_priority(c.team) == max_priority).cloned().collect();
+    let pool = if top.is_empty() { cands.to_vec() } else { top };
+    let total: u64 = pool.iter().map(|c| u64::from(effective_weight(world, c))).sum();
     if total == 0 {
-        return cands.first().cloned();
+        return pool.first().cloned();
     }
     let mut roll = deterministic_roll(world.match_seed, world.tick, group_key) % total;
-    for c in cands {
+    for c in &pool {
         let w = u64::from(effective_weight(world, c));
         if roll < w {
             return Some(c.clone());
         }
         roll -= w;
     }
-    cands.last().cloned()
+    pool.last().cloned()
 }
 
 fn deterministic_roll(seed: u64, tick: u64, group_key: &str) -> u64 {
@@ -209,19 +214,14 @@ fn enqueue_ai_trigger_teams(world: &mut BattleState, at: &PreparedAiTrigger, hou
             teams.push(team2);
         }
     }
+    // 同触发多队时按 TeamType.Priority 高者先入队。
+    teams.sort_by(|a, b| {
+        let pa = world.prepared.team_types.iter().find(|t| t.id == *a).map(|t| t.priority).unwrap_or(0);
+        let pb = world.prepared.team_types.iter().find(|t| t.id == *b).map(|t| t.priority).unwrap_or(0);
+        pb.cmp(&pa)
+    });
     for team_id in teams {
-        if world.trigger_runtime.pending_team_spawns.iter().any(|(id, h)| *id == team_id && *h == house_override) {
-            continue;
-        }
-        if let Some(team) = world.prepared.team_types.iter().find(|t| t.id == team_id) {
-            if team.max > 0 {
-                let active = world.script_team_runtime.count_active_of_type(team.id);
-                if active >= team.max as usize {
-                    continue;
-                }
-            }
-        }
-        world.trigger_runtime.pending_team_spawns.push((team_id, house_override));
+        let _ = crate::gameplay::script_teams::try_enqueue_team_spawn(world, team_id, house_override, None);
     }
     world.ai_trigger_runtime.cooldowns.insert(at.id, AI_TRIGGER_COOLDOWN_TICKS);
 }

@@ -1,6 +1,6 @@
 //! 剧本小队：按 TaskForce / TeamType 在航点生成增援，并按 ScriptTypes 最小步进。
 
-use ra_types::{EntityId, MapWaypoint, PlayerId, PreparedTaskForce, PreparedTeamType, ScriptTypeId, TeamTypeId};
+use ra_types::{EntityId, HouseId, MapWaypoint, PlayerId, PreparedTaskForce, PreparedTeamType, ScriptTypeId, TeamTypeId};
 
 use crate::{game::GameCommand, gameplay::houses_are_allied, state::BattleState};
 
@@ -18,6 +18,17 @@ const SCRIPT_ACTION_JUMP_TO_LINE: i32 = 8;
 /// 攻击航点时，在航点曼哈顿距离内搜敌的半径（格）。
 const ATTACK_WAYPOINT_SEARCH_RADIUS: u32 = 8;
 
+/// 待创建的 TeamType 产队请求。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PendingTeamSpawn {
+    /// TeamType 稳定 id。
+    pub team_id: TeamTypeId,
+    /// 产队房主覆盖；`None` = 用 TeamType.House。
+    pub house_override: Option<HouseId>,
+    /// 航点编号覆盖；`None` = 用 TeamType.Waypoint。
+    pub waypoint_override: Option<i32>,
+}
+
 /// 已生成、仍在执行 Script 的小队。
 #[derive(Debug, Clone)]
 struct ActiveScriptTeam {
@@ -34,13 +45,67 @@ pub struct ScriptTeamRuntime {
 }
 
 impl ScriptTeamRuntime {
-    /// 统计指定 TeamType 当前仍登记的活跃小队数（供 AITrigger `Max=`）。
+    /// 统计指定 TeamType 当前仍登记的活跃小队数（供 `Max=`）。
     pub fn count_active_of_type(&self, team_type_id: TeamTypeId) -> usize {
         self.active.iter().filter(|t| t.team_type_id == team_type_id).count()
     }
 }
 
-/// 消费 `pending_team_spawns`，按 TeamType + TaskForce 在航点生成单位。
+/// 若未达 `Max=` 且未重复排队，则将 TeamType 排入 `pending_team_spawns`。
+///
+/// 返回是否成功入队。
+pub(crate) fn try_enqueue_team_spawn(
+    world: &mut BattleState,
+    team_id: TeamTypeId,
+    house_override: Option<HouseId>,
+    waypoint_override: Option<i32>,
+) -> bool {
+    if world.trigger_runtime.pending_team_spawns.iter().any(|p| {
+        p.team_id == team_id && p.house_override == house_override && p.waypoint_override == waypoint_override
+    }) {
+        return false;
+    }
+    if let Some(team) = world.prepared.team_types.iter().find(|t| t.id == team_id) {
+        if team.max > 0 {
+            let active = world.script_team_runtime.count_active_of_type(team.id);
+            let pending = world.trigger_runtime.pending_team_spawns.iter().filter(|p| p.team_id == team_id).count();
+            if active.saturating_add(pending) >= team.max as usize {
+                return false;
+            }
+        }
+    }
+    world.trigger_runtime.pending_team_spawns.push(PendingTeamSpawn { team_id, house_override, waypoint_override });
+    true
+}
+
+/// `Autocreate=yes` 的 TeamType：房主已开始生产且未达 `Max=` 时自动排队。
+pub fn tick_autocreate_teams(world: &mut BattleState) {
+    let teams = world.prepared.team_types.clone();
+    for team in teams {
+        if !team.autocreate {
+            continue;
+        }
+        let Some(house) = team.house
+        else {
+            // `<all>` 通配不自动产队，避免对每个对手刷队。
+            continue;
+        };
+        let Some(house_key) = world.definitions.houses.get_by_id(house).map(|h| h.type_key.as_str().to_string())
+        else {
+            continue;
+        };
+        if crate::gameplay::ai::is_ambient_house(&house_key) {
+            continue;
+        }
+        world.ensure_house(&house_key);
+        if !world.house_production_begun(&house_key) {
+            continue;
+        }
+        let _ = try_enqueue_team_spawn(world, team.id, None, None);
+    }
+}
+
+/// 消费 `pending_team_spawns`，按 TaskForce / TeamType 在航点生成单位。
 pub fn flush_pending_team_spawns(world: &mut BattleState) {
     let pending = std::mem::take(&mut world.trigger_runtime.pending_team_spawns);
     if pending.is_empty() {
@@ -49,12 +114,12 @@ pub fn flush_pending_team_spawns(world: &mut BattleState) {
     let teams = world.prepared.team_types.clone();
     let forces = world.prepared.task_forces.clone();
     let waypoints = world.prepared.definition.waypoints.clone();
-    for (team_id, house_override) in pending {
-        let Some(team) = teams.iter().find(|t| t.id == team_id)
+    for spawn in pending {
+        let Some(team) = teams.iter().find(|t| t.id == spawn.team_id)
         else {
             continue;
         };
-        spawn_team_type(world, team, &forces, &waypoints, house_override);
+        spawn_team_type(world, team, &forces, &waypoints, spawn.house_override, spawn.waypoint_override);
     }
 }
 
@@ -274,6 +339,7 @@ fn spawn_team_type(
     forces: &[PreparedTaskForce],
     waypoints: &[MapWaypoint],
     house_override: Option<ra_types::HouseId>,
+    waypoint_override: Option<i32>,
 ) {
     let Some(force) = forces.iter().find(|f| f.id == team.task_force)
     else {
@@ -288,8 +354,9 @@ fn spawn_team_type(
         return;
     };
     world.ensure_house(&house_key);
-    // 产队格：优先 `TeamType.Waypoint=` 航点编号；未指定（<0）或缺失时回退 index 0。
-    let spawn_wp = if team.waypoint >= 0 { waypoints.iter().find(|w| w.index as i32 == team.waypoint) } else { None };
+    // 产队格：动作航点覆盖 > TeamType.Waypoint= > index 0。
+    let waypoint_index = waypoint_override.filter(|n| *n >= 0).unwrap_or(team.waypoint);
+    let spawn_wp = if waypoint_index >= 0 { waypoints.iter().find(|w| w.index as i32 == waypoint_index) } else { None };
     let (wx, wy) = spawn_wp
         .or_else(|| waypoints.iter().find(|w| w.index == 0))
         .map(|w| (w.x, w.y))
@@ -342,7 +409,7 @@ fn spawn_team_type(
 
 /// 销毁指定 `TeamType`：取消排队产队，并击杀已生成实例、移出脚本队表。
 pub(crate) fn destroy_team_type(world: &mut BattleState, team_id: TeamTypeId) {
-    world.trigger_runtime.pending_team_spawns.retain(|(id, _)| *id != team_id);
+    world.trigger_runtime.pending_team_spawns.retain(|p| p.team_id != team_id);
     let mut kill = Vec::new();
     world.script_team_runtime.active.retain(|team| {
         let matched = team.team_type_id == team_id;

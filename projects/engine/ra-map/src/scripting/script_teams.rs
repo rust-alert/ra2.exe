@@ -1,6 +1,6 @@
 //! `[TaskForces]` / `[ScriptTypes]` / `[TeamTypes]`。
 
-use ra_assets::{IniDocument, from_csv_row, numbered_pairs, parse_westwood_csv_line};
+use ra_assets::{IniDocument, deserialize_opt_bool, from_csv_row, numbered_pairs, parse_westwood_csv_line};
 use ra_types::{HouseName, ScriptTypeName, TagName, TaskForceName, TeamTypeName, TechnoName};
 use serde::Deserialize;
 
@@ -67,8 +67,10 @@ pub struct MapTeamType {
     pub max: i32,
     /// `Priority=`。
     pub priority: i32,
-    /// `VeteranLevel=`。
+    /// `VeteranLevel=`（解析保留；单位晋升系统未接线前运行时不消费）。
     pub veteran_level: i32,
+    /// `Autocreate=`：生产开始后按 `Max=` 自动排队产队。
+    pub autocreate: bool,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -91,6 +93,8 @@ struct TeamTypeSectionFields {
     priority: Option<i32>,
     #[serde(rename = "VeteranLevel")]
     veteran_level: Option<i32>,
+    #[serde(rename = "Autocreate", default, deserialize_with = "deserialize_opt_bool")]
+    autocreate: Option<bool>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -191,6 +195,7 @@ pub fn parse_team_types(doc: &IniDocument) -> Vec<MapTeamType> {
             max: fields.max.unwrap_or(0),
             priority: fields.priority.unwrap_or(0),
             veteran_level: fields.veteran_level.unwrap_or(0),
+            autocreate: fields.autocreate.unwrap_or(false),
         });
     }
     out

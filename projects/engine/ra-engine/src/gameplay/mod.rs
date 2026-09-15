@@ -43,8 +43,8 @@ pub use powers::{
 pub(crate) use production::produce_ticks_for;
 pub(crate) use repair::tick_repairs;
 pub(crate) use rules::{full_verses, verses_for};
-pub use script_teams::ScriptTeamRuntime;
-pub(crate) use script_teams::{flush_pending_team_spawns, tick_script_teams};
+pub use script_teams::{PendingTeamSpawn, ScriptTeamRuntime};
+pub(crate) use script_teams::{flush_pending_team_spawns, tick_autocreate_teams, tick_script_teams};
 pub(crate) use starting_units::{compose_starting_unit_ids, format_type_keys, starting_deploy_clearance, starting_unit_pools};
 pub(crate) use tech_tree::{TechTreePlayer, build_limit_reached, is_type_eligible_id, living_structure_keys};
 pub use terrain_spawn::{

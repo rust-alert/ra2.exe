@@ -601,3 +601,28 @@ AT1=Strike,TM1,<all>,0\n\
     assert!(russian_e1 >= 2, "ALL AITrigger should spawn for non-local Russians, got {russian_e1}");
     assert_eq!(american_e1, 0, "ALL AITrigger must not spawn for local Americans");
 }
+
+#[test]
+fn ai_trigger_prefers_higher_team_type_priority() {
+    // 同房主两触发权重相同：只抽 Priority 更高的 TM_HI（3 个 E1），不抽 TM_LO（1 个）。
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n\
+[TaskForces]\n0=TF_LO\n1=TF_HI\n\
+[TF_LO]\nName=Lo\n0=1,E1\nGroup=-1\n\
+[TF_HI]\nName=Hi\n0=3,E1\nGroup=-1\n\
+[TeamTypes]\n0=TM_LO\n1=TM_HI\n\
+[TM_LO]\nName=Low\nHouse=Russians\nScript=\nTaskForce=TF_LO\nMax=1\nPriority=1\n\
+[TM_HI]\nName=High\nHouse=Russians\nScript=\nTaskForce=TF_HI\nMax=1\nPriority=50\n\
+[AITriggerTypes]\n\
+AT_LO=LowPrio,TM_LO,Russians,0\n\
+AT_HI=HighPrio,TM_HI,Russians,0\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "ai-prio.map", text).unwrap();
+    let engine = test_engine();
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs_with_e1(), map), "ai-prio");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.tick(&engine.runtime());
+    let e1 = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
+    assert_eq!(e1, 3, "higher TeamType.Priority must win the house pick, got {e1}");
+}

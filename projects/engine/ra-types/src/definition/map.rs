@@ -1484,8 +1484,10 @@ pub struct MapTeamType {
     pub max: i32,
     /// `Priority=`。
     pub priority: i32,
-    /// `VeteranLevel=`。
+    /// `VeteranLevel=`（解析保留；单位晋升系统未接线前运行时不消费）。
     pub veteran_level: i32,
+    /// `Autocreate=`。
+    pub autocreate: bool,
 }
 
 /// AITrigger 条件种类（原版 `ConditionType` 子集）。
@@ -2016,8 +2018,10 @@ pub struct PreparedTeamType {
     pub max: i32,
     /// `Priority=`。
     pub priority: i32,
-    /// `VeteranLevel=`。
+    /// `VeteranLevel=`（解析保留；单位晋升系统未接线前运行时不消费）。
     pub veteran_level: i32,
+    /// `Autocreate=`：生产开始后按 `Max=` 自动排队产队。
+    pub autocreate: bool,
 }
 
 /// 地图 `[AITriggerTypes]` 绑定后的运行形状。

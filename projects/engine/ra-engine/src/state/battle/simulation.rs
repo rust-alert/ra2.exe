@@ -59,6 +59,7 @@ impl BattleState {
                 SystemPhase::Triggers => {
                     crate::gameplay::tick_triggers(self);
                     crate::gameplay::tick_ai_triggers(self);
+                    crate::gameplay::tick_autocreate_teams(self);
                     crate::gameplay::flush_pending_team_spawns(self);
                     crate::gameplay::tick_script_teams(self);
                     crate::gameplay::tick_script_crates(self);

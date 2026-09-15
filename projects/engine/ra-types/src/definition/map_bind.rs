@@ -429,6 +429,7 @@ pub fn bind_map_team_types(
             max: team.max,
             priority: team.priority,
             veteran_level: team.veteran_level,
+            autocreate: team.autocreate,
         });
     }
     Ok(out)

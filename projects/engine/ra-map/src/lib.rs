@@ -689,6 +689,7 @@ fn map_team_type_to_definition(team: &crate::scripting::MapTeamType) -> ra_types
         max: team.max,
         priority: team.priority,
         veteran_level: team.veteran_level,
+        autocreate: team.autocreate,
     }
 }
 

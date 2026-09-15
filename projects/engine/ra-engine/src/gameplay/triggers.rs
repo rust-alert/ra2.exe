@@ -3,11 +3,11 @@
 use std::collections::{HashMap, HashSet};
 
 use ra_map::{MapActionKind, MapEntityKind, MapEventCondition, MapEventKind};
-use ra_types::{EntityId, HouseId, PreparedAction, PreparedActionCommand, PreparedEvent, PreparedTrigger, TagId, TeamTypeId, TriggerId};
+use ra_types::{EntityId, PreparedAction, PreparedActionCommand, PreparedEvent, PreparedTrigger, TagId, TriggerId};
 
 use crate::{
     game::{BattleOutcome, GameCommand},
-    gameplay::{ai::is_ambient_house, houses_are_allied},
+    gameplay::{ai::is_ambient_house, houses_are_allied, script_teams::try_enqueue_team_spawn},
     state::{
         BattleState,
         components::{Health, Identity, Owner, Transform},
@@ -34,8 +34,8 @@ pub struct TriggerRuntime {
     states: Vec<TriggerRuntimeState>,
     /// 未实现动作码（去重后供能力缺口报告）。
     pub unsupported_actions: Vec<i32>,
-    /// 待创建的 TeamType（可选产队房主覆盖；`None` = 用 TeamType.House）。
-    pub pending_team_spawns: Vec<(TeamTypeId, Option<HouseId>)>,
+    /// 待创建的 TeamType（可选产队房主 / 航点覆盖）。
+    pub pending_team_spawns: Vec<super::script_teams::PendingTeamSpawn>,
     /// 本 tick 请求的剧本胜负（由 BattleSession 消费）。
     pub pending_outcome: Option<BattleOutcome>,
     /// 胜利阻塞层数：开局等于含 `Allow Win` 动作的触发条数；归零后 `Win` 才生效。
@@ -430,9 +430,18 @@ fn apply_action(world: &mut BattleState, trigger_id: TriggerId, cmd: &PreparedAc
                 }
             }
         }
-        MapActionKind::CreateTeam | MapActionKind::Reinforcement | MapActionKind::ReinforcementAtWaypoint => {
+        MapActionKind::CreateTeam | MapActionKind::Reinforcement => {
             if let Some(team_id) = cmd.team_id {
-                world.trigger_runtime.pending_team_spawns.push((team_id, None));
+                let _ = try_enqueue_team_spawn(world, team_id, None, None);
+            }
+            else {
+                world.trigger_runtime.record_unsupported(kind);
+            }
+        }
+        MapActionKind::ReinforcementAtWaypoint => {
+            if let Some(team_id) = cmd.team_id {
+                let wp = action_waypoint_index_param(cmd).map(|n| n as i32);
+                let _ = try_enqueue_team_spawn(world, team_id, None, wp);
             }
             else {
                 world.trigger_runtime.record_unsupported(kind);

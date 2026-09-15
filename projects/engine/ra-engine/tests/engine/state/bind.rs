@@ -457,6 +457,7 @@ fn prepared_map_seed_binds_team_type_refs() {
         max: 1,
         priority: 10,
         veteran_level: 0,
+            autocreate: false,
     });
     let world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert_eq!(world.prepared.team_types.len(), 1);
@@ -489,6 +490,7 @@ fn unbound_team_type_task_force_rejects_battle_seed() {
         max: 1,
         priority: 10,
         veteran_level: 0,
+            autocreate: false,
     });
     let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown team task force must fail seed");
     let msg = err.to_string();
@@ -517,6 +519,7 @@ fn prepared_map_seed_binds_ai_trigger_team_and_house() {
         max: 1,
         priority: 0,
         veteran_level: 0,
+            autocreate: false,
     });
     map.scripting.ai_triggers.push(MapAiTrigger {
         id: "AI1".into(),
@@ -557,6 +560,7 @@ fn prepared_map_seed_binds_ai_trigger_team2() {
         max: 1,
         priority: 0,
         veteran_level: 0,
+            autocreate: false,
     });
     map.scripting.team_types.push(MapTeamType {
         id: "TM2".into(),
@@ -569,6 +573,7 @@ fn prepared_map_seed_binds_ai_trigger_team2() {
         max: 1,
         priority: 0,
         veteran_level: 0,
+            autocreate: false,
     });
     map.scripting.ai_triggers.push(MapAiTrigger {
         id: "AI1".into(),
@@ -621,6 +626,7 @@ fn unbound_ai_trigger_team2_rejects_battle_seed() {
         max: 1,
         priority: 0,
         veteran_level: 0,
+            autocreate: false,
     });
     map.scripting.ai_triggers.push(MapAiTrigger {
         id: "AI1".into(),
@@ -657,6 +663,7 @@ fn prepared_map_seed_binds_ai_trigger_condition_object_id() {
         max: 1,
         priority: 0,
         veteran_level: 0,
+            autocreate: false,
     });
     map.scripting.ai_triggers.push(MapAiTrigger {
         id: "AI1".into(),
@@ -693,6 +700,7 @@ fn unbound_ai_trigger_condition_object_rejects_battle_seed() {
         max: 1,
         priority: 0,
         veteran_level: 0,
+            autocreate: false,
     });
     map.scripting.ai_triggers.push(MapAiTrigger {
         id: "AI1".into(),
@@ -783,6 +791,7 @@ fn prepared_map_seed_binds_create_team_action_id() {
         max: 1,
         priority: 0,
         veteran_level: 0,
+            autocreate: false,
     });
     map.scripting.actions.push(MapAction {
         id: "TR1".into(),
@@ -851,6 +860,7 @@ fn seed_map_with_team(defs_house: &str) -> (MapInfo, String) {
         max: 1,
         priority: 0,
         veteran_level: 0,
+            autocreate: false,
     });
     (map, "TM1".into())
 }
