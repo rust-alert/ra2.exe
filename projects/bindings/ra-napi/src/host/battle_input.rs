@@ -915,6 +915,68 @@ pub fn should_try_hostile_order(order_mod: OrderClickModifier, has_mobile_select
     has_mobile_selected && !matches!(order_mod, OrderClickModifier::ForceMove)
 }
 
+/// 放置工具态落点语义。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlaceClickKind {
+    /// 可放置。
+    Place,
+    /// 无格或占地非法。
+    Noop,
+}
+
+/// 放置模式：有格且占地合法才下发。
+pub fn resolve_place_click(has_cell: bool, placeable: bool) -> PlaceClickKind {
+    if has_cell && placeable {
+        PlaceClickKind::Place
+    }
+    else {
+        PlaceClickKind::Noop
+    }
+}
+
+/// 出售 / 修理工具态：仅当命中本方建筑。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SidebarBuildingToolClickKind {
+    /// 对命中建筑执行工具。
+    Apply,
+    /// 未命中建筑。
+    Noop,
+}
+
+/// 出售或修理：有本方建筑命中才 Apply。
+pub fn resolve_sidebar_building_tool_click(has_local_building: bool) -> SidebarBuildingToolClickKind {
+    if has_local_building {
+        SidebarBuildingToolClickKind::Apply
+    }
+    else {
+        SidebarBuildingToolClickKind::Noop
+    }
+}
+
+/// 路径规划工具态落点语义。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlanningClickKind {
+    /// 追加可通行航点。
+    AppendWaypoint,
+    /// 有选中但不可通行。
+    Blocked,
+    /// 无选中或无格。
+    Noop,
+}
+
+/// 规划模式：有选中 + 可通行才追加；有选中不可通行为 Blocked。
+pub fn resolve_planning_click(has_selection: bool, has_cell: bool, traversable: bool) -> PlanningClickKind {
+    if !has_selection || !has_cell {
+        PlanningClickKind::Noop
+    }
+    else if traversable {
+        PlanningClickKind::AppendWaypoint
+    }
+    else {
+        PlanningClickKind::Blocked
+    }
+}
+
 impl EdgeScrollDir {
     /// 由轴向意图合成方向（可对角）。
     pub fn from_axes(west: bool, east: bool, north: bool, south: bool) -> Self {
@@ -1802,5 +1864,44 @@ mod tests {
         assert!(!should_skip_friendly_pick(OrderClickModifier::ForceMove, false));
         assert!(should_try_hostile_order(OrderClickModifier::None, true));
         assert!(!should_try_hostile_order(OrderClickModifier::ForceMove, true));
+    }
+
+    #[test]
+    fn tool_mode_place_sell_repair_planning_matrix() {
+        assert_eq!(resolve_place_click(true, true), PlaceClickKind::Place);
+        assert_eq!(resolve_place_click(true, false), PlaceClickKind::Noop);
+        assert_eq!(resolve_place_click(false, true), PlaceClickKind::Noop);
+        assert_eq!(resolve_sidebar_building_tool_click(true), SidebarBuildingToolClickKind::Apply);
+        assert_eq!(resolve_sidebar_building_tool_click(false), SidebarBuildingToolClickKind::Noop);
+        assert_eq!(
+            resolve_planning_click(true, true, true),
+            PlanningClickKind::AppendWaypoint
+        );
+        assert_eq!(resolve_planning_click(true, true, false), PlanningClickKind::Blocked);
+        assert_eq!(resolve_planning_click(false, true, true), PlanningClickKind::Noop);
+        assert_eq!(resolve_planning_click(true, false, true), PlanningClickKind::Noop);
+    }
+
+    #[test]
+    fn sequence_shift_hold_focus_lost_clears_modifier_without_release() {
+        // Shift 按住选中 → 失焦 → 恢复：修饰键静默清空，无 mod_released，避免幽灵加选。
+        let mut t = BattleInputTracker::default();
+        t.begin_frame();
+        t.set_modifiers(true, false, false);
+        assert!(t.modifiers.shift);
+        assert!(t.edges.mod_pressed.shift);
+        t.begin_frame();
+        t.set_left(true);
+        assert!(t.buttons.left && t.edges.left_pressed);
+        t.set_focused(false);
+        assert!(!t.modifiers.shift);
+        assert!(!t.buttons.left);
+        assert!(t.edges.focus_lost);
+        assert!(!t.edges.mod_released.shift);
+        assert!(!t.edges.left_released);
+        t.begin_frame();
+        t.set_focused(true);
+        assert!(!t.modifiers.any());
+        assert!(!t.buttons.any());
     }
 }

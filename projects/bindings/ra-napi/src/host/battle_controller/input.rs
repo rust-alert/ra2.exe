@@ -214,6 +214,7 @@ impl BattleController {
 
         // —— 工具 / 命令模式（互斥）——
         if let Some(type_id) = mode.place_type_id() {
+            use super::super::battle_input::{PlaceClickKind, resolve_place_click};
             let intent = match probe.cell {
                 Some(cell) => {
                     let placeable = game
@@ -226,14 +227,12 @@ impl BattleController {
                             Some(game.world.can_place_building_for(house.house.as_ref(), sdef.id, cell.0, cell.1))
                         })
                         .unwrap_or(false);
-                    if placeable {
-                        WorldClickIntent::PlaceBuilding {
+                    match resolve_place_click(true, placeable) {
+                        PlaceClickKind::Place => WorldClickIntent::PlaceBuilding {
                             type_id: type_id.to_string(),
                             cell,
-                        }
-                    }
-                    else {
-                        WorldClickIntent::Noop
+                        },
+                        PlaceClickKind::Noop => WorldClickIntent::Noop,
                     }
                 }
                 None => WorldClickIntent::Noop,
@@ -241,23 +240,26 @@ impl BattleController {
             return finish(intent);
         }
         if mode.is_sell() {
-            let intent = match probe.local_building {
-                Some(id) => WorldClickIntent::Sell(id),
-                None => WorldClickIntent::Noop,
+            use super::super::battle_input::{SidebarBuildingToolClickKind, resolve_sidebar_building_tool_click};
+            let intent = match (resolve_sidebar_building_tool_click(probe.local_building.is_some()), probe.local_building) {
+                (SidebarBuildingToolClickKind::Apply, Some(id)) => WorldClickIntent::Sell(id),
+                _ => WorldClickIntent::Noop,
             };
             return finish(intent);
         }
         if mode.is_repair() {
-            let intent = match probe.local_building {
-                Some(id) => WorldClickIntent::Repair(id),
-                None => WorldClickIntent::Noop,
+            use super::super::battle_input::{SidebarBuildingToolClickKind, resolve_sidebar_building_tool_click};
+            let intent = match (resolve_sidebar_building_tool_click(probe.local_building.is_some()), probe.local_building) {
+                (SidebarBuildingToolClickKind::Apply, Some(id)) => WorldClickIntent::Repair(id),
+                _ => WorldClickIntent::Noop,
             };
             return finish(intent);
         }
         if mode.is_planning() {
-            let intent = match probe.cell {
-                Some(cell) if !selected.is_empty() && probe.traversable => WorldClickIntent::AppendWaypoint { cell },
-                Some(_) if !selected.is_empty() => WorldClickIntent::Blocked,
+            use super::super::battle_input::{PlanningClickKind, resolve_planning_click};
+            let intent = match (resolve_planning_click(!selected.is_empty(), probe.cell.is_some(), probe.traversable), probe.cell) {
+                (PlanningClickKind::AppendWaypoint, Some(cell)) => WorldClickIntent::AppendWaypoint { cell },
+                (PlanningClickKind::Blocked, _) => WorldClickIntent::Blocked,
                 _ => WorldClickIntent::Noop,
             };
             return finish(intent);
