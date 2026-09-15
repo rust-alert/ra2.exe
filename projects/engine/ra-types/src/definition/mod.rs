@@ -50,7 +50,7 @@ pub use deployable::{DeployableDefinition, DeployableDefinitions, DeploymentPlac
 pub use fingerprint::ContentFingerprint;
 pub use foundation::Foundation;
 pub use house_list::{ColorName, HouseAllowList, HouseIdAllowList, HouseName, SideName};
-pub use land::{LandType, TMP_TERRAIN_TO_LAND, ground_passable, land_passable, tmp_terrain_to_land_type};
+pub use land::{LandType, TMP_TERRAIN_TO_LAND, ground_passable, land_buildable, land_passable, tmp_terrain_to_land_type};
 pub use locomotor::LocomotorDefinitions;
 pub use map::{
     AiTriggerCompareOp, AiTriggerConditionKind, AiTriggerName, DEFAULT_AI_TRIGGER_WEIGHT, GameModeName, MapAction, MapActionCommand,

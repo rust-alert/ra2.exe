@@ -850,3 +850,66 @@ fn build_off_ally_allows_adjacent_to_allied_yard() {
     world.set_build_off_ally(true);
     assert!(world.can_place_building_for("AMERICANS", power, 5, 4), "build_off_ally must accept allied BaseNormal zone");
 }
+
+#[test]
+fn place_building_rejects_harvestable_ore_cell() {
+    let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAPOWR\n\
+[OverlayTypes]\n0=GEM01\n\
+[GEM01]\nTiberium=yes\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
+[GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\nFoundation=2x2\n";
+    let defs = defs_from_rules_ini(rules_text);
+    let mut map = MapInfo::empty(GameEdition::Ra2, "no-build-on-ore");
+    map.width = 16;
+    map.height = 16;
+    // 宝石盖住拟落点 (6,4) 一角；通行仍可走，但建筑必须拒。
+    map.overlays = vec![ra_map::OverlayCell { x: 6, y: 4, overlay_id: 0, data: 8 }];
+    map.entities = vec![MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "AMERICANS".into(),
+        type_id: "GACNST".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    }];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.pass_grid.is_passable(6, 4), "ore remains walkable for units");
+    assert!(world.harvestable_ore_at(6, 4).is_some());
+    let power = world.definitions.techno.get("GAPOWR").expect("GAPOWR").id;
+    assert!(!world.can_place_building_for("AMERICANS", power, 6, 4));
+    assert!(!world.can_place_building_for_ai("AMERICANS", power, 6, 4, 0));
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+    queue_until_ready(&mut world, "GAPOWR");
+    world.push_command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: power, x: 6, y: 4 });
+    world.advance_tick();
+    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidPlacement);
+    assert_eq!(world.entity_count(), 1);
+}
+
+#[test]
+fn place_building_rejects_uneven_foundation_height() {
+    let mut world = yard_world();
+    let power = world.definitions.techno.get("GAPOWR").expect("GAPOWR").id;
+    // 2x2 落点 (6,4)：抬高一角模拟悬崖半悬。
+    world.pass_grid.set_height(6, 4, 0);
+    world.pass_grid.set_height(7, 4, 0);
+    world.pass_grid.set_height(6, 5, 0);
+    world.pass_grid.set_height(7, 5, 2);
+    assert!(!world.can_place_building_for("AMERICANS", power, 6, 4));
+    assert!(!world.can_place_building_for_ai("AMERICANS", power, 6, 4, 0));
+}
+
+#[test]
+fn place_building_rejects_terrain_occupancy_tree() {
+    let mut world = yard_world();
+    let power = world.definitions.techno.get("GAPOWR").expect("GAPOWR").id;
+    let idx = |x: u16, y: u16| (y as usize) * (world.prepared.pass_width as usize) + (x as usize);
+    // 故意只标地形占格、保持可走：旧逻辑会漏掉树。
+    world.prepared.occupancy[idx(6, 4)] = occupancy_kind::TERRAIN;
+    world.pass_grid.set_passable(6, 4, true);
+    assert!(!world.can_place_building_for("AMERICANS", power, 6, 4));
+}

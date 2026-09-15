@@ -1,6 +1,6 @@
 //! 自顶层 `land.rs`。
 
-use ra_map::{LandType, ground_passable, land_passable, tmp_terrain_to_land_type};
+use ra_map::{LandType, ground_passable, land_buildable, land_passable, tmp_terrain_to_land_type};
 
 #[test]
 fn tmp_water_byte_blocks_ground() {
@@ -35,4 +35,17 @@ fn land_name_and_passable() {
     assert!(land_passable(LandType::Road));
     assert!(!land_passable(LandType::Water));
     assert!(!land_passable(LandType::Wall));
+}
+
+#[test]
+fn ore_walkable_but_not_buildable() {
+    assert!(land_passable(LandType::Tiberium), "units may walk ore");
+    assert!(!land_buildable(LandType::Tiberium), "structures must not sit on ore");
+    assert!(land_buildable(LandType::Clear));
+    assert!(land_buildable(LandType::Road));
+    assert!(land_buildable(LandType::Rough));
+    assert!(!land_buildable(LandType::Rock));
+    assert!(!land_buildable(LandType::Water));
+    assert!(!land_buildable(LandType::Beach));
+    assert!(!land_buildable(LandType::Wall));
 }

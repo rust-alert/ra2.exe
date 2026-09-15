@@ -65,15 +65,14 @@ pub use compose::{
 pub use fallback_preview::{RawRgbaImage, load_fallback_theater_tile, load_fallback_unit_sprite};
 pub use iso_math::{HEIGHT_STEP, TILE_HEIGHT, TILE_WIDTH, iso_to_screen, screen_to_iso};
 pub use iso_pack::{IsoCell, decode_iso_map_pack, parse_iso_cells};
-pub use land::{LandType, ground_passable, land_passable, tmp_terrain_to_land_type};
+pub use land::{LandType, ground_passable, land_buildable, land_passable, tmp_terrain_to_land_type};
 pub use lighting::{
     LEPTONS_PER_CELL, LightingConfig, LightingProfile, MapLightingProfiles, PointLight, StructureLightTable, apply_rgba_tint,
     cell_light_scalar, cell_tint, cell_tint_with_lights, collect_structure_point_lights, light_value_to_units, parse_lighting,
     parse_map_lighting, point_light_at, point_light_from_profile, radiation_point_light, terrain_tint,
 };
 pub use mobile_paint::{
-    MobilePaintPose, apply_mobile_pose_offset, infantry_facing_slot, infantry_sub_cell_offsets, paint_map_mobiles,
-    slide_offset_along_path,
+    MobilePaintPose, apply_mobile_pose_offset, infantry_facing_slot, infantry_sub_cell_offsets, paint_map_mobiles, slide_offset_along_path,
 };
 pub use overlay::{NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID, OverlayCell, decode_overlay_packs};
 pub use overlay_paint::{

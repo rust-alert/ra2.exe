@@ -146,6 +146,16 @@ pub fn land_passable(land: LandType) -> bool {
     !matches!(land, LandType::Water | LandType::Rock | LandType::Wall)
 }
 
+/// 规范陆地是否允许**陆地**建筑落位。
+///
+/// 单位仍可走矿格；建筑不可压矿 / 岩 / 墙 / 水 / 沙滩。
+pub fn land_buildable(land: LandType) -> bool {
+    matches!(
+        land,
+        LandType::Clear | LandType::Road | LandType::Rough | LandType::Ice | LandType::Railroad | LandType::Tunnel | LandType::Weeds
+    )
+}
+
 /// 地面单位粗判：先把 TMP 字节映到规范陆地，再判水 / 岩 / 墙不可走。
 pub fn ground_passable(terrain_type: u8) -> bool {
     land_passable(tmp_terrain_to_land_type(terrain_type))

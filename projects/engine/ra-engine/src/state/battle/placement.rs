@@ -1,4 +1,4 @@
-use ra_map::{LandType, MapEntityKind};
+use ra_map::{LandType, MapEntityKind, land_buildable};
 use ra_types::{TypeId, occupancy_kind};
 
 use super::types::BattleState;
@@ -13,13 +13,16 @@ impl BattleState {
 
     /// 以 `(x,y)` 为左上角，检查 `width×height` 矩形是否全部可放置。
     ///
-    /// - `water_bound=false`：每格须陆地可通行（`is_passable`）。
+    /// - `water_bound=false`：每格须陆地可通行且 [`land_buildable`]。
     /// - `water_bound=true`：每格须规范陆地为 [`LandType::Water`]（不要求地面通行）。
+    /// - 占地内高度须一致（拒悬崖半悬）。
+    /// - 拒可采矿 / 宝石、拒静态地形物件（树等）。
     ///
     /// 不含建区邻接；玩家 / AI 落建筑请用 [`Self::can_place_building_for`]。
     pub fn can_place_structure_footprint(&self, x: u16, y: u16, width: u16, height: u16, water_bound: bool) -> bool {
         let width = width.max(1);
         let height = height.max(1);
+        let mut height0: Option<u8> = None;
         for dy in 0..height {
             for dx in 0..width {
                 let Some(cx) = x.checked_add(dx)
@@ -32,6 +35,12 @@ impl BattleState {
                 };
                 if !self.cell_ok_for_structure(cx, cy, water_bound) {
                     return false;
+                }
+                let z = self.pass_grid.cell_height(cx, cy);
+                match height0 {
+                    None => height0 = Some(z),
+                    Some(h) if h != z => return false,
+                    Some(_) => {}
                 }
             }
         }
@@ -60,7 +69,7 @@ impl BattleState {
     /// AI 落位：占地几何 + `AIBaseSpacing` 最少空隙（可选优先多一格）+ 船厂最大距。
     ///
     /// 不走人类 `Adjacent` 建区；墙仍可用 `GuardRange` 链。`min_gap_cells` 为足迹间最少空隙格数
-    ///（切比雪夫 `d >= min_gap_cells + 1`）。围墙不参与间距锚点，避免墙把基地撑开。
+    /// （切比雪夫 `d >= min_gap_cells + 1`）。围墙不参与间距锚点，避免墙把基地撑开。
     pub fn can_place_building_for_ai(&self, house: &str, type_id: TypeId, x: u16, y: u16, min_gap_cells: u32) -> bool {
         let Some(sdef) = self.definitions.structures.get_by_id(type_id)
         else {
@@ -219,11 +228,7 @@ impl BattleState {
             };
             let own = owner.house == house_id;
             let ally_ok = self.build_off_ally
-                && crate::gameplay::houses_are_allied(
-                    self,
-                    house,
-                    crate::gameplay::house_key_of(&self.definitions, owner.house),
-                );
+                && crate::gameplay::houses_are_allied(self, house, crate::gameplay::house_key_of(&self.definitions, owner.house));
             if !own && !ally_ok {
                 return false;
             }
@@ -318,7 +323,7 @@ impl BattleState {
         orthogonal_cells_between(ax, ay, bx, by).into_iter().all(|(cx, cy)| self.cell_ok_for_structure(cx, cy, water_bound))
     }
 
-    /// 单格是否满足建筑落位的陆地 / 水域条件（含实体占用）。
+    /// 单格是否满足建筑落位的陆地 / 水域条件（含实体占用、矿、树）。
     pub fn cell_ok_for_structure(&self, cx: u16, cy: u16, water_bound: bool) -> bool {
         if !self.pass_grid.in_bounds(cx, cy) {
             return false;
@@ -326,7 +331,20 @@ impl BattleState {
         if self.cell_blocked_by_entity(cx, cy) {
             return false;
         }
-        if water_bound { self.pass_grid.land_type(cx, cy) == LandType::Water } else { self.pass_grid.is_passable(cx, cy) }
+        // 树等 `[Terrain]` 占格：即使通行层误开也拒建。
+        if self.prepared_occupancy_at(cx, cy) == Some(occupancy_kind::TERRAIN) {
+            return false;
+        }
+        // 可采矿 / 宝石：单位可走，建筑不可压（AI「贴矿」不得落到矿心）。
+        if self.harvestable_ore_at(cx, cy).is_some() {
+            return false;
+        }
+        if water_bound {
+            self.pass_grid.land_type(cx, cy) == LandType::Water
+        }
+        else {
+            self.pass_grid.is_passable(cx, cy) && land_buildable(self.pass_grid.land_type(cx, cy))
+        }
     }
 
     /// 格上是否有存活实体占用：机动单位看锚点格，建筑看完整 `Foundation` 矩形。
