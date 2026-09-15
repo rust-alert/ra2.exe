@@ -906,7 +906,7 @@ pub fn boot_world_with_progress(
                 let hints = ore_tree_frame_count_hints(&ore_tree_anims);
                 opened.session.expect_battle_mut().world.apply_ore_tree_frame_counts(&hints);
             }
-            // 航点播种的 MCV 不在地图放置段：保留无 mobile 底图，再叠到对局底图。
+            // 航点播种的 MCV / Unit Count 不在地图放置段：`preview_base` 为无地图机动底图，再叠会话实体。
             if let Some(base) = preview_base.as_mut() {
                 preview_clean = Some(base.clone());
                 let painted =

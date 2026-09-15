@@ -42,7 +42,9 @@ pub struct SkirmishPreviewStats {
 pub struct BootPreviewResult {
     /// 预览图像（已叠当前时钟活动层）。
     pub image: RawRgbaImage,
-    /// 不含建筑/地形活动层与矿柱的预览底图（对局时钟刷新用）。
+    /// 不含建筑/地形活动层、矿柱与**地图预放机动单位**的预览底图（对局时钟刷新用）。
+    ///
+    /// 遭遇战权威世界会剥离地图机动单位；底图若烤入预放 SHP，会出现点不到的鬼影单位。
     pub base_without_anims: RgbaImage,
     /// 不含可采 overlay 的定格底图（已含物件/建筑/桥；产矿与采集脏刷新 underlay）。
     pub ore_underlay: RgbaImage,
@@ -66,11 +68,11 @@ pub struct BootPreviewResult {
     pub stats: SkirmishPreviewStats,
 }
 
-/// 合成启动预览图（地形 / overlay / 物件 / 建筑；地图放置段里的移动单位一并叠画）。
+/// 合成启动预览图（地形 / overlay / 物件 / 建筑；最终图可含地图放置段移动单位）。
 ///
 /// 顺序：非可采地面 overlay →（分叉 underlay）→ 可采 overlay（仅主图）→
-/// 静态地形物件 / 建筑 / 桥（主图与 underlay 同步）→ 移动单位（仅主图）→
-/// 动画地形 → 矿柱 Idle → 建筑活动层。
+/// 静态地形物件 / 建筑 / 桥（主图与 underlay 同步）→ **快照无机动底图** →
+/// 移动单位（仅最终主图，不进 `base_without_anims`）→ 动画地形 → 矿柱 Idle → 建筑活动层。
 /// `ore_underlay` = 无可采矿的定格层，脏刷新时 `clone` 后再叠当前可采矿即可。
 ///
 /// `structure_lights` 来自冻结建筑定义（宿主侧 `StructureLightTable::from_structures`）。
@@ -141,8 +143,10 @@ pub fn compose_skirmish_preview(
     let structureless_clean = structureless_clean.image;
     let structureless_underlay = structureless_underlay.image;
     let anim_bank = collect_structure_anim_bank(source, map, paint, remap_owner);
-    let mobiles = paint_map_mobiles(source, map, &mut image, paint, remap_owner, &|_, _| MobilePaintPose::default());
+    // 对局刷新底图不得烤入地图预放机动单位：遭遇战会剥世界实体，但若底图已含 SHP 鬼影，
+    // 开局会在玩家附近「看见」动员兵 / 黑鹰等，却点不到。会话实体另由 `paint_mobiles_onto_preview_rgba` 叠画。
     let base_without_anims = image.image.clone();
+    let mobiles = paint_map_mobiles(source, map, &mut image, paint, remap_owner, &|_, _| MobilePaintPose::default());
     // 旗帜等常循环地形在刷新时叠在建筑主体之上。
     let terrain_anim_n = paint_terrain_anim_bank(&mut image, &terrain_anim_bank, anim_clock_ms);
     let ore_idle: Vec<(u16, u16, u16)> = ore_tree_anim_bank.layers.iter().map(|l| (l.x, l.y, 0)).collect();
