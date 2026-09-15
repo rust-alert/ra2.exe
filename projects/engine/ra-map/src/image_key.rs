@@ -6,7 +6,7 @@
 use ra_assets::IniDocument;
 
 /// 解析主体 / 几何 / 图标共用的 image 键（大写）。
-pub(crate) fn resolve_techno_image_key(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str) -> String {
+pub fn resolve_techno_image_key(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str) -> String {
     let type_id = type_id.trim();
     let from_rules = rules.and_then(|r| r.get(type_id, "Image")).map(str::trim).filter(|s| !s.is_empty());
     let from_art = art.and_then(|a| a.get(type_id, "Image")).map(str::trim).filter(|s| !s.is_empty());

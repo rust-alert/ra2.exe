@@ -4,8 +4,8 @@ use std::collections::HashMap;
 
 use ra_assets::Palette;
 use ra_map::{
-    diagnose_mobile_vxl, diagnose_mobile_vxl_sweep_hva, diagnose_mobile_vxl_sweep_turret, mobile_vxl_diag_facing_sweep_bytes,
-    mobile_vxl_diag_hva_sweep_frames, MOBILE_VXL_TURRET_SUFFIXES,
+    diagnose_mobile_vxl, diagnose_mobile_vxl_sweep_body, diagnose_mobile_vxl_sweep_hva, diagnose_mobile_vxl_sweep_turret,
+    mobile_vxl_diag_facing_sweep_bytes, mobile_vxl_diag_hva_sweep_frames, MOBILE_VXL_TURRET_SUFFIXES, TILE_HEIGHT, TILE_WIDTH,
 };
 use ra_types::{AssetSource, RaError, RaResult};
 
@@ -164,6 +164,43 @@ fn diagnose_stops_after_first_bar_suffix() {
     let report = diagnose_mobile_vxl(&source, "tank", 64, 64, 0);
     assert!(report.layers.iter().any(|l| l.role == "barl"));
     assert!(!report.layers.iter().any(|l| l.role == "barrel"));
+}
+
+#[test]
+fn body_facing_sweep_keeps_world_foot_at_cell_center() {
+    // 不对称体素：offset 随朝向变，但 cell_offset + origin_p* 应恒为钻石中心（模型原点锚点）。
+    let mut files = HashMap::new();
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 0, 0));
+    files.insert("asym.vxl".into(), minimal_vxl_bytes());
+    files.insert("asym.hva".into(), identity_hva_bytes(4.0, 0.0, 0.0));
+    let source = MapSource { files };
+
+    let reports = diagnose_mobile_vxl_sweep_body(&source, "asym", 0, 0);
+    assert_eq!(reports.len(), mobile_vxl_diag_facing_sweep_bytes().len());
+    for report in &reports {
+        let body = layer(report, "body");
+        let ox = body.offset_x.expect("body offset_x");
+        let oy = body.offset_y.expect("body offset_y");
+        let cx = body.cell_offset_x.expect("body cell_offset_x");
+        let cy = body.cell_offset_y.expect("body cell_offset_y");
+        let px = body.origin_px.expect("body origin_px");
+        let py = body.origin_py.expect("body origin_py");
+        assert_eq!(cx + px, TILE_WIDTH / 2, "world foot X must stay at diamond center facing={}", report.body_facing);
+        assert_eq!(cy + py, TILE_HEIGHT / 2, "world foot Y must stay at diamond center facing={}", report.body_facing);
+        assert_eq!(cx, ox + TILE_WIDTH / 2);
+        assert_eq!(cy, oy + TILE_HEIGHT / 2);
+        let shadow = layer(report, "shadow");
+        let sox = shadow.offset_x.expect("shadow offset_x");
+        let soy = shadow.offset_y.expect("shadow offset_y");
+        let scx = shadow.cell_offset_x.expect("shadow cell_offset_x");
+        let scy = shadow.cell_offset_y.expect("shadow cell_offset_y");
+        let spx = shadow.origin_px.expect("shadow origin_px");
+        let spy = shadow.origin_py.expect("shadow origin_py");
+        assert_eq!(scx + spx, TILE_WIDTH / 2, "shadow world foot X facing={}", report.body_facing);
+        assert_eq!(scy + spy, TILE_HEIGHT / 2, "shadow world foot Y facing={}", report.body_facing);
+        assert_eq!(scx, sox + TILE_WIDTH / 2);
+        assert_eq!(scy, soy + TILE_HEIGHT / 2);
+    }
 }
 
 #[test]

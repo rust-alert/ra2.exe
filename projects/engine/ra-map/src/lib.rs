@@ -64,6 +64,7 @@ pub use compose::{
     paint_cell_sprites, paint_overlay_markers, paint_structure_missing_markers,
 };
 pub use fallback_preview::{RawRgbaImage, load_fallback_theater_tile, load_fallback_unit_sprite};
+pub use image_key::resolve_techno_image_key;
 pub use iso_math::{HEIGHT_STEP, TILE_HEIGHT, TILE_WIDTH, iso_to_screen, screen_to_iso};
 pub use iso_pack::{IsoCell, decode_iso_map_pack, parse_iso_cells};
 pub use land::{LandType, ground_passable, land_buildable, land_passable, tmp_terrain_to_land_type};
