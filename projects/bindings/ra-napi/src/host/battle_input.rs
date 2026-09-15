@@ -225,6 +225,8 @@ pub enum ResolvedPrimaryAction {
     SetRally,
     /// 清空选中。
     Deselect,
+    /// 不可通行落点（光标 `NoMove`，左键不下令）。
+    Blocked,
 }
 
 /// 战术区悬停一次解析的呈现摘要（光标 / 提示 / 左键共用）。
@@ -694,6 +696,7 @@ impl BattlePointer {
 /// `primary == Noop` 时仍可能显示工具光标（出售 / 修理 / 攻击移动悬空地）。
 pub fn recommended_pointer_for_primary(primary: ResolvedPrimaryAction, traversable: bool, tool: BattleToolKind) -> BattlePointer {
     match primary {
+        ResolvedPrimaryAction::Blocked => BattlePointer::NoMove,
         ResolvedPrimaryAction::Noop => match tool {
             BattleToolKind::Sell => BattlePointer::Sell,
             BattleToolKind::Repair => BattlePointer::Repair,
@@ -733,6 +736,102 @@ pub fn recommended_pointer_for_primary(primary: ResolvedPrimaryAction, traversab
         }
         ResolvedPrimaryAction::SetRally => BattlePointer::Move,
         ResolvedPrimaryAction::Deselect => BattlePointer::Default,
+    }
+}
+
+/// 由主动作构造悬停摘要（指针与 `primary` 同源）。
+pub fn build_resolved_hover(
+    primary: ResolvedPrimaryAction,
+    cell: Option<(u16, u16)>,
+    traversable: bool,
+    tool: BattleToolKind,
+) -> ResolvedBattleHover {
+    ResolvedBattleHover {
+        recommended_pointer: recommended_pointer_for_primary(primary, traversable, tool),
+        cell,
+        primary,
+    }
+}
+
+/// 战术区意图种类（无实体 id；供主动作映射与单测）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorldIntentKind {
+    /// 无动作。
+    Noop,
+    /// 不可通行。
+    Blocked,
+    /// 窗外清空选中。
+    OutsideClear,
+    /// 窗外保留选中。
+    OutsideKeep,
+    /// 放置。
+    PlaceBuilding,
+    /// 出售。
+    Sell,
+    /// 修理。
+    Repair,
+    /// 规划航点。
+    AppendWaypoint,
+    /// 跟随。
+    Follow,
+    /// 退出跟随。
+    FollowCancel,
+    /// 点选。
+    Select,
+    /// 加选。
+    AddSelect,
+    /// 部署。
+    Deploy,
+    /// 设主厂。
+    SetPrimary,
+    /// 攻击。
+    Attack,
+    /// 占领。
+    Capture,
+    /// 渗透。
+    Infiltrate,
+    /// 移动。
+    Move,
+    /// 攻击移动。
+    AttackMove,
+    /// 路径移动。
+    QueueMovePath,
+    /// 集结点。
+    SetRally,
+    /// 清空选中。
+    Deselect,
+}
+
+/// 意图种类 → 主动作（与光标 / 左键共用）。
+pub fn primary_for_intent_kind(kind: WorldIntentKind) -> ResolvedPrimaryAction {
+    match kind {
+        WorldIntentKind::Noop | WorldIntentKind::FollowCancel | WorldIntentKind::OutsideKeep => ResolvedPrimaryAction::Noop,
+        WorldIntentKind::Blocked => ResolvedPrimaryAction::Blocked,
+        WorldIntentKind::OutsideClear | WorldIntentKind::Deselect => ResolvedPrimaryAction::Deselect,
+        WorldIntentKind::PlaceBuilding => ResolvedPrimaryAction::PlaceBuilding,
+        WorldIntentKind::Sell => ResolvedPrimaryAction::Sell,
+        WorldIntentKind::Repair => ResolvedPrimaryAction::Repair,
+        WorldIntentKind::AppendWaypoint => ResolvedPrimaryAction::AppendWaypoint,
+        WorldIntentKind::Follow => ResolvedPrimaryAction::Follow,
+        WorldIntentKind::Select => ResolvedPrimaryAction::Select,
+        WorldIntentKind::AddSelect => ResolvedPrimaryAction::AddSelect,
+        WorldIntentKind::Deploy => ResolvedPrimaryAction::Deploy,
+        WorldIntentKind::SetPrimary => ResolvedPrimaryAction::SetPrimary,
+        WorldIntentKind::Attack => ResolvedPrimaryAction::Attack,
+        WorldIntentKind::Capture => ResolvedPrimaryAction::Capture,
+        WorldIntentKind::Infiltrate => ResolvedPrimaryAction::Infiltrate,
+        WorldIntentKind::Move => ResolvedPrimaryAction::Move,
+        WorldIntentKind::AttackMove => ResolvedPrimaryAction::AttackMove,
+        WorldIntentKind::QueueMovePath => ResolvedPrimaryAction::QueueMovePath,
+        WorldIntentKind::SetRally => ResolvedPrimaryAction::SetRally,
+    }
+}
+
+/// 下达移动 / 攻击等命令后应回到的工具态（攻击移动 / 跟随一次性消费）。
+pub fn tool_after_issued_order(current: BattleToolKind) -> BattleToolKind {
+    match current {
+        BattleToolKind::AttackMove | BattleToolKind::Follow => BattleToolKind::Normal,
+        other => other,
     }
 }
 
@@ -1643,6 +1742,10 @@ mod tests {
             recommended_pointer_for_primary(ResolvedPrimaryAction::AttackMove, true, BattleToolKind::AttackMove),
             BattlePointer::Attack
         );
+        assert_eq!(
+            recommended_pointer_for_primary(ResolvedPrimaryAction::Blocked, true, BattleToolKind::AttackMove),
+            BattlePointer::NoMove
+        );
     }
 
     #[test]
@@ -1734,15 +1837,18 @@ mod tests {
 
     #[test]
     fn blocked_ground_forces_nomove_even_under_attack_move_tool() {
-        // 控制器把 Blocked 映射为 Noop primary + 强制 NoMove；纯函数在 AttackMove+不可通行时也是 NoMove。
         assert_eq!(
-            recommended_pointer_for_primary(ResolvedPrimaryAction::Noop, false, BattleToolKind::AttackMove),
+            resolve_mobile_ground_order(false, false, OrderClickModifier::None, true),
+            MobileGroundOrderKind::Blocked
+        );
+        // Blocked 主动作优先于攻击移动工具态悬空地的 Attack 箭头。
+        assert_eq!(
+            recommended_pointer_for_primary(ResolvedPrimaryAction::Blocked, false, BattleToolKind::AttackMove),
             BattlePointer::NoMove
         );
-        assert_eq!(
-            recommended_pointer_for_primary(ResolvedPrimaryAction::AttackMove, false, BattleToolKind::AttackMove),
-            BattlePointer::NoMove
-        );
+        let hover = build_resolved_hover(ResolvedPrimaryAction::Blocked, Some((1, 1)), false, BattleToolKind::AttackMove);
+        assert_eq!(hover.primary, ResolvedPrimaryAction::Blocked);
+        assert_eq!(hover.recommended_pointer, BattlePointer::NoMove);
     }
 
     #[test]
@@ -1969,5 +2075,26 @@ mod tests {
             resolve_mobile_ground_order(true, false, OrderClickModifier::ForceMove, false),
             MobileGroundOrderKind::Move { queue_path: false }
         );
+    }
+
+    #[test]
+    fn primary_for_intent_kind_covers_blocked_and_select() {
+        assert_eq!(primary_for_intent_kind(WorldIntentKind::Blocked), ResolvedPrimaryAction::Blocked);
+        assert_eq!(primary_for_intent_kind(WorldIntentKind::AddSelect), ResolvedPrimaryAction::AddSelect);
+        assert_eq!(primary_for_intent_kind(WorldIntentKind::OutsideClear), ResolvedPrimaryAction::Deselect);
+        assert_eq!(primary_for_intent_kind(WorldIntentKind::OutsideKeep), ResolvedPrimaryAction::Noop);
+        assert_eq!(primary_for_intent_kind(WorldIntentKind::FollowCancel), ResolvedPrimaryAction::Noop);
+        let hover = build_resolved_hover(primary_for_intent_kind(WorldIntentKind::Move), Some((2, 3)), true, BattleToolKind::Normal);
+        assert_eq!(hover.recommended_pointer, BattlePointer::Move);
+        assert_eq!(hover.cell, Some((2, 3)));
+    }
+
+    #[test]
+    fn tool_after_issued_order_clears_attack_move_and_follow() {
+        assert_eq!(tool_after_issued_order(BattleToolKind::AttackMove), BattleToolKind::Normal);
+        assert_eq!(tool_after_issued_order(BattleToolKind::Follow), BattleToolKind::Normal);
+        assert_eq!(tool_after_issued_order(BattleToolKind::Repair), BattleToolKind::Repair);
+        assert_eq!(tool_after_issued_order(BattleToolKind::PlaceBuilding), BattleToolKind::PlaceBuilding);
+        assert_eq!(tool_after_issued_order(BattleToolKind::Normal), BattleToolKind::Normal);
     }
 }

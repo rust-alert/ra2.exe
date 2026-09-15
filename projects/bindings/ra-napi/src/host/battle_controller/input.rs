@@ -118,6 +118,37 @@ pub(super) enum WorldClickIntent {
     Deselect,
 }
 
+impl WorldClickIntent {
+    /// 可拷贝意图种类（供主动作 / 光标映射，不含实体 id）。
+    pub(super) fn kind(&self) -> super::super::battle_input::WorldIntentKind {
+        use super::super::battle_input::WorldIntentKind;
+        match self {
+            Self::Noop => WorldIntentKind::Noop,
+            Self::Blocked => WorldIntentKind::Blocked,
+            Self::OutsideWorld { clear_selection: true } => WorldIntentKind::OutsideClear,
+            Self::OutsideWorld { clear_selection: false } => WorldIntentKind::OutsideKeep,
+            Self::PlaceBuilding { .. } => WorldIntentKind::PlaceBuilding,
+            Self::Sell(_) => WorldIntentKind::Sell,
+            Self::Repair(_) => WorldIntentKind::Repair,
+            Self::AppendWaypoint { .. } => WorldIntentKind::AppendWaypoint,
+            Self::Follow { .. } => WorldIntentKind::Follow,
+            Self::FollowCancel => WorldIntentKind::FollowCancel,
+            Self::Select { add: true, .. } => WorldIntentKind::AddSelect,
+            Self::Select { add: false, .. } => WorldIntentKind::Select,
+            Self::Deploy => WorldIntentKind::Deploy,
+            Self::SetPrimary(_) => WorldIntentKind::SetPrimary,
+            Self::Attack { .. } => WorldIntentKind::Attack,
+            Self::Capture { .. } => WorldIntentKind::Capture,
+            Self::Infiltrate { .. } => WorldIntentKind::Infiltrate,
+            Self::Move { .. } => WorldIntentKind::Move,
+            Self::AttackMove { .. } => WorldIntentKind::AttackMove,
+            Self::QueueMovePath { .. } => WorldIntentKind::QueueMovePath,
+            Self::SetRally { .. } => WorldIntentKind::SetRally,
+            Self::Deselect => WorldIntentKind::Deselect,
+        }
+    }
+}
+
 impl BattleController {
     /// 把 `Session::tick_fraction` 写入战斗会话，供点选 / 框选与烤图同一滑移脚点。
     pub(super) fn sync_present_tick_fraction(&mut self) {
@@ -405,42 +436,8 @@ impl BattleController {
         traversable: bool,
         mode: &BattleInteractionMode,
     ) -> super::super::battle_input::ResolvedBattleHover {
-        use super::super::battle_input::{BattlePointer, ResolvedBattleHover, ResolvedPrimaryAction, recommended_pointer_for_primary};
-
-        let primary = match intent {
-            WorldClickIntent::Noop | WorldClickIntent::Blocked | WorldClickIntent::FollowCancel => ResolvedPrimaryAction::Noop,
-            WorldClickIntent::OutsideWorld { clear_selection: true } | WorldClickIntent::Deselect => ResolvedPrimaryAction::Deselect,
-            WorldClickIntent::OutsideWorld { clear_selection: false } => ResolvedPrimaryAction::Noop,
-            WorldClickIntent::PlaceBuilding { .. } => ResolvedPrimaryAction::PlaceBuilding,
-            WorldClickIntent::Sell(_) => ResolvedPrimaryAction::Sell,
-            WorldClickIntent::Repair(_) => ResolvedPrimaryAction::Repair,
-            WorldClickIntent::AppendWaypoint { .. } => ResolvedPrimaryAction::AppendWaypoint,
-            WorldClickIntent::Follow { .. } => ResolvedPrimaryAction::Follow,
-            WorldClickIntent::Select { add: true, .. } => ResolvedPrimaryAction::AddSelect,
-            WorldClickIntent::Select { add: false, .. } => ResolvedPrimaryAction::Select,
-            WorldClickIntent::Deploy => ResolvedPrimaryAction::Deploy,
-            WorldClickIntent::SetPrimary(_) => ResolvedPrimaryAction::SetPrimary,
-            WorldClickIntent::Attack { .. } => ResolvedPrimaryAction::Attack,
-            WorldClickIntent::Capture { .. } => ResolvedPrimaryAction::Capture,
-            WorldClickIntent::Infiltrate { .. } => ResolvedPrimaryAction::Infiltrate,
-            WorldClickIntent::Move { .. } => ResolvedPrimaryAction::Move,
-            WorldClickIntent::AttackMove { .. } => ResolvedPrimaryAction::AttackMove,
-            WorldClickIntent::QueueMovePath { .. } => ResolvedPrimaryAction::QueueMovePath,
-            WorldClickIntent::SetRally { .. } => ResolvedPrimaryAction::SetRally,
-        };
-        // 不可通行落点：强制 NoMove，避免工具态 Noop 仍显示攻击移动箭头。
-        let recommended_pointer = if matches!(intent, WorldClickIntent::Blocked) {
-            BattlePointer::NoMove
-        }
-        else {
-            recommended_pointer_for_primary(primary, traversable, mode.tool_kind())
-        };
-
-        ResolvedBattleHover {
-            recommended_pointer,
-            cell,
-            primary,
-        }
+        use super::super::battle_input::{build_resolved_hover, primary_for_intent_kind};
+        build_resolved_hover(primary_for_intent_kind(intent.kind()), cell, traversable, mode.tool_kind())
     }
 
     /// 可玩对局且未暂停 / 未结算时，壳层应捕获光标以支持边缘滚屏。
@@ -636,7 +633,8 @@ impl BattleController {
 
     /// 攻击 / 移动等下令后退出攻击移动与跟随工具态。
     pub(super) fn clear_order_tool_modes(&mut self) {
-        if self.interaction_mode.is_attack_move() || self.interaction_mode.is_follow() {
+        let next = super::super::battle_input::tool_after_issued_order(self.interaction_mode.tool_kind());
+        if next != self.interaction_mode.tool_kind() {
             self.interaction_mode = BattleInteractionMode::Normal;
         }
     }
