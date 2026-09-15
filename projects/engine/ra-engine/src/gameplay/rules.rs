@@ -31,8 +31,7 @@ pub(crate) enum VersesTargetingMode {
     PassiveAcquire,
     /// 玩家强制攻击（`F` 或倍率 > 0）。
     ForceFire,
-    /// 受击反击（`R` 或倍率 > 0）；反击接线切片消费。
-    #[allow(dead_code)]
+    /// 受击反击（`R` 或倍率 > 0）。
     Retaliate,
 }
 

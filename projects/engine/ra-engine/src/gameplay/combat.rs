@@ -15,7 +15,7 @@ use ra_types::ArmorKind;
 impl crate::state::BattleState {
     pub(crate) fn resolve_combat(&mut self) {
         let n = self.entities.len();
-        let mut damage_events: Vec<(std::sync::Arc<str>, usize, u32)> = Vec::new();
+        let mut damage_events: Vec<(ra_types::EntityId, std::sync::Arc<str>, usize, u32)> = Vec::new();
         for i in 0..n {
             let attacker_id = self.entities[i].id;
             let Some(health) = self.ecs_get::<Health>(attacker_id)
@@ -140,7 +140,7 @@ impl crate::state::BattleState {
                     .map(|w| w.report.as_str())
                     .filter(|r| !r.is_empty())
                     .map(str::to_string);
-                damage_events.push((attacker_house, ti, dmg));
+                damage_events.push((attacker_id, attacker_house.clone(), ti, dmg));
                 let cooldown_max = stats.attack_cooldown_max;
                 let _ = self.with_attack_mut(attacker_id, |attack| {
                     attack.cooldown = cooldown_max;
@@ -154,9 +154,75 @@ impl crate::state::BattleState {
                 }
             }
         }
-        for (killer_house, ti, dmg) in damage_events {
+        for (attacker_id, killer_house, ti, dmg) in damage_events {
+            let victim_id = self.entities.get(ti).map(|e| e.id);
             self.apply_damage_credited(ti, dmg, Some(killer_house.as_ref()));
+            if let Some(victim_id) = victim_id {
+                self.try_retaliate(victim_id, attacker_id);
+            }
         }
+    }
+
+    /// 受击且无当前目标时，按 Verses `R`（或倍率 > 0）回锁攻击者。
+    fn try_retaliate(&mut self, victim_id: ra_types::EntityId, attacker_id: ra_types::EntityId) {
+        if victim_id == attacker_id {
+            return;
+        }
+        if self.ecs_get::<Health>(victim_id).map(|h| h.dead).unwrap_or(true) {
+            return;
+        }
+        if self.ecs_get::<Health>(attacker_id).map(|h| h.dead).unwrap_or(true) {
+            return;
+        }
+        let Some(victim_identity) = self.ecs_get::<Identity>(victim_id).cloned()
+        else {
+            return;
+        };
+        if !is_mobile(victim_identity.kind) {
+            return;
+        }
+        if victim_identity.mission == Some(ra_types::MissionKind::Guard) {
+            return;
+        }
+        if self
+            .ecs_get::<AttackState>(victim_id)
+            .is_some_and(|a| a.target.is_some() || a.infiltrate_target.is_some() || a.capture_target.is_some())
+        {
+            return;
+        }
+        if self.ecs_get::<CombatStats>(victim_id).map(|s| s.attack_damage == 0).unwrap_or(true) {
+            return;
+        }
+        if let (Some(v_owner), Some(a_owner)) = (
+            self.ecs_get::<crate::state::components::Owner>(victim_id),
+            self.ecs_get::<crate::state::components::Owner>(attacker_id),
+        ) {
+            let v_house = crate::gameplay::house_key_of(&self.definitions, v_owner.house);
+            let a_house = crate::gameplay::house_key_of(&self.definitions, a_owner.house);
+            if houses_are_allied(self, v_house, a_house) {
+                return;
+            }
+            if crate::gameplay::is_ambient_house(&self.definitions, v_house) {
+                return;
+            }
+        }
+        let Some(attacker_stats) = self.ecs_get::<CombatStats>(attacker_id)
+        else {
+            return;
+        };
+        let warhead = crate::gameplay::attacker_primary_warhead(&self.definitions, victim_identity.type_id);
+        if !crate::gameplay::target_allowed_by_verses(
+            &self.definitions,
+            warhead,
+            attacker_stats.armor.index(),
+            crate::gameplay::VersesTargetingMode::Retaliate,
+        ) {
+            return;
+        }
+        let _ = self.with_attack_mut(victim_id, |attack| {
+            attack.target = Some(attacker_id);
+        });
+        self.mark_entity_dirty(victim_id);
     }
 
     /// 清除攻击目标；若为攻击移动则立刻弹出航点续行最终目的地。
