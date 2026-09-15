@@ -118,7 +118,9 @@ impl BattleController {
             let structure = matches!(kind, MapEntityKind::Structure);
             blips.push(RadarMinimapBlip { x: tx, y: ty, rgba, structure });
         }
-        compose_radar_minimap(w, h, &land, &blips, view)
+        let events = game.world.radar_event_cells_for(local_house);
+        let flash_on = (game.world.tick / 8) % 2 == 0;
+        compose_radar_minimap(w, h, &land, &blips, view, &events, flash_on)
     }
 
     /// 小地图色点：氛围灰，优先大厅主色，否则本机绿 / 同盟青 / 敌方红。

@@ -81,12 +81,17 @@ impl crate::state::BattleState {
 
     /// 本机阵营最近一条未过期雷达事件格。
     pub fn last_radar_event_cell(&self, house: &str) -> Option<(u16, u16)> {
+        self.radar_event_cells_for(house).last().copied()
+    }
+
+    /// 本机阵营全部未过期雷达事件格（旧 → 新）。
+    pub fn radar_event_cells_for(&self, house: &str) -> Vec<(u16, u16)> {
         let tick = self.tick;
         self.radar_events
             .iter()
-            .rev()
-            .find(|e| e.house.as_ref().eq_ignore_ascii_case(house) && tick.saturating_sub(e.created_tick) < RADAR_EVENT_TTL_TICKS)
+            .filter(|e| e.house.as_ref().eq_ignore_ascii_case(house) && tick.saturating_sub(e.created_tick) < RADAR_EVENT_TTL_TICKS)
             .map(|e| (e.x, e.y))
+            .collect()
     }
 
     /// 清掉过期雷达事件。

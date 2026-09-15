@@ -39,12 +39,15 @@ pub struct RadarMinimapBlip {
 ///
 /// `land_types` 长度须为 `width * height`，元素为 [`LandType`] 序号。
 /// `view` 为可选镜头可视格 AABB（含端点），描亮黄框。
+/// `events` 为雷达事件格；`flash_on` 为真时画白色闪点。
 pub fn compose_radar_minimap(
     width: u32,
     height: u32,
     land_types: &[u8],
     blips: &[RadarMinimapBlip],
     view: Option<(u16, u16, u16, u16)>,
+    events: &[(u16, u16)],
+    flash_on: bool,
 ) -> Option<RgbaImage> {
     let w = width.max(1);
     let h = height.max(1);
@@ -77,6 +80,18 @@ pub fn compose_radar_minimap(
             put(&mut pixels, x + 1, y, blip.rgba);
             put(&mut pixels, x, y + 1, blip.rgba);
             put(&mut pixels, x + 1, y + 1, blip.rgba);
+        }
+    }
+    if flash_on {
+        let flash = [255, 255, 255, 255];
+        for &(ex, ey) in events {
+            let x = i32::from(ex);
+            let y = i32::from(ey);
+            put(&mut pixels, x, y, flash);
+            put(&mut pixels, x - 1, y, flash);
+            put(&mut pixels, x + 1, y, flash);
+            put(&mut pixels, x, y - 1, flash);
+            put(&mut pixels, x, y + 1, flash);
         }
     }
     if let Some((x0, y0, x1, y1)) = view {

@@ -63,7 +63,7 @@ fn radar_minimap_compose_and_hit() {
     };
     let land = vec![LandType::Clear as u8; 4 * 3];
     let blips = [RadarMinimapBlip { x: 1, y: 1, rgba: [255, 0, 0, 255], structure: false }];
-    let img = compose_radar_minimap(4, 3, &land, &blips, Some((0, 0, 3, 2))).expect("minimap");
+    let img = compose_radar_minimap(4, 3, &land, &blips, Some((0, 0, 3, 2)), &[(1, 1)], true).expect("minimap");
     assert_eq!(img.width(), 4);
     assert_eq!(img.height(), 3);
     let slot = RectPx::new(100, 50, 80, 60);
