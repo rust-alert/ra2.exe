@@ -769,7 +769,15 @@ impl BattleController {
                 BattleNav::None
             }
             HotkeyAction::CenterOnRadarEvent => {
-                tracing::debug!("CenterOnRadarEvent · 雷达事件未接，忽略");
+                if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
+                    let house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.to_string());
+                    if let Some(house) = house {
+                        if let Some((x, y)) = game.world.last_radar_event_cell(&house) {
+                            self.focus_camera_on_cell(renderer, x, y);
+                            tracing::info!(x, y, "CenterOnRadarEvent");
+                        }
+                    }
+                }
                 BattleNav::None
             }
             HotkeyAction::DeployObject => {

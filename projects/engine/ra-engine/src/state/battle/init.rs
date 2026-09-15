@@ -143,6 +143,7 @@ impl BattleState {
             pending_eva_cues: Vec::new(),
             pending_battle_sfx_cues: Vec::new(),
             eva_base_under_attack: Vec::new(),
+            radar_events: Vec::new(),
             speak_delay_ticks,
             ecs,
         };

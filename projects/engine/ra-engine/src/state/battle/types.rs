@@ -128,6 +128,8 @@ pub struct BattleState {
     pub(crate) pending_battle_sfx_cues: Vec<crate::state::BattleSfxCue>,
     /// 基地遇袭 EVA 近距/时间去重窗口。
     pub(crate) eva_base_under_attack: Vec<crate::state::EvaBaseUnderAttackGate>,
+    /// 雷达事件队列（空格跳转 / 小地图闪点；按 house 定向）。
+    pub(crate) radar_events: Vec<crate::state::RadarEvent>,
     /// `[AudioVisual] SpeakDelay` 换算后的资金唠叨周期（逻辑 tick；0 表示关闭）。
     pub(crate) speak_delay_ticks: u32,
     /// 内部 ECS 世界与 `EntityId` 映射（玩法权威；`entities` 仅为投影槽）。

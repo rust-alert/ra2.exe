@@ -13,5 +13,5 @@ mod rng;
 pub use battle::{BattleState, *};
 pub use battle_sfx::BattleSfxCue;
 pub(crate) use eva::EvaBaseUnderAttackGate;
-pub use eva::EvaCue;
+pub use eva::{EvaCue, RadarEvent};
 pub use players::PlayerState;

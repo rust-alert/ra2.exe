@@ -6,6 +6,10 @@ use std::sync::Arc;
 pub(crate) const BASE_UNDER_ATTACK_DEDUP_CELLS: u32 = 8;
 /// 基地遇袭 EVA：抑制窗口（逻辑 tick；约 40s @ 15Hz）。
 pub(crate) const BASE_UNDER_ATTACK_SUPPRESS_TICKS: u32 = 600;
+/// 雷达事件在队列中保留时长（逻辑 tick；约 60s @ 15Hz）。
+pub(crate) const RADAR_EVENT_TTL_TICKS: u64 = 900;
+/// 每阵营最多保留的雷达事件条数。
+pub(crate) const RADAR_EVENT_CAP_PER_HOUSE: usize = 8;
 
 /// 一条应对某阵营播放的 EVA 事件。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -14,6 +18,19 @@ pub struct EvaCue {
     pub house: Arc<str>,
     /// `eva.ini` / `evamd.ini` 事件 id（如 `EVA_UnitReady`）。
     pub event: &'static str,
+}
+
+/// 雷达事件（空格跳转 / 小地图闪点；按 house 定向）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RadarEvent {
+    /// 应看见该事件的阵营。
+    pub house: Arc<str>,
+    /// 事件格 X。
+    pub x: u16,
+    /// 事件格 Y。
+    pub y: u16,
+    /// 登记时的仿真 tick。
+    pub created_tick: u64,
 }
 
 /// 基地遇袭播报去重窗口（同 house、近距、未过期则不再排队）。
@@ -40,6 +57,44 @@ impl crate::state::BattleState {
         std::mem::take(&mut self.pending_eva_cues)
     }
 
+    /// 向指定阵营登记一条雷达事件（空 house 忽略）。
+    pub fn push_radar_event(&mut self, house: impl AsRef<str>, x: u16, y: u16) {
+        let house = house.as_ref().trim();
+        if house.is_empty() {
+            return;
+        }
+        let tick = self.tick;
+        self.expire_radar_events();
+        let house_arc = Arc::<str>::from(house);
+        self.radar_events.push(RadarEvent { house: house_arc, x, y, created_tick: tick });
+        // 同 house 超量时丢最旧。
+        let mut kept = 0usize;
+        for i in (0..self.radar_events.len()).rev() {
+            if self.radar_events[i].house.as_ref().eq_ignore_ascii_case(house) {
+                kept += 1;
+                if kept > RADAR_EVENT_CAP_PER_HOUSE {
+                    self.radar_events.remove(i);
+                }
+            }
+        }
+    }
+
+    /// 本机阵营最近一条未过期雷达事件格。
+    pub fn last_radar_event_cell(&self, house: &str) -> Option<(u16, u16)> {
+        let tick = self.tick;
+        self.radar_events
+            .iter()
+            .rev()
+            .find(|e| e.house.as_ref().eq_ignore_ascii_case(house) && tick.saturating_sub(e.created_tick) < RADAR_EVENT_TTL_TICKS)
+            .map(|e| (e.x, e.y))
+    }
+
+    /// 清掉过期雷达事件。
+    pub(crate) fn expire_radar_events(&mut self) {
+        let tick = self.tick;
+        self.radar_events.retain(|e| tick.saturating_sub(e.created_tick) < RADAR_EVENT_TTL_TICKS);
+    }
+
     /// 建筑受击时尝试排队 `EVA_OurBaseIsUnderAttack`（近距 + 时间窗去重）。
     pub(crate) fn try_announce_base_under_attack(&mut self, house: &str, x: u16, y: u16) {
         let house = house.trim();
@@ -56,6 +111,7 @@ impl crate::state::BattleState {
             return;
         }
         self.push_eva_cue(house, "EVA_OurBaseIsUnderAttack");
+        self.push_radar_event(house, x, y);
         self.eva_base_under_attack.push(EvaBaseUnderAttackGate {
             house: Arc::<str>::from(house),
             x,
