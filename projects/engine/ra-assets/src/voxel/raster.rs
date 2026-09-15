@@ -8,6 +8,26 @@ use crate::image::pal::Palette;
 /// 落影相对底面投影的屏幕 X 光向偏移（像素）。
 pub const VXL_SHADOW_LIGHT_OFFSET_X: i32 = 3;
 
+/// 体素偏航量化档数（原版每轴约 32 档缓存；本预览路径只做 yaw）。
+///
+/// 勿与载具 **SHP** 的 8 向帧槽混淆。
+pub const VXL_FACING_STEPS: u32 = 32;
+
+/// `facing: u8`（0..=255）量化到 [`VXL_FACING_STEPS`] 时的字节步长（`256/32=8`）。
+pub const VXL_FACING_BYTE_STEP: u8 = (256 / VXL_FACING_STEPS) as u8;
+
+/// 将游戏朝向字节量化为偏航档位（0..=31）。
+#[inline]
+pub fn vxl_yaw_steps(facing: u8) -> u8 {
+    facing / VXL_FACING_BYTE_STEP
+}
+
+/// 量化后的偏航角（弧度）：`steps * 2π / 32`。
+#[inline]
+pub fn vxl_yaw_radians(facing: u8) -> f32 {
+    f32::from(vxl_yaw_steps(facing)) * (std::f32::consts::TAU / VXL_FACING_STEPS as f32)
+}
+
 /// 投影后的精灵。
 #[derive(Debug, Clone)]
 pub struct VxlSprite {
@@ -36,7 +56,7 @@ pub fn rasterize_vxl_posed(vxl: &VxlFile, palette: &Palette, hva: Option<&HvaFil
 /// 按朝向与 HVA 动画帧投影。
 ///
 /// 节变换：`bounds_min + bone(scale(grid))`，其中 bone 平移乘 `limb.scale`。
-/// 组装后绕模型原点做 8 向偏航。
+/// 组装后绕模型原点做 [`VXL_FACING_STEPS`] 档偏航（非 SHP 八向）。
 pub fn rasterize_vxl_frame(vxl: &VxlFile, palette: &Palette, hva: Option<&HvaFile>, facing: u8, frame: u32) -> Option<VxlSprite> {
     rasterize_vxl_layers(&[(vxl, hva)], palette, facing, frame)
 }
@@ -48,7 +68,7 @@ pub struct VxlLayerPose<'a> {
     pub vxl: &'a VxlFile,
     /// 可选 HVA 动画。
     pub hva: Option<&'a HvaFile>,
-    /// 8 向朝向（0..=255，每 32 一步）。
+    /// 游戏朝向字节（0..=255）；光栅前量化为 [`VXL_FACING_STEPS`] 档偏航。
     pub facing: u8,
     /// HVA 帧下标。
     pub frame: u32,
@@ -231,11 +251,11 @@ fn apply_matrix_scaled(m: &[f32; 12], x: f32, y: f32, z: f32, limb_scale: f32) -
 }
 
 fn yaw_point(x: f32, y: f32, z: f32, cx: f32, cy: f32, facing: u8) -> (f32, f32, f32) {
-    let steps = facing / 32;
+    let steps = vxl_yaw_steps(facing);
     if steps == 0 {
         return (x, y, z);
     }
-    let angle = f32::from(steps) * std::f32::consts::FRAC_PI_4;
+    let angle = vxl_yaw_radians(facing);
     let (s, c) = angle.sin_cos();
     let dx = x - cx;
     let dy = y - cy;

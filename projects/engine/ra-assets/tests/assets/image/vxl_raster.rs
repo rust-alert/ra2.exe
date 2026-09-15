@@ -72,6 +72,39 @@ fn yaw_facing_changes_bounds() {
 }
 
 #[test]
+fn vxl_yaw_quantizes_to_thirty_two_steps() {
+    assert_eq!(VXL_FACING_STEPS, 32);
+    assert_eq!(VXL_FACING_BYTE_STEP, 8);
+    assert_eq!(vxl_yaw_steps(0), 0);
+    assert_eq!(vxl_yaw_steps(7), 0);
+    assert_eq!(vxl_yaw_steps(8), 1);
+    assert_eq!(vxl_yaw_steps(32), 4);
+    assert_eq!(vxl_yaw_steps(255), 31);
+    // 旧 8 向公式 `facing/32` 会把 8..=31 全压成 0；32 向必须区分。
+    assert_ne!(vxl_yaw_steps(8), vxl_yaw_steps(0));
+    assert_ne!(vxl_yaw_steps(16), vxl_yaw_steps(8));
+    let eighth = std::f32::consts::TAU / 32.0;
+    assert!((vxl_yaw_radians(8) - eighth).abs() < 1e-5);
+    assert!((vxl_yaw_radians(32) - std::f32::consts::FRAC_PI_4).abs() < 1e-5);
+}
+
+#[test]
+fn yaw_fine_facing_differs_from_coarse_eight_way() {
+    // 细长体素条：facing=8（11.25°）在旧 8 向里与 0 同档，32 向应改变投影包围盒。
+    let voxels: Vec<_> = (0..8).map(|i| VxlVoxel { x: i, y: 0, z: 0, color_index: 10, normal_index: 0 }).collect();
+    let vxl = limb_with(voxels);
+    let mut colors = [Rgba::transparent(); 256];
+    colors[10] = Rgba::rgb(1, 1, 1);
+    let pal = Palette { colors };
+    let a = rasterize_vxl_posed(&vxl, &pal, None, 0).unwrap();
+    let fine = rasterize_vxl_posed(&vxl, &pal, None, 8).unwrap();
+    assert_ne!((a.width, a.height), (fine.width, fine.height), "facing=8 must not collapse into facing=0");
+    // 同属旧 8 向第 0 桶的 8 与 16 也应可分。
+    let finer = rasterize_vxl_posed(&vxl, &pal, None, 16).unwrap();
+    assert_ne!((fine.width, fine.height), (finer.width, finer.height));
+}
+
+#[test]
 fn hva_translation_scaled_by_limb_scale() {
     let mut vxl = limb_with(vec![VxlVoxel { x: 0, y: 0, z: 0, color_index: 10, normal_index: 0 }]);
     vxl.limbs[0].scale = 0.5;
