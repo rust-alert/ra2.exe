@@ -43,7 +43,7 @@ pub use powers::{
 };
 pub(crate) use production::produce_ticks_for;
 pub(crate) use repair::tick_repairs;
-pub(crate) use rules::{full_verses, verses_entry_for, verses_for};
+pub(crate) use rules::{VersesTargetingMode, attacker_primary_warhead, full_verses, target_allowed_by_verses, verses_for};
 pub use script_teams::{PendingTeamSpawn, ScriptTeamRuntime};
 pub(crate) use script_teams::{flush_pending_team_spawns, tick_autocreate_teams, tick_script_teams};
 pub(crate) use starting_units::{compose_starting_unit_ids, format_type_keys, starting_deploy_clearance, starting_unit_pools};

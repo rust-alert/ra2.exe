@@ -151,6 +151,21 @@ impl crate::state::BattleState {
                             continue;
                         }
                     }
+                    // 玩家显式攻击走强制攻击资格（Verses `F` 或倍率 > 0）。
+                    if let (Some(atk_identity), Some(tgt_stats)) =
+                        (self.ecs_get::<Identity>(attacker_id), self.ecs_get::<crate::state::components::CombatStats>(target_id))
+                    {
+                        let warhead = crate::gameplay::attacker_primary_warhead(&self.definitions, atk_identity.type_id);
+                        if !crate::gameplay::target_allowed_by_verses(
+                            &self.definitions,
+                            warhead,
+                            tgt_stats.armor.index(),
+                            crate::gameplay::VersesTargetingMode::ForceFire,
+                        ) {
+                            self.reject(command_index, CommandRejectReason::InvalidTarget);
+                            continue;
+                        }
+                    }
                     if !self.ecs_get::<Identity>(attacker_id).map(|i| is_mobile(i.kind)).unwrap_or(false) {
                         self.reject(command_index, CommandRejectReason::NotMobile);
                         continue;

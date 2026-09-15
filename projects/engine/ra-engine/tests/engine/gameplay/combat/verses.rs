@@ -50,3 +50,95 @@ fn verses_scales_damage_against_armor() {
     // 100 * 50% = 50
     assert_eq!(world.ecs_health(world.entity_id_at(1).expect("entity")).expect("health").0, 350);
 }
+
+#[test]
+fn force_fire_rejected_when_verses_disallow_f() {
+    let defs = defs_from_rules_ini(
+        b"[VehicleTypes]\n0=ATK\n1=TGT\n\
+[ATK]\nStrength=400\nSpeed=64\nSight=6\nCost=800\nPrimary=Gun\nArmor=none\n\
+[TGT]\nStrength=400\nSpeed=0\nSight=1\nCost=100\nArmor=heavy\n\
+[Gun]\nDamage=100\nROF=1\nRange=8\nWarhead=AP\n\
+[AP]\nVerses=100%,100%,100%,100%,100%,0%,100%,100%,100%,100%,100%\n",
+    );
+    let mut map = MapInfo::empty(GameEdition::Ra2, "verses-f");
+    map.width = 16;
+    map.height = 16;
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Unit,
+        owner: "AMERICANS".into(),
+        type_id: "ATK".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Unit,
+        owner: "SOVIETS".into(),
+        type_id: "TGT".into(),
+        health: 256,
+        x: 5,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    let before = world.ecs_health(world.entity_id_at(1).expect("entity")).expect("health").0;
+    world.push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
+    world.advance_tick();
+    assert!(
+        world.last_rejects().iter().any(|r| r.reason == ra_engine::CommandRejectReason::InvalidTarget),
+        "{:?}",
+        world.last_rejects()
+    );
+    assert_eq!(world.ecs_health(world.entity_id_at(1).expect("entity")).expect("health").0, before);
+    assert!(world.ecs_attack_state(world.entity_id_at(0).expect("entity")).expect("atk").0.is_none());
+}
+
+#[test]
+fn zero_verses_with_f_allows_force_fire_command() {
+    let defs = defs_from_rules_ini(
+        b"[VehicleTypes]\n0=ATK\n1=TGT\n\
+[ATK]\nStrength=400\nSpeed=64\nSight=6\nCost=800\nPrimary=Gun\nArmor=none\n\
+[TGT]\nStrength=400\nSpeed=0\nSight=1\nCost=100\nArmor=heavy\n\
+[Gun]\nDamage=100\nROF=1\nRange=8\nWarhead=AP\n\
+[AP]\nVerses=100%,100%,100%,100%,100%,0%F,100%,100%,100%,100%,100%\n",
+    );
+    let mut map = MapInfo::empty(GameEdition::Ra2, "verses-f-ok");
+    map.width = 16;
+    map.height = 16;
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Unit,
+        owner: "AMERICANS".into(),
+        type_id: "ATK".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Unit,
+        owner: "SOVIETS".into(),
+        type_id: "TGT".into(),
+        health: 256,
+        x: 5,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    world.push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty(), "{:?}", world.last_rejects());
+    assert_eq!(world.ecs_attack_state(world.entity_id_at(0).expect("entity")).expect("atk").0, Some(EntityId(2)));
+}

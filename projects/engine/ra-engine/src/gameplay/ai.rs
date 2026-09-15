@@ -815,7 +815,6 @@ fn chebyshev_u16(ax: u16, ay: u16, bx: u16, by: u16) -> u32 {
 fn nearest_enemy(world: &BattleState, from: usize, house: &str) -> Option<usize> {
     let from_id = world.entities[from].id;
     let from_xf = world.ecs_get::<Transform>(from_id)?;
-    let attacker_warhead = attacker_primary_warhead(world, from_id);
     let mut best: Option<(u32, usize)> = None;
     for (i, e) in world.entities.iter().enumerate() {
         if i == from {
@@ -839,8 +838,13 @@ fn nearest_enemy(world: &BattleState, from: usize, house: &str) -> Option<usize>
             continue;
         }
         if let Some(target_stats) = world.ecs_get::<CombatStats>(id) {
-            let entry = crate::gameplay::verses_entry_for(&world.definitions, attacker_warhead, target_stats.armor.index());
-            if !entry.allows_passive_acquire() {
+            let warhead = attacker_primary_warhead(world, from_id);
+            if !crate::gameplay::target_allowed_by_verses(
+                &world.definitions,
+                warhead,
+                target_stats.armor.index(),
+                crate::gameplay::VersesTargetingMode::PassiveAcquire,
+            ) {
                 continue;
             }
         }
@@ -859,13 +863,5 @@ fn nearest_enemy(world: &BattleState, from: usize, house: &str) -> Option<usize>
 /// 攻击方主武器弹头（用于 Verses 被动索敌资格）；缺武器时回落 techno 绑定弹头。
 fn attacker_primary_warhead(world: &BattleState, id: ra_types::EntityId) -> Option<ra_types::WarheadId> {
     let identity = world.ecs_get::<Identity>(id)?;
-    let techno = world.definitions.techno.get_by_id(identity.type_id)?;
-    if let Some(weapon_id) = techno.primary_id {
-        if let Some(weapon) = world.definitions.weapons.get_by_id(weapon_id) {
-            if weapon.warhead_id.is_some() {
-                return weapon.warhead_id;
-            }
-        }
-    }
-    techno.warhead_id
+    crate::gameplay::attacker_primary_warhead(&world.definitions, identity.type_id)
 }

@@ -217,6 +217,17 @@ impl crate::state::BattleState {
                 if houses_are_allied(self, &owner, other_house) {
                     return None;
                 }
+                if let (Some(from_identity), Some(target_stats)) = (self.ecs_get::<Identity>(from), self.ecs_get::<CombatStats>(id)) {
+                    let warhead = crate::gameplay::attacker_primary_warhead(&self.definitions, from_identity.type_id);
+                    if !crate::gameplay::target_allowed_by_verses(
+                        &self.definitions,
+                        warhead,
+                        target_stats.armor.index(),
+                        crate::gameplay::VersesTargetingMode::PassiveAcquire,
+                    ) {
+                        return None;
+                    }
+                }
                 let ox = self.ecs_get::<Transform>(id)?;
                 let dist = manhattan(xf.x, xf.y, ox.x, ox.y);
                 (dist <= range).then_some((dist, id))
