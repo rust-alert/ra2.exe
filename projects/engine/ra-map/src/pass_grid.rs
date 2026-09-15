@@ -22,13 +22,7 @@ impl PassGrid {
     /// 全可走空表（高度均为 0，陆地均为 `Clear`）。
     pub fn open(width: u32, height: u32) -> Self {
         let n = (width as usize).saturating_mul(height as usize);
-        Self {
-            width,
-            height,
-            passable: vec![true; n],
-            cell_height: vec![0; n],
-            land_types: vec![ra_types::LandType::Clear as u8; n],
-        }
+        Self { width, height, passable: vec![true; n], cell_height: vec![0; n], land_types: vec![ra_types::LandType::Clear as u8; n] }
     }
 
     /// 由地图尺寸建表：灌入 `IsoCell.z`，并用建筑 / 地形物件占用格封死。
@@ -81,7 +75,7 @@ impl PassGrid {
         Some((u32::from(y) * self.width + u32::from(x)) as usize)
     }
 
-    /// 该格是否可走。
+    /// 该格是否可走（地面单位视角）。
     pub fn is_passable(&self, x: u16, y: u16) -> bool {
         self.index(x, y).and_then(|i| self.passable.get(i).copied()).unwrap_or(false)
     }
@@ -92,6 +86,34 @@ impl PassGrid {
             if let Some(slot) = self.passable.get_mut(i) {
                 *slot = passable;
             }
+        }
+    }
+
+    /// 海军单位粗判：规范陆地为 [`ra_types::LandType::Water`]（不看地面 `passable`）。
+    ///
+    /// 船厂等水面建筑仍占格，调用方须另行按建筑占地封死。
+    pub fn is_naval_passable(&self, x: u16, y: u16) -> bool {
+        self.in_bounds(x, y) && self.land_type(x, y) == ra_types::LandType::Water
+    }
+
+    /// 按单位类型选通行：`naval=true` 走水面，否则走地面 `is_passable`。
+    pub fn is_traversable(&self, x: u16, y: u16, naval: bool) -> bool {
+        if naval {
+            self.is_naval_passable(x, y)
+        }
+        else {
+            self.is_passable(x, y)
+        }
+    }
+
+    /// 将通行位改写为海军视角：仅 `LandType::Water` 可走。
+    ///
+    /// 水面建筑占地需由调用方在改写后再封死。
+    pub fn remap_passable_for_naval(&mut self) {
+        let n = self.passable.len();
+        for i in 0..n {
+            let water = self.land_types.get(i).copied().and_then(ra_types::LandType::from_u8) == Some(ra_types::LandType::Water);
+            self.passable[i] = water;
         }
     }
 
@@ -148,13 +170,7 @@ impl PassGrid {
     pub fn from_prepared_pass_layers(width: u32, height: u32, passable: &[u8], cell_heights: &[u8], land_types: &[u8]) -> Self {
         let n = (width as usize).saturating_mul(height as usize);
         let clear = ra_types::LandType::Clear as u8;
-        let mut grid = Self {
-            width,
-            height,
-            passable: vec![false; n],
-            cell_height: vec![0; n],
-            land_types: vec![clear; n],
-        };
+        let mut grid = Self { width, height, passable: vec![false; n], cell_height: vec![0; n], land_types: vec![clear; n] };
         for i in 0..n {
             if passable.get(i).copied().unwrap_or(0) != 0 {
                 grid.passable[i] = true;

@@ -9,6 +9,78 @@ pub fn is_mobile(kind: MapEntityKind) -> bool {
     matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
 }
 
+impl crate::state::BattleState {
+    /// 实体是否 `Naval=yes`（海军单位只走水面）。
+    pub fn entity_is_naval(&self, id: ra_types::EntityId) -> bool {
+        self.ecs_get::<Identity>(id)
+            .and_then(|identity| self.definitions.techno.get_by_id(identity.type_id))
+            .map(|t| t.naval)
+            .unwrap_or(false)
+    }
+
+    /// 为机动单位准备寻路用通行表：海军先按水面改写，再封建筑占地与其它单位。
+    fn prepare_move_grid(&self, mover_index: usize, naval: bool) -> PassGrid {
+        let mut grid = self.pass_grid.clone();
+        if naval {
+            grid.remap_passable_for_naval();
+            self.reseal_structure_footprints_on_grid(&mut grid);
+        }
+        for (j, entity) in self.entities.iter().enumerate() {
+            if j == mover_index {
+                continue;
+            }
+            let oid = entity.id;
+            if self.ecs_get::<Health>(oid).map(|h| h.dead).unwrap_or(true) {
+                continue;
+            }
+            if !self.ecs_get::<Identity>(oid).map(|identity| is_mobile(identity.kind)).unwrap_or(false) {
+                continue;
+            }
+            if let Some(ox) = self.ecs_get::<Transform>(oid).copied() {
+                grid.set_passable(ox.x, ox.y, false);
+            }
+        }
+        grid
+    }
+
+    /// 把存活建筑的完整 `Foundation` 再封进通行表（海军改写水面后须重封船厂等）。
+    fn reseal_structure_footprints_on_grid(&self, grid: &mut PassGrid) {
+        for entity in &self.entities {
+            let id = entity.id;
+            if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                continue;
+            }
+            if !self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false) {
+                continue;
+            }
+            let Some(xf) = self.ecs_get::<Transform>(id).copied()
+            else {
+                continue;
+            };
+            let foundation = self
+                .ecs_get::<Identity>(id)
+                .and_then(|i| self.definitions.structures.get_by_id(i.type_id))
+                .map(|s| s.foundation.clone())
+                .unwrap_or_default();
+            let fw = foundation.width.max(1);
+            let fh = foundation.height.max(1);
+            for dy in 0..fh {
+                for dx in 0..fw {
+                    let Some(cx) = xf.x.checked_add(dx)
+                    else {
+                        continue;
+                    };
+                    let Some(cy) = xf.y.checked_add(dy)
+                    else {
+                        continue;
+                    };
+                    grid.set_passable(cx, cy, false);
+                }
+            }
+        }
+    }
+}
+
 #[doc(hidden)]
 pub fn turn_facing_toward(current: &mut u8, desired: u8, step: u8) {
     if *current == desired || step == 0 {
@@ -109,6 +181,8 @@ impl crate::state::BattleState {
     }
 
     /// 根据 ECS 坐标与目的地计算路径（不写入实体）。
+    ///
+    /// `Naval=yes` 单位只在水面连通分量内寻路；点到陆地时回落到最近水面格。
     pub fn compute_repath_at(&self, i: usize) -> Vec<(u16, u16)> {
         let id = self.entities[i].id;
         let (Some(tx), Some(ty)) = self.ecs_get::<MovementState>(id).map(|m| (m.destination_x, m.destination_y)).unwrap_or((None, None))
@@ -120,31 +194,28 @@ impl crate::state::BattleState {
             return Vec::new();
         };
         let (sx, sy) = (xf.x, xf.y);
-        let mut grid = self.pass_grid.clone();
-        for (j, entity) in self.entities.iter().enumerate() {
-            if j == i {
-                continue;
-            }
-            let oid = entity.id;
-            if self.ecs_get::<Health>(oid).map(|h| h.dead).unwrap_or(true) {
-                continue;
-            }
-            if !self.ecs_get::<Identity>(oid).map(|identity| is_mobile(identity.kind)).unwrap_or(false) {
-                continue;
-            }
-            if let Some(ox) = self.ecs_get::<Transform>(oid).copied() {
-                grid.set_passable(ox.x, ox.y, false);
-            }
-        }
+        let naval = self.entity_is_naval(id);
+        let mut grid = self.prepare_move_grid(i, naval);
+        // 打开起点：允许从非法格（如误刷陆地）尝试回到合法地形。
         grid.set_passable(sx, sy, true);
         let (gx, gy) = nearest_free_goal(&grid, sx, sy, tx, ty);
-        grid.set_passable(gx, gy, true);
+        if !grid.is_passable(gx, gy) {
+            // 回落仍不可走：地面单位沿用强制打开终点；海军拒绝穿陆。
+            if naval {
+                return Vec::new();
+            }
+            grid.set_passable(gx, gy, true);
+        }
         let Some(mut path) = grid.find_path_diag(sx, sy, gx, gy)
         else {
             return Vec::new();
         };
         if path.first() == Some(&(sx, sy)) {
             path.remove(0);
+        }
+        // 海军：丢弃仍落在非水面的路径点（防止强制打开起点后残留陆格）。
+        if naval {
+            path.retain(|&(x, y)| self.pass_grid.is_naval_passable(x, y));
         }
         path
     }
@@ -153,22 +224,8 @@ impl crate::state::BattleState {
     pub(crate) fn pick_scatter_cell(&self, entity_index: usize) -> Option<(u16, u16)> {
         let id = self.entities.get(entity_index)?.id;
         let xf = self.ecs_get::<Transform>(id).copied()?;
-        let mut grid = self.pass_grid.clone();
-        for (j, entity) in self.entities.iter().enumerate() {
-            if j == entity_index {
-                continue;
-            }
-            let oid = entity.id;
-            if self.ecs_get::<Health>(oid).map(|h| h.dead).unwrap_or(true) {
-                continue;
-            }
-            if !self.ecs_get::<Identity>(oid).map(|identity| is_mobile(identity.kind)).unwrap_or(false) {
-                continue;
-            }
-            if let Some(ox) = self.ecs_get::<Transform>(oid).copied() {
-                grid.set_passable(ox.x, ox.y, false);
-            }
-        }
+        let naval = self.entity_is_naval(id);
+        let mut grid = self.prepare_move_grid(entity_index, naval);
         grid.set_passable(xf.x, xf.y, true);
         let salt = id.0.wrapping_add(self.tick);
         for radius in 1_i32..=4 {
@@ -185,6 +242,9 @@ impl crate::state::BattleState {
                     }
                     let (x, y) = (x as u16, y as u16);
                     if !grid.is_passable(x, y) {
+                        continue;
+                    }
+                    if naval && !self.pass_grid.is_naval_passable(x, y) {
                         continue;
                     }
                     if self.cell_occupied_by_other(entity_index, x, y) {
@@ -348,6 +408,14 @@ impl crate::state::BattleState {
                 else {
                     break;
                 };
+                // 海军硬闸：路径点不得落在非水面（防旧路径 / 强制开起点残留）。
+                if self.entity_is_naval(id) && !self.pass_grid.is_naval_passable(nx, ny) {
+                    let _ = self.with_movement_mut(id, |movement| {
+                        movement.path.clear();
+                    });
+                    self.repath_entity_at(i);
+                    break;
+                }
                 if self.cell_occupied_by_other(i, nx, ny) {
                     let _ = self.with_movement_mut(id, |movement| {
                         movement.path.clear();
@@ -358,6 +426,12 @@ impl crate::state::BattleState {
                         break;
                     };
                     if self.cell_occupied_by_other(i, nx2, ny2) {
+                        break;
+                    }
+                    if self.entity_is_naval(id) && !self.pass_grid.is_naval_passable(nx2, ny2) {
+                        let _ = self.with_movement_mut(id, |movement| {
+                            movement.path.clear();
+                        });
                         break;
                     }
                 }

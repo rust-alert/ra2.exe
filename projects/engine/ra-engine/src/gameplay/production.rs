@@ -150,7 +150,7 @@ impl crate::state::BattleState {
             (Some(rx), Some(ry)) => Some((rx, ry)),
             _ => None,
         });
-        let Some((x, y)) = self.find_spawn_cell(factory_xf.x, factory_xf.y)
+        let Some((x, y)) = self.find_spawn_cell(factory_xf.x, factory_xf.y, factory_id, tt.naval)
         else {
             return;
         };
@@ -220,7 +220,10 @@ impl crate::state::BattleState {
     }
 
     #[doc(hidden)]
-    pub fn find_spawn_cell(&self, fx: u16, fy: u16) -> Option<(u16, u16)> {
+    pub fn find_spawn_cell(&self, fx: u16, fy: u16, factory_id: ra_types::EntityId, naval: bool) -> Option<(u16, u16)> {
+        if naval {
+            return self.find_naval_spawn_cell(fx, fy, factory_id);
+        }
         const DELTAS: [(i32, i32); 8] = [(1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (-1, 1), (-1, -1), (1, -1)];
         for (dx, dy) in DELTAS {
             let x = i32::from(fx) + dx;
@@ -231,6 +234,42 @@ impl crate::state::BattleState {
             let (x, y) = (x as u16, y as u16);
             if self.can_place_structure(x, y) {
                 return Some((x, y));
+            }
+        }
+        None
+    }
+
+    /// 在工厂 `Foundation` 外沿找空水面格（船厂出舰）。
+    fn find_naval_spawn_cell(&self, fx: u16, fy: u16, factory_id: ra_types::EntityId) -> Option<(u16, u16)> {
+        let foundation = self
+            .ecs_get::<Identity>(factory_id)
+            .and_then(|i| self.definitions.structures.get_by_id(i.type_id))
+            .map(|s| s.foundation.clone())
+            .unwrap_or_default();
+        let fw = i32::from(foundation.width.max(1));
+        let fh = i32::from(foundation.height.max(1));
+        const MAX_RADIUS: i32 = 8;
+        for radius in 1..=MAX_RADIUS {
+            for dy in -radius..=(fh - 1 + radius) {
+                for dx in -radius..=(fw - 1 + radius) {
+                    let on_ring = dx == -radius || dy == -radius || dx == fw - 1 + radius || dy == fh - 1 + radius;
+                    if !on_ring {
+                        continue;
+                    }
+                    let x = i32::from(fx) + dx;
+                    let y = i32::from(fy) + dy;
+                    if x < 0 || y < 0 {
+                        continue;
+                    }
+                    let (x, y) = (x as u16, y as u16);
+                    if !self.pass_grid.is_naval_passable(x, y) {
+                        continue;
+                    }
+                    if self.cell_blocked_by_entity(x, y) {
+                        continue;
+                    }
+                    return Some((x, y));
+                }
             }
         }
         None

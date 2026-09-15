@@ -75,6 +75,12 @@ impl BattleController {
                 .ecs_identity(id)
                 .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
         });
+        let selected_naval_only = has_mobile
+            && selected.iter().filter(|&&id| {
+                game.world
+                    .ecs_identity(id)
+                    .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
+            }).all(|&id| game.world.entity_is_naval(id));
 
         // 悬停已选可部署单位 → Deploy（先于攻击 / 移动，避免被友军格 Move 盖住）。
         if let Some(id) = game.pick_local_mobile_near_image(wx, wy, 72.0) {
@@ -95,8 +101,9 @@ impl BattleController {
             if game.pick_hostile_near_image(wx, wy, 72.0).is_some() {
                 return BattlePointer::Attack;
             }
-            let passable = game.world.pass_grid.in_bounds(cell.0, cell.1) && game.world.pass_grid.is_passable(cell.0, cell.1);
-            return if passable { BattlePointer::Attack } else { BattlePointer::NoMove };
+            let ok = game.world.pass_grid.in_bounds(cell.0, cell.1)
+                && game.world.pass_grid.is_traversable(cell.0, cell.1, selected_naval_only);
+            return if ok { BattlePointer::Attack } else { BattlePointer::NoMove };
         }
 
         // 已选机动单位时：异阵营目标用图像软命中（与左键攻击同口径）。
@@ -104,8 +111,9 @@ impl BattleController {
             return BattlePointer::Attack;
         }
 
-        let passable = game.world.pass_grid.in_bounds(cell.0, cell.1) && game.world.pass_grid.is_passable(cell.0, cell.1);
-        if passable { BattlePointer::Move } else { BattlePointer::NoMove }
+        let ok = game.world.pass_grid.in_bounds(cell.0, cell.1)
+            && game.world.pass_grid.is_traversable(cell.0, cell.1, selected_naval_only);
+        if ok { BattlePointer::Move } else { BattlePointer::NoMove }
     }
 
     /// 可玩对局且未暂停 / 未结算时，壳层应捕获光标以支持边缘滚屏。

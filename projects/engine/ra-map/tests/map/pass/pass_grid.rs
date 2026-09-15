@@ -51,6 +51,23 @@ fn seal_water_land_types() {
 }
 
 #[test]
+fn remap_passable_for_naval_opens_water_closes_land() {
+    let mut grid = PassGrid::open(3, 3);
+    grid.seal_land_types(&[(1, 1, 9), (0, 0, 0)]);
+    assert!(!grid.is_passable(1, 1));
+    assert!(grid.is_passable(0, 0));
+    assert!(grid.is_naval_passable(1, 1));
+    assert!(!grid.is_naval_passable(0, 0));
+    assert!(grid.is_traversable(1, 1, true));
+    assert!(!grid.is_traversable(1, 1, false));
+
+    grid.remap_passable_for_naval();
+    assert!(grid.is_passable(1, 1), "naval remap must open water");
+    assert!(!grid.is_passable(0, 0), "naval remap must close land");
+    assert!(grid.find_path(1, 1, 1, 1).is_some());
+}
+
+#[test]
 fn cliff_blocks_path_ramp_allows() {
     let mut cliff = PassGrid::open(3, 1);
     cliff.set_height(0, 0, 0);

@@ -319,7 +319,7 @@ impl BattleState {
     }
 
     /// 格上是否有存活实体占用：机动单位看锚点格，建筑看完整 `Foundation` 矩形。
-    fn cell_blocked_by_entity(&self, cx: u16, cy: u16) -> bool {
+    pub(crate) fn cell_blocked_by_entity(&self, cx: u16, cy: u16) -> bool {
         use crate::state::components::{Health, Identity, Transform};
 
         self.entities.iter().any(|e| {
