@@ -558,6 +558,10 @@ impl Shell {
                 self.apply_nav(nav);
                 self.sync_battle_cursor_grab();
                 self.sync_battle_edge_cursor();
+                // 本帧边沿已消费：清零，供下一轮窗口事件重新累计。
+                if let Some(ctrl) = self.battle_controller.as_mut() {
+                    ctrl.begin_input_frame();
+                }
             }
         }
         else if self.screen.requires_session() {
@@ -588,6 +592,9 @@ impl Shell {
             }
             self.sync_battle_cursor_grab();
             self.sync_battle_edge_cursor();
+            if let Some(ctrl) = self.battle_controller.as_mut() {
+                ctrl.begin_input_frame();
+            }
         }
         else {
             // 前置页：无色块菜单。原版 SHP 未接前仅标题 + 可选大厅地图预览。

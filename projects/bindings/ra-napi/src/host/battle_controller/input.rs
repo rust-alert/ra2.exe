@@ -801,22 +801,32 @@ impl BattleController {
                 BattleNav::None
             }
             WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if accept_commands && battle_paused => {
+                self.input_tracker.set_left(*state == ElementState::Pressed);
                 self.handle_pause_menu_mouse(*state, window)
             }
-            WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if gameplay_open => match state {
-                ElementState::Pressed => {
-                    self.begin_left_capture(window);
-                    BattleNav::None
+            WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if gameplay_open => {
+                self.input_tracker.set_left(*state == ElementState::Pressed);
+                match state {
+                    ElementState::Pressed => {
+                        self.begin_left_capture(window);
+                        BattleNav::None
+                    }
+                    ElementState::Released => self.end_left_capture(renderer, window),
                 }
-                ElementState::Released => self.end_left_capture(renderer, window),
-            },
+            }
             WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } if !accept_commands => {
+                self.input_tracker.set_left(false);
                 self.reset_transient_input_state(false);
                 BattleNav::None
             }
             WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. } if gameplay_open => {
+                self.input_tracker.set_right(true);
                 self.clear_pointer_capture();
                 self.handle_right_click(renderer, window);
+                BattleNav::None
+            }
+            WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Right, .. } => {
+                self.input_tracker.set_right(false);
                 BattleNav::None
             }
             WindowEvent::CursorMoved { position, .. } => {
@@ -840,9 +850,12 @@ impl BattleController {
                 }
                 BattleNav::None
             }
-            WindowEvent::Focused(false) => {
-                // 失焦保留工具模式，但必须清按住态与修饰键，避免幽灵输入。
-                self.reset_transient_input_state(false);
+            WindowEvent::Focused(focused) => {
+                self.input_tracker.set_focused(*focused);
+                if !*focused {
+                    // 失焦保留工具模式，但必须清按住态与修饰键，避免幽灵输入。
+                    self.reset_transient_input_state(false);
+                }
                 BattleNav::None
             }
             WindowEvent::MouseWheel { delta, .. } => {
@@ -872,6 +885,7 @@ impl BattleController {
                         }
                     };
                     if steps != 0 {
+                        self.input_tracker.add_wheel_steps(steps);
                         self.scroll_cameos(window, steps);
                     }
                 }
@@ -934,7 +948,11 @@ impl BattleController {
         match capture {
             BattleUiCapture::HudCommand(slot) => {
                 self.left_gesture = LeftGesture::Idle;
-                if matches!(self.hit_hud_at(window, x, y), Some(BattleHudHit::CommandButton(s)) if s == slot) {
+                let release_slot = match self.hit_hud_at(window, x, y) {
+                    Some(BattleHudHit::CommandButton(s)) => Some(s),
+                    _ => None,
+                };
+                if super::super::battle_input::hud_command_release_fires(slot, release_slot) {
                     self.on_command_button(slot);
                 }
                 BattleNav::None
@@ -945,7 +963,8 @@ impl BattleController {
                 else {
                     return BattleNav::None;
                 };
-                if self.hit_hud_at(window, x, y) == Some(hit) {
+                let same = self.hit_hud_at(window, x, y) == Some(hit);
+                if super::super::battle_input::hud_sidebar_release_fires(same) {
                     if hit == BattleHudHit::Radar {
                         self.focus_radar_click(renderer, window, x, y);
                         BattleNav::None

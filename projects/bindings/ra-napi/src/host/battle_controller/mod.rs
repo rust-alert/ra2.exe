@@ -33,8 +33,8 @@ use ra_widgets::{
 
 use super::{
     battle_input::{
-        BattleInteractionMode, BattlePointer, BattlePresentationState, BattleUiCapture, CameraPanKeys, EdgeScrollCursor,
-        LeftGesture,
+        BattleInputTracker, BattleInteractionMode, BattlePointer, BattlePresentationState, BattleUiCapture, CameraPanKeys,
+        EdgeScrollCursor, LeftGesture,
     },
     boot::BootResult,
     local_player::LocalPlayerController,
@@ -95,6 +95,8 @@ pub struct BattleController {
     pub local: LocalPlayerController,
     /// 左键点选 / 框选手势（不再用拖拽平移相机）。
     pub(super) left_gesture: LeftGesture,
+    /// 指针按键 / 焦点边沿追踪（失焦取消按住，不派发释放点击）。
+    pub(super) input_tracker: BattleInputTracker,
     /// 最近光标位置（逻辑像素；与菜单 / `DisplayMode` 同口径）。
     pub(super) cursor: (f64, f64),
     /// 上一帧时间，用于固定仿真时钟。
@@ -280,6 +282,7 @@ impl BattleController {
             session: boot.session,
             local: LocalPlayerController::new(),
             left_gesture: LeftGesture::Idle,
+            input_tracker: BattleInputTracker::default(),
             cursor: (0.0, 0.0),
             last_pump: Instant::now(),
             logged_outcome: None,
@@ -602,10 +605,16 @@ impl BattleController {
         self.camera_pan_keys.clear();
         self.edge_scroll_cursor = EdgeScrollCursor::Default;
         self.command_hover = None;
+        self.input_tracker.reset_transient();
         if clear_tool_modes {
             let _ = self.clear_sidebar_tool_modes();
         }
         self.presentation = BattlePresentationState::default();
+    }
+
+    /// 本帧边沿已消费后调用：清零边沿，保留按住 / 焦点，供下一轮窗口事件重新累计。
+    pub fn begin_input_frame(&mut self) {
+        self.input_tracker.begin_frame();
     }
 
     /// 构造当前不可变输入帧（命中 / 释放对照共用）。
@@ -628,6 +637,8 @@ impl BattleController {
             camera_pan_keys: self.camera_pan_keys,
             marquee: self.left_gesture.marquee_rect(),
             capture: self.ui_capture,
+            buttons: self.input_tracker.buttons,
+            edges: self.input_tracker.edges,
         }
     }
 
