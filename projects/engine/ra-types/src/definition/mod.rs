@@ -22,6 +22,7 @@ mod house_list;
 mod house_role;
 mod infiltration;
 mod ini_string;
+mod iron_curtain_rules;
 mod land;
 mod lightning_storm_rules;
 mod locomotor;
@@ -29,6 +30,7 @@ mod map;
 mod map_bind;
 mod map_edge;
 mod overlay;
+mod paradrop_rules;
 mod production;
 mod projectile;
 mod runtime;
@@ -59,9 +61,11 @@ pub use foundation::Foundation;
 pub use house_list::{ColorName, HouseAllowList, HouseIdAllowList, HouseName, SideName};
 pub use house_role::HouseRole;
 pub use infiltration::{InfiltrationEffect, InfiltrationProfile, InfiltrationRules};
+pub use iron_curtain_rules::IronCurtainRules;
 pub use land::{LandType, TMP_TERRAIN_TO_LAND, ground_passable, land_buildable, land_passable, tmp_terrain_to_land_type};
 pub use lightning_storm_rules::LightningStormRules;
 pub use locomotor::LocomotorDefinitions;
+pub use paradrop_rules::ParaDropRules;
 pub use map::{
     AiTriggerCompareOp, AiTriggerConditionKind, AiTriggerName, DEFAULT_AI_TRIGGER_WEIGHT, GameModeName, MapAction, MapActionCommand,
     MapAiTrigger, MapBaseNode, MapBasePlan, MapCellTag, MapDefinition, MapEvent, MapEventCondition, MapFileName, MapHouse, MapIsoCell,

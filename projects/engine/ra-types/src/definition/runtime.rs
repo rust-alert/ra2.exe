@@ -2,9 +2,9 @@
 
 use super::{
     AiControls, AnimationDefinitions, CapabilityGapReport, CapabilitySet, ContentFingerprint, CrateRules, DeployableDefinitions,
-    HouseDefinitions, HouseStolenTechMap, InfiltrationRules, LightningStormRules, LocomotorDefinitions, OverlayTypeRegistry,
-    PrerequisiteGroups, ProductionDefinitions, ProjectileDefinitions, SoundDefinitions, StructureDefinitions, SuperWeaponDefinitions,
-    TechnoDefinitions, TerrainSpawnerDefinitions, WarheadDefinitions, WeaponDefinitions,
+    HouseDefinitions, HouseStolenTechMap, InfiltrationRules, IronCurtainRules, LightningStormRules, LocomotorDefinitions, OverlayTypeRegistry,
+    ParaDropRules, PrerequisiteGroups, ProductionDefinitions, ProjectileDefinitions, SoundDefinitions, StructureDefinitions,
+    SuperWeaponDefinitions, TechnoDefinitions, TerrainSpawnerDefinitions, WarheadDefinitions, WeaponDefinitions,
 };
 use crate::id::TypeId;
 
@@ -80,6 +80,10 @@ pub struct RuntimeDefinitions {
     pub crate_rules: CrateRules,
     /// 闪电风暴执行参数。
     pub lightning_storm: LightningStormRules,
+    /// 铁幕／力场执行参数。
+    pub iron_curtain: IronCurtainRules,
+    /// 空降载荷。
+    pub paradrop: ParaDropRules,
     /// 装载期发现的能力缺口（含「有定义无执行器」）。
     pub capability_gaps: Vec<CapabilityGapReport>,
 }
@@ -119,6 +123,8 @@ impl Default for RuntimeDefinitions {
             infiltration: InfiltrationRules::default(),
             crate_rules: CrateRules::default(),
             lightning_storm: LightningStormRules::default(),
+            iron_curtain: IronCurtainRules::default(),
+            paradrop: ParaDropRules::default(),
             capability_gaps: Vec::new(),
         }
     }

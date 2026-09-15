@@ -5,8 +5,8 @@
 use ra_assets::TechnoKind;
 use ra_types::{
     BuiltinCapability, CapabilityGapReport, CrateRules, DeployableDefinition, DeploymentPlacement, GameEdition, HouseAllowList,
-    HouseDefinition, HouseId, HouseName, HouseRole, InfiltrationEffect, InfiltrationProfile, InfiltrationRules, LightningStormRules,
-    PowerProfile, PrerequisiteGroups,
+    HouseDefinition, HouseId, HouseName, HouseRole, InfiltrationEffect, InfiltrationProfile, InfiltrationRules, IronCurtainRules,
+    LightningStormRules, ParaDropRules, PowerProfile, PrerequisiteGroups,
     ProductionCategory, ProductionProfile, ProjectileDefinition, ProjectileId, ProjectileName, RaError, RaResult, RuntimeDefinitions,
     StolenTechKind, StructureDefinition, StructureLightProfile, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TechnoName, TypeId,
     WarheadDefinition, WarheadId, WarheadName, WeaponDefinition, WeaponId, WeaponName, super_weapon_kind_has_executor,
@@ -83,6 +83,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     };
     // 渗透数值：当前 rules 无独立键时保持零售缺省；后续 adaptor 扩展可覆盖。
     defs.infiltration = InfiltrationRules::default();
+    defs.iron_curtain = IronCurtainRules::default();
     for country in rules.countries.countries() {
         let stolen_tech = StolenTechKind::from_side(&country.side);
         let id = alloc_house();
@@ -435,6 +436,21 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         }
     }
     defs.base_units = bind_techno_name_list(&defs, &base_unit_names, "General:BaseUnit")?;
+    // 空降载荷：零售兼容缺省步兵名软绑定（缺类型则跳过，不阻断装载）。
+    defs.paradrop = ParaDropRules {
+        payload: soft_bind_techno_name_list(
+            &defs,
+            &[
+                TechnoName::parse("E1"),
+                TechnoName::parse("E1"),
+                TechnoName::parse("E1"),
+                TechnoName::parse("E1"),
+                TechnoName::parse("E1"),
+                TechnoName::parse("E2"),
+                TechnoName::parse("GGI"),
+            ],
+        ),
+    };
     // `[AI] Build*` 须在 techno 入库后绑定；未知名软跳过。
     defs.ai_controls = ra_types::AiControls {
         build_const: soft_bind_techno_name_list(&defs, &g.ai_build_const),

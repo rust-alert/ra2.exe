@@ -337,6 +337,9 @@ impl crate::state::BattleState {
         if self.ecs_get::<Health>(dirty_id).map(|h| h.dead).unwrap_or(true) {
             return;
         }
+        if crate::gameplay::effects::is_invulnerable(self, dirty_id) {
+            return;
+        }
         let house = self
             .ecs_get::<crate::state::components::Owner>(dirty_id)
             .map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));

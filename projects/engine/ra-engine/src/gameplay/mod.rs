@@ -37,6 +37,7 @@ pub(crate) use definitions_query::{
 };
 pub use definitions_query::{is_base_unit, is_base_unit_key};
 pub(crate) use deploy::{is_deployer, type_can_deploy};
+pub(crate) use effects::tick_timed_invulnerability;
 pub use powers::{
     FireSuperWeaponError, LightningStormState, SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT, SuperWeaponRuntime, start_lightning_storm,
     tick_lightning_storm, tick_super_weapon_charges, try_fire_super_weapon,

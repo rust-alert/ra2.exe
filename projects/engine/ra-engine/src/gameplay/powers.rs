@@ -380,6 +380,15 @@ pub fn try_fire_super_weapon(
             };
             super::combat::apply_weapon_strike_at(world, x, y, weapon_id, Some(house));
         }
+        "IRONCURTAIN" => {
+            super::effects::apply_iron_curtain_at(world, house, x, y, false);
+        }
+        "FORCESHIELD" => {
+            super::effects::apply_iron_curtain_at(world, house, x, y, true);
+        }
+        "PARADROP" | "AMERPARADROP" => {
+            super::effects::apply_paradrop_at(world, house, x, y);
+        }
         _ => return Err(FireSuperWeaponError::UnsupportedKind),
     }
     world.super_weapon_runtime.reset_charge(house, &type_key);

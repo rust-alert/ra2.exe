@@ -59,6 +59,13 @@ pub struct Health {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Repairing;
 
+/// 定时无敌（铁幕／力场护盾等）；剩余 tick 归零后摘除。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TimedInvulnerability {
+    /// 剩余无敌逻辑 tick。
+    pub remaining_ticks: u32,
+}
+
 /// 移动能力（速度等，来自冻结定义播种）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Locomotor {

@@ -204,3 +204,151 @@ fn order_fire_nuke_applies_weapon_damage_in_spread() {
     assert_eq!(adjacent, 120, "spread=1 victim should take 80 damage");
     assert_eq!(far, far_before, "out-of-spread victim untouched");
 }
+
+#[test]
+fn order_fire_iron_curtain_grants_invulnerability() {
+    let defs = defs_from_rules_ini(
+        b"[BuildingTypes]\n0=GACNST\n1=NAIRON\n\
+[VehicleTypes]\n0=MTNK\n\
+[SuperWeaponTypes]\n0=IronCurtain\n\
+[IronCurtain]\nType=IronCurtain\nRechargeTime=1\nSidebarImage=IRONICON\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
+[NAIRON]\nPower=-50\nPowered=yes\nOwner=Americans\nStrength=800\nSight=5\nCost=1000\nTechLevel=1\nSuperWeapon=IronCurtain\n\
+[MTNK]\nStrength=200\nSpeed=64\nSight=6\nCost=800\nArmor=none\nPrimary=Gun\n\
+[Gun]\nDamage=40\nROF=2\nRange=6\nWarhead=SA\n\
+[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
+    );
+    let mut map = MapInfo::empty(GameEdition::Ra2, "sw-iron");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GACNST".into(),
+            health: 256,
+            x: 1,
+            y: 1,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "NAIRON".into(),
+            health: 256,
+            x: 2,
+            y: 1,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: "AMERICANS".into(),
+            type_id: "MTNK".into(),
+            health: 256,
+            x: 8,
+            y: 8,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: "SOVIETS".into(),
+            type_id: "MTNK".into(),
+            health: 256,
+            x: 9,
+            y: 8,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+    ];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+    world.players[0].power_output = 200;
+    let mut session = Session::from_state(world, "sw-iron");
+    for _ in 0..SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT {
+        session.expect_battle_mut().world.advance_tick();
+    }
+    session.expect_battle_mut().order_fire_super_weapon("IronCurtain", 8, 8);
+    session.expect_battle_mut().world.advance_tick();
+    assert!(session.expect_battle().world.last_rejects().is_empty(), "{:?}", session.expect_battle().world.last_rejects());
+
+    let ally = session.expect_battle().world.entity_id_at(2).expect("ally");
+    let foe = session.expect_battle().world.entity_id_at(3).expect("foe");
+    let before_ally = session.expect_battle().world.ecs_health(ally).expect("hp").0;
+    session.expect_battle_mut().world.push_command(ra_engine::GameCommand::Attack { attacker: foe, target: ally });
+    for _ in 0..20 {
+        session.expect_battle_mut().world.advance_tick();
+    }
+    assert_eq!(
+        session.expect_battle().world.ecs_health(ally).expect("hp").0,
+        before_ally,
+        "allied tank under IronCurtain must ignore incoming damage"
+    );
+}
+
+#[test]
+fn order_fire_paradrop_spawns_payload_infantry() {
+    let defs = defs_from_rules_ini(
+        b"[BuildingTypes]\n0=GACNST\n1=GAPILL\n\
+[InfantryTypes]\n0=E1\n1=E2\n\
+[SuperWeaponTypes]\n0=ParaDrop\n\
+[ParaDrop]\nType=ParaDrop\nRechargeTime=1\nSidebarImage=PARAICON\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
+[GAPILL]\nPower=-20\nPowered=yes\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nTechLevel=1\nSuperWeapon=ParaDrop\n\
+[E1]\nStrength=125\nSpeed=64\nSight=5\nCost=100\nArmor=none\n\
+[E2]\nStrength=125\nSpeed=64\nSight=5\nCost=100\nArmor=none\n",
+    );
+    let mut map = MapInfo::empty(GameEdition::Ra2, "sw-para");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GACNST".into(),
+            health: 256,
+            x: 1,
+            y: 1,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GAPILL".into(),
+            health: 256,
+            x: 2,
+            y: 1,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+    ];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+    world.players[0].power_output = 200;
+    assert!(!world.definitions.paradrop.payload.is_empty());
+    let before = (0..64).filter_map(|i| world.entity_id_at(i)).count();
+    let mut session = Session::from_state(world, "sw-para");
+    for _ in 0..SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT {
+        session.expect_battle_mut().world.advance_tick();
+    }
+    session.expect_battle_mut().order_fire_super_weapon("ParaDrop", 8, 8);
+    session.expect_battle_mut().world.advance_tick();
+    assert!(session.expect_battle().world.last_rejects().is_empty(), "{:?}", session.expect_battle().world.last_rejects());
+    let after = (0..64).filter_map(|i| session.expect_battle().world.entity_id_at(i)).count();
+    assert!(after > before, "paradrop should spawn infantry: before={before} after={after}");
+}

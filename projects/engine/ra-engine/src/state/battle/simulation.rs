@@ -54,6 +54,7 @@ impl BattleState {
                 SystemPhase::Powers => {
                     crate::gameplay::tick_super_weapon_charges(self);
                     crate::gameplay::tick_lightning_storm(self);
+                    crate::gameplay::tick_timed_invulnerability(self);
                 }
                 SystemPhase::TerrainSpawn => self.advance_terrain_spawners(),
                 SystemPhase::Triggers => {
