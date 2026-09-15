@@ -77,7 +77,8 @@ pub use mobile_paint::{
 };
 pub use mobile_vxl_diag::{
     MOBILE_VXL_TURRET_SUFFIXES, MobileVxlDiagReport, MobileVxlLayerDiag, diagnose_mobile_vxl, diagnose_mobile_vxl_sweep_body,
-    diagnose_mobile_vxl_sweep_turret, mobile_vxl_diag_facing_sweep_bytes,
+    diagnose_mobile_vxl_sweep_hva, diagnose_mobile_vxl_sweep_turret, mobile_vxl_diag_facing_sweep_bytes,
+    mobile_vxl_diag_hva_sweep_frames,
 };
 pub use overlay::{NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID, OverlayCell, decode_overlay_packs};
 pub use overlay_paint::{

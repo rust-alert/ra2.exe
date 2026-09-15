@@ -312,3 +312,20 @@ pub fn diagnose_mobile_vxl_sweep_turret(
         .map(|turret_facing| diagnose_mobile_vxl(source, stem, body_facing, turret_facing, hva_frame))
         .collect()
 }
+
+/// 默认 HVA 帧扫表：`0, 1, 2`（核对帧变化时脚点 / 落影是否漂移）。
+pub fn mobile_vxl_diag_hva_sweep_frames() -> [u32; 3] {
+    [0, 1, 2]
+}
+
+/// 固定车身 / 炮塔朝向、扫 HVA 帧（`0..frame_count`，至少扫一帧）。
+pub fn diagnose_mobile_vxl_sweep_hva(
+    source: &dyn AssetSource,
+    stem: &str,
+    body_facing: u8,
+    turret_facing: u8,
+    frame_count: u32,
+) -> Vec<MobileVxlDiagReport> {
+    let n = frame_count.max(1);
+    (0..n).map(|hva_frame| diagnose_mobile_vxl(source, stem, body_facing, turret_facing, hva_frame)).collect()
+}

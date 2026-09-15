@@ -4,7 +4,8 @@ use std::collections::HashMap;
 
 use ra_assets::Palette;
 use ra_map::{
-    diagnose_mobile_vxl, diagnose_mobile_vxl_sweep_turret, mobile_vxl_diag_facing_sweep_bytes, MOBILE_VXL_TURRET_SUFFIXES,
+    diagnose_mobile_vxl, diagnose_mobile_vxl_sweep_hva, diagnose_mobile_vxl_sweep_turret, mobile_vxl_diag_facing_sweep_bytes,
+    mobile_vxl_diag_hva_sweep_frames, MOBILE_VXL_TURRET_SUFFIXES,
 };
 use ra_types::{AssetSource, RaError, RaResult};
 
@@ -70,18 +71,24 @@ fn minimal_vxl_bytes() -> Vec<u8> {
 }
 
 fn identity_hva_bytes(tx: f32, ty: f32, tz: f32) -> Vec<u8> {
+    multi_frame_hva_bytes(&[(tx, ty, tz)])
+}
+
+fn multi_frame_hva_bytes(frames: &[(f32, f32, f32)]) -> Vec<u8> {
     let mut data = Vec::new();
     data.extend_from_slice(b"test.hva\0\0\0\0\0\0\0\0");
-    data.extend_from_slice(&1u32.to_le_bytes());
+    data.extend_from_slice(&(frames.len() as u32).to_le_bytes());
     data.extend_from_slice(&1u32.to_le_bytes());
     data.extend_from_slice(b"body\0\0\0\0\0\0\0\0\0\0\0\0");
-    let m = [
-        1.0f32, 0.0, 0.0, tx, //
-        0.0, 1.0, 0.0, ty, //
-        0.0, 0.0, 1.0, tz,
-    ];
-    for f in m {
-        data.extend_from_slice(&f.to_le_bytes());
+    for &(tx, ty, tz) in frames {
+        let m = [
+            1.0f32, 0.0, 0.0, tx, //
+            0.0, 1.0, 0.0, ty, //
+            0.0, 0.0, 1.0, tz,
+        ];
+        for f in m {
+            data.extend_from_slice(&f.to_le_bytes());
+        }
     }
     data
 }
@@ -193,6 +200,56 @@ fn turret_facing_sweep_moves_translated_turret_offsets() {
         })
         .collect();
     assert!(body_origins.windows(2).all(|w| w[0] == w[1]), "body offsets must stay fixed: {body_origins:?}");
+}
+
+#[test]
+fn hva_frame_sweep_keeps_identity_body_foot() {
+    // 多帧但平移恒为 0：换帧不改变体素世界坐标，body/shadow 脚点应保持。
+    let mut files = HashMap::new();
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 0, 0));
+    files.insert("idle.vxl".into(), minimal_vxl_bytes());
+    files.insert("idle.hva".into(), multi_frame_hva_bytes(&[(0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)]));
+    let source = MapSource { files };
+
+    let reports = diagnose_mobile_vxl_sweep_hva(&source, "idle", 64, 64, mobile_vxl_diag_hva_sweep_frames().len() as u32);
+    assert_eq!(reports.len(), mobile_vxl_diag_hva_sweep_frames().len());
+    let body_feet: Vec<_> = reports
+        .iter()
+        .map(|r| {
+            let body = layer(r, "body");
+            (body.offset_x, body.offset_y, body.origin_px, body.origin_py)
+        })
+        .collect();
+    assert!(body_feet.windows(2).all(|w| w[0] == w[1]), "identity HVA body foot must stay fixed: {body_feet:?}");
+    let shadow_feet: Vec<_> = reports
+        .iter()
+        .map(|r| {
+            let shadow = layer(r, "shadow");
+            (shadow.offset_x, shadow.offset_y)
+        })
+        .collect();
+    assert!(shadow_feet.windows(2).all(|w| w[0] == w[1]), "identity HVA shadow foot must stay fixed: {shadow_feet:?}");
+}
+
+#[test]
+fn hva_frame_sweep_tracks_body_translation() {
+    // 多帧平移不同：诊断行应反映脚点随 HVA 帧变化（取证用，非零售正确性断言）。
+    let mut files = HashMap::new();
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 0, 0));
+    files.insert("walk.vxl".into(), minimal_vxl_bytes());
+    files.insert("walk.hva".into(), multi_frame_hva_bytes(&[(0.0, 0.0, 0.0), (6.0, 0.0, 0.0), (12.0, 0.0, 0.0)]));
+    let source = MapSource { files };
+
+    let reports = diagnose_mobile_vxl_sweep_hva(&source, "walk", 64, 64, 3);
+    let origins: Vec<_> = reports
+        .iter()
+        .map(|r| {
+            let body = layer(r, "body");
+            (body.offset_x, body.offset_y)
+        })
+        .collect();
+    let uniq: std::collections::HashSet<_> = origins.iter().copied().collect();
+    assert!(uniq.len() > 1, "translated HVA frames must move body offsets: {origins:?}");
 }
 
 #[test]
