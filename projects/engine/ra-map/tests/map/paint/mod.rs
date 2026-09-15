@@ -3,6 +3,7 @@
 mod cameo_names;
 mod missing_art;
 mod mobile_paint;
+mod mobile_vxl_diag;
 mod overlay;
 mod overlay_paint;
 mod overlay_pass;

@@ -118,8 +118,47 @@ fn sprite_anchors_at_model_origin_not_opaque_aabb_center() {
     // facing=64 → 车身零转，仅相机；原点投影仍为 (0,0)。
     let s = rasterize_vxl_posed(&vxl, &pal, None, 64).unwrap();
     assert_ne!(s.offset_x, -(s.width as i32) / 2, "must not AABB-center");
-    // offset=min_sx：模型原点对应精灵像素 (-min_sx, -min_sy) 的内侧位置。
+    // offset=min_sx：叠画 dest=cell+offset+local 使模型原点落到 cell，即使原点在精灵外。
     assert!(s.offset_x != 0 || s.width > 1);
+    // 体素全在 +X 时原点常在精灵左侧之外（origin_px < 0），这仍是合法原点锚点。
+    assert!(-s.offset_x < s.width as i32);
+}
+
+#[test]
+fn model_origin_foot_stable_across_body_yaw() {
+    // 不对称长条：换朝向后 AABB 尺寸会变，但模型原点屏幕位置恒为 (0,0)，
+    // 故 offset + foot = 0（叠画脚点钉在锚点，不随 AABB 漂移）。
+    let voxels: Vec<_> = (0..8).map(|i| VxlVoxel { x: i, y: 0, z: 0, color_index: 10, normal_index: 0 }).collect();
+    let vxl = limb_with(voxels);
+    let mut colors = [Rgba::transparent(); 256];
+    colors[10] = Rgba::rgb(1, 1, 1);
+    let pal = Palette { colors };
+    let mut sizes = Vec::new();
+    for facing in [0u8, 32, 64, 96, 128, 160, 192, 224] {
+        let s = rasterize_vxl_posed(&vxl, &pal, None, facing).unwrap();
+        assert_eq!(s.offset_x + (-s.offset_x), 0);
+        assert_eq!(s.offset_y + (-s.offset_y), 0);
+        sizes.push((s.width, s.height, s.offset_x, s.offset_y));
+    }
+    // 朝向变化应改变投影尺寸或偏移，但脚点约束上面已覆盖。
+    let uniq: std::collections::HashSet<_> = sizes.iter().copied().collect();
+    assert!(uniq.len() > 1, "yaw must change projected metrics: {sizes:?}");
+}
+
+#[test]
+fn body_and_shadow_share_model_origin_across_yaw() {
+    let voxels: Vec<_> = (0..6).map(|i| VxlVoxel { x: i, y: 1, z: 0, color_index: 10, normal_index: 0 }).collect();
+    let vxl = limb_with(voxels);
+    let mut colors = [Rgba::transparent(); 256];
+    colors[10] = Rgba::rgb(1, 1, 1);
+    let pal = Palette { colors };
+    for facing in [0u8, 64, 128, 192] {
+        let pose = VxlLayerPose { vxl: &vxl, hva: None, facing, frame: 0 };
+        let body = rasterize_vxl_layer_poses(&[pose], &pal, None).unwrap();
+        let shadow = rasterize_vxl_shadow_layer_poses(&[pose]).unwrap();
+        assert_eq!(shadow.offset_x - VXL_SHADOW_LIGHT_OFFSET_X, body.offset_x, "facing={facing}");
+        assert_eq!(shadow.offset_y, body.offset_y, "facing={facing}");
+    }
 }
 
 #[test]

@@ -12,6 +12,7 @@ mod iso_pack;
 mod land;
 pub mod lighting;
 pub mod mobile_paint;
+pub mod mobile_vxl_diag;
 mod numbered_pack;
 mod overlay;
 mod overlay_paint;
@@ -73,6 +74,10 @@ pub use lighting::{
 };
 pub use mobile_paint::{
     MobilePaintPose, apply_mobile_pose_offset, infantry_facing_slot, infantry_sub_cell_offsets, paint_map_mobiles, slide_offset_along_path,
+};
+pub use mobile_vxl_diag::{
+    MOBILE_VXL_TURRET_SUFFIXES, MobileVxlDiagReport, MobileVxlLayerDiag, diagnose_mobile_vxl, diagnose_mobile_vxl_sweep_body,
+    diagnose_mobile_vxl_sweep_turret, mobile_vxl_diag_facing_sweep_bytes,
 };
 pub use overlay::{NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID, OverlayCell, decode_overlay_packs};
 pub use overlay_paint::{

@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use ra_assets::{
-    HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, deserialize_opt_u32, from_row, rasterize_vxl_layer_poses,
+    IniDocument, Palette, ShpFile, VplFile, VxlLayerPose, deserialize_opt_u32, from_row, rasterize_vxl_layer_poses,
     rasterize_vxl_shadow_layer_poses,
 };
 use ra_types::{AssetSource, HouseName, ImageName, TechnoName};
@@ -434,35 +434,13 @@ pub fn load_mobile_vxl_layers(
     turret_facing: u8,
     hva_frame: u32,
 ) -> Option<TileBlit> {
-    let body_name = format!("{stem}.vxl");
-    let body_bytes = source.read(&body_name).ok()?;
-    let body = VxlFile::parse(&body_bytes).ok()?;
-    let body_hva = source.read(&format!("{stem}.hva")).ok().and_then(|b| HvaFile::parse(&b).ok());
-
-    let mut owned: Vec<(VxlFile, Option<HvaFile>, bool)> = vec![(body, body_hva, false)];
-    for suffix in ["tur", "barl", "barrel"] {
-        let vxl_name = format!("{stem}{suffix}.vxl");
-        let Ok(bytes) = source.read(&vxl_name)
-        else {
-            continue;
-        };
-        let Ok(vxl) = VxlFile::parse(&bytes)
-        else {
-            continue;
-        };
-        let hva = source.read(&format!("{stem}{suffix}.hva")).ok().and_then(|b| HvaFile::parse(&b).ok());
-        owned.push((vxl, hva, true));
-        if suffix.starts_with("bar") {
-            break;
-        }
-    }
-
+    let owned = crate::mobile_vxl_diag::collect_mobile_vxl_layers(source, stem)?;
     let layers: Vec<VxlLayerPose<'_>> = owned
         .iter()
-        .map(|(v, h, is_turret)| VxlLayerPose {
-            vxl: v,
-            hva: h.as_ref(),
-            facing: if *is_turret { turret_facing } else { body_facing },
+        .map(|layer| VxlLayerPose {
+            vxl: &layer.vxl,
+            hva: layer.hva.as_ref(),
+            facing: if layer.is_turret { turret_facing } else { body_facing },
             frame: hva_frame,
         })
         .collect();
