@@ -319,6 +319,7 @@ pub fn super_weapon_kind_has_executor(kind: &str) -> bool {
     matches!(
         kind.trim().to_ascii_uppercase().as_str(),
         "LIGHTNINGSTORM" | "MULTIMISSILE" | "NUKE" | "IRONCURTAIN" | "FORCESHIELD" | "PARADROP" | "AMERPARADROP"
+            | "CHRONOSPHERE" | "REVEAL" | "PSYCHICREVEAL"
     )
 }
 

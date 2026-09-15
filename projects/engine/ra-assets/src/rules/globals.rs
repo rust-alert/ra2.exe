@@ -42,6 +42,10 @@ pub struct RulesGlobals {
     pub lightning_storm_duration: Option<i32>,
     /// `[General] LightningDeferment`。
     pub lightning_deferment: Option<i32>,
+    /// `[General] IronCurtainDuration`（逻辑帧量级整数）。
+    pub iron_curtain_duration: Option<i32>,
+    /// `[General] RevealTriggerRadius`（揭示圆盘切比雪夫半径）。
+    pub reveal_trigger_radius: Option<i32>,
     /// `[CrateRules] CrateMoney`。
     pub crate_money: Option<i32>,
     /// `[CrateRules] CrateMinimum`。
@@ -163,6 +167,8 @@ impl RulesGlobals {
             base_unit: filter_techno_names(general.base_unit),
             lightning_storm_duration: general.lightning_storm_duration,
             lightning_deferment: general.lightning_deferment,
+            iron_curtain_duration: general.iron_curtain_duration,
+            reveal_trigger_radius: general.reveal_trigger_radius,
             crate_money: crates.crate_money,
             crate_minimum: crates.crate_minimum,
             crate_maximum: crates.crate_maximum,
@@ -242,6 +248,10 @@ struct GeneralSectionFields {
     lightning_storm_duration: Option<i32>,
     #[serde(rename = "LightningDeferment", default, deserialize_with = "deserialize_opt_i32")]
     lightning_deferment: Option<i32>,
+    #[serde(rename = "IronCurtainDuration", default, deserialize_with = "deserialize_opt_i32")]
+    iron_curtain_duration: Option<i32>,
+    #[serde(rename = "RevealTriggerRadius", default, deserialize_with = "deserialize_opt_i32")]
+    reveal_trigger_radius: Option<i32>,
     #[serde(rename = "AINavalYardAdjacency", default, deserialize_with = "deserialize_opt_i32")]
     ai_naval_yard_adjacency: Option<i32>,
 }

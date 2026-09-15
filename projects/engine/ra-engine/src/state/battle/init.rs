@@ -131,6 +131,8 @@ impl BattleState {
             presentation_dirty: DirtyEntitySet::new(),
             lightning_storm: None,
             super_weapon_runtime: crate::gameplay::SuperWeaponRuntime::default(),
+            chronosphere_arms: std::collections::BTreeMap::new(),
+            house_reveal: crate::state::HouseRevealState::default(),
             trigger_runtime,
             script_team_runtime: crate::gameplay::ScriptTeamRuntime::default(),
             ai_trigger_runtime,

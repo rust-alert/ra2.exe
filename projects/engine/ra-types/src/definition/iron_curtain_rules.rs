@@ -3,9 +3,9 @@
 /// 铁幕类超武执行参数（装载期冻结）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IronCurtainRules {
-    /// 无敌持续 tick。
+    /// 无敌持续 tick（`[General] IronCurtainDuration`；缺键时用竖切缺省）。
     pub duration_ticks: u32,
-    /// 作用半径（切比雪夫格数，含中心）。
+    /// 作用半径（切比雪夫格数，含中心；零售无独立键，竖切缺省）。
     pub radius_cells: u32,
 }
 

@@ -104,6 +104,10 @@ pub struct BattleState {
     pub lightning_storm: Option<crate::gameplay::LightningStormState>,
     /// 各 house 超级武器充能。
     pub super_weapon_runtime: crate::gameplay::SuperWeaponRuntime,
+    /// 超时空第一次点击装订的源点（house → 格坐标）；第二次点击完成传送并清空。
+    pub chronosphere_arms: std::collections::BTreeMap<String, (u16, u16)>,
+    /// 各 house 已揭示地图格（超武 / 触发竖切）。
+    pub house_reveal: crate::state::HouseRevealState,
     /// 地图触发运行时。
     pub trigger_runtime: crate::gameplay::TriggerRuntime,
     /// 小队 ScriptTypes 运行时。

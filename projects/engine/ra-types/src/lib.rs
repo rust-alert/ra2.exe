@@ -22,7 +22,8 @@ pub use asset_source::AssetSource;
 pub use command::{CommandBody, CommandId, CommandKind, CommandTarget, ScheduledCommand};
 pub use definition::{
     ARMOR_ORDER, AiBuildCategory, AiControls, AiTriggerCompareOp, AiTriggerConditionKind, AiTriggerName, AnimationDefinitions, ArmorKind,
-    BuildCat, BuiltinCapability, CampaignName, CapabilityGapReport, CapabilitySet, ColorName, ContentFingerprint, CrateRules,
+    BuildCat, BuiltinCapability, CampaignName, CapabilityGapReport, CapabilitySet, ChronoSphereRules, ColorName, ContentFingerprint,
+    CrateRules,
     DEFAULT_AI_BASE_SPACING, DEFAULT_AI_NAVAL_YARD_ADJACENCY, DEFAULT_AI_TRIGGER_WEIGHT, DEFAULT_BUILD_ADJACENT, DeployableDefinition,
     DeployableDefinitions, DeploymentPlacement, Foundation, GameModeName, HouseAllowList, HouseDefinition, HouseDefinitions,
     HouseIdAllowList, HouseName, HouseRole, HouseStolenTechMap, ImageName, InfiltrationEffect, InfiltrationProfile, InfiltrationRules,
@@ -34,7 +35,8 @@ pub use definition::{
     PreparedBasePlan, PreparedCellTag, PreparedEvent, PreparedHouse, PreparedMap, PreparedPlacement, PreparedScriptType, PreparedTag,
     PreparedTaskForce, PreparedTaskForceEntry, PreparedTeamType, PreparedTrigger, PrerequisiteGroupKind, PrerequisiteGroups, PrerequisiteList,
     PrerequisiteToken, ProduceCashProfile, ProductionCategory, ProductionDefinitions, ProductionProfile, ProjectileDefinition,
-    ProjectileDefinitions, ProjectileName, RuntimeDefinitions, ScriptTypeName, SideName, SmudgeName, SoundDefinitions, StolenTechKind,
+    ProjectileDefinitions, ProjectileName, RevealRules, RuntimeDefinitions, ScriptTypeName, SideName, SmudgeName, SoundDefinitions,
+    StolenTechKind,
     StructureDefinition, StructureDefinitions, StructureLightProfile, SuperWeaponActionName, SuperWeaponDefinition, SuperWeaponDefinitions,
     SuperWeaponKindName, SuperWeaponName, TMP_TERRAIN_TO_LAND, TagName, TaskForceName, TeamTypeName, TechnoCategory, TechnoClass,
     TechnoDefinition, TechnoDefinitions, TechnoName, TerrainName, TerrainSpawnerDefinition, TerrainSpawnerDefinitions, Theater, TriggerName,

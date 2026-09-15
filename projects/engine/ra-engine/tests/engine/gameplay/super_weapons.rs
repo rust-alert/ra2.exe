@@ -352,3 +352,136 @@ fn order_fire_paradrop_spawns_payload_infantry() {
     let after = (0..64).filter_map(|i| session.expect_battle().world.entity_id_at(i)).count();
     assert!(after > before, "paradrop should spawn infantry: before={before} after={after}");
 }
+
+#[test]
+fn order_fire_chronosphere_arms_then_teleports_units() {
+    let defs = defs_from_rules_ini(
+        b"[BuildingTypes]\n0=GACNST\n1=GACHRON\n\
+[VehicleTypes]\n0=MTNK\n\
+[SuperWeaponTypes]\n0=ChronoSphere\n\
+[ChronoSphere]\nType=ChronoSphere\nRechargeTime=1\nSidebarImage=CHRONICON\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
+[GACHRON]\nPower=-50\nPowered=yes\nOwner=Americans\nStrength=800\nSight=5\nCost=1000\nTechLevel=1\nSuperWeapon=ChronoSphere\n\
+[MTNK]\nStrength=200\nSpeed=64\nSight=6\nCost=800\nArmor=none\n",
+    );
+    let mut map = MapInfo::empty(GameEdition::Ra2, "sw-chrono");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GACNST".into(),
+            health: 256,
+            x: 1,
+            y: 1,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GACHRON".into(),
+            health: 256,
+            x: 2,
+            y: 1,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: "AMERICANS".into(),
+            type_id: "MTNK".into(),
+            health: 256,
+            x: 4,
+            y: 4,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+    ];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+    world.players[0].power_output = 200;
+    let mut session = Session::from_state(world, "sw-chrono");
+    for _ in 0..SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT {
+        session.expect_battle_mut().world.advance_tick();
+    }
+    session.expect_battle_mut().order_fire_super_weapon("ChronoSphere", 4, 4);
+    session.expect_battle_mut().world.advance_tick();
+    assert!(session.expect_battle().world.last_rejects().is_empty(), "{:?}", session.expect_battle().world.last_rejects());
+    assert!(!session.expect_battle().world.chronosphere_arms.is_empty(), "first click should arm source");
+    let caps = session.expect_battle().snapshot_capabilities(&[]);
+    let item = caps.super_weapon_items.iter().find(|i| i.type_id.as_ref() == "CHRONOSPHERE").expect("sw");
+    assert!(item.ready, "arming must not consume charge");
+
+    session.expect_battle_mut().order_fire_super_weapon("ChronoSphere", 12, 12);
+    session.expect_battle_mut().world.advance_tick();
+    assert!(session.expect_battle().world.last_rejects().is_empty(), "{:?}", session.expect_battle().world.last_rejects());
+    assert!(session.expect_battle().world.chronosphere_arms.is_empty());
+    let tank = session.expect_battle().world.entity_id_at(2).expect("tank");
+    let xf = session.expect_battle().world.ecs_transform(tank).expect("xf");
+    assert!((xf.0 as i32 - 12).abs() <= 2 && (xf.1 as i32 - 12).abs() <= 2, "tank should teleport near dest: {:?}", xf);
+    let after = session.expect_battle().snapshot_capabilities(&[]);
+    let item = after.super_weapon_items.iter().find(|i| i.type_id.as_ref() == "CHRONOSPHERE").expect("sw");
+    assert!(!item.ready, "warp should consume charge");
+}
+
+#[test]
+fn order_fire_reveal_marks_cells_and_radar() {
+    let defs = defs_from_rules_ini(
+        b"[BuildingTypes]\n0=GACNST\n1=GASPY\n\
+[SuperWeaponTypes]\n0=Reveal\n\
+[Reveal]\nType=Reveal\nRechargeTime=1\nSidebarImage=REVEALICON\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
+[GASPY]\nPower=-20\nPowered=yes\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nTechLevel=1\nSuperWeapon=Reveal\n",
+    );
+    let mut map = MapInfo::empty(GameEdition::Ra2, "sw-reveal");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GACNST".into(),
+            health: 256,
+            x: 1,
+            y: 1,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "AMERICANS".into(),
+            type_id: "GASPY".into(),
+            health: 256,
+            x: 2,
+            y: 1,
+            facing: 0,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
+    ];
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+    world.players[0].power_output = 200;
+    let mut session = Session::from_state(world, "sw-reveal");
+    for _ in 0..SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT {
+        session.expect_battle_mut().world.advance_tick();
+    }
+    session.expect_battle_mut().order_fire_super_weapon("Reveal", 8, 8);
+    session.expect_battle_mut().world.advance_tick();
+    assert!(session.expect_battle().world.last_rejects().is_empty(), "{:?}", session.expect_battle().world.last_rejects());
+    let revealed = session.expect_battle().world.house_reveal.revealed_count("AMERICANS");
+    assert!(revealed > 1, "reveal should mark a disk of cells: {revealed}");
+    assert!(session.expect_battle().world.house_reveal.is_revealed("AMERICANS", 8, 8));
+    assert_eq!(session.expect_battle().world.last_radar_event_cell("AMERICANS"), Some((8, 8)));
+}

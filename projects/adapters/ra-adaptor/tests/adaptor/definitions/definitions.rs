@@ -103,19 +103,26 @@ fn build_runtime_definitions_parses_super_weapon_types_and_building_link() {
 #[test]
 fn unsupported_super_weapon_kind_emits_capability_gap_and_executor_flag() {
     let rules = rules_from(
-        b"[SuperWeaponTypes]\n0=ChronoSphere\n1=LightningStorm\n2=NukeSpecial\n\
+        b"[SuperWeaponTypes]\n0=GeneticMutator\n1=LightningStorm\n2=NukeSpecial\n3=ChronoSphere\n4=Reveal\n\
+[GeneticMutator]\nType=GeneticMutator\nRechargeTime=10\n\
 [ChronoSphere]\nType=ChronoSphere\nRechargeTime=10\n\
+[Reveal]\nType=Reveal\nRechargeTime=4\n\
 [LightningStorm]\nType=LightningStorm\nRechargeTime=5\n\
 [NukeSpecial]\nType=Nuke\nRechargeTime=8\nWeapon=NukePayload\n\
 [NukePayload]\nDamage=200\nROF=1\nRange=10\nWarhead=NukeWH\n\
 [NukeWH]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\nSpread=2\n\
-[General]\nLightningStormDuration=120\nLightningDeferment=3\n\
+[General]\nLightningStormDuration=120\nLightningDeferment=3\nIronCurtainDuration=300\n\
 [CrateRules]\nCrateMoney=1500\nCrateMinimum=100\nCrateMaximum=3000\n",
     );
     let defs = build_runtime_definitions(&rules).expect("freeze");
+    let mutator = defs.super_weapons.get("GeneticMutator").expect("mutator");
+    assert!(!mutator.has_registered_executor());
+    assert!(defs.capability_gaps.iter().any(|g| g.code.contains("rules.superweapon.GENETICMUTATOR deferred")));
     let chrono = defs.super_weapons.get("ChronoSphere").expect("chrono");
-    assert!(!chrono.has_registered_executor());
-    assert!(defs.capability_gaps.iter().any(|g| g.code.contains("rules.superweapon.CHRONOSPHERE deferred")));
+    assert!(chrono.has_registered_executor());
+    assert!(!defs.capability_gaps.iter().any(|g| g.code.contains("rules.superweapon.CHRONOSPHERE deferred")));
+    let reveal = defs.super_weapons.get("Reveal").expect("reveal");
+    assert!(reveal.has_registered_executor());
     let ls = defs.super_weapons.get("LightningStorm").expect("ls");
     assert!(ls.has_registered_executor());
     let nuke = defs.super_weapons.get("NukeSpecial").expect("nuke");
@@ -124,6 +131,7 @@ fn unsupported_super_weapon_kind_emits_capability_gap_and_executor_flag() {
     assert!(!defs.capability_gaps.iter().any(|g| g.code.contains("rules.superweapon.NUKE deferred")));
     assert_eq!(defs.lightning_storm.duration_ticks, 120);
     assert_eq!(defs.lightning_storm.deferment_ticks, 3);
+    assert_eq!(defs.iron_curtain.duration_ticks, 300);
     assert_eq!(defs.crate_rules.default_credits, 1500);
     assert_eq!(defs.crate_rules.money_minimum, Some(100));
     assert_eq!(defs.crate_rules.money_maximum, Some(3000));

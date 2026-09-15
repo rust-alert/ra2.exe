@@ -1,10 +1,10 @@
 //! 对局级冻结定义集。
 
 use super::{
-    AiControls, AnimationDefinitions, CapabilityGapReport, CapabilitySet, ContentFingerprint, CrateRules, DeployableDefinitions,
-    HouseDefinitions, HouseStolenTechMap, InfiltrationRules, IronCurtainRules, LightningStormRules, LocomotorDefinitions, OverlayTypeRegistry,
-    ParaDropRules, PrerequisiteGroups, ProductionDefinitions, ProjectileDefinitions, SoundDefinitions, StructureDefinitions,
-    SuperWeaponDefinitions, TechnoDefinitions, TerrainSpawnerDefinitions, WarheadDefinitions, WeaponDefinitions,
+    AiControls, AnimationDefinitions, CapabilityGapReport, CapabilitySet, ChronoSphereRules, ContentFingerprint, CrateRules,
+    DeployableDefinitions, HouseDefinitions, HouseStolenTechMap, InfiltrationRules, IronCurtainRules, LightningStormRules, LocomotorDefinitions,
+    OverlayTypeRegistry, ParaDropRules, PrerequisiteGroups, ProductionDefinitions, ProjectileDefinitions, RevealRules, SoundDefinitions,
+    StructureDefinitions, SuperWeaponDefinitions, TechnoDefinitions, TerrainSpawnerDefinitions, WarheadDefinitions, WeaponDefinitions,
 };
 use crate::id::TypeId;
 
@@ -82,6 +82,10 @@ pub struct RuntimeDefinitions {
     pub lightning_storm: LightningStormRules,
     /// 铁幕／力场执行参数。
     pub iron_curtain: IronCurtainRules,
+    /// 地图揭示执行参数。
+    pub reveal: RevealRules,
+    /// 超时空传送执行参数。
+    pub chrono_sphere: ChronoSphereRules,
     /// 空降载荷。
     pub paradrop: ParaDropRules,
     /// 装载期发现的能力缺口（含「有定义无执行器」）。
@@ -124,6 +128,8 @@ impl Default for RuntimeDefinitions {
             crate_rules: CrateRules::default(),
             lightning_storm: LightningStormRules::default(),
             iron_curtain: IronCurtainRules::default(),
+            reveal: RevealRules::default(),
+            chrono_sphere: ChronoSphereRules::default(),
             paradrop: ParaDropRules::default(),
             capability_gaps: Vec::new(),
         }

@@ -5,9 +5,10 @@
 use ra_assets::TechnoKind;
 use ra_types::{
     BuiltinCapability, CapabilityGapReport, CrateRules, DeployableDefinition, DeploymentPlacement, GameEdition, HouseAllowList,
-    HouseDefinition, HouseId, HouseName, HouseRole, InfiltrationEffect, InfiltrationProfile, InfiltrationRules, IronCurtainRules,
-    LightningStormRules, ParaDropRules, PowerProfile, PrerequisiteGroups,
-    ProductionCategory, ProductionProfile, ProjectileDefinition, ProjectileId, ProjectileName, RaError, RaResult, RuntimeDefinitions,
+    ChronoSphereRules, HouseDefinition, HouseId, HouseName, HouseRole, InfiltrationEffect, InfiltrationProfile, InfiltrationRules,
+    IronCurtainRules, LightningStormRules, ParaDropRules, PowerProfile, PrerequisiteGroups,
+    ProductionCategory, ProductionProfile, ProjectileDefinition, ProjectileId, ProjectileName, RaError, RaResult, RevealRules,
+    RuntimeDefinitions,
     StolenTechKind, StructureDefinition, StructureLightProfile, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TechnoName, TypeId,
     WarheadDefinition, WarheadId, WarheadName, WeaponDefinition, WeaponId, WeaponName, super_weapon_kind_has_executor,
 };
@@ -83,7 +84,14 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     };
     // 渗透数值：当前 rules 无独立键时保持零售缺省；后续 adaptor 扩展可覆盖。
     defs.infiltration = InfiltrationRules::default();
-    defs.iron_curtain = IronCurtainRules::default();
+    defs.iron_curtain = IronCurtainRules {
+        duration_ticks: g.iron_curtain_duration.map(|v| v.max(0) as u32).unwrap_or(IronCurtainRules::default().duration_ticks),
+        radius_cells: IronCurtainRules::default().radius_cells,
+    };
+    defs.reveal = RevealRules {
+        radius_cells: g.reveal_trigger_radius.map(|v| v.max(0) as u32).unwrap_or(RevealRules::default().radius_cells),
+    };
+    defs.chrono_sphere = ChronoSphereRules::default();
     for country in rules.countries.countries() {
         let stolen_tech = StolenTechKind::from_side(&country.side);
         let id = alloc_house();

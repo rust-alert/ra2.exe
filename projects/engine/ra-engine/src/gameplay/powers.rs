@@ -389,6 +389,21 @@ pub fn try_fire_super_weapon(
         "PARADROP" | "AMERPARADROP" => {
             super::effects::apply_paradrop_at(world, house, x, y);
         }
+        "REVEAL" | "PSYCHICREVEAL" => {
+            super::effects::apply_reveal_at(world, house, x, y);
+        }
+        "CHRONOSPHERE" => {
+            let house_key = house.trim().to_ascii_uppercase();
+            if let Some(&(sx, sy)) = world.chronosphere_arms.get(&house_key) {
+                super::effects::apply_chronosphere_warp(world, house, sx, sy, x, y);
+                world.chronosphere_arms.remove(&house_key);
+            }
+            else {
+                // 第一次点击只装订源点，不消耗充能。
+                world.chronosphere_arms.insert(house_key, (x, y));
+                return Ok(());
+            }
+        }
         _ => return Err(FireSuperWeaponError::UnsupportedKind),
     }
     world.super_weapon_runtime.reset_charge(house, &type_key);

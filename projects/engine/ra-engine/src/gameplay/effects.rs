@@ -1,11 +1,11 @@
-//! 持续效果与状态修正（铁幕无敌、护盾等）。
+//! 持续效果与状态修正（铁幕无敌、护盾、揭示、超时空等）。
 
 use ra_map::MapEntityKind;
 use ra_types::EntityId;
 
 use crate::state::{
     BattleState,
-    components::{Health, Identity, Owner, TimedInvulnerability, Transform},
+    components::{AttackState, Health, Identity, MovementState, Owner, TimedInvulnerability, Transform},
 };
 
 /// 推进所有定时无敌计时；归零则摘除组件。
@@ -150,6 +150,100 @@ pub(crate) fn apply_paradrop_at(world: &mut BattleState, house: &str, x: u16, y:
         }
         if !placed {
             // 邻域放不下则跳过该载荷项，不阻断后续。
+            continue;
+        }
+    }
+}
+
+/// 揭示：为行动方标记圆盘格并推送雷达事件。
+pub(crate) fn apply_reveal_at(world: &mut BattleState, house: &str, x: u16, y: u16) {
+    let radius = world.definitions.reveal.radius_cells;
+    let (mw, mh) = (world.map.width, world.map.height);
+    world.house_reveal.reveal_disk(house, x, y, radius, mw, mh);
+    world.push_radar_event(house, x, y);
+}
+
+/// 超时空：将源点半径内友军机动单位传送到目标邻域。
+pub(crate) fn apply_chronosphere_warp(world: &mut BattleState, house: &str, sx: u16, sy: u16, dx: u16, dy: u16) {
+    let rules = world.definitions.chrono_sphere.clone();
+    let source_r = rules.source_radius_cells as i32;
+    let dest_r = rules.dest_search_radius_cells as i32;
+    let house_id = crate::gameplay::house_id_of(&world.definitions, house);
+    let mut movers = Vec::new();
+    for e in &world.entities {
+        let id = e.id;
+        if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+            continue;
+        }
+        let Some(identity) = world.ecs_get::<Identity>(id)
+        else {
+            continue;
+        };
+        if !matches!(identity.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
+            continue;
+        }
+        if world.ecs_get::<Owner>(id).map(|o| Some(o.house) != house_id).unwrap_or(true) {
+            continue;
+        }
+        let Some(xf) = world.ecs_get::<Transform>(id)
+        else {
+            continue;
+        };
+        let ox = (xf.x as i32 - sx as i32).abs();
+        let oy = (xf.y as i32 - sy as i32).abs();
+        if ox.max(oy) <= source_r {
+            movers.push(id);
+        }
+    }
+    let mut dest_offsets: Vec<(i32, i32)> = Vec::new();
+    for r in 0i32..=dest_r {
+        for oy in -r..=r {
+            for ox in -r..=r {
+                if ox.abs().max(oy.abs()) != r {
+                    continue;
+                }
+                dest_offsets.push((ox, oy));
+            }
+        }
+    }
+    let mut slot = 0usize;
+    for id in movers {
+        let mut placed = false;
+        for _ in 0..dest_offsets.len().max(1) {
+            let (ox, oy) = dest_offsets[slot % dest_offsets.len().max(1)];
+            slot += 1;
+            let nx = dx as i32 + ox;
+            let ny = dy as i32 + oy;
+            if nx < 0 || ny < 0 {
+                continue;
+            }
+            let (ux, uy) = (nx as u16, ny as u16);
+            if !world.pass_grid.in_bounds(ux, uy) || !world.pass_grid.is_passable(ux, uy) {
+                continue;
+            }
+            if world.cell_blocked_by_entity(ux, uy) {
+                continue;
+            }
+            let _ = world.with_transform_mut(id, |xf| {
+                xf.x = ux;
+                xf.y = uy;
+            });
+            let _ = world.with_movement_mut(id, |m: &mut MovementState| {
+                m.destination_x = None;
+                m.destination_y = None;
+                m.waypoints.clear();
+                m.path.clear();
+                m.move_accum = 0;
+            });
+            let _ = world.with_attack_mut(id, |a: &mut AttackState| {
+                a.target = None;
+            });
+            world.mark_entity_dirty(id);
+            placed = true;
+            break;
+        }
+        if !placed {
+            // 落点全满则跳过该单位，不阻断其余传送。
             continue;
         }
     }
