@@ -624,20 +624,22 @@ impl BattleController {
         let (cx, cy) = self.cursor;
         let cursor_in_window = cx >= 0.0 && cy >= 0.0 && cx < f64::from(metrics.logical_width) && cy < f64::from(metrics.logical_height);
         let cursor_in_world = self.map_viewport(window).contains_cursor(cx as i32, cy as i32);
+        let mods = self.input_tracker.modifiers;
         super::battle_input::BattleInputFrame {
             metrics,
             cursor: self.cursor,
             cursor_in_window,
             cursor_in_world,
-            shift_down: self.shift_down,
-            ctrl_down: self.ctrl_down,
-            alt_down: self.alt_down,
-            order_mod: OrderClickModifier::from_keys(self.ctrl_down, self.alt_down),
+            shift_down: mods.shift,
+            ctrl_down: mods.ctrl,
+            alt_down: mods.alt,
+            order_mod: OrderClickModifier::from_keys(mods.ctrl, mods.alt),
             tool: self.interaction_mode.tool_kind(),
             camera_pan_keys: self.camera_pan_keys,
             marquee: self.left_gesture.marquee_rect(),
             capture: self.ui_capture,
             buttons: self.input_tracker.buttons,
+            modifiers: mods,
             edges: self.input_tracker.edges,
         }
     }

@@ -795,9 +795,13 @@ impl BattleController {
         }
         match event {
             WindowEvent::ModifiersChanged(mods) => {
-                self.shift_down = mods.state().shift_key();
-                self.ctrl_down = mods.state().control_key();
-                self.alt_down = mods.state().alt_key();
+                let shift = mods.state().shift_key();
+                let ctrl = mods.state().control_key();
+                let alt = mods.state().alt_key();
+                self.input_tracker.set_modifiers(shift, ctrl, alt);
+                self.shift_down = shift;
+                self.ctrl_down = ctrl;
+                self.alt_down = alt;
                 BattleNav::None
             }
             WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if accept_commands && battle_paused => {

@@ -311,6 +311,8 @@ pub struct BattleInputFrame {
     pub capture: BattleUiCapture,
     /// 指针按键按住态。
     pub buttons: PointerButtons,
+    /// 修饰键按住态（与 `shift_down` 等同源，失焦静默清空）。
+    pub modifiers: ModifierButtons,
     /// 本帧边沿（自上次 `BattleInputTracker::begin_frame` 起累计）。
     pub edges: BattleInputEdges,
 }
@@ -338,6 +340,24 @@ impl PointerButtons {
     }
 }
 
+/// 修饰键按住态（与指针键一样：失焦静默清空，不产生抬起边沿）。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ModifierButtons {
+    /// Shift。
+    pub shift: bool,
+    /// Ctrl。
+    pub ctrl: bool,
+    /// Alt。
+    pub alt: bool,
+}
+
+impl ModifierButtons {
+    /// 是否有任一修饰键按住。
+    pub const fn any(self) -> bool {
+        self.shift || self.ctrl || self.alt
+    }
+}
+
 /// 本帧输入边沿（瞬时；每帧 `begin_frame` 清零后由事件累计）。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct BattleInputEdges {
@@ -357,6 +377,10 @@ pub struct BattleInputEdges {
     pub pan_pressed: CameraPanKeys,
     /// 方向键本帧刚抬起。
     pub pan_released: CameraPanKeys,
+    /// 修饰键本帧刚按下。
+    pub mod_pressed: ModifierButtons,
+    /// 修饰键本帧刚抬起（正常 `ModifiersChanged`；失焦静默清空不置位）。
+    pub mod_released: ModifierButtons,
 }
 
 /// 窗口事件归一化后的按键 / 焦点追踪（纯逻辑，可供单测覆盖失焦幽灵序列）。
@@ -364,6 +388,8 @@ pub struct BattleInputEdges {
 pub struct BattleInputTracker {
     /// 按住态。
     pub buttons: PointerButtons,
+    /// 修饰键按住态。
+    pub modifiers: ModifierButtons,
     /// 窗口是否拥有焦点。
     pub focused: bool,
     /// 本帧边沿。
@@ -374,6 +400,7 @@ impl Default for BattleInputTracker {
     fn default() -> Self {
         Self {
             buttons: PointerButtons::default(),
+            modifiers: ModifierButtons::default(),
             // 进对局假定已聚焦，直至收到 `Focused(false)`（避免首失焦时 focused 已是 false 而不清按住）。
             focused: true,
             edges: BattleInputEdges::default(),
@@ -409,11 +436,24 @@ impl BattleInputTracker {
         self.buttons.right = down;
     }
 
-    /// 焦点变化。失焦时清空按住态且**不**产生 released 边沿（取消捕获，勿误触点击）。
+    /// 修饰键变化（`ModifiersChanged`）。
+    pub fn set_modifiers(&mut self, shift: bool, ctrl: bool, alt: bool) {
+        let next = ModifierButtons { shift, ctrl, alt };
+        self.edges.mod_pressed.shift |= !self.modifiers.shift && next.shift;
+        self.edges.mod_pressed.ctrl |= !self.modifiers.ctrl && next.ctrl;
+        self.edges.mod_pressed.alt |= !self.modifiers.alt && next.alt;
+        self.edges.mod_released.shift |= self.modifiers.shift && !next.shift;
+        self.edges.mod_released.ctrl |= self.modifiers.ctrl && !next.ctrl;
+        self.edges.mod_released.alt |= self.modifiers.alt && !next.alt;
+        self.modifiers = next;
+    }
+
+    /// 焦点变化。失焦时清空按住态与修饰键且**不**产生 released 边沿（取消捕获，勿误触点击）。
     pub fn set_focused(&mut self, focused: bool) {
         if self.focused && !focused {
             self.edges.focus_lost = true;
             self.buttons = PointerButtons::default();
+            self.modifiers = ModifierButtons::default();
         }
         self.focused = focused;
     }
@@ -443,6 +483,7 @@ impl BattleInputTracker {
     /// 由下一帧 `begin_frame` 统一清零。
     pub fn reset_transient(&mut self) {
         self.buttons = PointerButtons::default();
+        self.modifiers = ModifierButtons::default();
     }
 }
 
@@ -1246,5 +1287,37 @@ mod tests {
     fn classify_right_click_cancels_tools_or_deselects() {
         assert_eq!(classify_right_click_map(true), RightClickMapOutcome::CancelToolModes);
         assert_eq!(classify_right_click_map(false), RightClickMapOutcome::Deselect);
+    }
+
+    #[test]
+    fn tracker_modifiers_edges_and_focus_lost_silent_clear() {
+        // Shift 按住加选 → 失焦 → 恢复：修饰键必须静默清空，不得残留 shift_down 幽灵。
+        let mut t = BattleInputTracker::default();
+        t.begin_frame();
+        t.set_modifiers(true, false, false);
+        assert!(t.modifiers.shift);
+        assert!(t.edges.mod_pressed.shift);
+        assert!(!t.edges.mod_released.shift);
+        t.begin_frame();
+        t.set_focused(false);
+        assert!(t.edges.focus_lost);
+        assert!(!t.modifiers.any());
+        assert!(!t.edges.mod_released.shift, "focus loss must not emit mod_released");
+        t.begin_frame();
+        t.set_focused(true);
+        assert!(!t.modifiers.shift);
+        // 物理 Shift 仍按住时须等下一次 ModifiersChanged 才重新置位。
+        t.set_modifiers(true, false, false);
+        assert!(t.modifiers.shift);
+        assert!(t.edges.mod_pressed.shift);
+    }
+
+    #[test]
+    fn tracker_reset_transient_also_clears_modifiers() {
+        let mut t = BattleInputTracker::default();
+        t.set_modifiers(true, true, true);
+        t.reset_transient();
+        assert!(!t.modifiers.any());
+        assert!(!t.buttons.any());
     }
 }
