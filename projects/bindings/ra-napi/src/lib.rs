@@ -264,6 +264,8 @@ pub struct DiagnoseMapsReportJs {
     pub edition: String,
     pub source: String,
     pub candidate_count: u32,
+    /// 规则层能力缺口（全表共用，如超武有定义无执行器）。
+    pub rules_capability_gaps: Vec<String>,
     pub maps: Vec<MapDiagnoseRowJs>,
     pub success: u32,
     pub reject: u32,
@@ -287,6 +289,7 @@ pub fn diagnose_maps(options: DiagnoseMapsOptions) -> Result<DiagnoseMapsReportJ
         edition: report.edition,
         source: report.source,
         candidate_count: report.candidate_count as u32,
+        rules_capability_gaps: report.rules_capability_gaps,
         maps: report
             .maps
             .into_iter()

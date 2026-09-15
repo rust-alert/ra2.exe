@@ -93,7 +93,8 @@ impl BattleController {
             else {
                 continue;
             };
-            if type_id.to_ascii_uppercase().contains("MCV") {
+            // 开局锚点认冻结 `[General] BaseUnit`，禁止按类型名猜 "MCV"。
+            if ra_engine::is_base_unit_key(&game.world.definitions, type_id.as_ref()) {
                 mcv = Some((x, y));
                 break;
             }

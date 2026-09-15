@@ -203,7 +203,7 @@ impl BattleSession {
     /// 同队同盟（`PlayerState.allies`）视为一方；与 `GameEdition` 无关（含 YR）。
     fn evaluate_skirmish_outcome(&self) -> Option<BattleOutcome> {
         let contenders: Vec<&str> =
-            self.world.players.iter().filter(|p| !is_ambient_house(p.house.as_ref())).map(|p| p.house.as_ref()).collect();
+            self.world.players.iter().filter(|p| !is_ambient_house(&self.world.definitions, p.house.as_ref())).map(|p| p.house.as_ref()).collect();
         if contenders.len() < 2 {
             return None;
         }
@@ -232,7 +232,7 @@ impl BattleSession {
     /// 短局：存活非围墙建筑或 `[General] BaseUnit` 保活。长局：非围墙建筑 / 步兵 / 载具 / 飞行器保活。
     pub fn sole_victor(&self) -> Option<&str> {
         let contenders: Vec<&str> =
-            self.world.players.iter().filter(|p| !is_ambient_house(p.house.as_ref())).map(|p| p.house.as_ref()).collect();
+            self.world.players.iter().filter(|p| !is_ambient_house(&self.world.definitions, p.house.as_ref())).map(|p| p.house.as_ref()).collect();
         if contenders.len() < 2 {
             return None;
         }

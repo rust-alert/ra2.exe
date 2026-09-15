@@ -144,7 +144,7 @@ impl crate::state::BattleState {
             else {
                 continue;
             };
-            if is_ambient_house(owner.as_ref()) {
+            if is_ambient_house(&self.definitions, owner.as_ref()) {
                 let _ = self.with_cash_producer_mut(id, |c| {
                     c.accum = 0;
                 });

@@ -38,6 +38,16 @@ pub struct RulesGlobals {
     pub prerequisite_proc_alternate: Vec<TechnoName>,
     /// `[General] BaseUnit`：短局下可替代建筑保活的 MCV 类载具。
     pub base_unit: Vec<TechnoName>,
+    /// `[General] LightningStormDuration`（逻辑帧量级整数）。
+    pub lightning_storm_duration: Option<i32>,
+    /// `[General] LightningDeferment`。
+    pub lightning_deferment: Option<i32>,
+    /// `[CrateRules] CrateMoney`。
+    pub crate_money: Option<i32>,
+    /// `[CrateRules] CrateMinimum`。
+    pub crate_minimum: Option<i32>,
+    /// `[CrateRules] CrateMaximum`。
+    pub crate_maximum: Option<i32>,
     /// `[AI] AIBaseSpacing`：AI 建筑之间最少空隙格数。
     pub ai_base_spacing: Option<i32>,
     /// `[General] AINavalYardAdjacency`：AI 船厂相对建造场最大距离（格）。
@@ -133,6 +143,7 @@ impl RulesGlobals {
         let audio = view.section("AudioVisual").and_then(|s| s.deserialize::<AudioVisualSectionFields>().ok()).unwrap_or_default();
         let ai = view.section("AI").and_then(|s| s.deserialize::<AiSectionFields>().ok()).unwrap_or_default();
         let iq = view.section("IQ").and_then(|s| s.deserialize::<IqSectionFields>().ok()).unwrap_or_default();
+        let crates = view.section("CrateRules").and_then(|s| s.deserialize::<CrateRulesSectionFields>().ok()).unwrap_or_default();
         let speak_delay_minutes = audio.speak_delay.or(general.speak_delay);
         Self {
             multiplayer_tech_level: dialog.tech_level,
@@ -150,6 +161,11 @@ impl RulesGlobals {
             prerequisite_proc: filter_techno_names(general.prerequisite_proc),
             prerequisite_proc_alternate: filter_techno_names(general.prerequisite_proc_alternate),
             base_unit: filter_techno_names(general.base_unit),
+            lightning_storm_duration: general.lightning_storm_duration,
+            lightning_deferment: general.lightning_deferment,
+            crate_money: crates.crate_money,
+            crate_minimum: crates.crate_minimum,
+            crate_maximum: crates.crate_maximum,
             ai_base_spacing: ai.ai_base_spacing,
             ai_naval_yard_adjacency: general.ai_naval_yard_adjacency,
             ai_build_const: filter_techno_names(ai.build_const),
@@ -222,6 +238,10 @@ struct GeneralSectionFields {
     prerequisite_proc_alternate: Vec<TechnoName>,
     #[serde(rename = "BaseUnit", default)]
     base_unit: Vec<TechnoName>,
+    #[serde(rename = "LightningStormDuration", default, deserialize_with = "deserialize_opt_i32")]
+    lightning_storm_duration: Option<i32>,
+    #[serde(rename = "LightningDeferment", default, deserialize_with = "deserialize_opt_i32")]
+    lightning_deferment: Option<i32>,
     #[serde(rename = "AINavalYardAdjacency", default, deserialize_with = "deserialize_opt_i32")]
     ai_naval_yard_adjacency: Option<i32>,
 }
@@ -238,6 +258,16 @@ struct AudioVisualSectionFields {
     speak_delay: Option<f64>,
     #[serde(rename = "SavourDelay", default, deserialize_with = "deserialize_opt_f64")]
     savour_delay: Option<f64>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct CrateRulesSectionFields {
+    #[serde(rename = "CrateMoney", default, deserialize_with = "deserialize_opt_i32")]
+    crate_money: Option<i32>,
+    #[serde(rename = "CrateMinimum", default, deserialize_with = "deserialize_opt_i32")]
+    crate_minimum: Option<i32>,
+    #[serde(rename = "CrateMaximum", default, deserialize_with = "deserialize_opt_i32")]
+    crate_maximum: Option<i32>,
 }
 
 #[derive(Debug, Default, Deserialize)]

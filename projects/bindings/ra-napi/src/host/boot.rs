@@ -246,7 +246,8 @@ pub(crate) fn remap_owner_palette(
     owner: &str,
 ) -> Palette {
     let up = owner.to_ascii_uppercase();
-    if matches!(up.as_str(), "NEUTRAL" | "SPECIAL" | "CIVILIAN") {
+    // 预览调色板阶段可能尚无 RuntimeDefinitions；原版环境房屋名仅作 adaptor 兼容回退。
+    if ra_types::HouseRole::from_stock_ambient_name(&up).is_some() {
         return rules.color_schemes.palette_for_house_id(base, owner);
     }
     if let Some(primary) = lobby_primaries.and_then(|m| m.get(&up)) {
@@ -641,6 +642,10 @@ pub fn boot_world_with_progress(
             return Ok(BootResult::failed(note));
         }
     };
+    for gap in &definitions.capability_gaps {
+        tracing::warn!("规则能力缺口 [{}] {}", gap.code, gap.message);
+        note = format!("{note} · gap:{}", gap.code);
+    }
 
     report(0.62, "检查剧本");
     for gap in map_scripting_capability_gaps(&map) {

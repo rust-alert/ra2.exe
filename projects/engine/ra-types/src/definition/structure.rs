@@ -10,8 +10,8 @@ use serde::{
 use crate::id::{HouseId, TypeId};
 
 use super::{
-    ArmorKind, BuiltinCapability, Foundation, HouseAllowList, HouseName, ProductionProfile, SideName, StolenTechKind, SuperWeaponName,
-    TechnoName,
+    ArmorKind, BuiltinCapability, Foundation, HouseAllowList, HouseName, HouseRole, ProductionProfile, SideName, StolenTechKind,
+    SuperWeaponName, TechnoName,
 };
 
 /// rules 未写 `Adjacent=` 时的缺省空隙格数。
@@ -254,6 +254,8 @@ pub struct HouseDefinition {
     pub stolen_tech: Option<StolenTechKind>,
     /// 可出现在多人 / 遭遇战选用表。
     pub multiplay: bool,
+    /// 房屋角色（运行时只认此字段，不认国名字符串）。
+    pub role: HouseRole,
 }
 
 /// 阵营 / 房屋定义表。

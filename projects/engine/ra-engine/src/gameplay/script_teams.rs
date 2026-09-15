@@ -94,7 +94,7 @@ pub fn tick_autocreate_teams(world: &mut BattleState) {
         else {
             continue;
         };
-        if crate::gameplay::ai::is_ambient_house(&house_key) {
+        if crate::gameplay::ai::is_ambient_house(&world.definitions, &house_key) {
             continue;
         }
         world.ensure_house(&house_key);
@@ -318,7 +318,7 @@ fn nearest_hostile_near(world: &BattleState, house: &str, cx: u16, cy: u16, radi
         if houses_are_allied(world, house, owner.as_ref()) {
             continue;
         }
-        if crate::gameplay::ai::is_ambient_house(owner.as_ref()) {
+        if crate::gameplay::ai::is_ambient_house(&world.definitions, owner.as_ref()) {
             continue;
         }
         let Some((x, y, _)) = world.ecs_transform(id)

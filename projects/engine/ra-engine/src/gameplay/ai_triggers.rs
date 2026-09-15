@@ -250,7 +250,7 @@ fn resolve_ai_trigger_house_slots(
         .players
         .iter()
         .filter(|p| p.id != local_player)
-        .filter(|p| !crate::gameplay::ai::is_ambient_house(p.house.as_ref()))
+        .filter(|p| !crate::gameplay::ai::is_ambient_house(&world.definitions, p.house.as_ref()))
         .map(|p| (p.house.to_string(), p.house_id))
         .collect()
 }
@@ -298,7 +298,7 @@ fn ai_trigger_condition_holds(world: &BattleState, owner_house: &str, at: &Prepa
         AiTriggerConditionKind::Unsupported(_) => false,
         AiTriggerConditionKind::EnemyOwns => {
             let n = count_type_owned_by(world, at.condition_object_id, |h| {
-                !h.eq_ignore_ascii_case(owner_house) && !houses_are_allied(world, owner_house, h) && !is_ambient_house(h)
+                !h.eq_ignore_ascii_case(owner_house) && !houses_are_allied(world, owner_house, h) && !is_ambient_house(&world.definitions, h)
             });
             at.compare_op.compare(n, at.compare_amount)
         }
@@ -307,7 +307,7 @@ fn ai_trigger_condition_holds(world: &BattleState, owner_house: &str, at: &Prepa
             at.compare_op.compare(n, at.compare_amount)
         }
         AiTriggerConditionKind::NeutralOwns => {
-            let n = count_type_owned_by(world, at.condition_object_id, is_ambient_house);
+            let n = count_type_owned_by(world, at.condition_object_id, |h| is_ambient_house(&world.definitions, h));
             at.compare_op.compare(n, at.compare_amount)
         }
         AiTriggerConditionKind::EnemyYellowPower => any_enemy_player(world, owner_house, |p| p.low_power()),
@@ -394,7 +394,7 @@ where
     world.players.iter().any(|p| {
         !p.house.as_ref().eq_ignore_ascii_case(owner_house)
             && !houses_are_allied(world, owner_house, p.house.as_ref())
-            && !is_ambient_house(p.house.as_ref())
+            && !is_ambient_house(&world.definitions, p.house.as_ref())
             && pred(p)
     })
 }
@@ -406,7 +406,7 @@ fn max_enemy_funds(world: &BattleState, owner_house: &str) -> i32 {
         .filter(|p| {
             !p.house.as_ref().eq_ignore_ascii_case(owner_house)
                 && !houses_are_allied(world, owner_house, p.house.as_ref())
-                && !is_ambient_house(p.house.as_ref())
+                && !is_ambient_house(&world.definitions, p.house.as_ref())
         })
         .map(|p| p.funds)
         .max()

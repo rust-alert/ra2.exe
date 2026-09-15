@@ -1,9 +1,10 @@
 //! 对局级冻结定义集。
 
 use super::{
-    AiControls, AnimationDefinitions, CapabilitySet, ContentFingerprint, DeployableDefinitions, HouseDefinitions, HouseStolenTechMap,
-    LocomotorDefinitions, OverlayTypeRegistry, PrerequisiteGroups, ProductionDefinitions, ProjectileDefinitions, SoundDefinitions,
-    StructureDefinitions, SuperWeaponDefinitions, TechnoDefinitions, TerrainSpawnerDefinitions, WarheadDefinitions, WeaponDefinitions,
+    AiControls, AnimationDefinitions, CapabilityGapReport, CapabilitySet, ContentFingerprint, CrateRules, DeployableDefinitions,
+    HouseDefinitions, HouseStolenTechMap, InfiltrationRules, LightningStormRules, LocomotorDefinitions, OverlayTypeRegistry,
+    PrerequisiteGroups, ProductionDefinitions, ProjectileDefinitions, SoundDefinitions, StructureDefinitions, SuperWeaponDefinitions,
+    TechnoDefinitions, TerrainSpawnerDefinitions, WarheadDefinitions, WeaponDefinitions,
 };
 use crate::id::TypeId;
 
@@ -73,6 +74,14 @@ pub struct RuntimeDefinitions {
     pub ai_naval_yard_adjacency: u32,
     /// rules `[AI]` / `[IQ]` 冻结基建控制表。
     pub ai_controls: AiControls,
+    /// 间谍渗透数值。
+    pub infiltration: InfiltrationRules,
+    /// 箱子奖励表。
+    pub crate_rules: CrateRules,
+    /// 闪电风暴执行参数。
+    pub lightning_storm: LightningStormRules,
+    /// 装载期发现的能力缺口（含「有定义无执行器」）。
+    pub capability_gaps: Vec<CapabilityGapReport>,
 }
 
 impl Default for RuntimeDefinitions {
@@ -107,6 +116,10 @@ impl Default for RuntimeDefinitions {
             ai_base_spacing: super::structure::DEFAULT_AI_BASE_SPACING,
             ai_naval_yard_adjacency: super::structure::DEFAULT_AI_NAVAL_YARD_ADJACENCY,
             ai_controls: AiControls::default(),
+            infiltration: InfiltrationRules::default(),
+            crate_rules: CrateRules::default(),
+            lightning_storm: LightningStormRules::default(),
+            capability_gaps: Vec::new(),
         }
     }
 }

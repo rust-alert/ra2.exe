@@ -125,7 +125,7 @@ impl BattleController {
 
     /// 小地图色点：氛围灰，优先大厅主色，否则本机绿 / 同盟青 / 敌方红。
     pub(super) fn radar_blip_rgba(&self, world: &ra_engine::BattleState, local_house: &str, owner: &str) -> [u8; 4] {
-        if ra_engine::is_ambient_house(owner) {
+        if ra_engine::is_ambient_house(&world.definitions, owner) {
             return [160, 160, 160, 255];
         }
         if let Some(c) = self.lobby_primaries.get(owner) {

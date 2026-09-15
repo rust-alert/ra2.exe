@@ -364,16 +364,15 @@ pub fn try_fire_super_weapon(
         return Err(FireSuperWeaponError::NotReady);
     }
 
-    match sw_def.kind.as_str() {
-        "LIGHTNINGSTORM" => {
-            // 竖切：立即激活，持续 90 tick。
-            start_lightning_storm(world, x, y, 0, 90);
-        }
-        _ => {
-            // 未接线类型：仍消耗充能并记成功，效果后置（避免静默半可玩用 CapabilityGap 另报）。
-            // 当前拒绝未知玩法类型，迫使后续接线。
-            return Err(FireSuperWeaponError::UnsupportedKind);
-        }
+    if !sw_def.has_registered_executor() {
+        return Err(FireSuperWeaponError::UnsupportedKind);
+    }
+    // 已注册执行器分发（新增 kind 时在 `super_weapon_kind_has_executor` 与此处同步登记）。
+    if sw_def.kind.eq_ignore_ascii_case("LIGHTNINGSTORM") {
+        let rules = &world.definitions.lightning_storm;
+        start_lightning_storm(world, x, y, rules.deferment_ticks as i32, rules.duration_ticks as i32);
+    } else {
+        return Err(FireSuperWeaponError::UnsupportedKind);
     }
     world.super_weapon_runtime.reset_charge(house, &type_key);
     Ok(())

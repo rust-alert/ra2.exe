@@ -59,8 +59,8 @@ pub struct ScriptCrate {
     pub crate_type: String,
 }
 
-/// 剧本箱踩格领取的资金（竖切固定值，完整 Powerups 表后置）。
-pub const SCRIPT_CRATE_CREDITS: i32 = 2_000;
+/// 剧本箱踩格领取的资金缺省（权威值在冻结 `crate_rules`；本常量仅兼容旧测试）。
+pub const SCRIPT_CRATE_CREDITS: i32 = ra_types::CrateRules::DEFAULT_CREDITS;
 
 impl TriggerRuntime {
     /// 从已绑定的 trigger / event / action 表播种。
@@ -858,7 +858,7 @@ fn nearest_hostile_from(world: &BattleState, house: &str, cx: u16, cy: u16) -> O
         if houses_are_allied(world, house, crate::gameplay::house_key_of(&world.definitions, owner.house)) {
             continue;
         }
-        if is_ambient_house(crate::gameplay::house_key_of(&world.definitions, owner.house)) {
+        if is_ambient_house(&world.definitions, crate::gameplay::house_key_of(&world.definitions, owner.house)) {
             continue;
         }
         let Some(xf) = world.ecs_get::<Transform>(id)
@@ -1001,7 +1001,8 @@ pub fn tick_script_crates(world: &mut BattleState) {
             continue;
         }
         world.trigger_runtime.script_crates.remove(ci);
-        let _ = world.set_house_funds(&house, world.house_funds(&house).unwrap_or(0).saturating_add(SCRIPT_CRATE_CREDITS));
+        let credits = world.definitions.crate_rules.resolve_credits(None);
+        let _ = world.set_house_funds(&house, world.house_funds(&house).unwrap_or(0).saturating_add(credits));
     }
 }
 

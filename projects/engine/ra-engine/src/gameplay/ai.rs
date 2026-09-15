@@ -84,8 +84,13 @@ fn count_mobile_combatants(world: &BattleState, house: &str) -> usize {
 }
 
 /// 地图氛围房主（平民装饰 / 多人被动），不参与遭遇战 AI，也不计入胜负作战力量。
-pub fn is_ambient_house(house: &str) -> bool {
-    house.eq_ignore_ascii_case("Neutral") || house.eq_ignore_ascii_case("Civilian") || house.eq_ignore_ascii_case("Special")
+///
+/// 优先查冻结 `HouseDefinition.role`；表中缺失时才回落原版环境房屋名（装载缺口兜底）。
+pub fn is_ambient_house(defs: &ra_types::RuntimeDefinitions, house: &str) -> bool {
+    if let Some(h) = defs.houses.get(house) {
+        return h.role.is_ambient();
+    }
+    ra_types::HouseRole::from_stock_ambient_name(house).is_some()
 }
 
 /// 两 house 是否同盟（同名，或任一方 `PlayerState.allies` 列出对方）。
@@ -829,7 +834,7 @@ fn nearest_enemy(world: &BattleState, from: usize, house: &str) -> Option<usize>
         {
             continue;
         }
-        if world.ecs_get::<Owner>(id).map(|o| is_ambient_house(crate::gameplay::house_key_of(&world.definitions, o.house))).unwrap_or(false) {
+        if world.ecs_get::<Owner>(id).map(|o| is_ambient_house(&world.definitions, crate::gameplay::house_key_of(&world.definitions, o.house))).unwrap_or(false) {
             continue;
         }
         let Some(xf) = world.ecs_get::<Transform>(id)

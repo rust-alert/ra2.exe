@@ -5,7 +5,7 @@
 use std::collections::HashSet;
 
 use ra_map::MapEntityKind;
-use ra_types::{PrerequisiteGroupKind, PrerequisiteToken, RuntimeDefinitions, TechnoClass, TechnoDefinition, TypeId};
+use ra_types::{PrerequisiteGroupKind, PrerequisiteToken, RuntimeDefinitions, StolenTechKind, TechnoClass, TechnoDefinition, TypeId};
 
 use crate::{
     gameplay::{forbidden_houses_forbids, owner_allows, required_houses_allows},
@@ -134,14 +134,28 @@ fn is_techno_eligible(defs: &RuntimeDefinitions, player: TechTreePlayer<'_>, liv
     if forbidden_houses_forbids(defs, techno, player.house) {
         return false;
     }
-    if techno.requires_stolen_allied_tech && !player.stolen_allied_tech {
-        return false;
-    }
-    if techno.requires_stolen_soviet_tech && !player.stolen_soviet_tech {
-        return false;
-    }
-    if techno.requires_stolen_third_tech && !player.stolen_third_tech {
-        return false;
+    if !techno.required_stolen_tech.is_empty() {
+        for kind in &techno.required_stolen_tech {
+            let ok = match kind {
+                StolenTechKind::Allied => player.stolen_allied_tech,
+                StolenTechKind::Soviet => player.stolen_soviet_tech,
+                StolenTechKind::Third => player.stolen_third_tech,
+            };
+            if !ok {
+                return false;
+            }
+        }
+    } else {
+        // 兼容尚未回填集合的旧夹具：回落三布尔。
+        if techno.requires_stolen_allied_tech && !player.stolen_allied_tech {
+            return false;
+        }
+        if techno.requires_stolen_soviet_tech && !player.stolen_soviet_tech {
+            return false;
+        }
+        if techno.requires_stolen_third_tech && !player.stolen_third_tech {
+            return false;
+        }
     }
     if techno.class == TechnoClass::Building {
         if defs.structures.get_by_id(techno.id).is_some_and(|s| s.construction_yard) {

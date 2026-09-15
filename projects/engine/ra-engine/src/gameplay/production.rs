@@ -217,7 +217,7 @@ impl crate::state::BattleState {
         let house_key = self.definitions.houses.get_by_id(owner_id).map(|h| h.type_key.as_str().to_string());
         let local_house = self.players.iter().find(|p| p.id == self.local_player).map(|p| p.house.clone());
         let is_ai_house = house_key.as_ref().is_some_and(|house| {
-            !crate::gameplay::ai::is_ambient_house(house)
+            !crate::gameplay::ai::is_ambient_house(&self.definitions, house)
                 && local_house.as_ref().map(|h| !h.as_ref().eq_ignore_ascii_case(house)).unwrap_or(true)
         });
         let guard_by_iq = is_ai_house

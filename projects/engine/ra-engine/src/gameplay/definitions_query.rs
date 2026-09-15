@@ -215,7 +215,7 @@ pub(crate) fn starting_mcv_id_for_house(defs: &RuntimeDefinitions, house: &str) 
 }
 
 /// 是否短局 `BaseUnit`（`[General] BaseUnit=`，缺表时回落为可部署成建造场的载具）。
-pub(crate) fn is_base_unit(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
+pub fn is_base_unit(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
     if defs.base_units.iter().any(|id| *id == type_id) {
         return true;
     }
@@ -223,4 +223,9 @@ pub(crate) fn is_base_unit(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
         return false;
     }
     deploy_into_type(defs, type_id).is_some_and(|target| is_construction_yard(defs, target))
+}
+
+/// 按外部类型键判断是否 `BaseUnit`（宿主镜头等只持有 type_key 时用）。
+pub fn is_base_unit_key(defs: &RuntimeDefinitions, type_key: &str) -> bool {
+    defs.techno.get(type_key).is_some_and(|t| is_base_unit(defs, t.id))
 }

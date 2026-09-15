@@ -9,11 +9,6 @@ use crate::{
     state::components::{AttackState, Health, Identity, Owner, Transform},
 };
 
-/// 渗透电厂后的断电时长（tick）。
-pub(crate) const POWER_BLACKOUT_TICKS: u32 = 300;
-/// 渗透矿场时最多转走的资金。
-pub(crate) const REFINERY_STEAL_FUNDS: i32 = 5_000;
-
 impl crate::state::BattleState {
     /// 推进玩家断电计时。
     pub(crate) fn tick_power_blackouts(&mut self) {
@@ -122,9 +117,11 @@ impl crate::state::BattleState {
         victim_house: &str,
         building_type: ra_types::TypeId,
     ) -> (&'static str, Option<&'static str>) {
+        let blackout = self.definitions.infiltration.power_blackout_ticks;
+        let steal_cap = self.definitions.infiltration.refinery_steal_funds;
         if is_power_plant(&self.definitions, building_type) {
             if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(victim_house)) {
-                player.power_blackout_ticks = POWER_BLACKOUT_TICKS.max(player.power_blackout_ticks);
+                player.power_blackout_ticks = blackout.max(player.power_blackout_ticks);
             }
             return ("EVA_BuildingInfiltratedPowerSabotaged", Some("EVA_PowerSabotaged"));
         }
@@ -133,7 +130,7 @@ impl crate::state::BattleState {
                 .players
                 .iter()
                 .find(|p| p.house.eq_ignore_ascii_case(victim_house))
-                .map(|p| p.funds.min(REFINERY_STEAL_FUNDS).max(0))
+                .map(|p| p.funds.min(steal_cap).max(0))
                 .unwrap_or(0);
             if stolen > 0 {
                 if let Some(victim) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(victim_house)) {

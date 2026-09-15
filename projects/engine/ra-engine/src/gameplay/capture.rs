@@ -115,7 +115,7 @@ impl crate::state::BattleState {
             };
             self.transfer_structure_owner(building_id, building_type, building_house.as_ref(), engineer_house.as_ref());
             // 自中立 / 平民占领：发放 `ProduceCashStartup`，并重置周期累计。
-            if is_ambient_house(building_house.as_ref()) {
+            if is_ambient_house(&self.definitions, building_house.as_ref()) {
                 if let Some(startup) = self.definitions.structures.get_by_id(building_type).map(|s| s.produce_cash.startup) {
                     if startup > 0 {
                         if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == engineer_house.as_ref()) {
@@ -129,7 +129,7 @@ impl crate::state::BattleState {
             });
             self.push_eva_cue(engineer_house.as_ref(), capturer_eva);
             // 中立 / 平民无玩家席位，不播受害方 EVA。
-            if !is_ambient_house(building_house.as_ref()) {
+            if !is_ambient_house(&self.definitions, building_house.as_ref()) {
                 self.push_eva_cue(building_house.as_ref(), "EVA_BuildingCaptured");
             }
             self.finish_capturing_engineer(engineer_id);

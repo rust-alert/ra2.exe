@@ -41,6 +41,22 @@ fn illegal_token_keeps_slot_default() {
 }
 
 #[test]
+fn verses_tokens_preserve_targeting_flags() {
+    let doc = IniDocument::parse(b"[AP]\nVerses=100%FRP,50%F,25%,100%,100%,75%,100%,100%,100%,100%,100%\n").unwrap();
+    let reg = WarheadRegistry::from_names(&doc, ["AP"]);
+    let ap = reg.get("ap").unwrap();
+    assert_eq!(ap.verses[0].multiplier, 100);
+    assert!(ap.verses[0].force_fire);
+    assert!(ap.verses[0].retaliate);
+    assert!(ap.verses[0].passive_acquire);
+    assert_eq!(ap.verses[1].multiplier, 50);
+    assert!(ap.verses[1].force_fire);
+    assert!(!ap.verses[1].retaliate);
+    assert!(!ap.verses[1].passive_acquire);
+    assert!(!ap.verses[2].force_fire);
+}
+
+#[test]
 fn short_list_pads_remaining_slots() {
     let doc = IniDocument::parse(b"[AP]\nVerses=10%,20%\n").unwrap();
     let reg = WarheadRegistry::from_names(&doc, ["AP"]);

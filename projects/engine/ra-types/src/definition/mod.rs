@@ -12,13 +12,18 @@ mod animation;
 mod armor;
 mod campaign;
 mod capability;
+mod capability_gap;
 mod category;
+mod crate_rules;
 mod deployable;
 mod fingerprint;
 pub mod foundation;
 mod house_list;
+mod house_role;
+mod infiltration;
 mod ini_string;
 mod land;
+mod lightning_storm_rules;
 mod locomotor;
 mod map;
 mod map_bind;
@@ -45,12 +50,17 @@ pub use animation::AnimationDefinitions;
 pub use armor::{ARMOR_ORDER, ArmorKind, armor_index};
 pub use campaign::CampaignName;
 pub use capability::{BuiltinCapability, CapabilitySet};
+pub use capability_gap::CapabilityGapReport;
 pub use category::TechnoCategory;
+pub use crate_rules::CrateRules;
 pub use deployable::{DeployableDefinition, DeployableDefinitions, DeploymentPlacement};
 pub use fingerprint::ContentFingerprint;
 pub use foundation::Foundation;
 pub use house_list::{ColorName, HouseAllowList, HouseIdAllowList, HouseName, SideName};
+pub use house_role::HouseRole;
+pub use infiltration::InfiltrationRules;
 pub use land::{LandType, TMP_TERRAIN_TO_LAND, ground_passable, land_buildable, land_passable, tmp_terrain_to_land_type};
+pub use lightning_storm_rules::LightningStormRules;
 pub use locomotor::LocomotorDefinitions;
 pub use map::{
     AiTriggerCompareOp, AiTriggerConditionKind, AiTriggerName, DEFAULT_AI_TRIGGER_WEIGHT, GameModeName, MapAction, MapActionCommand,
@@ -77,7 +87,9 @@ pub use structure::{
     BuildCat, DEFAULT_AI_BASE_SPACING, DEFAULT_AI_NAVAL_YARD_ADJACENCY, DEFAULT_BUILD_ADJACENT, HouseDefinition, HouseDefinitions,
     MAX_GUARD_RANGE_CELLS, PowerProfile, ProduceCashProfile, StructureDefinition, StructureDefinitions, StructureLightProfile,
 };
-pub use super_weapon::{SuperWeaponActionName, SuperWeaponDefinition, SuperWeaponDefinitions, SuperWeaponKindName, SuperWeaponName};
+pub use super_weapon::{
+    SuperWeaponActionName, SuperWeaponDefinition, SuperWeaponDefinitions, SuperWeaponKindName, SuperWeaponName, super_weapon_kind_has_executor,
+};
 pub use tech_tree::{HouseStolenTechMap, PrerequisiteGroupKind, PrerequisiteGroups, PrerequisiteList, PrerequisiteToken, StolenTechKind};
 pub use techno::{ImageName, TechnoClass, TechnoDefinition, TechnoDefinitions, TechnoName};
 pub use terrain_spawner::{TerrainSpawnerDefinition, TerrainSpawnerDefinitions};
@@ -85,5 +97,5 @@ pub use theater::Theater;
 pub use type_definition::TypeDefinitionId;
 pub use ui::UiName;
 pub use warhead::{WarheadDefinition, WarheadDefinitions, WarheadName};
-pub use warhead_verses::WarheadVerses;
+pub use warhead_verses::{VersesEntry, WarheadVerses};
 pub use weapon::{WeaponDefinition, WeaponDefinitions, WeaponName};

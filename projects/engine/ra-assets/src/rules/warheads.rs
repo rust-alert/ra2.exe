@@ -8,7 +8,7 @@ use serde::{
 };
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
-use ra_types::{WarheadName, WarheadVerses};
+use ra_types::{VersesEntry, WarheadName, WarheadVerses};
 
 pub use ra_types::{ARMOR_ORDER, armor_index};
 
@@ -201,8 +201,8 @@ where
                 if i >= 11 {
                     break;
                 }
-                if let Some(v) = parse_verse_token(part) {
-                    out.0[i] = v;
+                if let Some(entry) = parse_verse_token(part) {
+                    out.0[i] = entry;
                 }
                 i += 1;
             }
@@ -238,18 +238,38 @@ fn parse_verses_text(raw: &str) -> WarheadVerses {
         if part.is_empty() {
             continue;
         }
-        if let Some(v) = parse_verse_token(part) {
-            out.0[i] = v;
+        if let Some(entry) = parse_verse_token(part) {
+            out.0[i] = entry;
         }
         i += 1;
     }
     out
 }
 
-fn parse_verse_token(raw: &str) -> Option<u32> {
-    let s = raw.trim().trim_end_matches('%').trim();
+/// 解析单槽：`100%` / `100%FRP` / `50F`（百分比与可选 F/R/P 标志）。
+fn parse_verse_token(raw: &str) -> Option<VersesEntry> {
+    let s = raw.trim();
     if s.is_empty() {
         return None;
     }
-    s.parse().ok()
+    let mut force_fire = false;
+    let mut retaliate = false;
+    let mut passive_acquire = false;
+    let mut num = String::new();
+    for ch in s.chars() {
+        match ch {
+            '0'..='9' => num.push(ch),
+            '%' => {}
+            'F' | 'f' => force_fire = true,
+            'R' | 'r' => retaliate = true,
+            'P' | 'p' => passive_acquire = true,
+            _ if ch.is_whitespace() => {}
+            _ => {}
+        }
+    }
+    if num.is_empty() {
+        return None;
+    }
+    let multiplier = num.parse().ok()?;
+    Some(VersesEntry { multiplier, force_fire, retaliate, passive_acquire })
 }

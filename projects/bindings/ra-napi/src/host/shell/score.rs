@@ -29,11 +29,12 @@ impl Shell {
         let campaign = self.results_is_campaign();
         let local_house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.to_string()).unwrap_or_default();
         let ai_label = resolve_csf_text(self.menu_csf.as_ref(), "GUI:AI").unwrap_or_else(|| "电脑".into());
+        let defs = &game.world.definitions;
         let include_house = |house: &str| -> bool {
             if campaign {
                 return house.eq_ignore_ascii_case(&local_house);
             }
-            !is_ambient_house(house)
+            !is_ambient_house(defs, house)
         };
         let stats_players = game.battle_stats.as_ref().map(|s| s.players.as_slice()).unwrap_or(&[]);
         if !stats_players.is_empty() {

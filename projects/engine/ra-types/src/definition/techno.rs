@@ -7,7 +7,7 @@ use serde::Deserialize;
 use crate::id::{TypeId, WarheadId, WeaponId};
 
 use super::{
-    ArmorKind, HouseAllowList, PrerequisiteToken, ProductionCategory, TechnoCategory, WarheadName, WeaponName,
+    ArmorKind, HouseAllowList, PrerequisiteToken, ProductionCategory, StolenTechKind, TechnoCategory, WarheadName, WeaponName,
     ini_string::{deserialize_upper, parse_upper},
 };
 
@@ -293,6 +293,8 @@ pub struct TechnoDefinition {
     pub requires_stolen_soviet_tech: bool,
     /// `RequiresStolenThirdTech=yes`。
     pub requires_stolen_third_tech: bool,
+    /// 冻结后的偷取科技需求集合（由上述原版布尔映射；扩展 adaptor 可追加更多 id）。
+    pub required_stolen_tech: Vec<StolenTechKind>,
     /// INI `PixelSelectionBracketDelta`：选中血条竖直像素偏移（负值上移）。
     pub pixel_selection_bracket_delta: i32,
     /// `Deployer=yes`：可在部署 / 收起形态间切换。

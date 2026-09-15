@@ -16,7 +16,7 @@ impl BattleSession {
             .world
             .players
             .iter()
-            .filter(|p| !crate::gameplay::ai::is_ambient_house(p.house.as_ref()))
+            .filter(|p| !crate::gameplay::ai::is_ambient_house(&self.world.definitions, p.house.as_ref()))
             .filter(|p| local_house.as_ref().map(|h| p.house.as_ref() != h.as_ref()).unwrap_or(true))
             .map(|p| (p.id, p.house.clone()))
             .collect();

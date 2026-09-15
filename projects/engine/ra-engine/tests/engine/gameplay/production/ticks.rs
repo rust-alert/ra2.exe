@@ -44,6 +44,7 @@ fn sample(build_time: u32) -> TechnoDefinition {
         requires_stolen_allied_tech: false,
         requires_stolen_soviet_tech: false,
         requires_stolen_third_tech: false,
+        required_stolen_tech: Vec::new(),
         pixel_selection_bracket_delta: 0,
         deployer: false,
         undeploys_into_id: None,

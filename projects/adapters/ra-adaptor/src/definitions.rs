@@ -4,10 +4,11 @@
 
 use ra_assets::TechnoKind;
 use ra_types::{
-    BuiltinCapability, DeployableDefinition, DeploymentPlacement, GameEdition, HouseAllowList, HouseDefinition, HouseId, HouseName,
-    PowerProfile, PrerequisiteGroups, ProductionCategory, ProductionProfile, ProjectileDefinition, ProjectileId, ProjectileName, RaError,
-    RaResult, RuntimeDefinitions, StolenTechKind, StructureDefinition, StructureLightProfile, SuperWeaponDefinition, TechnoClass,
-    TechnoDefinition, TechnoName, TypeId, WarheadDefinition, WarheadId, WarheadName, WeaponDefinition, WeaponId, WeaponName,
+    BuiltinCapability, CapabilityGapReport, CrateRules, DeployableDefinition, DeploymentPlacement, GameEdition, HouseAllowList,
+    HouseDefinition, HouseId, HouseName, HouseRole, InfiltrationRules, LightningStormRules, PowerProfile, PrerequisiteGroups,
+    ProductionCategory, ProductionProfile, ProjectileDefinition, ProjectileId, ProjectileName, RaError, RaResult, RuntimeDefinitions,
+    StolenTechKind, StructureDefinition, StructureLightProfile, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TechnoName, TypeId,
+    WarheadDefinition, WarheadId, WarheadName, WeaponDefinition, WeaponId, WeaponName, super_weapon_kind_has_executor,
 };
 use std::collections::HashMap;
 
@@ -70,33 +71,54 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     defs.savour_delay_ticks = speak_delay_minutes_to_ticks(g.savour_delay_minutes.unwrap_or(0.03));
     defs.ai_base_spacing = g.ai_base_spacing.map(|v| v.max(0) as u32).unwrap_or(ra_types::DEFAULT_AI_BASE_SPACING);
     defs.ai_naval_yard_adjacency = g.ai_naval_yard_adjacency.map(|v| v.max(0) as u32).unwrap_or(ra_types::DEFAULT_AI_NAVAL_YARD_ADJACENCY);
+    defs.lightning_storm = LightningStormRules {
+        duration_ticks: g.lightning_storm_duration.map(|v| v.max(0) as u32).unwrap_or(LightningStormRules::default().duration_ticks),
+        deferment_ticks: g.lightning_deferment.map(|v| v.max(0) as u32).unwrap_or(LightningStormRules::default().deferment_ticks),
+    };
+    defs.crate_rules = CrateRules {
+        default_credits: g.crate_money.unwrap_or(CrateRules::default().default_credits).max(0),
+        money_minimum: g.crate_minimum.map(|v| v.max(0)),
+        money_maximum: g.crate_maximum.map(|v| v.max(0)),
+    };
+    // 渗透数值：当前 rules 无独立键时保持零售缺省；后续 adaptor 扩展可覆盖。
+    defs.infiltration = InfiltrationRules::default();
     for country in rules.countries.countries() {
         let stolen_tech = StolenTechKind::from_side(&country.side);
         let id = alloc_house();
         if let Some(kind) = stolen_tech {
             defs.stolen_tech_by_house.insert(id, kind);
         }
+        let role = HouseRole::from_stock_ambient_name(country.id.as_str()).unwrap_or(HouseRole::Playable);
         defs.houses.insert(HouseDefinition {
             id,
             type_key: country.id.clone(),
             side: country.side.clone(),
             stolen_tech,
             multiplay: country.visible_in_skirmish(),
+            role,
         });
     }
     // 氛围房屋：规则 `[Countries]` 通常不列，但对局 / 地图 Owner 仍需稳定 `HouseId`。
-    for ambient in ["NEUTRAL", "SPECIAL", "CIVILIAN"] {
+    // 角色由 adaptor 原版兼容默认写入；engine 只认 `HouseRole`。
+    for (ambient, role) in [("NEUTRAL", HouseRole::Neutral), ("SPECIAL", HouseRole::Special), ("CIVILIAN", HouseRole::Civilian)] {
         let type_key = HouseName::parse(ambient);
         if defs.houses.get_name(&type_key).is_some() {
             continue;
         }
         let id = alloc_house();
-        defs.houses.insert(HouseDefinition { id, type_key, side: ra_types::SideName::default(), stolen_tech: None, multiplay: false });
+        defs.houses.insert(HouseDefinition {
+            id,
+            type_key,
+            side: ra_types::SideName::default(),
+            stolen_tech: None,
+            multiplay: false,
+            role,
+        });
     }
 
     for sw in rules.super_weapons.iter() {
         let id = alloc();
-        defs.super_weapons.insert(SuperWeaponDefinition {
+        let def = SuperWeaponDefinition {
             id,
             type_key: sw.id.clone(),
             ui_name: sw.ui_name.clone(),
@@ -106,7 +128,14 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             sidebar_image: sw.sidebar_image.clone(),
             weapon: sw.weapon.clone(),
             weapon_id: None,
-        });
+        };
+        if !def.kind.is_empty() && !super_weapon_kind_has_executor(def.kind.as_str()) {
+            defs.capability_gaps.push(CapabilityGapReport::new(
+                format!("rules.superweapon.{} deferred", def.kind.as_str()),
+                format!("超级武器 Type={}（{}）已冻结但尚无执行器", def.kind.as_str(), def.type_key.as_str()),
+            ));
+        }
+        defs.super_weapons.insert(def);
     }
     if !defs.super_weapons.is_empty() && !defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon) {
         defs.capabilities.builtins.push(BuiltinCapability::SuperWeapon);
@@ -162,6 +191,11 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             requires_stolen_allied_tech: tt.requires_stolen_allied_tech,
             requires_stolen_soviet_tech: tt.requires_stolen_soviet_tech,
             requires_stolen_third_tech: tt.requires_stolen_third_tech,
+            required_stolen_tech: stolen_tech_requirements(
+                tt.requires_stolen_allied_tech,
+                tt.requires_stolen_soviet_tech,
+                tt.requires_stolen_third_tech,
+            ),
             pixel_selection_bracket_delta: tt.pixel_selection_bracket_delta,
             deployer: tt.deployer,
             undeploys_into_id: None,
@@ -763,12 +797,15 @@ fn ratio_to_millis(ratio: Option<f64>) -> u32 {
 }
 
 /// 氛围房屋：可不在 `[Countries]` 出现，但仍可写在 `Owner=` 等名单中。
-fn is_ambient_house(name: &HouseName) -> bool {
-    matches!(name.as_str(), "NEUTRAL" | "SPECIAL" | "CIVILIAN")
+fn is_ambient_house(defs: &RuntimeDefinitions, name: &HouseName) -> bool {
+    if let Some(h) = defs.houses.get_name(name) {
+        return h.role.is_ambient();
+    }
+    HouseRole::from_stock_ambient_name(name.as_str()).is_some()
 }
 
 fn has_rule_countries(defs: &RuntimeDefinitions) -> bool {
-    defs.houses.iter().any(|h| !is_ambient_house(&h.type_key))
+    defs.houses.iter().any(|h| !h.role.is_ambient())
 }
 
 fn validate_house_allow_list(defs: &RuntimeDefinitions, list: &HouseAllowList, field: &str, owner: &str) -> RaResult<()> {
@@ -777,12 +814,26 @@ fn validate_house_allow_list(defs: &RuntimeDefinitions, list: &HouseAllowList, f
         return Ok(());
     }
     for name in list.iter() {
-        if is_ambient_house(name) || defs.houses.get_name(name).is_some() {
+        if is_ambient_house(defs, name) || defs.houses.get_name(name).is_some() {
             continue;
         }
         return Err(RaError::UnknownReference { kind: "house", name: name.as_str().to_string(), owner: format!("{field}:{owner}") });
     }
     Ok(())
+}
+
+fn stolen_tech_requirements(allied: bool, soviet: bool, third: bool) -> Vec<StolenTechKind> {
+    let mut out = Vec::new();
+    if allied {
+        out.push(StolenTechKind::Allied);
+    }
+    if soviet {
+        out.push(StolenTechKind::Soviet);
+    }
+    if third {
+        out.push(StolenTechKind::Third);
+    }
+    out
 }
 
 /// 将姓名单绑成稳定 id 名单。无 `[Countries]` 时保持空 id（测试夹具仍可读名名单）。

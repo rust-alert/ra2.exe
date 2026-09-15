@@ -61,6 +61,8 @@ pub struct DiagnoseMapsReport {
     pub source: String,
     /// 候选总数（应用 limit 前）。
     pub candidate_count: usize,
+    /// 规则层能力缺口（全表共用，含「超武有定义无执行器」等）。
+    pub rules_capability_gaps: Vec<String>,
     /// 诊断行。
     pub maps: Vec<MapDiagnoseRow>,
     /// 三态计数。
@@ -119,6 +121,10 @@ pub fn diagnose_skirmish_maps(req: &DiagnoseMapsRequest) -> RaResult<DiagnoseMap
 
     let rules = load_rules_chain(&source, chain)?;
     let definitions = build_runtime_definitions(&rules)?;
+    let rules_capability_gaps: Vec<String> = definitions.capability_gaps.iter().map(|g| g.code.clone()).collect();
+    for gap in &definitions.capability_gaps {
+        tracing::warn!("规则能力缺口 [{}] {}", gap.code, gap.message);
+    }
 
     let mut maps = Vec::with_capacity(take_n);
     let mut success = 0usize;
@@ -135,7 +141,16 @@ pub fn diagnose_skirmish_maps(req: &DiagnoseMapsRequest) -> RaResult<DiagnoseMap
         maps.push(row);
     }
 
-    Ok(DiagnoseMapsReport { edition: chain.edition.as_str().to_string(), source: list_source, candidate_count, maps, success, reject, missing })
+    Ok(DiagnoseMapsReport {
+        edition: chain.edition.as_str().to_string(),
+        source: list_source,
+        candidate_count,
+        rules_capability_gaps,
+        maps,
+        success,
+        reject,
+        missing,
+    })
 }
 
 fn diagnose_one(

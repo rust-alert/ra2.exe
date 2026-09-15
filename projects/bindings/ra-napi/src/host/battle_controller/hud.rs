@@ -389,7 +389,8 @@ impl BattleController {
             return (String::new(), Vec::new());
         };
         let map_name = game.world.map.name.clone();
-        let players: Vec<_> = game.world.players.iter().filter(|p| !ra_engine::is_ambient_house(p.house.as_ref())).collect();
+        let players: Vec<_> =
+            game.world.players.iter().filter(|p| !ra_engine::is_ambient_house(&game.world.definitions, p.house.as_ref())).collect();
         let local_id = game.world.local_player;
         let me = {
             let t = resolve_caption(csf, "me", Some("GUI:You"));

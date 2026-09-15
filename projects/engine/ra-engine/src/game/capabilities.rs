@@ -436,7 +436,7 @@ pub fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<Super
         });
         let charge_ticks = charge.map(|c| c.charge_ticks).unwrap_or(0);
         let ready = charge.is_some_and(|c| c.is_ready());
-        let supported = def.kind.eq_ignore_ascii_case("LightningStorm");
+        let supported = def.has_registered_executor();
         let (enabled, disabled_reason) = if !ready {
             (false, Some(CommandRejectReason::SuperWeaponNotReady))
         }

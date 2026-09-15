@@ -101,6 +101,28 @@ fn build_runtime_definitions_parses_super_weapon_types_and_building_link() {
 }
 
 #[test]
+fn unsupported_super_weapon_kind_emits_capability_gap_and_executor_flag() {
+    let rules = rules_from(
+        b"[SuperWeaponTypes]\n0=NukeSpecial\n1=LightningStorm\n\
+[NukeSpecial]\nType=Nuke\nRechargeTime=10\n\
+[LightningStorm]\nType=LightningStorm\nRechargeTime=5\n\
+[General]\nLightningStormDuration=120\nLightningDeferment=3\n\
+[CrateRules]\nCrateMoney=1500\nCrateMinimum=100\nCrateMaximum=3000\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let nuke = defs.super_weapons.get("NukeSpecial").expect("nuke");
+    assert!(!nuke.has_registered_executor());
+    assert!(defs.capability_gaps.iter().any(|g| g.code.contains("rules.superweapon.NUKE deferred")));
+    let ls = defs.super_weapons.get("LightningStorm").expect("ls");
+    assert!(ls.has_registered_executor());
+    assert_eq!(defs.lightning_storm.duration_ticks, 120);
+    assert_eq!(defs.lightning_storm.deferment_ticks, 3);
+    assert_eq!(defs.crate_rules.default_credits, 1500);
+    assert_eq!(defs.crate_rules.money_minimum, Some(100));
+    assert_eq!(defs.crate_rules.money_maximum, Some(3000));
+}
+
+#[test]
 fn build_runtime_definitions_reads_foundation_from_art() {
     let rules = rules_from_with_art(
         b"[BuildingTypes]\n0=NAWEAP\n\
@@ -276,15 +298,16 @@ fn build_runtime_definitions_freezes_countries_into_house_table() {
     let usa = defs.houses.get("Americans").expect("Americans");
     assert_ne!(usa.id, ra_types::HouseId(0));
     assert_eq!(usa.side, "GDI");
+    assert_eq!(usa.role, ra_types::HouseRole::Playable);
     assert_eq!(usa.stolen_tech, Some(ra_types::StolenTechKind::Allied));
     assert!(usa.multiplay);
     let rus = defs.houses.get("Russians").expect("Russians");
     assert_eq!(rus.stolen_tech, Some(ra_types::StolenTechKind::Soviet));
     assert!(!rus.multiplay);
     assert_eq!(defs.stolen_tech_by_house.get(usa.id), Some(ra_types::StolenTechKind::Allied));
-    assert!(defs.houses.get("NEUTRAL").is_some());
-    assert!(defs.houses.get("SPECIAL").is_some());
-    assert!(defs.houses.get("CIVILIAN").is_some());
+    assert_eq!(defs.houses.get("NEUTRAL").map(|h| h.role), Some(ra_types::HouseRole::Neutral));
+    assert_eq!(defs.houses.get("SPECIAL").map(|h| h.role), Some(ra_types::HouseRole::Special));
+    assert_eq!(defs.houses.get("CIVILIAN").map(|h| h.role), Some(ra_types::HouseRole::Civilian));
 }
 
 #[test]

@@ -31,10 +31,11 @@ pub use ai_triggers::AiTriggerRuntime;
 pub(crate) use ai_triggers::tick_ai_triggers;
 pub(crate) use definitions_query::{
     building_power, deploy_into_type, factory_matches_category, factory_matches_unit, forbidden_houses_forbids, house_id_of, house_key_of,
-    is_agent, is_base_unit, is_capturable, is_construction_yard, is_engineer, is_harvester, is_power_plant, is_production_factory, is_radar,
+    is_agent, is_capturable, is_construction_yard, is_engineer, is_harvester, is_power_plant, is_production_factory, is_radar,
     is_refinery, owner_allows, required_houses_allows, requires_power_plant, starting_mcv_id_for_house, structure_counts_for_skirmish_alive,
     structure_is_defense, super_weapon_id_of, type_id_of, type_key_of, undeploys_into_type,
 };
+pub use definitions_query::{is_base_unit, is_base_unit_key};
 pub(crate) use deploy::{is_deployer, type_can_deploy};
 pub use powers::{
     FireSuperWeaponError, LightningStormState, SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT, SuperWeaponRuntime, start_lightning_storm,
