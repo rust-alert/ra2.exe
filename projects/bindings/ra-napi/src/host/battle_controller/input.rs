@@ -974,7 +974,7 @@ impl BattleController {
 
                 // 方向键：持续镜头平移与 `keyboard.ini` 瞬时热键解耦。
                 if matches!(code, KeyCode::ArrowLeft | KeyCode::ArrowRight | KeyCode::ArrowUp | KeyCode::ArrowDown) {
-                    use super::super::battle_input::{ArrowKeyIngest, arrow_key_ingest};
+                    use super::super::battle_input::{ArrowKeyIngest, CameraPanDir, apply_camera_pan_dir, arrow_key_ingest};
                     let ingest = arrow_key_ingest(gameplay_open, down, hotkey.is_some());
                     match ingest {
                         ArrowKeyIngest::SilentClearPan => {
@@ -983,13 +983,14 @@ impl BattleController {
                         }
                         ArrowKeyIngest::PanOnly | ArrowKeyIngest::PanAndHotkey => {
                             let prev = self.camera_pan_keys;
-                            match code {
-                                KeyCode::ArrowLeft => self.camera_pan_keys.left = down,
-                                KeyCode::ArrowRight => self.camera_pan_keys.right = down,
-                                KeyCode::ArrowUp => self.camera_pan_keys.up = down,
-                                KeyCode::ArrowDown => self.camera_pan_keys.down = down,
-                                _ => {}
-                            }
+                            let dir = match code {
+                                KeyCode::ArrowLeft => CameraPanDir::Left,
+                                KeyCode::ArrowRight => CameraPanDir::Right,
+                                KeyCode::ArrowUp => CameraPanDir::Up,
+                                KeyCode::ArrowDown => CameraPanDir::Down,
+                                _ => unreachable!("arrow match above"),
+                            };
+                            self.camera_pan_keys = apply_camera_pan_dir(prev, dir, down);
                             self.input_tracker.note_camera_pan(prev, self.camera_pan_keys);
                             if matches!(ingest, ArrowKeyIngest::PanOnly) {
                                 return BattleNav::None;
@@ -1004,32 +1005,29 @@ impl BattleController {
 
                 // 结算页：Enter / Esc 不属于 `[Hotkey]`。
                 if !accept_commands {
-                    return match code {
-                        KeyCode::Enter | KeyCode::NumpadEnter => {
-                            let continue_campaign = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| {
-                                if g.boot_kind != ra_engine::SessionBootKind::Campaign {
-                                    return false;
-                                }
-                                match g.outcome.as_ref() {
-                                    Some(ra_engine::BattleOutcome::Victory { .. }) => g.world.map.campaign_continue_scenario(true).is_some(),
-                                    Some(ra_engine::BattleOutcome::Defeat { .. }) => g.world.map.campaign_continue_scenario(false).is_some(),
-                                    None => false,
-                                }
-                            });
-                            if continue_campaign {
-                                tracing::info!("战役继续 · campaign continue scenario");
-                                BattleNav::ContinueCampaign
-                            }
-                            else {
-                                tracing::info!("结算确认 · 离开");
-                                BattleNav::ToMainMenu
-                            }
+                    use super::super::battle_input::{ResultsKeyAction, results_key_action};
+                    let is_enter = matches!(code, KeyCode::Enter | KeyCode::NumpadEnter);
+                    let is_escape = matches!(code, KeyCode::Escape);
+                    let can_continue_campaign = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| {
+                        if g.boot_kind != ra_engine::SessionBootKind::Campaign {
+                            return false;
                         }
-                        KeyCode::Escape => {
+                        match g.outcome.as_ref() {
+                            Some(ra_engine::BattleOutcome::Victory { .. }) => g.world.map.campaign_continue_scenario(true).is_some(),
+                            Some(ra_engine::BattleOutcome::Defeat { .. }) => g.world.map.campaign_continue_scenario(false).is_some(),
+                            None => false,
+                        }
+                    });
+                    return match results_key_action(is_enter, is_escape, can_continue_campaign) {
+                        ResultsKeyAction::ContinueCampaign => {
+                            tracing::info!("战役继续 · campaign continue scenario");
+                            BattleNav::ContinueCampaign
+                        }
+                        ResultsKeyAction::ToMainMenu => {
                             tracing::info!("结算 · 离开");
                             BattleNav::ToMainMenu
                         }
-                        _ => BattleNav::None,
+                        ResultsKeyAction::None => BattleNav::None,
                     };
                 }
 
@@ -1043,7 +1041,8 @@ impl BattleController {
 
                 // 剧本锁输入：仍允许 Options/Esc 进暂停，其它对局热键吞掉。
                 if script_locked {
-                    if matches!(hotkey, Some(super::super::battle_hotkeys::HotkeyAction::Options)) {
+                    let is_options = matches!(hotkey, Some(super::super::battle_hotkeys::HotkeyAction::Options));
+                    if super::super::battle_input::script_lock_allows_options_hotkey(is_options) {
                         self.input_tracker.note_hotkey_fired();
                         return self.dispatch_hotkey_action(super::super::battle_hotkeys::HotkeyAction::Options, renderer, window);
                     }

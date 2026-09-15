@@ -538,6 +538,65 @@ pub fn should_apply_cameo_wheel(gameplay_open: bool, over_cameo_band: bool) -> b
     gameplay_open && over_cameo_band
 }
 
+/// 结算页键盘瞬时动作（不属于 `[Hotkey]` 表）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResultsKeyAction {
+    /// 无动作。
+    None,
+    /// 战役续关。
+    ContinueCampaign,
+    /// 离开到主菜单 / 选边。
+    ToMainMenu,
+}
+
+/// 结算页 Enter / Esc：可续关时 Enter 续关，否则离开；Esc 一律离开。
+pub fn results_key_action(is_enter: bool, is_escape: bool, can_continue_campaign: bool) -> ResultsKeyAction {
+    if is_enter {
+        if can_continue_campaign {
+            ResultsKeyAction::ContinueCampaign
+        }
+        else {
+            ResultsKeyAction::ToMainMenu
+        }
+    }
+    else if is_escape {
+        ResultsKeyAction::ToMainMenu
+    }
+    else {
+        ResultsKeyAction::None
+    }
+}
+
+/// 方向键写入 `CameraPanKeys`（物理键码由调用方映射到四向）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CameraPanDir {
+    /// 左。
+    Left,
+    /// 右。
+    Right,
+    /// 上。
+    Up,
+    /// 下。
+    Down,
+}
+
+/// 将某一方向的按下 / 抬起写入按住态，返回新状态。
+pub fn apply_camera_pan_dir(keys: CameraPanKeys, dir: CameraPanDir, down: bool) -> CameraPanKeys {
+    let mut next = keys;
+    match dir {
+        CameraPanDir::Left => next.left = down,
+        CameraPanDir::Right => next.right = down,
+        CameraPanDir::Up => next.up = down,
+        CameraPanDir::Down => next.down = down,
+    }
+    next
+}
+
+/// 剧本锁下是否仍允许 Options / Esc 进暂停。
+pub fn script_lock_allows_options_hotkey(is_options_action: bool) -> bool {
+    is_options_action
+}
+
 /// 命令条捕获：仅当释放命中同一槽才触发。
 pub fn hud_command_release_fires(capture_slot: usize, release_hit_slot: Option<usize>) -> bool {
     release_hit_slot == Some(capture_slot)
@@ -2181,5 +2240,50 @@ mod tests {
         assert!(should_apply_cameo_wheel(true, true));
         assert!(!should_apply_cameo_wheel(true, false));
         assert!(!should_apply_cameo_wheel(false, true));
+    }
+
+    #[test]
+    fn results_key_action_enter_escape_matrix() {
+        assert_eq!(
+            results_key_action(true, false, true),
+            ResultsKeyAction::ContinueCampaign
+        );
+        assert_eq!(results_key_action(true, false, false), ResultsKeyAction::ToMainMenu);
+        assert_eq!(results_key_action(false, true, true), ResultsKeyAction::ToMainMenu);
+        assert_eq!(results_key_action(false, false, true), ResultsKeyAction::None);
+    }
+
+    #[test]
+    fn apply_camera_pan_dir_toggles_axes() {
+        let keys = CameraPanKeys::default();
+        let keys = apply_camera_pan_dir(keys, CameraPanDir::Left, true);
+        assert!(keys.left && !keys.right);
+        let keys = apply_camera_pan_dir(keys, CameraPanDir::Left, false);
+        assert!(!keys.left);
+        let keys = apply_camera_pan_dir(keys, CameraPanDir::Up, true);
+        assert!(keys.up);
+    }
+
+    #[test]
+    fn script_lock_only_allows_options_hotkey() {
+        assert!(script_lock_allows_options_hotkey(true));
+        assert!(!script_lock_allows_options_hotkey(false));
+    }
+
+    #[test]
+    fn sequence_outcome_enter_without_campaign_leaves() {
+        // 结算时 Enter：非战役续关 → 离开，避免残留按住态由 reset 路径清。
+        assert_eq!(
+            results_key_action(true, false, false),
+            ResultsKeyAction::ToMainMenu
+        );
+        let mut t = BattleInputTracker::default();
+        t.begin_frame();
+        t.set_left(true);
+        t.reset_transient();
+        assert!(!t.buttons.left);
+        assert!(t.edges.left_pressed, "reset keeps frame edges until begin_frame");
+        t.begin_frame();
+        assert!(!t.edges.left_pressed);
     }
 }
