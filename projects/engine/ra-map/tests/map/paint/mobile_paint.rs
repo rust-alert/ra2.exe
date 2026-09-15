@@ -95,6 +95,15 @@ fn pose_slide_offset_is_added_to_blit_origin() {
 }
 
 #[test]
+fn mobile_shp_offsets_anchor_to_cell_center() {
+    // 画布 40×40、裁切原点 (8, 10) → 相对钻石中心，而非裸 frame_x/y。
+    // ox = 8 - 20 + 30 = 18；oy = 10 - 20 + 15 = 5。
+    assert_eq!(mobile_shp_cell_offsets(8, 10, 40, 40), (18, 5));
+    // 禁止回退到裸偏移（那会是 (8, 10)）。
+    assert_ne!(mobile_shp_cell_offsets(8, 10, 40, 40), (8, 10));
+}
+
+#[test]
 fn missing_mobile_body_notes_type_key() {
     use std::collections::HashMap;
 

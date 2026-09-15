@@ -517,14 +517,27 @@ pub fn load_mobile_shp(
     if frame.frame_width == 0 || frame.frame_height == 0 {
         return None;
     }
+    // 与 overlay / 地形物体一致：`frame_x/y` 是相对整幅画布的裁切原点，
+    // 画布中心锚在钻石中心 `(+TILE_WIDTH/2, +TILE_HEIGHT/2)`。不可直接用裸
+    // `frame_x/y`（会贴在格子包围盒左上，步兵移动滑移看起来完全错位）。
+    let (offset_x, offset_y) = mobile_shp_cell_offsets(frame.frame_x, frame.frame_y, shp.width, shp.height);
     Some(TileBlit {
         width: u32::from(frame.frame_width),
         height: u32::from(frame.frame_height),
-        offset_x: i32::from(frame.frame_x),
-        offset_y: i32::from(frame.frame_y),
+        offset_x,
+        offset_y,
         rgba: frame.to_rgba(obj_pal),
         shadow: None,
     })
+}
+
+/// 移动单位 SHP 相对 `iso_to_screen`（钻石包围盒原点）的像素偏移。
+#[doc(hidden)]
+pub fn mobile_shp_cell_offsets(frame_x: u16, frame_y: u16, shp_w: u16, shp_h: u16) -> (i32, i32) {
+    (
+        i32::from(frame_x as i16) - i32::from(shp_w) / 2 + TILE_WIDTH / 2,
+        i32::from(frame_y as i16) - i32::from(shp_h) / 2 + TILE_HEIGHT / 2,
+    )
 }
 
 /// 受击闪白：不透明像素向白拉近一半（预览烤图层；GPU 路径另有 `AnimState::TakeDamage`）。
