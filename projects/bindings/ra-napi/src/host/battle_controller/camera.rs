@@ -185,13 +185,17 @@ impl BattleController {
         renderer.pan_clamped_in_viewport(dx, dy, vp.proj_w(), vp.proj_h());
     }
 
-    /// 镜头平移：整窗边缘滚屏 + 方向键按住连续平移（均按真实 `dt`，与逻辑 tick 无关）。
+    /// 镜头持续平移：整窗边缘滚屏 + 方向键按住（均按真实 `dt`，与逻辑 tick 无关）。
+    ///
+    /// 协作规则：
+    /// - 框选拖拽中仍允许边缘滚屏与方向键平移（不中断 `LeftGesture`）。
+    /// - 暂停 / 结算 / 剧本锁输入：清空按住态与边缘光标，不平移。
+    /// - 边缘滚屏与方向键位移相加后再按地图边界夹紧。
     pub fn tick_edge_scroll(&mut self, renderer: &mut Renderer, window: &Window, dt: f64, enabled: bool) {
-        if !enabled || dt <= 0.0 {
-            self.edge_scroll_cursor = EdgeScrollCursor::Default;
-            return;
-        }
-        if self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.paused || g.outcome.is_some()) {
+        let script_locked =
+            self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.world.trigger_runtime.script_input_locked);
+        let paused_or_over = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.paused || g.outcome.is_some());
+        if !enabled || dt <= 0.0 || paused_or_over || script_locked {
             self.edge_scroll_cursor = EdgeScrollCursor::Default;
             self.camera_pan_keys.clear();
             return;

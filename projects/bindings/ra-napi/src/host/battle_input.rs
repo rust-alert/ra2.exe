@@ -834,4 +834,28 @@ mod tests {
         assert_eq!(OrderClickModifier::from_keys(true, false), OrderClickModifier::ForceAttack);
         assert_eq!(OrderClickModifier::from_keys(false, true), OrderClickModifier::ForceMove);
     }
+
+    #[test]
+    fn keyboard_and_edge_scroll_deltas_add() {
+        let keys = CameraPanKeys { left: true, right: false, up: false, down: false };
+        let (kx, ky) = keyboard_pan_screen_delta(keys, 100.0, 0.5);
+        assert!((kx - 50.0).abs() < 0.01);
+        assert_eq!(ky, 0.0);
+        // 左边缘：edge 产生正 dx，与方向键左叠加。
+        let (ex, ey) = edge_scroll_screen_delta(0.0, 100.0, 800, 600, 16.0, 100.0, 0.5);
+        assert!(ex > 0.0);
+        assert_eq!(ey, 0.0);
+        let dx = kx + ex;
+        let dy = ky + ey;
+        assert!(dx > kx);
+        assert_eq!(dy, 0.0);
+    }
+
+    #[test]
+    fn edge_scroll_axes_ignore_interior_cursor() {
+        let (w, e, n, s) = edge_scroll_axes(400.0, 300.0, 800, 600, 16.0);
+        assert!(!w && !e && !n && !s);
+        let (w, e, n, s) = edge_scroll_axes(2.0, 300.0, 800, 600, 16.0);
+        assert!(w && !e && !n && !s);
+    }
 }
