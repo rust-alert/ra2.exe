@@ -810,3 +810,34 @@ fn ai_naval_yard_rejects_beyond_adjacency() {
     assert!(world.can_place_building_for_ai("AMERICANS", yard, 8, 4, 0));
     assert!(!world.can_place_building_for_ai("AMERICANS", yard, 9, 4, 0));
 }
+
+#[test]
+fn build_off_ally_allows_adjacent_to_allied_yard() {
+    // 大厅 Build Off Ally + 同队：可在同盟建造场旁落建筑（含 YR）。
+    let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAPOWR\n\
+[GACNST]\nConstructionYard=yes\nBaseNormal=yes\nAdjacent=8\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\nFoundation=1x1\n\
+[GAPOWR]\nPower=200\nBaseNormal=yes\nAdjacent=8\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\nFoundation=1x1\n";
+    let defs = defs_from_rules_ini(rules_text);
+    let mut map = MapInfo::empty(GameEdition::Yr, "build-off-ally");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "FRANCE".into(),
+        type_id: "GACNST".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    }];
+    let mut world = battle_from_defs(GameEdition::Yr, defs, map);
+    world.ensure_house("AMERICANS");
+    world.apply_skirmish_lobby_teams(&["AMERICANS", "FRANCE"], &[1, 1]);
+    let power = world.definitions.techno.get("GAPOWR").expect("GAPOWR").id;
+    assert!(!world.can_place_building_for("AMERICANS", power, 5, 4), "default must not build off ally yard");
+    world.set_build_off_ally(true);
+    assert!(world.can_place_building_for("AMERICANS", power, 5, 4), "build_off_ally must accept allied BaseNormal zone");
+}

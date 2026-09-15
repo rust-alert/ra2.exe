@@ -37,6 +37,14 @@ impl BattleState {
         }
     }
 
+    /// 写入遭遇战大厅「于盟友建造场旁建设」。
+    pub fn set_build_off_ally(&mut self, enabled: bool) {
+        if self.build_off_ally != enabled {
+            self.build_off_ally = enabled;
+            self.rehash();
+        }
+    }
+
     /// 按遭遇战大厅队伍号写入各方同盟（同队互列；`0` = 无队 / 各自为战）。
     ///
     /// `houses[i]` 与 `teams[i]` 对齐。与 `GameEdition` 无关，RA2 / YR / Mo3 共用。

@@ -122,6 +122,8 @@ pub struct BattleState {
     pub(crate) structure_teardown_dirty: Vec<EntityId>,
     /// 对局随机种子（产矿掷骰等；由 `BattleSession::set_match_seed` 写入）。
     pub match_seed: u64,
+    /// 遭遇战大厅「于盟友建造场旁建设」：建区邻接可借用同盟 `BaseNormal` 建筑。
+    pub build_off_ally: bool,
     /// 本 tick 玩法侧排队的 EVA 提示（按 house；壳层只播本机）。
     pub(crate) pending_eva_cues: Vec<crate::state::EvaCue>,
     /// 本 tick 玩法侧排队的对局短音效（武器 `Report=` 等；壳层按 `sound.ini` 播）。

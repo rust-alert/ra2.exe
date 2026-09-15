@@ -883,6 +883,7 @@ pub fn boot_world_with_progress(
             game.world.set_all_players_tech_level(request.tech_level);
             // 遭遇战大厅队伍 → `PlayerState.allies`（与 edition 无关，含 YR）。
             if request.boot_kind == LoadKind::Skirmish {
+                game.world.set_build_off_ally(request.build_off_ally);
                 let teams = request.teams_for_houses(ai_rows);
                 game.world.apply_skirmish_lobby_teams(&ensure_houses, &teams);
                 if teams.iter().any(|&t| t > 0) {

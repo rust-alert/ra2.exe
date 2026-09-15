@@ -191,7 +191,7 @@ impl BattleState {
         }
     }
 
-    /// 新占地是否落在己方 `BaseNormal=yes` 建筑的 `Adjacent` 建区内。
+    /// 新占地是否落在己方（或 `build_off_ally` 时同盟）`BaseNormal=yes` 建筑的 `Adjacent` 建区内。
     ///
     /// 距离按足迹间最小切比雪夫距离 `d`：`d <= Adjacent + 1`（`Adjacent=0` 须贴边，`=1` 最多隔一格）。
     /// `adjacent < 0` 时永久拒绝。
@@ -213,7 +213,18 @@ impl BattleState {
             if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return false;
             }
-            if !self.ecs_get::<Owner>(id).is_some_and(|o| o.house == house_id) {
+            let Some(owner) = self.ecs_get::<Owner>(id)
+            else {
+                return false;
+            };
+            let own = owner.house == house_id;
+            let ally_ok = self.build_off_ally
+                && crate::gameplay::houses_are_allied(
+                    self,
+                    house,
+                    crate::gameplay::house_key_of(&self.definitions, owner.house),
+                );
+            if !own && !ally_ok {
                 return false;
             }
             let Some(identity) = self.ecs_get::<Identity>(id)

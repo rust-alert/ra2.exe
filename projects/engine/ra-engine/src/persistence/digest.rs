@@ -16,6 +16,7 @@ impl BattleState {
     pub(crate) fn rehash(&mut self) {
         let mut h = self.tick;
         h = h.wrapping_mul(1099511628211).wrapping_add(self.edition.as_str().len() as u64);
+        h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(self.build_off_ally));
         h = h.wrapping_mul(1099511628211).wrapping_add(self.entities.len() as u64);
         h = h.wrapping_mul(1099511628211).wrapping_add(self.last_input_frame.tick).wrapping_add(self.last_input_frame.commands.len() as u64);
         for cmd in &self.last_input_frame.commands {

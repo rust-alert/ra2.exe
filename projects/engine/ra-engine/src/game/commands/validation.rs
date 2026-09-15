@@ -138,6 +138,15 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
+                    // 同盟不可作为攻击目标（大厅队伍 / 地图 Allies；与 edition 无关）。
+                    if let (Some(atk), Some(tgt)) = (self.ecs_get::<Owner>(attacker_id), self.ecs_get::<Owner>(target_id)) {
+                        let atk_house = crate::gameplay::house_key_of(&self.definitions, atk.house);
+                        let tgt_house = crate::gameplay::house_key_of(&self.definitions, tgt.house);
+                        if crate::gameplay::houses_are_allied(self, atk_house, tgt_house) {
+                            self.reject(command_index, CommandRejectReason::InvalidTarget);
+                            continue;
+                        }
+                    }
                     if !self.ecs_get::<Identity>(attacker_id).map(|i| is_mobile(i.kind)).unwrap_or(false) {
                         self.reject(command_index, CommandRejectReason::NotMobile);
                         continue;
@@ -753,8 +762,8 @@ impl crate::state::BattleState {
                     let building_house = self
                         .ecs_get::<Owner>(building_id)
                         .map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
-                    match (agent_house, building_house) {
-                        (Some(a), Some(b)) if a != b => {}
+                    match (agent_house.as_deref(), building_house.as_deref()) {
+                        (Some(a), Some(b)) if a != b && !crate::gameplay::houses_are_allied(self, a, b) => {}
                         _ => {
                             self.reject(command_index, CommandRejectReason::InvalidTarget);
                             continue;
@@ -864,8 +873,8 @@ impl crate::state::BattleState {
                     let building_house = self
                         .ecs_get::<Owner>(building_id)
                         .map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
-                    match (engineer_house, building_house) {
-                        (Some(a), Some(b)) if a != b => {}
+                    match (engineer_house.as_deref(), building_house.as_deref()) {
+                        (Some(a), Some(b)) if a != b && !crate::gameplay::houses_are_allied(self, a, b) => {}
                         _ => {
                             self.reject(command_index, CommandRejectReason::InvalidTarget);
                             continue;

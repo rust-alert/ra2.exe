@@ -1,7 +1,7 @@
-//! 同盟互不攻击：大厅队伍 / `PlayerState.allies` 写入后战斗不结算伤害。
+//! 同盟互不攻击：命令层拒绝 + 战斗不结算伤害。
 
 use crate::common::{battle_from_defs, defs_from_rules_ini, map_with_size};
-use ra_engine::GameCommand;
+use ra_engine::{CommandRejectReason, GameCommand};
 use ra_map::{MapEntity, MapEntityKind};
 use ra_types::{EntityId, GameEdition};
 
@@ -48,6 +48,11 @@ fn resolve_combat_clears_attack_on_allied_target() {
     let (_, max_hp, _) = world.ecs_health(b).expect("health");
     world.push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     world.advance_tick();
+    assert!(
+        world.last_rejects().iter().any(|r| r.reason == CommandRejectReason::InvalidTarget),
+        "Attack on ally must reject: {:?}",
+        world.last_rejects()
+    );
     let (hp, _, _) = world.ecs_health(b).expect("health after");
     assert_eq!(hp, max_hp, "allied target must not take combat damage");
     let cues = world.take_battle_sfx_cues();
